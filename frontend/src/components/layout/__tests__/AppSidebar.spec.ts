@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
+const headerPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppHeader.vue')
+const headerSource = readFileSync(headerPath, 'utf8')
 const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
 const styleSource = readFileSync(stylePath, 'utf8')
 
@@ -39,5 +41,14 @@ describe('AppSidebar user usage guide nav', () => {
     const navFunction = navFunctionMatch?.[0] ?? ''
     expect(navFunction).toContain("if (withDashboard) {\n    items.push({ path: '/usage-guide', label: t('nav.usageGuide')")
     expect(navFunction).not.toContain("items.push(\n    { path: '/usage-guide'")
+  })
+})
+
+describe('AppSidebar mobile overlay stacking', () => {
+  it('keeps the mobile backdrop above the header and below the sidebar', () => {
+    expect(headerSource).toContain('z-30')
+    expect(styleSource).toContain('left-0 z-40 flex')
+    expect(componentSource).toContain('class="fixed inset-0 z-[35] bg-black/40 lg:hidden"')
+    expect(componentSource).not.toContain('class="fixed inset-0 z-30 bg-black/40 lg:hidden"')
   })
 })
