@@ -52,3 +52,15 @@ describe('AppSidebar mobile overlay stacking', () => {
     expect(componentSource).not.toContain('class="fixed inset-0 z-30 bg-black/40 lg:hidden"')
   })
 })
+
+describe('AppSidebar user channel monitor nav', () => {
+  it('hides the user-facing monitor entry while keeping admin monitor management', () => {
+    const navFunctionMatch = componentSource.match(/function buildSelfNavItems\(withDashboard: boolean\): NavItem\[] \{[\s\S]*?\n\}/)
+
+    expect(navFunctionMatch).not.toBeNull()
+    const navFunction = navFunctionMatch?.[0] ?? ''
+
+    expect(navFunction).not.toContain("path: '/monitor'")
+    expect(componentSource).toContain("path: '/admin/channels/monitor'")
+  })
+})
