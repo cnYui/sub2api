@@ -79,8 +79,10 @@ describe('UsageGuideView', () => {
     const expectedTokens = [
       "title: '生图方法'",
       '29/39/59/99 元套餐已支持生图和图生图',
-      'https://api.aaccx.pw/v1',
-      'POST /v1/images/edits',
+      '客户端 Base URL 填 https://api.aaccx.pw/v1',
+      '接口路径填 /images/edits',
+      '如果工具要求完整 URL，使用 https://api.aaccx.pw/v1/images/edits',
+      '文本生图完整 URL 是 https://api.aaccx.pw/v1/images/generations',
       'images[].image_url',
       'image=@/absolute/path/input.png',
       '$0.10 / 张',
@@ -96,6 +98,7 @@ describe('UsageGuideView', () => {
 
     expect(source).not.toContain('groups.id')
     expect(source).not.toContain('127.0.0.1:18080')
+    expect(source).not.toContain('POST /v1/images/edits')
   })
 
   it('Trae 接入教程复用步骤样式展示自定义模型配置流程', () => {

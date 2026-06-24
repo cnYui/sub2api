@@ -263,13 +263,13 @@ const guideTopics = [
         title: '可用范围',
         paragraphs: [
           '29/39/59/99 元套餐已支持生图和图生图，使用你已经生成的 API Key 即可直接请求图片接口。',
-          '请求地址保持为 https://api.aaccx.pw/v1，不需要更换新的服务端点。',
+          '客户端 Base URL 填 https://api.aaccx.pw/v1，不需要更换新的服务端点；分开填写接口路径时不要再追加一次 /v1。',
         ],
       },
       {
         title: '接口与扣费',
         paragraphs: [
-          '图生图编辑接口使用 POST /v1/images/edits，模型填写 gpt-image-2。',
+          '图生图编辑接口：如果客户端把 Base URL 和路径分开填写，接口路径填 /images/edits；如果工具要求完整 URL，使用 https://api.aaccx.pw/v1/images/edits。模型填写 gpt-image-2。',
           'JSON 请求可传 images[].image_url，上传本地文件时改用 multipart 的 image=@...；需要局部修改时可以再加 mask。',
           '图片按实际分辨率消耗订阅日额度，余额和用量记录会按图片价格统计。',
         ],
@@ -283,7 +283,7 @@ const guideTopics = [
         title: '请求示例',
         paragraphs: [
           '把示例中的 sk-xxxx 换成你自己的 API Key。不要在公开文档、聊天或截图里展示完整密钥。',
-          '如果你只是想从文字直接生成图片，可以把请求路径换成 /v1/images/generations；图生图优先使用下面这组 /v1/images/edits 示例。',
+          '如果你只是想从文字直接生成图片，文本生图完整 URL 是 https://api.aaccx.pw/v1/images/generations；在分离填写的工具里接口路径填 /images/generations。',
         ],
         code: imageEditRequestExample,
       },
