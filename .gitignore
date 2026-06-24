@@ -111,6 +111,7 @@ backend/data/
 backend/config.yaml
 deploy/config.yaml
 backend/.installed
+deploy/.env.scheme-a.runtime
 
 # ===================
 # 其他
