@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const viewPath = resolve(currentDir, '../UsageGuideView.vue')
 const routerPath = resolve(currentDir, '../../../router/index.ts')
+const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
 
 describe('UsageGuideView', () => {
   it('声明使用方法控制台和三个教程栏目', () => {
@@ -34,7 +35,7 @@ describe('UsageGuideView', () => {
     const source = readFileSync(viewPath, 'utf8')
     const codexSource = source.slice(
       source.indexOf('const codexSetupSteps'),
-      source.indexOf('const imageGenerationRequestExample'),
+      source.indexOf('const imageEditRequestExample'),
     )
     const expectedTokens = [
       "title: '访问 aaccx.pw/shop 页面，点击图中的进入按钮'",
@@ -77,9 +78,11 @@ describe('UsageGuideView', () => {
     const source = readFileSync(viewPath, 'utf8')
     const expectedTokens = [
       "title: '生图方法'",
-      '29/39/59 元套餐已支持生图',
+      '29/39/59/99 元套餐已支持生图和图生图',
       'https://api.aaccx.pw/v1',
-      'POST /v1/images/generations',
+      'POST /v1/images/edits',
+      'images[].image_url',
+      'image=@/absolute/path/input.png',
       '$0.10 / 张',
       '$0.20 / 张',
       '$0.40 / 张',
@@ -100,6 +103,10 @@ describe('UsageGuideView', () => {
     if (!existsSync(viewPath)) return
 
     const source = readFileSync(viewPath, 'utf8')
+    const traeSource = source.slice(
+      source.indexOf('const traeSetupSteps'),
+      source.indexOf('const guideTopics'),
+    )
     const expectedTokens = [
       "title: 'Trae 接入'",
       '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
@@ -117,7 +124,35 @@ describe('UsageGuideView', () => {
       expect(source, `缺少 Trae 接入教程信息：${token}`).toContain(token)
     }
 
+    expect(traeSource.match(/step: /g)).toHaveLength(4)
+    expect(traeSource.match(/alt: '/g)).toHaveLength(4)
     expect(source).not.toContain('sk-LOCAL')
+  })
+
+  it('14 张教程截图资源都存在', () => {
+    const expectedAssetNames = [
+      'step-01-shop-entry.png',
+      'step-02-login-register.png',
+      'step-03-subscription-plans.png',
+      'step-04-payment-submitted.png',
+      'step-04-redeem-code.png',
+      'step-05-create-api-key.png',
+      'step-06-key-group-advanced.png',
+      'step-07-cc-switch-provider-list.png',
+      'step-07-cc-switch-edit-provider.png',
+      'step-08-cc-switch-active.png',
+      'trae-step-01-add-model.png',
+      'trae-step-02-custom-config.png',
+      'trae-step-03-fill-url-key.png',
+      'trae-step-04-select-model.png',
+    ]
+
+    for (const assetName of expectedAssetNames) {
+      expect(
+        existsSync(resolve(assetsDir, assetName)),
+        `缺少教程截图资源：${assetName}`,
+      ).toBe(true)
+    }
   })
 
   it('注册为登录后用户页面路由', () => {
