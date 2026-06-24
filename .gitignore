@@ -140,6 +140,7 @@ docs/*
 !docs/legal/
 !docs/legal/*.md
 .serena/
+.worktrees/
 .codex/
 frontend/coverage/
 aicodex

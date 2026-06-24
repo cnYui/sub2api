@@ -70,11 +70,6 @@ const AppLayoutStub = { template: '<div><slot /></div>' }
 const TablePageLayoutStub = {
   template: '<div><slot name="filters" /><slot name="table" /><slot /></div>',
 }
-const AvailableChannelsTableStub = {
-  props: ['rows'],
-  template: '<div data-test="available-channels-table">{{ rows.length }}</div>',
-}
-
 describe('AvailableChannelsView price summary', () => {
   beforeEach(() => {
     getAvailableChannels.mockReset()
@@ -155,7 +150,6 @@ describe('AvailableChannelsView price summary', () => {
         stubs: {
           AppLayout: AppLayoutStub,
           TablePageLayout: TablePageLayoutStub,
-          AvailableChannelsTable: AvailableChannelsTableStub,
           Icon: true,
         },
       },
@@ -226,7 +220,6 @@ describe('AvailableChannelsView price summary', () => {
         stubs: {
           AppLayout: AppLayoutStub,
           TablePageLayout: TablePageLayoutStub,
-          AvailableChannelsTable: AvailableChannelsTableStub,
           Icon: true,
         },
       },
@@ -235,7 +228,8 @@ describe('AvailableChannelsView price summary', () => {
     await flushPromises()
 
     const text = wrapper.text()
-    expect(wrapper.find('[data-test="available-channels-table"]').text()).toBe('0')
+    expect(wrapper.find('input[placeholder="搜索渠道或模型..."]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="available-channels-table"]').exists()).toBe(false)
     expect(text).toContain('gpt-5.4')
     expect(text).toContain('$2.5 / 1M token')
     expect(text).toContain('$15 / 1M token')

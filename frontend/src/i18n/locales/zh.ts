@@ -1085,8 +1085,8 @@ export default {
 
   // Available Channels (user-facing)
   availableChannels: {
-    title: '可用渠道',
-    description: '查看您可访问的渠道与其支持的模型、定价',
+    title: '模型价格',
+    description: '查看当前账号可用模型与生图价格',
     searchPlaceholder: '搜索渠道或模型...',
     empty: '暂无可用渠道',
     noModels: '未配置模型',

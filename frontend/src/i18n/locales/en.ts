@@ -1081,8 +1081,8 @@ export default {
 
   // Available Channels (user-facing)
   availableChannels: {
-    title: 'Available Channels',
-    description: 'Channels you can access, along with their supported models and pricing',
+    title: 'Model Prices',
+    description: 'View model and image generation prices available to this account',
     searchPlaceholder: 'Search channels or models...',
     empty: 'No available channels',
     noModels: 'No models configured',
