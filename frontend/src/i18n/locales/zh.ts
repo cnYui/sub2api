@@ -379,6 +379,7 @@ export default {
     apiKeys: 'API 密钥',
     usage: '使用记录',
     redeem: '兑换',
+    usageGuide: '使用方法',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
     affiliateInviteRecords: '邀请记录',
@@ -1201,6 +1202,11 @@ export default {
     failedToRedeem: '兑换失败，请检查兑换码后重试。',
     subscriptionRefreshFailed: '兑换成功，但订阅状态刷新失败。',
     pleaseEnterCode: '请输入兑换码'
+  },
+
+  usageGuide: {
+    title: '使用方法',
+    description: '查看从购买订阅到配置 cc-switch 的完整步骤'
   },
 
   // Profile
