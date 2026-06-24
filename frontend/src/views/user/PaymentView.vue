@@ -248,21 +248,7 @@
                   <p class="text-xs text-gray-400 dark:text-gray-500">订阅日额度用完后自动消耗</p>
                 </div>
                 <div :class="trafficPackGridClass">
-                  <div v-for="pack in checkout.traffic_packs" :key="pack.id" class="card flex min-h-[172px] flex-col p-5">
-                    <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500">一次性额度</p>
-                        <h3 class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ pack.name }}</h3>
-                      </div>
-                      <span class="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">365 天</span>
-                    </div>
-                    <div class="mt-4 flex items-baseline gap-2">
-                      <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(pack.price) }}</span>
-                      <span class="text-sm text-gray-500 dark:text-gray-400">{{ pack.credit_usd }} 刀额度</span>
-                    </div>
-                    <p class="mt-2 min-h-[40px] text-sm leading-relaxed text-gray-500 dark:text-gray-400">{{ pack.description || '可用于 GPT 写代码和生图。' }}</p>
-                    <button class="btn btn-primary mt-auto w-full" @click="selectTrafficPack(pack)">购买</button>
-                  </div>
+                  <TrafficPackCard v-for="pack in checkout.traffic_packs" :key="pack.id" :pack="pack" @select="selectTrafficPack" />
                 </div>
               </div>
               <!-- Active subscriptions (compact, below plan list) -->
@@ -366,6 +352,7 @@ import {
 } from '@/components/payment/paymentFlow'
 import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
+import TrafficPackCard from '@/components/payment/TrafficPackCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import ManualPaymentDialog from '@/components/payment/ManualPaymentDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
