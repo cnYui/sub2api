@@ -302,6 +302,11 @@ describe('PaymentView tab defaults', () => {
             name: 'SubscriptionPlanCard',
             template: '<div data-testid="subscription-plan-card"></div>',
           },
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
         },
       },
     })
@@ -312,9 +317,9 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).toContain('GPT 流量包 10 刀')
     expect(wrapper.text()).toContain('GPT 流量包 20 刀')
 
-    const buyButtons = wrapper.findAll('button').filter(button => button.text() === '购买')
-    expect(buyButtons).toHaveLength(3)
-    await buyButtons[2].trigger('click')
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[2].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
