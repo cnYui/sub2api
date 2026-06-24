@@ -422,6 +422,79 @@ describe('PaymentView manual subscription payment', () => {
     expect(createOrder).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
   })
+
+  it('opens manual payment dialog for traffic packs when no payment methods are configured', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
+          ManualPaymentDialog: {
+            props: ['show'],
+            template: '<div v-if="show" data-testid="manual-payment-dialog-stub"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[0].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+  })
+
+  it('shows a back action in traffic pack confirm view and returns to the list', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[1].trigger('click')
+    await flushPromises()
+
+    const backButton = wrapper.findAll('button').find(button => button.text().includes('common.back'))
+    expect(backButton).toBeDefined()
+
+    await backButton?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="traffic-pack-card"]')).toHaveLength(3)
+    expect(wrapper.findAll('button').some(button => button.text().includes('payment.createOrder'))).toBe(false)
+  })
 })
 
 describe('PaymentView WeChat JSAPI flow', () => {
