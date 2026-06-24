@@ -129,8 +129,22 @@ import step06Image from '@/assets/usage-guide/step-06-key-group-advanced.png'
 import step07ProviderImage from '@/assets/usage-guide/step-07-cc-switch-provider-list.png'
 import step07EditImage from '@/assets/usage-guide/step-07-cc-switch-edit-provider.png'
 import step08Image from '@/assets/usage-guide/step-08-cc-switch-active.png'
+import traeStep01Image from '@/assets/usage-guide/trae-step-01-add-model.png'
+import traeStep02Image from '@/assets/usage-guide/trae-step-02-custom-config.png'
+import traeStep03Image from '@/assets/usage-guide/trae-step-03-fill-url-key.png'
+import traeStep04Image from '@/assets/usage-guide/trae-step-04-select-model.png'
 
-const codexSetupSteps = [
+type GuideStep = {
+  step: number
+  title: string
+  images: Array<{
+    src: string
+    alt: string
+  }>
+  imagePosition?: 'beforeTitle'
+}
+
+const codexSetupSteps: GuideStep[] = [
   {
     step: 1,
     title: '访问 aaccx.pw/shop 页面，点击图中的进入按钮',
@@ -189,6 +203,29 @@ const imageGenerationRequestExample = `curl https://api.aaccx.pw/v1/images/gener
     "size": "1024x1024"
   }'`
 
+const traeSetupSteps: GuideStep[] = [
+  {
+    step: 1,
+    title: '点击添加模型',
+    images: [{ src: traeStep01Image, alt: 'Trae 接入步骤 1 截图' }],
+  },
+  {
+    step: 2,
+    title: '选择自定义配置',
+    images: [{ src: traeStep02Image, alt: 'Trae 接入步骤 2 截图' }],
+  },
+  {
+    step: 3,
+    title: '填入 https://api.aaccx.pw/v1、自己的 API Key 和 gpt-5.5',
+    images: [{ src: traeStep03Image, alt: 'Trae 接入步骤 3 截图' }],
+  },
+  {
+    step: 4,
+    title: '点击自定义模型中的 gpt-5.5 即可使用',
+    images: [{ src: traeStep04Image, alt: 'Trae 接入步骤 4 截图' }],
+  },
+]
+
 const guideTopics = [
   {
     id: 'codex',
@@ -230,6 +267,13 @@ const guideTopics = [
         code: imageGenerationRequestExample,
       },
     ],
+  },
+  {
+    id: 'trae',
+    title: 'Trae 接入',
+    description: '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
+    kind: 'steps',
+    steps: traeSetupSteps,
   },
 ]
 

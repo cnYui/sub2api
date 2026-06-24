@@ -9,7 +9,7 @@ const viewPath = resolve(currentDir, '../UsageGuideView.vue')
 const routerPath = resolve(currentDir, '../../../router/index.ts')
 
 describe('UsageGuideView', () => {
-  it('声明使用方法控制台和两个教程栏目', () => {
+  it('声明使用方法控制台和三个教程栏目', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -20,16 +20,22 @@ describe('UsageGuideView', () => {
     expect(source).toContain("title: 'Codex 接入'")
     expect(source).toContain("id: 'image-generation'")
     expect(source).toContain("title: '生图方法'")
+    expect(source).toContain("id: 'trae'")
+    expect(source).toContain("title: 'Trae 接入'")
     expect(source).toContain('activeTopicId')
     expect(source).toContain('data-test="usage-guide-topic-nav-desktop"')
     expect(source).toContain('data-test="usage-guide-topic-tabs-mobile"')
   })
 
-  it('声明 8 个使用步骤和 10 张截图，保持指定图片顺序', () => {
+  it('Codex 接入声明 8 个使用步骤和 10 张截图，保持指定图片顺序', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
     const source = readFileSync(viewPath, 'utf8')
+    const codexSource = source.slice(
+      source.indexOf('const codexSetupSteps'),
+      source.indexOf('const imageGenerationRequestExample'),
+    )
     const expectedTokens = [
       "title: '访问 aaccx.pw/shop 页面，点击图中的进入按钮'",
       "alt: '步骤 1 截图 1'",
@@ -54,14 +60,14 @@ describe('UsageGuideView', () => {
 
     let previousIndex = -1
     for (const token of expectedTokens) {
-      const index = source.indexOf(token)
+      const index = codexSource.indexOf(token)
       expect(index, `缺少或顺序错误：${token}`).toBeGreaterThan(previousIndex)
       previousIndex = index
     }
 
     expect(source.match(/data-test="usage-guide-step"/g)?.length).toBe(1)
-    expect(source.match(/step: /g)).toHaveLength(8)
-    expect(source.match(/alt: '/g)).toHaveLength(10)
+    expect(codexSource.match(/step: /g)).toHaveLength(8)
+    expect(codexSource.match(/alt: '/g)).toHaveLength(10)
   })
 
   it('生图方法教程只展示用户需要知道的接入和扣费信息', () => {
@@ -87,6 +93,31 @@ describe('UsageGuideView', () => {
 
     expect(source).not.toContain('groups.id')
     expect(source).not.toContain('127.0.0.1:18080')
+  })
+
+  it('Trae 接入教程复用步骤样式展示自定义模型配置流程', () => {
+    expect(existsSync(viewPath)).toBe(true)
+    if (!existsSync(viewPath)) return
+
+    const source = readFileSync(viewPath, 'utf8')
+    const expectedTokens = [
+      "title: 'Trae 接入'",
+      '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
+      "title: '点击添加模型'",
+      "alt: 'Trae 接入步骤 1 截图'",
+      "title: '选择自定义配置'",
+      "alt: 'Trae 接入步骤 2 截图'",
+      "title: '填入 https://api.aaccx.pw/v1、自己的 API Key 和 gpt-5.5'",
+      "alt: 'Trae 接入步骤 3 截图'",
+      "title: '点击自定义模型中的 gpt-5.5 即可使用'",
+      "alt: 'Trae 接入步骤 4 截图'",
+    ]
+
+    for (const token of expectedTokens) {
+      expect(source, `缺少 Trae 接入教程信息：${token}`).toContain(token)
+    }
+
+    expect(source).not.toContain('sk-LOCAL')
   })
 
   it('注册为登录后用户页面路由', () => {
