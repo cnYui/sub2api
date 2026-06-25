@@ -107,6 +107,8 @@ describe('HomeView', () => {
     expect(source).toContain('月度订阅-时间 30天，日限额 29刀，24点刷新')
     expect(source).toContain("balanceQuota: '59 元套餐'")
     expect(source).toContain('月度订阅-时间 30天，日限额 49刀，24点刷新')
+    expect(source).toContain("premiumQuota: '99 元套餐'")
+    expect(source).toContain('月度订阅-时间 30天，日限额 89刀，24点刷新')
     expect(source).not.toContain("getStarted: '立即开始'")
     expect(source).not.toContain("realtimeBilling: '按量计费'")
     expect(source).not.toContain('使用 cc-switch 项目，一键接入 API 到 Codex')

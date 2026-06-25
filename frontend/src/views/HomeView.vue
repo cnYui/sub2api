@@ -179,7 +179,7 @@
         </div>
 
         <!-- Features Grid -->
-        <div class="mb-12 grid gap-6 md:grid-cols-3">
+        <div class="mb-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <!-- Feature 1: Unified Gateway -->
           <div
             class="group rounded-lg border border-gray-200 bg-white p-6 transition-colors hover:border-gray-400 dark:border-dark-700 dark:bg-dark-900 dark:hover:border-dark-500"
@@ -252,6 +252,23 @@
             </h3>
             <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
               {{ t('home.features.balanceQuotaDesc') }}
+            </p>
+          </div>
+
+          <!-- Feature 4: Premium Quota -->
+          <div
+            class="group rounded-lg border border-gray-200 bg-white p-6 transition-colors hover:border-gray-400 dark:border-dark-700 dark:bg-dark-900 dark:hover:border-dark-500"
+          >
+            <div
+              class="mb-4 flex h-12 w-12 items-center justify-center rounded-md border border-gray-200 bg-gray-100 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200"
+            >
+              <Icon name="sparkles" size="lg" class="text-current" />
+            </div>
+            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('home.features.premiumQuota') }}
+            </h3>
+            <p class="text-sm leading-relaxed text-gray-600 dark:text-dark-400">
+              {{ t('home.features.premiumQuotaDesc') }}
             </p>
           </div>
         </div>

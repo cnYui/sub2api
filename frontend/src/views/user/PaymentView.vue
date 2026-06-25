@@ -604,10 +604,11 @@ const balanceRechargeMultiplier = computed(() => {
 })
 const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
 
-// Adaptive grid: center single card, 2-col for 2 plans, 3-col for 3+
+// Adaptive grid: center single card, 2-col for 2 plans, 4-col for 4+ plans
 const planGridClass = computed(() => {
   const n = checkout.value.plans.length
   if (n <= 2) return 'grid grid-cols-1 gap-5 sm:grid-cols-2'
+  if (n >= 4) return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4'
   return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'
 })
 

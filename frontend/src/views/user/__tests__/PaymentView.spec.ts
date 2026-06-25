@@ -192,6 +192,50 @@ function checkoutInfoWithManualPlansFixture() {
   }
 }
 
+function checkoutInfoWithFourManualPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithManualPlansFixture().data,
+      plans: [
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 1,
+          group_id: 2,
+          name: '29 元订阅池',
+          price: 29,
+          daily_limit_usd: 19,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 2,
+          group_id: 3,
+          name: '39 元订阅池',
+          price: 39,
+          daily_limit_usd: 29,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 3,
+          group_id: 4,
+          name: '59 元订阅池',
+          price: 59,
+          daily_limit_usd: 49,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 4,
+          group_id: 6,
+          name: '99 元订阅池',
+          price: 99,
+          daily_limit_usd: 89,
+          group_name: 'codex-pool-89-usd',
+          sort_order: 99,
+        },
+      ],
+    },
+  }
+}
+
 function jsapiOrderFixture(resumeToken: string) {
   return {
     order_id: 123,
@@ -421,6 +465,51 @@ describe('PaymentView manual subscription payment', () => {
 
     expect(createOrder).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+  })
+
+  it('renders four subscription tiers in a four-column desktop grid and opens manual payment for the 99 yuan tier', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourManualPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            props: ['plan'],
+            template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
+          },
+          ManualPaymentDialog: {
+            props: ['show', 'item'],
+            template: '<div v-if="show" data-testid="manual-payment-dialog-stub">{{ item.name }} {{ item.price }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
+    expect(planCards).toHaveLength(4)
+    expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+
+    await planCards[3].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).not.toHaveBeenCalled()
+    const dialog = wrapper.find('[data-testid="manual-payment-dialog-stub"]')
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.text()).toContain('99 元订阅池')
+    expect(dialog.text()).toContain('99')
   })
 
   it('opens manual payment dialog for traffic packs when no payment methods are configured', async () => {

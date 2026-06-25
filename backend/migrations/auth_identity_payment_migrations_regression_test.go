@@ -168,3 +168,19 @@ func TestMigration151AddsAccountAutoPauseExpiryPartialIndex(t *testing.T) {
 	require.Contains(t, sql, "auto_pause_on_expired = TRUE")
 	require.Contains(t, sql, "expires_at IS NOT NULL")
 }
+
+func TestMigration154SeedsCodex99SubscriptionPlanWithoutAccountBinding(t *testing.T) {
+	content, err := FS.ReadFile("154_seed_codex_99_subscription_plan.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "codex-pool-89-usd")
+	require.Contains(t, sql, "99 元订阅池")
+	require.Contains(t, sql, "daily_limit_usd = 89")
+	require.Contains(t, sql, "price = 99.00")
+	require.Contains(t, sql, "image_price_1k = 0.10")
+	require.Contains(t, sql, "image_price_2k = 0.20")
+	require.Contains(t, sql, "image_price_4k = 0.40")
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+}

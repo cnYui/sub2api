@@ -51,7 +51,9 @@ export default {
       multiAccount: '39 元套餐',
       multiAccountDesc: '月度订阅-时间 30天，日限额 29刀，24点刷新',
       balanceQuota: '59 元套餐',
-      balanceQuotaDesc: '月度订阅-时间 30天，日限额 49刀，24点刷新'
+      balanceQuotaDesc: '月度订阅-时间 30天，日限额 49刀，24点刷新',
+      premiumQuota: '99 元套餐',
+      premiumQuotaDesc: '月度订阅-时间 30天，日限额 89刀，24点刷新'
     },
     // 优势对比
     comparison: {

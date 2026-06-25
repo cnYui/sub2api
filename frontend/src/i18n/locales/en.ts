@@ -51,7 +51,9 @@ export default {
       multiAccount: '39 RMB Plan',
       multiAccountDesc: 'Monthly subscription - duration 30 days, daily limit 29 USD, refreshes at 24:00',
       balanceQuota: '59 RMB Plan',
-      balanceQuotaDesc: 'Monthly subscription - duration 30 days, daily limit 49 USD, refreshes at 24:00'
+      balanceQuotaDesc: 'Monthly subscription - duration 30 days, daily limit 49 USD, refreshes at 24:00',
+      premiumQuota: '99 RMB Plan',
+      premiumQuotaDesc: 'Monthly subscription - duration 30 days, daily limit 89 USD, refreshes at 24:00'
     },
     // Comparison section
     comparison: {
