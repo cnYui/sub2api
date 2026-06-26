@@ -19,6 +19,7 @@ const messages = {
         summary: msg('Monthly subscription - duration {days} days, daily limit {limit} USD, refreshes at 24:00'),
       },
       subscribeNow: msg('Subscribe now'),
+      fee: msg('Fee'),
     },
   },
   zh: {
@@ -33,6 +34,7 @@ const messages = {
         summary: msg('月度订阅-时间 {days}天，日限额 {limit}刀，24点刷新'),
       },
       subscribeNow: msg('立即开通'),
+      fee: msg('手续费'),
     },
   },
 }
@@ -112,5 +114,23 @@ describe('SubscriptionPlanCard', () => {
     expect(text).not.toContain('倍率')
     expect(text).not.toContain('模型')
     expect(text).not.toContain('多余说明')
+  })
+
+  it('shows payable price with fee when fee rate is configured', () => {
+    const wrapper = mount(SubscriptionPlanCard, {
+      props: {
+        plan: planFixture({
+          name: '29 元套餐',
+          price: 29,
+          daily_limit_usd: 19,
+        }),
+        feeRate: 1,
+      },
+      global: { plugins: [createTestI18n('zh')] },
+    })
+    const text = wrapper.text()
+
+    expect(text).toContain('¥29.29元')
+    expect(text).toContain('¥29元 + 1% 手续费')
   })
 })
