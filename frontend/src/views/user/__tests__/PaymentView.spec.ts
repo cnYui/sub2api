@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, shallowMount } from '@vue/test-utils'
+import { flushPromises, mount, shallowMount } from '@vue/test-utils'
 import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 
@@ -785,11 +785,14 @@ describe('PaymentView WeChat JSAPI flow', () => {
     createOrder.mockResolvedValue(jsapiOrderFixture('resume-token-missing-bridge'))
     ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
 
-    const wrapper = shallowMount(PaymentView, {
+    const wrapper = mount(PaymentView, {
       global: {
         stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
           Teleport: true,
           Transition: false,
+          Icon: { template: '<span />' },
+          SubscriptionPlanCard: { template: '<div />' },
         },
       },
     })
@@ -939,5 +942,54 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
     expect(showError).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain('weixin://wxpay/bizpayurl?pr=fallback-native')
+  })
+})
+
+describe('PaymentView page responsibility', () => {
+  beforeEach(() => {
+    routeState.path = '/purchase'
+    routeState.query = { tab: 'subscription' }
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routerPush.mockReset().mockResolvedValue(undefined)
+    routerResolve.mockClear()
+    createOrder.mockReset()
+    refreshUser.mockReset()
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    showError.mockReset()
+    showInfo.mockReset()
+    showWarning.mockReset()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture())
+    activeSubscriptionsState.value = [
+      {
+        id: 101,
+        group_id: 2,
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00.000Z',
+        group: {
+          name: 'codex-pool-19-usd',
+          platform: 'openai',
+          rate_multiplier: 1,
+          daily_limit_usd: 19,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+        },
+      },
+    ]
+  })
+
+  it('不在购买页展示当前订阅详情', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('payment.activeSubscription')
+    expect(wrapper.text()).not.toContain('codex-pool-19-usd')
   })
 })

@@ -255,15 +255,6 @@
                 <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlan" />
               </div>
               <div v-if="checkout.traffic_packs.length > 0" class="space-y-3">
-                <div class="flex flex-wrap items-end justify-between gap-2">
-                  <div>
-                    <p class="text-xs font-medium text-gray-400 dark:text-gray-500">GPT 流量包</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                      当前可用 {{ trafficCreditRemaining }} 刀<span v-if="trafficCreditNextExpiry">，最近 {{ trafficCreditNextExpiry }} 到期</span>
-                    </p>
-                  </div>
-                  <p class="text-xs text-gray-400 dark:text-gray-500">订阅日额度用完后自动消耗</p>
-                </div>
                 <div :class="trafficPackGridClass">
                   <TrafficPackCard v-for="pack in checkout.traffic_packs" :key="pack.id" :pack="pack" @select="selectTrafficPack" />
                 </div>
@@ -587,17 +578,6 @@ const trafficPackGridClass = computed(() => {
   const n = checkout.value.traffic_packs.length
   if (n <= 2) return 'grid grid-cols-1 gap-5 sm:grid-cols-2'
   return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'
-})
-
-const trafficCreditRemaining = computed(() => {
-  const value = checkout.value.traffic_credit_summary?.total_remaining_usd ?? 0
-  return value.toFixed(2)
-})
-
-const trafficCreditNextExpiry = computed(() => {
-  const expiresAt = checkout.value.traffic_credit_summary?.next_expires_at
-  if (!expiresAt) return ''
-  return new Date(expiresAt).toLocaleDateString(localeCode.value || undefined)
 })
 
 // Check if an amount fits a method's [min, max]. 0 = no limit.
