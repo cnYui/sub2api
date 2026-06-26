@@ -33,7 +33,7 @@ func TestEasyPayCreateAPIPaymentReturnsQRCodeImageURL(t *testing.T) {
 	provider := newTestEasyPay(t, server.URL)
 	resp, err := provider.CreatePayment(context.Background(), payment.CreatePaymentRequest{
 		OrderID:     "sub2-order-1",
-		Amount:      "1.00",
+		Amount:      "29.00",
 		PaymentType: payment.TypeAlipay,
 		Subject:     "Sub2API subscription",
 		ClientIP:    "127.0.0.1",
@@ -57,7 +57,7 @@ func TestEasyPayCreateAPIPaymentReturnsQRCodeImageURL(t *testing.T) {
 		"notify_url":   "https://example.com/notify",
 		"return_url":   "https://example.com/return",
 		"name":         "Sub2API subscription",
-		"money":        "1.00",
+		"money":        "29.00",
 		"clientip":     "127.0.0.1",
 		"sign_type":    signTypeMD5,
 	} {

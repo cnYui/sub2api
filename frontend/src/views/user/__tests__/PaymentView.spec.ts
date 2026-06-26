@@ -14,6 +14,9 @@ const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/stripe?moc
 const createOrder = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
 const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+const activeSubscriptionsState = vi.hoisted(() => ({
+  items: [] as Array<Record<string, unknown>>,
+}))
 const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
@@ -61,7 +64,7 @@ vi.mock('@/stores/payment', () => ({
 
 vi.mock('@/stores/subscriptions', () => ({
   useSubscriptionStore: () => ({
-    activeSubscriptions: [],
+    activeSubscriptions: activeSubscriptionsState.items,
     fetchActiveSubscriptions,
   }),
 }))
@@ -236,6 +239,26 @@ function checkoutInfoWithFourManualPlansFixture() {
   }
 }
 
+function checkoutInfoWithFourZPayPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithFourManualPlansFixture().data,
+      methods: {
+        alipay: {
+          currency: 'CNY',
+          daily_limit: 0,
+          daily_used: 0,
+          daily_remaining: 0,
+          single_min: 0,
+          single_max: 0,
+          fee_rate: 0,
+          available: true,
+        },
+      },
+    },
+  }
+}
+
 function jsapiOrderFixture(resumeToken: string) {
   return {
     order_id: 123,
@@ -286,6 +309,7 @@ describe('PaymentView tab defaults', () => {
     createOrder.mockReset()
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    activeSubscriptionsState.items = []
     showError.mockReset()
     showInfo.mockReset()
     showWarning.mockReset()
@@ -380,6 +404,111 @@ describe('PaymentView tab defaults', () => {
     }))
   })
 
+  it('keeps active subscription state for plan cards without rendering the duplicated current subscription block', async () => {
+    activeSubscriptionsState.items = [
+      {
+        id: 42,
+        group_id: 2,
+        expires_at: '2099-01-01T00:00:00Z',
+        group: {
+          name: 'codex-pool-19-usd',
+          platform: 'openai',
+          rate_multiplier: 1,
+          daily_limit_usd: 19,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+        },
+      },
+    ]
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            props: ['activeSubscriptions'],
+            template: '<div data-testid="subscription-plan-card">{{ activeSubscriptions.length }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const planCard = wrapper.findComponent({ name: 'SubscriptionPlanCard' })
+    expect(planCard.props('activeSubscriptions')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('payment.activeSubscription')
+    expect(wrapper.text()).not.toContain('codex-pool-19-usd')
+  })
+
+  it.each([
+    { index: 0, planId: 1, amount: 29, name: '29 元订阅池' },
+    { index: 1, planId: 2, amount: 39, name: '39 元订阅池' },
+  ])('creates a ZPay dynamic subscription order for $name', async ({ index, planId, amount }) => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourZPayPlansFixture())
+    createOrder.mockResolvedValue({
+      order_id: 8800 + planId,
+      amount,
+      pay_amount: amount,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'alipay',
+      qr_image_url: `https://zpayz.cn/qrcode/${planId}.jpg`,
+      out_trade_no: `sub2_plan_${planId}`,
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            props: ['plan'],
+            template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
+          },
+          PaymentStatusPanel: {
+            name: 'PaymentStatusPanel',
+            props: ['orderId', 'qrImageUrl', 'orderType'],
+            template: '<div data-testid="payment-status-panel">{{ orderId }} {{ qrImageUrl }} {{ orderType }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
+    expect(planCards).toHaveLength(4)
+    expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+
+    await planCards[index].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      amount,
+      payment_type: 'alipay',
+      order_type: 'subscription',
+      plan_id: planId,
+      is_mobile: true,
+    }))
+    expect(wrapper.find('[data-testid="payment-status-panel"]').text()).toContain(`https://zpayz.cn/qrcode/${planId}.jpg`)
+    expect(wrapper.html()).not.toContain('manual-payment-dialog')
+  })
+
   it('does not render traffic packs when backend returns none', async () => {
     getCheckoutInfo.mockResolvedValue({
       data: {
@@ -411,7 +540,7 @@ describe('PaymentView tab defaults', () => {
   })
 })
 
-describe('PaymentView manual subscription payment', () => {
+describe('PaymentView without configured payment methods', () => {
   beforeEach(() => {
     routeState.path = '/purchase'
     routeState.query = {
@@ -423,6 +552,7 @@ describe('PaymentView manual subscription payment', () => {
     createOrder.mockReset()
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    activeSubscriptionsState.items = []
     showError.mockReset()
     showInfo.mockReset()
     showWarning.mockReset()
@@ -434,7 +564,7 @@ describe('PaymentView manual subscription payment', () => {
     }
   })
 
-  it('opens manual payment dialog without creating an order when no payment methods are configured', async () => {
+  it('disables subscription confirmation instead of opening manual payment when no payment methods are configured', async () => {
     const wrapper = shallowMount(PaymentView, {
       global: {
         stubs: {
@@ -443,10 +573,6 @@ describe('PaymentView manual subscription payment', () => {
           },
           Teleport: true,
           Transition: false,
-          ManualPaymentDialog: {
-            props: ['show'],
-            template: '<div v-if="show" data-testid="manual-payment-dialog-stub"></div>',
-          },
         },
       },
     })
@@ -459,15 +585,16 @@ describe('PaymentView manual subscription payment', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    expect(confirmButton?.attributes('disabled')).toBeDefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+    expect(wrapper.html()).not.toContain('manual-payment-dialog')
+    expect(wrapper.text()).toContain('payment.notAvailable')
   })
 
-  it('renders four subscription tiers in a four-column desktop grid and opens manual payment for the 99 yuan tier', async () => {
+  it('renders four subscription tiers in a four-column desktop grid and disables the 99 yuan tier without payment methods', async () => {
     getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourManualPlansFixture())
 
     const wrapper = shallowMount(PaymentView, {
@@ -483,10 +610,6 @@ describe('PaymentView manual subscription payment', () => {
             props: ['plan'],
             template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
           },
-          ManualPaymentDialog: {
-            props: ['show', 'item'],
-            template: '<div v-if="show" data-testid="manual-payment-dialog-stub">{{ item.name }} {{ item.price }}</div>',
-          },
         },
       },
     })
@@ -501,18 +624,16 @@ describe('PaymentView manual subscription payment', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    expect(confirmButton?.attributes('disabled')).toBeDefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
-    const dialog = wrapper.find('[data-testid="manual-payment-dialog-stub"]')
-    expect(dialog.exists()).toBe(true)
-    expect(dialog.text()).toContain('99 元订阅池')
-    expect(dialog.text()).toContain('99')
+    expect(wrapper.html()).not.toContain('manual-payment-dialog')
+    expect(wrapper.text()).toContain('payment.notAvailable')
   })
 
-  it('opens manual payment dialog for traffic packs when no payment methods are configured', async () => {
+  it('disables traffic pack confirmation instead of opening manual payment when no payment methods are configured', async () => {
     const wrapper = shallowMount(PaymentView, {
       global: {
         stubs: {
@@ -526,10 +647,6 @@ describe('PaymentView manual subscription payment', () => {
             props: ['pack'],
             template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
           },
-          ManualPaymentDialog: {
-            props: ['show'],
-            template: '<div v-if="show" data-testid="manual-payment-dialog-stub"></div>',
-          },
         },
       },
     })
@@ -542,12 +659,13 @@ describe('PaymentView manual subscription payment', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    expect(confirmButton?.attributes('disabled')).toBeDefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+    expect(wrapper.html()).not.toContain('manual-payment-dialog')
+    expect(wrapper.text()).toContain('payment.notAvailable')
   })
 
   it('shows a back action in traffic pack confirm view and returns to the list', async () => {
@@ -599,6 +717,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     createOrder.mockReset()
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    activeSubscriptionsState.items = []
     showError.mockReset()
     showInfo.mockReset()
     showWarning.mockReset()

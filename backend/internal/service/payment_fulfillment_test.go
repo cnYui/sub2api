@@ -659,6 +659,125 @@ func TestPaymentAmountToleranceForThreeDecimalCurrency(t *testing.T) {
 	assert.InDelta(t, 0.0005, paymentAmountToleranceForCurrency("KWD"), 1e-12)
 }
 
+func TestConfirmPaymentRejectsSubscriptionAmountMismatch(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	user, err := client.User.Create().
+		SetEmail("zpay-mismatch@example.com").
+		SetPasswordHash("hash").
+		SetUsername("zpay-mismatch-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(39).
+		SetPayAmount(39).
+		SetFeeRate(0).
+		SetRechargeCode("PAY-ZPAY-MISMATCH").
+		SetOutTradeNo("sub2_zpay_mismatch").
+		SetPaymentType(payment.TypeAlipay).
+		SetProviderKey(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeSubscription).
+		SetPlanID(2).
+		SetSubscriptionGroupID(7).
+		SetSubscriptionDays(30).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+	svc := &PaymentService{
+		entClient:       client,
+		groupRepo:       &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
+		subscriptionSvc: subscriptionSvc,
+	}
+
+	err = svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		TradeNo: "zpay-trade-mismatch",
+		OrderID: order.OutTradeNo,
+		Amount:  29,
+		Status:  payment.NotificationStatusSuccess,
+	}, payment.TypeEasyPay)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "amount mismatch")
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPending, reloaded.Status)
+	require.Zero(t, subRepo.createCalls)
+}
+
+func TestConfirmPaymentCompletesSubscriptionWhenAmountMatches(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+
+	user, err := client.User.Create().
+		SetEmail("zpay-match@example.com").
+		SetPasswordHash("hash").
+		SetUsername("zpay-match-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(39).
+		SetPayAmount(39).
+		SetFeeRate(0).
+		SetRechargeCode("PAY-ZPAY-MATCH").
+		SetOutTradeNo("sub2_zpay_match").
+		SetPaymentType(payment.TypeAlipay).
+		SetProviderKey(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeSubscription).
+		SetPlanID(2).
+		SetSubscriptionGroupID(7).
+		SetSubscriptionDays(30).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+	svc := &PaymentService{
+		entClient:       client,
+		groupRepo:       &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
+		subscriptionSvc: subscriptionSvc,
+	}
+
+	err = svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		TradeNo: "zpay-trade-match",
+		OrderID: order.OutTradeNo,
+		Amount:  39,
+		Status:  payment.NotificationStatusSuccess,
+	}, payment.TypeEasyPay)
+	require.NoError(t, err)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.Equal(t, "zpay-trade-match", reloaded.PaymentTradeNo)
+	require.Equal(t, 1, subRepo.createCalls)
+}
+
 func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

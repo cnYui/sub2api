@@ -134,6 +134,9 @@
                   @select="selectedMethod = $event"
                 />
               </div>
+              <div v-if="!hasPaymentMethods" class="card p-4 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
+              </div>
               <div v-if="feeRate > 0 && selectedTrafficPack.price > 0" class="card p-6">
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
@@ -214,6 +217,9 @@
                   @select="selectedMethod = $event"
                 />
               </div>
+              <div v-if="!hasPaymentMethods" class="card p-4 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
+              </div>
               <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
                 <div class="space-y-2 text-sm">
                   <div class="flex justify-between">
@@ -262,29 +268,6 @@
                   <TrafficPackCard v-for="pack in checkout.traffic_packs" :key="pack.id" :pack="pack" @select="selectTrafficPack" />
                 </div>
               </div>
-              <!-- Active subscriptions (compact, below plan list) -->
-              <div v-if="activeSubscriptions.length > 0">
-                <p class="mb-2 text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.activeSubscription') }}</p>
-                <div class="space-y-2">
-                  <div v-for="sub in activeSubscriptions" :key="sub.id"
-                    class="flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2 dark:border-dark-700 dark:bg-dark-800">
-                    <div :class="['h-6 w-1 shrink-0 rounded-full', platformAccentBarClass(sub.group?.platform || '')]" />
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-1.5">
-                        <span class="truncate text-xs font-semibold text-gray-900 dark:text-white">{{ sub.group?.name || t('payment.groupFallback', { id: sub.group_id }) }}</span>
-                        <span :class="['shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium', platformBadgeLightClass(sub.group?.platform || '')]">{{ platformLabel(sub.group?.platform || '') }}</span>
-                      </div>
-                      <div class="flex flex-wrap gap-x-3 text-[11px] text-gray-400 dark:text-gray-500">
-                        <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
-                        <span v-if="sub.group?.daily_limit_usd == null && sub.group?.weekly_limit_usd == null && sub.group?.monthly_limit_usd == null">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
-                        <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
-                        <span v-else>{{ t('userSubscriptions.noExpiration') }}</span>
-                      </div>
-                    </div>
-                    <span class="badge badge-success shrink-0 text-[10px]">{{ t('userSubscriptions.status.active') }}</span>
-                  </div>
-                </div>
-              </div>
             </template>
           </template>
         </template>
@@ -323,14 +306,6 @@
         </div>
       </Transition>
     </Teleport>
-    <ManualPaymentDialog
-      v-if="manualPaymentItem"
-      :show="showManualPaymentDialog"
-      :item="manualPaymentItem"
-      :locale-code="localeCode"
-      @close="showManualPaymentDialog = false"
-      @redeem="goRedeem"
-    />
   </AppLayout>
 </template>
 
@@ -361,11 +336,10 @@ import {
   type PaymentRecoverySnapshot,
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
-import { platformAccentBarClass, platformBadgeLightClass, platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
+import { platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import TrafficPackCard from '@/components/payment/TrafficPackCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
-import ManualPaymentDialog from '@/components/payment/ManualPaymentDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
@@ -384,11 +358,6 @@ const appStore = useAppStore()
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
 
-function getDaysRemaining(expiresAt: string): number {
-  const diff = new Date(expiresAt).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
-}
-
 const loading = ref(true)
 const submitting = ref(false)
 const errorMessage = ref('')
@@ -399,7 +368,6 @@ const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const selectedTrafficPack = ref<TrafficPack | null>(null)
 const previewImage = ref('')
-const showManualPaymentDialog = ref(false)
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -599,6 +567,7 @@ const tabs = computed(() => {
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
+const hasPaymentMethods = computed(() => enabledMethods.value.length > 0)
 const validAmount = computed(() => amount.value ?? 0)
 const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
@@ -741,8 +710,7 @@ const subTotalAmount = computed(() => {
 })
 
 const canSubmitSubscription = computed(() => {
-  if (!selectedPlan.value) return false
-  if (enabledMethods.value.length === 0) return true
+  if (!selectedPlan.value || !hasPaymentMethods.value) return false
   return amountFitsMethod(selectedPlan.value.price, selectedMethod.value)
     && selectedLimit.value?.available !== false
 })
@@ -772,8 +740,7 @@ const trafficPackTotalAmount = computed(() => {
 })
 
 const canSubmitTrafficPack = computed(() => {
-  if (!selectedTrafficPack.value) return false
-  if (enabledMethods.value.length === 0) return true
+  if (!selectedTrafficPack.value || !hasPaymentMethods.value) return false
   return amountFitsMethod(selectedTrafficPack.value.price, selectedMethod.value)
     && selectedLimit.value?.available !== false
 })
@@ -819,37 +786,18 @@ const planValiditySuffix = computed(() => {
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   selectedTrafficPack.value = null
-  showManualPaymentDialog.value = false
   errorMessage.value = ''
 }
 
 function selectTrafficPack(pack: TrafficPack) {
   selectedTrafficPack.value = pack
   selectedPlan.value = null
-  showManualPaymentDialog.value = false
   errorMessage.value = ''
 }
-
-const manualPaymentItem = computed(() => {
-  if (selectedPlan.value) {
-    return {
-      name: selectedPlan.value.name,
-      price: selectedPlan.value.price,
-    }
-  }
-  if (selectedTrafficPack.value) {
-    return {
-      name: selectedTrafficPack.value.name,
-      price: selectedTrafficPack.value.price,
-    }
-  }
-  return null
-})
 
 function backToSubscriptionList() {
   selectedPlan.value = null
   selectedTrafficPack.value = null
-  showManualPaymentDialog.value = false
   errorMessage.value = ''
   errorHintMessage.value = ''
 }
@@ -858,7 +806,6 @@ function selectPlanFromModal(plan: SubscriptionPlan) {
   showRenewalModal.value = false
   renewGroupId.value = null
   selectedPlan.value = plan
-  showManualPaymentDialog.value = false
   errorMessage.value = ''
 }
 
@@ -874,8 +821,8 @@ async function handleSubmitRecharge() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  if (enabledMethods.value.length === 0) {
-    showManualPaymentDialog.value = true
+  if (!hasPaymentMethods.value) {
+    appStore.showError(t('payment.notAvailable'))
     return
   }
   await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
@@ -883,18 +830,13 @@ async function confirmSubscribe() {
 
 async function confirmTrafficPack() {
   if (!selectedTrafficPack.value || submitting.value) return
-  if (enabledMethods.value.length === 0) {
-    showManualPaymentDialog.value = true
+  if (!hasPaymentMethods.value) {
+    appStore.showError(t('payment.notAvailable'))
     return
   }
   await createOrder(selectedTrafficPack.value.price, 'traffic_pack', undefined, {
     trafficPackId: selectedTrafficPack.value.id,
   })
-}
-
-function goRedeem() {
-  showManualPaymentDialog.value = false
-  router.push('/redeem')
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {
