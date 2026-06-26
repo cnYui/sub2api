@@ -17,35 +17,8 @@
       </div>
 
       <template v-if="!submitted">
-        <div class="grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
-          <button
-            type="button"
-            :class="tabClass('wxpay')"
-            data-testid="manual-payment-tab-wxpay"
-            @click="activeMethod = 'wxpay'"
-          >
-            {{ t('payment.manual.wxpay') }}
-          </button>
-          <button
-            type="button"
-            :class="tabClass('alipay')"
-            data-testid="manual-payment-tab-alipay"
-            @click="activeMethod = 'alipay'"
-          >
-            {{ t('payment.manual.alipay') }}
-          </button>
-        </div>
-
         <div class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900">
           <img
-            v-if="activeMethod === 'wxpay'"
-            :src="wxpayQr"
-            :alt="t('payment.manual.wxpayQrAlt')"
-            class="mx-auto max-h-[52vh] w-full max-w-sm rounded-md object-contain"
-            data-testid="manual-payment-wxpay-qr"
-          />
-          <img
-            v-else
             :src="alipayQr"
             :alt="t('payment.manual.alipayQrAlt')"
             class="mx-auto max-h-[52vh] w-full max-w-sm rounded-md object-contain"
@@ -106,8 +79,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { formatPaymentAmount } from '@/components/payment/currency'
-import wxpayQr from '@/assets/payment/manual-wxpay.jpg'
-import alipayQr from '@/assets/payment/manual-alipay.jpg'
+import alipayQr from '@/assets/payment/manual-alipay.png'
 
 export interface ManualPaymentItem {
   name: string
@@ -126,19 +98,9 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const activeMethod = ref<'wxpay' | 'alipay'>('wxpay')
 const submitted = ref(false)
 
 const formattedAmount = computed(() => formatPaymentAmount(props.item.price, 'CNY', props.localeCode))
-
-function tabClass(method: 'wxpay' | 'alipay') {
-  return [
-    'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-    activeMethod.value === method
-      ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white'
-      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
-  ]
-}
 
 function handleClose() {
   emit('close')
@@ -146,7 +108,6 @@ function handleClose() {
 
 watch(() => props.show, (show) => {
   if (show) {
-    activeMethod.value = 'wxpay'
     submitted.value = false
   }
 })

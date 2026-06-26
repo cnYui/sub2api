@@ -177,6 +177,22 @@ describe('decidePaymentLaunch', () => {
     expect(decision.paymentState.qrCode).toBe('https://pay.example.com/qr/session')
   })
 
+  it('uses QR waiting flow when ZPay returns only a QR image URL', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      qr_image_url: 'https://zpayz.cn/qrcode/123.jpg',
+      payment_mode: 'qrcode',
+    }), {
+      visibleMethod: 'alipay',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('qr_waiting')
+    expect(decision.paymentState.qrCode).toBe('')
+    expect(decision.paymentState.qrImageUrl).toBe('https://zpayz.cn/qrcode/123.jpg')
+    expect(decision.recovery.qrImageUrl).toBe('https://zpayz.cn/qrcode/123.jpg')
+  })
+
   it('returns wechat oauth launch when backend requires in-app authorization', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       result_type: 'oauth_required',
@@ -326,6 +342,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 33,
       amount: 18,
       qrCode: '',
+      qrImageUrl: '',
       expiresAt: '2099-01-01T00:10:00.000Z',
       paymentType: 'alipay',
       payUrl: 'https://pay.example.com/session/33',
@@ -355,6 +372,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 55,
       amount: 18,
       qrCode: '',
+      qrImageUrl: '',
       expiresAt: '2024-01-01T00:10:00.000Z',
       paymentType: 'wxpay',
       payUrl: 'https://pay.example.com/session/55',
@@ -391,6 +409,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 44,
       amount: 18,
       qrCode: '',
+      qrImageUrl: 'https://zpayz.cn/qrcode/restore.jpg',
       expiresAt: '2099-01-01T00:10:00.000Z',
       paymentType: 'alipay',
       payUrl: 'https://pay.example.com/session/44',
@@ -407,6 +426,7 @@ describe('readPaymentRecoverySnapshot', () => {
 
     expect(restored?.orderId).toBe(44)
     expect(restored?.outTradeNo).toBe('')
+    expect(restored?.qrImageUrl).toBe('https://zpayz.cn/qrcode/restore.jpg')
   })
 
   it('keeps backward compatibility with snapshots written before Airwallex fields existed', () => {
@@ -414,6 +434,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 45,
       amount: 28,
       qrCode: '',
+      qrImageUrl: '',
       expiresAt: '2099-01-01T00:10:00.000Z',
       paymentType: 'airwallex',
       payUrl: '/payment/airwallex?order_id=45',

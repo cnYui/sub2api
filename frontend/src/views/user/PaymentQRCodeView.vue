@@ -2,13 +2,20 @@
   <AppLayout>
     <div class="mx-auto flex max-w-md flex-col items-center space-y-6 py-8">
       <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-        {{ qrUrl ? scanTitle : t('payment.qr.payInNewWindow') }}
+        {{ hasQrDisplay ? scanTitle : t('payment.qr.payInNewWindow') }}
       </h2>
-      <div v-if="qrUrl" class="rounded-2xl bg-white p-6 shadow-lg dark:bg-dark-800">
-        <canvas ref="qrCanvas" class="mx-auto"></canvas>
+      <div v-if="hasQrDisplay" class="rounded-2xl bg-white p-6 shadow-lg dark:bg-dark-800">
+        <canvas v-if="qrUrl" ref="qrCanvas" class="mx-auto"></canvas>
+        <img
+          v-else
+          :src="qrImageUrl"
+          alt=""
+          data-testid="payment-qr-image"
+          class="mx-auto h-64 w-64 object-contain"
+        />
       </div>
       <!-- Scan prompt for QR code -->
-      <p v-if="qrUrl && !expired && scanHint" class="text-center text-sm text-gray-500 dark:text-gray-400">
+      <p v-if="hasQrDisplay && !expired && scanHint" class="text-center text-sm text-gray-500 dark:text-gray-400">
         {{ scanHint }}
       </p>
       <div v-if="expired" class="text-center">
@@ -16,11 +23,11 @@
         <button class="btn btn-primary mt-4" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
       </div>
       <div v-else class="text-center">
-        <p class="text-sm text-gray-500 dark:text-gray-400">{{ qrUrl ? t('payment.qr.expiresIn') : t('payment.qr.payInNewWindowHint') }}</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ hasQrDisplay ? t('payment.qr.expiresIn') : t('payment.qr.payInNewWindowHint') }}</p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</p>
         <p class="mt-2 text-sm text-gray-400 dark:text-gray-500">{{ t('payment.qr.waitingPayment') }}</p>
       </div>
-      <a v-if="payUrl && !qrUrl && !expired" :href="payUrl" target="_blank" rel="noopener noreferrer"
+      <a v-if="payUrl && !hasQrDisplay && !expired" :href="payUrl" target="_blank" rel="noopener noreferrer"
         class="btn btn-primary w-full py-3">
         {{ t('payment.qr.openPayWindow') }}
       </a>
@@ -53,6 +60,7 @@ const appStore = useAppStore()
 
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
+const qrImageUrl = ref('')
 const payUrl = ref('')
 const orderId = ref(0)
 const remainingSeconds = ref(0)
@@ -71,6 +79,7 @@ const countdownDisplay = computed(() => {
 
 const isAlipay = computed(() => paymentType.value.includes('alipay'))
 const isWxpay = computed(() => paymentType.value.includes('wxpay'))
+const hasQrDisplay = computed(() => !!qrUrl.value || !!qrImageUrl.value)
 
 const scanTitle = computed(() => {
   if (isAlipay.value) return t('payment.qr.scanAlipay')
@@ -183,6 +192,7 @@ watch(qrUrl, () => renderQR())
 onMounted(() => {
   orderId.value = Number(route.query.order_id) || 0
   qrUrl.value = String(route.query.qr || '')
+  qrImageUrl.value = String(route.query.qr_image_url || '')
   payUrl.value = String(route.query.pay_url || '')
   paymentType.value = String(route.query.payment_type || '')
 
