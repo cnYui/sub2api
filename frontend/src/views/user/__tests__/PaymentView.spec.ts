@@ -101,6 +101,49 @@ function checkoutInfoFixture() {
       global_min: 0,
       global_max: 0,
       plans: [],
+      traffic_packs: [
+        {
+          id: 1,
+          code: 'gpt_traffic_5usd_2cny',
+          name: 'GPT 流量包 5 刀',
+          description: '2 元购买 5 USD GPT 额度，有效期 365 天，可用于写代码和生图。',
+          price: 2,
+          credit_usd: 5,
+          validity_days: 365,
+          platform: 'openai',
+          for_sale: true,
+          sort_order: 10,
+        },
+        {
+          id: 2,
+          code: 'gpt_traffic_10usd_3cny',
+          name: 'GPT 流量包 10 刀',
+          description: '3 元购买 10 USD GPT 额度，有效期 365 天，可用于写代码和生图。',
+          price: 3,
+          credit_usd: 10,
+          validity_days: 365,
+          platform: 'openai',
+          for_sale: true,
+          sort_order: 20,
+        },
+        {
+          id: 3,
+          code: 'gpt_traffic_20usd_5cny',
+          name: 'GPT 流量包 20 刀',
+          description: '5 元购买 20 USD GPT 额度，有效期 365 天，可用于写代码和生图。',
+          price: 5,
+          credit_usd: 20,
+          validity_days: 365,
+          platform: 'openai',
+          for_sale: true,
+          sort_order: 30,
+        },
+      ],
+      traffic_credit_summary: {
+        total_remaining_usd: 8,
+        next_expiring_usd: 5,
+        next_expires_at: '2027-06-22T12:00:00Z',
+      },
       balance_disabled: false,
       balance_recharge_multiplier: 1,
       recharge_fee_rate: 0,
@@ -134,6 +177,59 @@ function checkoutInfoWithPlansFixture() {
           sort_order: 1,
           for_sale: true,
           group_name: 'OpenAI',
+        },
+      ],
+    },
+  }
+}
+
+function checkoutInfoWithManualPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithPlansFixture().data,
+      methods: {},
+    },
+  }
+}
+
+function checkoutInfoWithFourManualPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithManualPlansFixture().data,
+      plans: [
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 1,
+          group_id: 2,
+          name: '29 元订阅池',
+          price: 29,
+          daily_limit_usd: 19,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 2,
+          group_id: 3,
+          name: '39 元订阅池',
+          price: 39,
+          daily_limit_usd: 29,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 3,
+          group_id: 4,
+          name: '59 元订阅池',
+          price: 59,
+          daily_limit_usd: 49,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 4,
+          group_id: 6,
+          name: '99 元订阅池',
+          price: 99,
+          daily_limit_usd: 89,
+          group_name: 'codex-pool-89-usd',
+          sort_order: 99,
         },
       ],
     },
@@ -179,6 +275,316 @@ function oauthOrderFixture() {
     },
   }
 }
+
+describe('PaymentView tab defaults', () => {
+  beforeEach(() => {
+    routeState.path = '/purchase'
+    routeState.query = {}
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routerPush.mockReset().mockResolvedValue(undefined)
+    routerResolve.mockClear()
+    createOrder.mockReset()
+    refreshUser.mockReset()
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    showError.mockReset()
+    showInfo.mockReset()
+    showWarning.mockReset()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture())
+    bridgeInvoke.mockReset()
+    window.localStorage.clear()
+  })
+
+  it('defaults to subscription tab and keeps subscription on the left', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            template: '<div data-testid="subscription-plan-card"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const tabTexts = wrapper
+      .findAll('button')
+      .map(button => button.text())
+      .filter(text => text === 'payment.tabSubscribe' || text === 'payment.tabTopUp')
+
+    expect(tabTexts).toEqual(['payment.tabSubscribe', 'payment.tabTopUp'])
+    expect(wrapper.find('[data-testid="subscription-plan-card"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+  })
+
+  it('renders GPT traffic pack cards and creates a traffic pack order', async () => {
+    createOrder.mockResolvedValue({
+      order_id: 991,
+      amount: 5,
+      pay_amount: 5,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'wxpay',
+      qr_code: 'weixin://wxpay/bizpayurl?pr=traffic-pack',
+      out_trade_no: 'sub2_traffic_pack_991',
+    })
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            template: '<div data-testid="subscription-plan-card"></div>',
+          },
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('GPT 流量包 5 刀')
+    expect(wrapper.text()).toContain('GPT 流量包 10 刀')
+    expect(wrapper.text()).toContain('GPT 流量包 20 刀')
+
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[2].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 5,
+      payment_type: 'wxpay',
+      order_type: 'traffic_pack',
+      traffic_pack_id: 3,
+      is_mobile: true,
+    }))
+  })
+
+  it('does not render traffic packs when backend returns none', async () => {
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        ...checkoutInfoWithPlansFixture().data,
+        traffic_packs: [],
+        traffic_credit_summary: null,
+      },
+    })
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            template: '<div data-testid="subscription-plan-card"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('GPT 流量包')
+    expect(wrapper.findAll('button').some(button => button.text() === '购买')).toBe(false)
+  })
+})
+
+describe('PaymentView manual subscription payment', () => {
+  beforeEach(() => {
+    routeState.path = '/purchase'
+    routeState.query = {
+      tab: 'subscription',
+    }
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routerPush.mockReset().mockResolvedValue(undefined)
+    routerResolve.mockClear()
+    createOrder.mockReset()
+    refreshUser.mockReset()
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    showError.mockReset()
+    showInfo.mockReset()
+    showWarning.mockReset()
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithManualPlansFixture())
+    bridgeInvoke.mockReset()
+    window.localStorage.clear()
+    ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = {
+      invoke: bridgeInvoke,
+    }
+  })
+
+  it('opens manual payment dialog without creating an order when no payment methods are configured', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          ManualPaymentDialog: {
+            props: ['show'],
+            template: '<div v-if="show" data-testid="manual-payment-dialog-stub"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const planCard = wrapper.findComponent({ name: 'SubscriptionPlanCard' })
+    expect(planCard.exists()).toBe(true)
+    await planCard.vm.$emit('select', checkoutInfoWithManualPlansFixture().data.plans[0])
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+  })
+
+  it('renders four subscription tiers in a four-column desktop grid and opens manual payment for the 99 yuan tier', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourManualPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            props: ['plan'],
+            template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
+          },
+          ManualPaymentDialog: {
+            props: ['show', 'item'],
+            template: '<div v-if="show" data-testid="manual-payment-dialog-stub">{{ item.name }} {{ item.price }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
+    expect(planCards).toHaveLength(4)
+    expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+
+    await planCards[3].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).not.toHaveBeenCalled()
+    const dialog = wrapper.find('[data-testid="manual-payment-dialog-stub"]')
+    expect(dialog.exists()).toBe(true)
+    expect(dialog.text()).toContain('99 元订阅池')
+    expect(dialog.text()).toContain('99')
+  })
+
+  it('opens manual payment dialog for traffic packs when no payment methods are configured', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
+          ManualPaymentDialog: {
+            props: ['show'],
+            template: '<div v-if="show" data-testid="manual-payment-dialog-stub"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[0].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="manual-payment-dialog-stub"]').exists()).toBe(true)
+  })
+
+  it('shows a back action in traffic pack confirm view and returns to the list', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack'],
+            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
+    expect(trafficPackCards).toHaveLength(3)
+    await trafficPackCards[1].trigger('click')
+    await flushPromises()
+
+    const backButton = wrapper.findAll('button').find(button => button.text().includes('common.back'))
+    expect(backButton).toBeDefined()
+
+    await backButton?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="traffic-pack-card"]')).toHaveLength(3)
+    expect(wrapper.findAll('button').some(button => button.text().includes('payment.createOrder'))).toBe(false)
+  })
+})
 
 describe('PaymentView WeChat JSAPI flow', () => {
   beforeEach(() => {

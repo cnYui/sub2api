@@ -176,6 +176,7 @@ func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymen
 		PayURL  string `json:"payurl"`
 		PayURL2 string `json:"payurl2"` // H5 mobile payment URL
 		QRCode  string `json:"qrcode"`
+		Img     string `json:"img"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("easypay parse: %w", err)
@@ -187,7 +188,7 @@ func (e *EasyPay) createAPIPayment(ctx context.Context, req payment.CreatePaymen
 	if req.IsMobile && resp.PayURL2 != "" {
 		payURL = resp.PayURL2
 	}
-	return &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: resp.QRCode}, nil
+	return &payment.CreatePaymentResponse{TradeNo: resp.TradeNo, PayURL: payURL, QRCode: resp.QRCode, QRImageURL: resp.Img}, nil
 }
 
 // resolveURLs returns (notifyURL, returnURL) preferring request values,

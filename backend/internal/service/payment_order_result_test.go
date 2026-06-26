@@ -27,8 +27,9 @@ func TestBuildCreateOrderResponseDefaultsToOrderCreated(t *testing.T) {
 		12.71,
 		&payment.InstanceSelection{PaymentMode: "qrcode"},
 		&payment.CreatePaymentResponse{
-			TradeNo: "sub2_42",
-			QRCode:  "weixin://wxpay/bizpayurl?pr=test",
+			TradeNo:    "sub2_42",
+			QRCode:     "weixin://wxpay/bizpayurl?pr=test",
+			QRImageURL: "https://zpayz.cn/qrcode/123.jpg",
 		},
 		payment.CreatePaymentResultOrderCreated,
 	)
@@ -41,6 +42,9 @@ func TestBuildCreateOrderResponseDefaultsToOrderCreated(t *testing.T) {
 	}
 	if resp.QRCode != "weixin://wxpay/bizpayurl?pr=test" {
 		t.Fatalf("qr_code = %q, want %q", resp.QRCode, "weixin://wxpay/bizpayurl?pr=test")
+	}
+	if resp.QRImageURL != "https://zpayz.cn/qrcode/123.jpg" {
+		t.Fatalf("qr_image_url = %q, want ZPay image URL", resp.QRImageURL)
 	}
 	if resp.JSAPI != nil || resp.JSAPIPayload != nil {
 		t.Fatal("order_created response should not include jsapi payload")
@@ -151,7 +155,7 @@ func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanProductName(t *testing
 		ProductName: "Claude Pro",
 	}
 
-	got := svc.buildPaymentSubject(plan, 0, cfg, nil)
+	got := svc.buildPaymentSubject(plan, nil, 0, cfg, nil)
 	if got != "PRE Claude Pro SUF" {
 		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE Claude Pro SUF")
 	}
@@ -167,7 +171,7 @@ func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanDefaultName(t *testing
 	}
 	plan := &dbent.SubscriptionPlan{Name: "Team Monthly"}
 
-	got := svc.buildPaymentSubject(plan, 0, cfg, nil)
+	got := svc.buildPaymentSubject(plan, nil, 0, cfg, nil)
 	if got != "PRE Sub2API Subscription Team Monthly SUF" {
 		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE Sub2API Subscription Team Monthly SUF")
 	}

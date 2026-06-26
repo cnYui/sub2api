@@ -545,6 +545,7 @@ func (s *OpenAIGatewayService) billingDeps() *billingDeps {
 		deferredService:       s.deferredService,
 		balanceNotifyService:  s.balanceNotifyService,
 		userPlatformQuotaRepo: s.userPlatformQuotaRepo,
+		trafficPackService:    trafficPackServiceFromBillingCache(s.billingCacheService),
 	}
 }
 
@@ -5995,6 +5996,12 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+	quotaPlatform := PlatformFromAPIKey(apiKey)
+	useTrafficPack := shouldBillWithTrafficPack(ctx, s.billingDeps(), user, quotaPlatform, subscription, apiKey.Group, cost, isSubscriptionBilling)
+	if useTrafficPack {
+		isSubscriptionBilling = false
+		subscription = nil
+	}
 	billingType := BillingTypeBalance
 	if isSubscriptionBilling {
 		billingType = BillingTypeSubscription
@@ -6121,7 +6128,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			IsSubscriptionBill:    isSubscriptionBilling,
 			AccountRateMultiplier: accountRateMultiplier,
 			APIKeyService:         input.APIKeyService,
-			Platform:              PlatformFromAPIKey(apiKey),
+			Platform:              quotaPlatform,
+			UseTrafficPack:        useTrafficPack,
 		}, s.billingDeps(), s.usageBillingRepo)
 		return err
 	}()

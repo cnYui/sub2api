@@ -132,6 +132,30 @@ describe('PaymentStatusPanel', () => {
     openSpy.mockRestore()
   })
 
+  it('renders a provider-hosted QR image without regenerating a canvas QR code', async () => {
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: '',
+        qrImageUrl: 'https://zpayz.cn/qrcode/123.jpg',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const image = wrapper.get('[data-testid="payment-qr-image"]')
+    expect(image.attributes('src')).toBe('https://zpayz.cn/qrcode/123.jpg')
+    expect(toCanvas).not.toHaveBeenCalled()
+  })
+
   it('actively verifies a stuck pending order and settles it when upstream confirms payment', async () => {
     pollOrderStatus.mockResolvedValue(orderFactory('PENDING'))
     verifyOrder.mockResolvedValue({

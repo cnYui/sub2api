@@ -79,6 +79,9 @@ Desktop.ini
 # ===================
 tmp/
 temp/
+.tmp-*
+*.dump
+*.sqlite
 *.tmp
 *.temp
 *.log
@@ -110,6 +113,7 @@ backend/data/
 # ===================
 backend/config.yaml
 deploy/config.yaml
+deploy/.env.*
 backend/.installed
 
 # ===================
@@ -119,6 +123,8 @@ tests
 CLAUDE.md
 .claude
 scripts
+!scripts/
+!scripts/verify-local-frontend-assets.mjs
 .code-review-state
 #openspec/
 code-reviews/
@@ -134,6 +140,7 @@ docs/*
 !docs/legal/
 !docs/legal/*.md
 .serena/
+.worktrees/
 .codex/
 frontend/coverage/
 aicodex
