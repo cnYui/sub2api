@@ -38,21 +38,14 @@ function mountDialog() {
 }
 
 describe('ManualPaymentDialog', () => {
-  it('shows plan amount and defaults to WeChat QR code', () => {
+  it('shows plan amount and only renders Alipay QR code', () => {
     const wrapper = mountDialog()
 
     expect(wrapper.text()).toContain('29 元订阅池')
     expect(wrapper.text()).toContain('¥29.00')
-    expect(wrapper.find('[data-testid="manual-payment-wxpay-qr"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="manual-payment-alipay-qr"]').exists()).toBe(false)
-  })
-
-  it('switches to Alipay QR code', async () => {
-    const wrapper = mountDialog()
-
-    await wrapper.get('[data-testid="manual-payment-tab-alipay"]').trigger('click')
-
+    expect(wrapper.find('[data-testid="manual-payment-tab-wxpay"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="manual-payment-wxpay-qr"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="manual-payment-tab-alipay"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="manual-payment-alipay-qr"]').exists()).toBe(true)
   })
 

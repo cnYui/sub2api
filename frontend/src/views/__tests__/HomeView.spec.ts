@@ -97,6 +97,19 @@ describe('HomeView', () => {
     expect(loginLinks).toHaveLength(1)
   })
 
+  it('默认公共设置只展示天才程序员小站标题', () => {
+    mockStores.appStore.cachedPublicSettings = {
+      site_name: '天才程序员小站',
+      site_subtitle: '',
+    }
+
+    const wrapper = mountHomeView()
+
+    expect(wrapper.find('h1').text()).toBe('天才程序员小站')
+    expect(wrapper.text()).not.toContain('Subscription to API Conversion Platform')
+    expect(wrapper.text()).not.toContain('AI API Gateway')
+  })
+
   it('中文首页文案展示精简套餐、时长、日限额和刷新规则', () => {
     const source = readSource('src/i18n/locales/zh.ts')
 

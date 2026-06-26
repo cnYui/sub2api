@@ -381,7 +381,10 @@ const appStore = useAppStore()
 // 站点设置优先使用后台配置，未配置时回退到当前品牌默认值。
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || DEFAULT_SITE_NAME)
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || DEFAULT_SITE_SUBTITLE)
+const siteSubtitle = computed(() => {
+  const subtitle = appStore.cachedPublicSettings?.site_subtitle
+  return subtitle === undefined ? DEFAULT_SITE_SUBTITLE : subtitle
+})
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 

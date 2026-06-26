@@ -17,6 +17,7 @@
           <PaymentStatusPanel
             :order-id="paymentState.orderId"
             :qr-code="paymentState.qrCode"
+            :qr-image-url="paymentState.qrImageUrl"
             :expires-at="paymentState.expiresAt"
             :payment-type="paymentState.paymentType"
             :pay-url="paymentState.payUrl"
@@ -424,6 +425,7 @@ function emptyPaymentState(): PaymentRecoverySnapshot {
     orderId: 0,
     amount: 0,
     qrCode: '',
+    qrImageUrl: '',
     expiresAt: '',
     paymentType: '',
     payUrl: '',
@@ -1165,7 +1167,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       stripeRouteUrl,
     })
 
-    if (decision.kind !== 'qr_waiting' || !decision.paymentState.qrCode) {
+    if (decision.kind !== 'qr_waiting' || (!decision.paymentState.qrCode && !decision.paymentState.qrImageUrl)) {
       return false
     }
 
