@@ -407,7 +407,7 @@ export default {
     logout: '退出登录',
     github: 'GitHub',
     mySubscriptions: '我的订阅',
-    buySubscription: '充值/订阅',
+    buySubscription: '购买订阅',
     docs: '文档',
     myOrders: '我的订单',
     orderManagement: '订单管理',
@@ -6847,8 +6847,8 @@ export default {
 
   // Recharge / Subscription Page
   purchase: {
-    title: '充值/订阅',
-    description: '通过内嵌页面完成充值/订阅',
+    title: '购买订阅',
+    description: '通过内嵌页面完成订阅购买',
     openInNewTab: '新窗口打开',
     notEnabledTitle: '该功能未开启',
     notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',
@@ -7092,7 +7092,7 @@ export default {
 
   // Payment System
   payment: {
-    title: '充值/订阅',
+    title: '购买订阅',
     amountLabel: '充值金额',
     paymentAmount: '支付金额',
     creditedBalance: '到账余额',
@@ -7171,7 +7171,7 @@ export default {
       processing: '支付处理中',
       processingHint: '支付结果仍在确认中，页面会自动刷新。',
       failed: '支付失败',
-      backToRecharge: '返回充值',
+      backToRecharge: '返回购买',
       viewOrders: '查看订单',
     },
     currentBalance: '当前余额',

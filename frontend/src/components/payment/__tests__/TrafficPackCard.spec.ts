@@ -36,6 +36,19 @@ describe('TrafficPackCard', () => {
     expect(wrapper.text()).toContain('一次性流量包-有效期 365天，额度 5刀')
   })
 
+  it('shows payable price with fee when fee rate is configured', () => {
+    const wrapper = mount(TrafficPackCard, {
+      props: {
+        pack: packFixture({ price: 2 }),
+        feeRate: 1,
+      },
+    })
+    const text = wrapper.text()
+
+    expect(text).toContain('¥2.02元')
+    expect(text).toContain('¥2元 + 1% 手续费')
+  })
+
   it('emits select when buying', async () => {
     const pack = packFixture()
     const wrapper = mount(TrafficPackCard, {

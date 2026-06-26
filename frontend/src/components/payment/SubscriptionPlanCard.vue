@@ -27,6 +27,9 @@
           <div>
             <span :class="['text-2xl font-extrabold tracking-tight', textClass]">{{ priceText }}</span>
           </div>
+          <div v-if="feeRate > 0" class="mt-0.5 text-[11px] text-gray-400 dark:text-dark-500">
+            {{ basePriceText }} + {{ feeRateText }} {{ t('payment.fee') }}
+          </div>
           <span v-if="!isSimplifiedMonthlyPlan" class="text-[11px] text-gray-400 dark:text-dark-500">/ {{ validitySuffix }}</span>
           <div v-if="!isSimplifiedMonthlyPlan && plan.original_price" class="mt-0.5 flex items-center justify-end gap-1.5">
             <span class="text-xs text-gray-400 line-through dark:text-dark-500">{{ originalPriceText }}</span>
@@ -97,6 +100,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
+import { calculatePayableAmount } from './payableAmount'
 import {
   platformAccentBarClass,
   platformBadgeLightClass,
@@ -108,7 +112,9 @@ import {
   platformLabel,
 } from '@/utils/platformColors'
 
-const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[] }>()
+const props = withDefaults(defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[]; feeRate?: number }>(), {
+  feeRate: 0,
+})
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
 const { t } = useI18n()
 
@@ -133,7 +139,11 @@ const formatCompactNumber = (value: number) => {
   return Number(value.toFixed(2)).toString()
 }
 
-const priceText = computed(() => `¥${formatCompactNumber(props.plan.price)}元`)
+const feeRate = computed(() => (Number.isFinite(props.feeRate) && props.feeRate > 0 ? props.feeRate : 0))
+const payablePrice = computed(() => calculatePayableAmount(props.plan.price, feeRate.value))
+const priceText = computed(() => `¥${formatCompactNumber(payablePrice.value)}元`)
+const basePriceText = computed(() => `¥${formatCompactNumber(props.plan.price)}元`)
+const feeRateText = computed(() => formatCompactNumber(feeRate.value) + '%')
 const originalPriceText = computed(() => {
   if (!props.plan.original_price) return ''
   return `¥${formatCompactNumber(props.plan.original_price)}元`

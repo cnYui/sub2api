@@ -318,7 +318,7 @@ describe('PaymentView tab defaults', () => {
     window.localStorage.clear()
   })
 
-  it('defaults to subscription tab and keeps subscription on the left', async () => {
+  it('renders only subscription purchases and hides the balance recharge page', async () => {
     const wrapper = shallowMount(PaymentView, {
       global: {
         stubs: {
@@ -342,9 +342,37 @@ describe('PaymentView tab defaults', () => {
       .map(button => button.text())
       .filter(text => text === 'payment.tabSubscribe' || text === 'payment.tabTopUp')
 
-    expect(tabTexts).toEqual(['payment.tabSubscribe', 'payment.tabTopUp'])
+    expect(tabTexts).toEqual([])
     expect(wrapper.find('[data-testid="subscription-plan-card"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+    expect(wrapper.text()).not.toContain('payment.currentBalance')
+    expect(wrapper.text()).not.toContain('payment.paymentAmount')
+    expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
+  })
+
+  it('ignores the legacy recharge tab query and stays on subscription purchases', async () => {
+    routeState.query = { tab: 'recharge' }
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            template: '<div data-testid="subscription-plan-card"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="subscription-plan-card"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+    expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
   })
 
   it('renders GPT traffic pack cards and creates a traffic pack order', async () => {
@@ -402,6 +430,41 @@ describe('PaymentView tab defaults', () => {
       traffic_pack_id: 3,
       is_mobile: true,
     }))
+  })
+
+  it('passes the checkout fee rate to subscription and traffic pack cards', async () => {
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        ...checkoutInfoWithFourZPayPlansFixture().data,
+        recharge_fee_rate: 1,
+      },
+    })
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            props: ['plan', 'feeRate'],
+            template: '<div data-testid="subscription-plan-card">{{ plan.name }} {{ feeRate }}</div>',
+          },
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            props: ['pack', 'feeRate'],
+            template: '<div data-testid="traffic-pack-card">{{ pack.name }} {{ feeRate }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="subscription-plan-card"]').text()).toContain('1')
+    expect(wrapper.find('[data-testid="traffic-pack-card"]').text()).toContain('1')
   })
 
   it('keeps active subscription state for plan cards without rendering the duplicated current subscription block', async () => {

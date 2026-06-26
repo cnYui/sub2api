@@ -24,6 +24,9 @@
         </div>
         <div class="shrink-0 text-right">
           <span :class="['text-2xl font-extrabold tracking-tight', textClass]">{{ priceText }}</span>
+          <div v-if="feeRate > 0" class="mt-0.5 text-[11px] text-gray-400 dark:text-dark-500">
+            {{ basePriceText }} + {{ feeRateText }} 手续费
+          </div>
         </div>
       </div>
 
@@ -43,6 +46,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TrafficPack } from '@/types/payment'
+import { calculatePayableAmount } from './payableAmount'
 import {
   platformAccentBarClass,
   platformBadgeLightClass,
@@ -52,7 +56,9 @@ import {
   platformTextClass,
 } from '@/utils/platformColors'
 
-const props = defineProps<{ pack: TrafficPack }>()
+const props = withDefaults(defineProps<{ pack: TrafficPack; feeRate?: number }>(), {
+  feeRate: 0,
+})
 const emit = defineEmits<{ select: [pack: TrafficPack] }>()
 
 const platform = computed(() => props.pack.platform || 'openai')
@@ -68,7 +74,11 @@ const formatCompactNumber = (value: number) => {
   return Number(value.toFixed(2)).toString()
 }
 
-const priceText = computed(() => `¥${formatCompactNumber(props.pack.price)}元`)
+const feeRate = computed(() => (Number.isFinite(props.feeRate) && props.feeRate > 0 ? props.feeRate : 0))
+const payablePrice = computed(() => calculatePayableAmount(props.pack.price, feeRate.value))
+const priceText = computed(() => `¥${formatCompactNumber(payablePrice.value)}元`)
+const basePriceText = computed(() => `¥${formatCompactNumber(props.pack.price)}元`)
+const feeRateText = computed(() => formatCompactNumber(feeRate.value) + '%')
 const summaryText = computed(() =>
   `一次性流量包-有效期 ${props.pack.validity_days}天，额度 ${formatCompactNumber(props.pack.credit_usd)}刀，用于写代码和生图`
 )
