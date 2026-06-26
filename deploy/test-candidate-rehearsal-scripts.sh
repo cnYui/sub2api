@@ -25,11 +25,18 @@ assert_not_contains() {
 }
 
 main() {
-  local dry_run_output promote_output promote_status
+  local compose_output dry_run_output promote_output promote_status
+
+  compose_output="$("${DOCKER_BIN:-/Applications/Docker.app/Contents/Resources/bin/docker}" compose \
+    --env-file "${REPO_ROOT}/deploy/.env.candidate.local.example" \
+    -f "${REPO_ROOT}/deploy/docker-compose.candidate.yml" \
+    config 2>&1)"
+  assert_contains "${compose_output}" "name: sub2api-candidate-rehearsal"
 
   dry_run_output="$("${REPO_ROOT}/deploy/rehearse-sub2api-candidate.sh" --dry-run --reset-db 2>&1)"
   assert_contains "${dry_run_output}" "sub2api-candidate:"
   assert_contains "${dry_run_output}" "127.0.0.1:18081"
+  assert_contains "${dry_run_output}" "-p sub2api-candidate-rehearsal"
   assert_not_contains "${dry_run_output}" "https://api.aaccx.pw/v1"
   assert_not_contains "${dry_run_output}" "up -d --no-deps --force-recreate sub2api"
   assert_not_contains "${dry_run_output}" "weishaw/sub2api:latest -f"

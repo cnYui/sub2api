@@ -1,3 +1,5 @@
+name: sub2api-candidate-rehearsal
+
 services:
   sub2api-candidate:
     image: ${CANDIDATE_IMAGE:?CANDIDATE_IMAGE is required}

@@ -8,6 +8,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 DOCKER_BIN="${SUB2API_DOCKER_BIN:-/Applications/Docker.app/Contents/Resources/bin/docker}"
 COMPOSE_FILE="${REPO_ROOT}/deploy/docker-compose.candidate.yml"
+COMPOSE_PROJECT_NAME="${SUB2API_CANDIDATE_PROJECT_NAME:-sub2api-candidate-rehearsal}"
 ENV_FILE="${REPO_ROOT}/deploy/.env.candidate.local"
 ENV_EXAMPLE_FILE="${REPO_ROOT}/deploy/.env.candidate.local.example"
 PUBLIC_COMPOSE_FILE="${REPO_ROOT}/deploy/docker-compose.local.yml"
@@ -149,14 +150,14 @@ build_candidate_image() {
 }
 
 candidate_compose() {
-  env CANDIDATE_IMAGE="${CANDIDATE_IMAGE}" CANDIDATE_SERVER_PORT="${CANDIDATE_PORT}" \
-    "${DOCKER_BIN}" compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
+	env CANDIDATE_IMAGE="${CANDIDATE_IMAGE}" CANDIDATE_SERVER_PORT="${CANDIDATE_PORT}" \
+		"${DOCKER_BIN}" compose -p "${COMPOSE_PROJECT_NAME}" --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" "$@"
 }
 
 run_candidate_compose() {
   if [[ "${DRY_RUN}" == true ]]; then
-    printf '[DRY-RUN] env CANDIDATE_IMAGE=%q CANDIDATE_SERVER_PORT=%q %q compose --env-file %q -f %q' \
-      "${CANDIDATE_IMAGE}" "${CANDIDATE_PORT}" "${DOCKER_BIN}" "${ENV_FILE}" "${COMPOSE_FILE}"
+	printf '[DRY-RUN] env CANDIDATE_IMAGE=%q CANDIDATE_SERVER_PORT=%q %q compose -p %q --env-file %q -f %q' \
+		"${CANDIDATE_IMAGE}" "${CANDIDATE_PORT}" "${DOCKER_BIN}" "${COMPOSE_PROJECT_NAME}" "${ENV_FILE}" "${COMPOSE_FILE}"
     printf ' %q' "$@"
     printf '\n'
     return 0
