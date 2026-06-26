@@ -184,3 +184,22 @@ func TestMigration154SeedsCodex99SubscriptionPlanWithoutAccountBinding(t *testin
 	require.NotContains(t, sql, "INSERT INTO account_groups")
 	require.NotContains(t, sql, "UPDATE account_groups")
 }
+
+func TestMigration155SeedsCodexSubscriptionPlanBaselineWithoutAccountBinding(t *testing.T) {
+	content, err := FS.ReadFile("155_seed_codex_subscription_plans_baseline.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "codex-pool-19-usd")
+	require.Contains(t, sql, "codex-pool-29-usd")
+	require.Contains(t, sql, "codex-pool-49-usd")
+	require.Contains(t, sql, "codex-pool-89-usd")
+	require.Contains(t, sql, "'29 元订阅池'::TEXT, 29.00::NUMERIC, 19::NUMERIC")
+	require.Contains(t, sql, "'39 元订阅池'::TEXT, 39.00::NUMERIC, 29::NUMERIC")
+	require.Contains(t, sql, "'59 元订阅池'::TEXT, 59.00::NUMERIC, 49::NUMERIC")
+	require.Contains(t, sql, "'99 元订阅池'::TEXT, 99.00::NUMERIC, 89::NUMERIC")
+	require.Contains(t, sql, "WHERE NOT EXISTS")
+	require.Contains(t, sql, "for_sale = TRUE")
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+}
