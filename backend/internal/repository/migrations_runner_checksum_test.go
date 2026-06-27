@@ -161,4 +161,13 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		)
 		require.False(t, ok)
 	})
+
+	t.Run("155历史checksum可兼容当前baseline seed", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"155_seed_codex_subscription_plans_baseline.sql",
+			"0e2d20c620783bf91cbf5ffb524edb46730e998a10799f66dd03e988a32b0b8f",
+			"64c22df919959e4afef129f8aacd2785254215cee2888f2ec162f65c36d1921f",
+		)
+		require.True(t, ok)
+	})
 }

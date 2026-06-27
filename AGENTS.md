@@ -1,69 +1,55 @@
-# AI 协作记忆
+# AI 协作入口
 
-> 压缩记忆全文见 `docs/ai/context/20260619-151920-sub2api-compressed-memory_CN.md`。
-> 后续新增长期上下文统一新建到 `docs/ai/context/YYYYMMDD-HHMMSS-*.md`，不要覆写、重命名或删除历史文档。
+> 最新压缩记忆见 `docs/ai/context/20260624-195608-agents-memory-compressed_CN.md`。
+> 早期压缩记忆见 `docs/ai/context/20260619-151920-sub2api-compressed-memory_CN.md`。
+> 后续长期上下文统一新建到 `docs/ai/context/YYYYMMDD-HHMMSS-*.md`，不要覆写、重命名或删除历史文档。
 
-## 核心定论
+## 最高优先级定论
 
-- 采用“三项目串联方案 A”：Sub2API 是唯一公网 API 入口，也是唯一用户 Key、计费和用量事实源；CLIProxyAPI 只作为内网账号池、OAuth、协议转换和轮询上游；yui.web/shop 只保留展示、说明和跳转。
-- 当前主链路：`Cloudflare Tunnel -> nginx 127.0.0.1:8080 -> Sub2API 127.0.0.1:18080 -> CLIProxyAPI 127.0.0.1:8317`。
+- Sub2API 是唯一公网 API 入口，也是唯一用户 Key、计费和用量事实源。
+- CLIProxyAPI 只作为内网账号池、OAuth、协议转换和轮询上游；yui.web/shop 只保留展示、说明和跳转。
+- 当前主链路：`Cloudflare Tunnel -> nginx 127.0.0.1:8080 -> sub2api-candidate 127.0.0.1:18084 -> CLIProxyAPI 127.0.0.1:8317`。
 - 不要让 Sub2API、yui.web、CLIProxyAPI 同时对同一个用户 Key 做状态判定或扣费。
-- 不要在文档、提交或日志中记录完整 API Key、内部 token、HMAC secret。
-- 前端 UI 重设计采用 `yui.web` 作品集黑白灰风格，覆盖用户页和管理后台；默认品牌名为「天才程序员小站」，保留 `siteName/siteLogo` 后台配置优先逻辑；信息架构、后端、API、路由和计费逻辑不改。设计稿见 `docs/ai/context/20260620-214101-sub2api-yuiweb-black-white-ui-redesign-design_CN.md`。
+- 不要在文档、提交或日志中记录完整 API Key、内部 token、HMAC secret、SMTP 密码。
 
-## 运行态摘要
+## 当前运行态提醒
 
 - `aaccx.pw/shop` 归 yui.web；`aaccx.pw/v1/*`、`/api/*` 和 Sub2API 控制台路由归 Sub2API；`api.aaccx.pw` 也是 Sub2API 入口。
-- CLIProxyAPI 是聚合上游，不是单个静态 OpenAI Key；作为 Sub2API 上游账号时必须启用 `credentials.pool_mode=true`，并让 401/403/429 在同账号内重试。
-- 套餐分组显示名为 `codex-pool-19-usd`、`codex-pool-29-usd`、`codex-pool-49-usd`，分别对应每日 19/29/49 USD；`codex-pool-local-unlimited` 是本机自用无限额分组。
-- yui.web 旧 Key 已按 `orders` 迁入 Sub2API；旧邀请码和旧 API Key 发放业务应退役为 410/只读历史，不要继续写入。
-- `xiaobianfuai@gmail.com` 是管理员和本机 Codex Local Key 所属账号（原 `15951875192@phone.com` 已改名），不要按普通用户删除；如需隐藏，用角色筛选或备注标识。
+- 2026-06-27 当前公网链路已由 18084 候选环境承接：`Cloudflare Tunnel -> nginx 127.0.0.1:8080 -> sub2api-candidate 127.0.0.1:18084 -> CLIProxyAPI 127.0.0.1:8317`，容器内访问上游聚合入口为 `host.docker.internal:8317`；`sub2api-candidate` healthy，DB 为 `sub2api-candidate-postgres`，候选最新库为 47 users / 40 keys / 191 migrations；旧 `sub2api` 18080 已 `Exited (0)`，`weishaw/sub2api:latest` 镜像暂留；Nginx 反代全部指向 18084，`/purchase`、`/health`、`/v1/responses`、`/v1/chat/completions` 均为 200，LLM 真实回复已证明 `sub2api -> CLIProxyAPI -> 上游 OpenAI` 全栈打通。结果见 `docs/ai/context/20260627-102157-18084-public-candidate-chain-agents-update-result_CN.md`。
+- 2026-06-27 已按用户要求停止旧链路残留容器：`sub2api-postgres`、`sub2api-redis`、`sub2api-preview`（原 18081）、`sub2api-main-existingdb-preview`（原 18083）；当前公网 `sub2api-candidate`、`sub2api-candidate-postgres`、`sub2api-candidate-redis` 仍 healthy，`18084/health` 与 `8080/health` 均为 200。结果见 `docs/ai/context/20260627-103515-stop-old-18080-db-redis-preview-result_CN.md`。
+- 2026-06-27 蓝绿测试端口与邮箱验证码排查：`8080` 是 nginx 公网入口并反代 `18084`，`18084` 是当前公网候选，`18082` 是旧 main-preview；本地 main 前端建议用 `5174 -> 18082`，数据库/Redis 仅容器内使用 `5432/6379`，如需宿主机调试用 `15432/16379`。18084 验证码接口返回 200 但 worker 报 `EMAIL_NOT_CONFIGURED`，原因是候选库 SMTP 配置为空；18082 则是 `REGISTRATION_DISABLED`。结果见 `docs/ai/context/20260627-110649-blue-green-email-verify-port-plan_CN.md`。
+- 2026-06-27 已另起 SMTP 测试实例 `sub2api-smtp-test`：`127.0.0.1:18085 -> 8080`，独立 DB `sub2api-smtp-test-postgres`、独立 Redis `sub2api-smtp-test-redis`；测试库已打开 `registration_enabled/email_verify_enabled/password_reset_enabled`，SMTP 真实账号仍为空。`20260619-220357-gmail-smtp-enabled-result_CN.md` 是本地 ignored 文档，未被 git 跟踪；Gmail SMTP 配置曾是运行态 DB settings，不是源码/迁移。结果见 `docs/ai/context/20260627-111200-smtp-test-port-18085-result_CN.md`。
+- 2026-06-27 已在 18085 测试库写入 Gmail SMTP 非敏感字段：`smtp_host=smtp.gmail.com`、`smtp_port=587`、`smtp_username/smtp_from=xiaobianfuai@gmail.com`、`smtp_from_name=AACCX`、`smtp_use_tls=false`；`smtp_password` 仍需用户通过 Google App Password 获取后手动写入运行态，绝不能进 git。结果见 `docs/ai/context/20260627-113243-smtp-18085-gmail-config-result_CN.md`。
+- 2026-06-27 已在 18085 测试库写入 Gmail App Password，脱敏状态为 `smtp_password=[CONFIGURED]`；`POST /api/v1/auth/send-verify-code` 返回 200，`sub2api-smtp-test` 日志确认 worker 已成功发送验证码邮件，不再报 `EMAIL_NOT_CONFIGURED`。密码明文不得进入文档、提交或日志摘要。结果见 `docs/ai/context/20260627-113800-smtp-18085-gmail-password-configured-result_CN.md`。
+- 当前 Nginx 公网入口请求体上限已与 Sub2API 对齐为 256MB；`aaccx.pw` 已补裸 `/responses`、`/chat/completions`、`/embeddings`、`/images/*` 代理到 Sub2API。真实 100MB+ 公网请求仍可能受 Cloudflare 套餐上传上限影响。结果见 `docs/ai/context/20260624-201352-413-payload-too-large-nginx-fix-result_CN.md`。
+- 2026-06-24 413 归因：大量 413 集中在 Codex Desktop Windows 裸 `/responses`，并伴随裸 `/models?client_version=0.142.0` 404，不是 `/v1/images/*` 集中触发；`/usage-guide` 生图文案已拆分 Base URL、相对路径和完整 URL。结果见 `docs/ai/context/20260624-202759-usage-guide-image-url-413-result_CN.md`。
+- 2026-06-24 分支合并排查：`codex/usage-guide-99-plan-main-20260624` 只是从 `origin/main` 创建的空内容分支，真正的 99 文案分支 `codex/usage-guide-99-plan-20260624` 未合并；公网 `/usage-guide` 已有 99/图生图/Trae 文案，但运行态 DB 只有 29/39/59 三个在售订阅，没有 99 元套餐和对应 group。结果见 `docs/ai/context/20260624-210639-main-merge-missing-branch-diagnosis_CN.md`。
+- 2026-06-24 公网 502 归因：22:30 JST 左右不是 Cloudflare/nginx/Sub2API 全局不可用，`/v1/responses` 当前可返回 401/200；对应连续 502 主要集中在流式 `/v1/chat/completions`，Sub2API 日志显示上游流缺少终止事件 `stream usage incomplete: missing terminal event`。结果见 `docs/ai/context/20260624-223544-public-502-bad-gateway-diagnosis_CN.md`。
+- 2026-06-25 `Selected model is at capacity. Please try a different model.` 归因：这是 OpenAI 官方/上游返回的模型容量不足错误，不是 Sub2API 自造拦截；Sub2API 会把它识别为临时容量错误并触发同账号重试/账号 failover。结果见 `docs/ai/context/20260625-101447-openai-model-capacity-diagnosis_CN.md`。
+- 2026-06-25 并发/上游排查：当前四个套餐分组共用一个 `cliproxy-local-openai` 上游账号，Sub2API 账号并发为 3，确实会在高峰排队；但 09:00 后主要错误是上游 overloaded、CLIProxyAPI 内部账号 429 usage limit reached 和 auth unavailable，不是大面积 Sub2API 排队超时。结果见 `docs/ai/context/20260625-121913-sub2api-cliproxyapi-concurrency-upstream-diagnosis_CN.md`。
+- 2026-06-25 已按用户要求将运行态 `cliproxy-local-openai` 的 Sub2API 账号并发从 3 调整为 10；未修改用户并发、分组绑定或 CLIProxyAPI 配置。结果见 `docs/ai/context/20260625-192607-sub2api-account-concurrency-10-result_CN.md`。
+- CLIProxyAPI 是聚合上游，不是单个静态 OpenAI Key；Sub2API 上游账号需启用 `credentials.pool_mode=true`，并让 401/403/429 在同账号内重试。
+- 订阅、余额充值和 GPT 流量包购买全部走 Sub2API 支付订单与 ZPay/EasyPay；当前 ZPay 支付宝实例应使用 `popup/submit.php` 托管收银台，不要把 ZPay `mapi.php` 返回的 `qr.alipay.com` 原始码直接渲染给用户扫码。自动履约必须以签名正确、订单号匹配、provider/merchant metadata 匹配、回调或查单金额等于本地 `pay_amount` 为准。
+- 2026-06-26 本地 `127.0.0.1:5174/purchase` 显示“充值功能暂未开放”的直接原因不是 ZPay 代码未合并，而是运行态 DB 没有任何 `payment_provider_instances`，且支付宝/微信可见支付方式均未启用；结果见 `docs/ai/context/20260626-124242-purchase-zpay-merge-runtime-diagnosis_CN.md`。
+- 2026-06-26 ZPay 购买支付与自动履约需求已沉淀：目标是用户在当前 `/purchase` 完成套餐购买，ZPay/EasyPay 动态支付成功后按订单 `pay_amount` 校验并自动添加/续期订阅；仍需用户提供 ZPay 创建订单、签名、回调、查单文档与脱敏样例。见 `docs/ai/context/20260626-132547-zpay-purchase-payment-fulfillment-requirements_CN.md`。
+- 2026-06-26 已写 ZPay/EasyPay 支付宝-only 运行态配置计划：仅启用支付宝、关闭微信和退款，商户配置只在执行时通过隐藏输入写入运行态，不写入源码或长期文档；计划见 `docs/ai/context/20260626-133635-zpay-alipay-runtime-config-plan_CN.md`。
+- 2026-06-26 分支 `codex/zpay-alipay-runtime-config` 已新增运行态配置脚本并写入 ZPay/EasyPay 支付宝-only provider；13:50 左右发现 `qrcode/mapi.php` 模式返回 `qr.alipay.com` 原始码，扫码会报“交易买家不匹配”，已改为 `payment_mode=popup` 走 ZPay `submit.php` 托管收银台。真实支付端到端验收仍需新建订单验证。结果见 `docs/ai/context/20260626-135223-zpay-alipay-runtime-config-result_CN.md`。
+- 2026-06-26 ZPay 1% 手续费已通过运行态 `RECHARGE_FEE_RATE=1` 处理；不要修改套餐/流量包基础价格，后端订单用 `pay_amount` 承载实付金额，前端 `/purchase` 列表卡片、确认区和按钮展示含手续费实付价。结果见 `docs/ai/context/20260626-151923-zpay-1-percent-fee-runtime-result_CN.md`。
+- 2026-06-26 `/purchase` 用户页已下架余额充值 UI，只保留订阅套餐和 GPT 流量包购买；`?tab=recharge` 不再进入充值页。后端余额订单能力保留用于历史订单和支付恢复。结果见 `docs/ai/context/20260626-152551-purchase-remove-balance-recharge-result_CN.md`。
+- 2026-06-26 `liyutong2883@gmail.com` 支付宝购买 3 元 GPT 流量包已自动履约；误新增的手工 10 USD 流量卡已撤回，当前保留两张 10 USD 卡，合计 20 USD。结果见 `docs/ai/context/20260626-154442-liyutong-3yuan-traffic-card-result_CN.md`。
+- 2026-06-26 候选预演第一次真实执行因 Docker Compose project 未隔离，误停并重建公网 `sub2api`、`sub2api-postgres`、`sub2api-redis`；公网 Postgres 数据未见批量损坏，但 Redis refresh token 会话态丢失，导致旧登录态失效。恢复候选预演前必须先读 `docs/ai/context/20260626-205933-sub2api-candidate-rehearsal-incident-diagnosis_CN.md`，并确认候选 project 不可能等于公网 project。
+- 2026-06-26 候选预演纠偏确认：最新生产 DB 数据保留在 Docker named volume `deploy_postgres_data`（47 users、40 keys、191 migrations，`xiaobianfuai@gmail.com` 是 `id=13` admin）；当前 `deploy/postgres_data` bind 目录是旧库（32 users、188 migrations），不能作为最新生产 DB 克隆源。候选/恢复必须从 `deploy_postgres_data` 或其 dump 取数，见 `docs/ai/context/20260626-214600-latest-db-volume-candidate-rehearsal-result_CN.md`。
+- 2026-06-26 18084 候选环境购买入口隐藏归因：候选 sanitize 不能把 `payment_enabled=false` 写入克隆库，否则 HTML 注入的 `window.__APP_CONFIG__` 和前端路由守卫会隐藏 `/purchase`；候选预演应保留 `payment_enabled=true`，只禁用具体 provider、可见支付方式、SMTP 和监控副作用。结果见 `docs/ai/context/20260626-220130-candidate-purchase-nav-hidden-fix-result_CN.md`。
+- 2026-06-26 `/purchase` 主内容空白归因：`PaymentView.vue` 购买选择态多包了一层无指令裸 `<template>`，构建后套餐卡片进入原生 template content，DOM 有文字但视觉不渲染；已删除 wrapper 并新增回归测试。结果见 `docs/ai/context/20260626-221115-payment-view-native-template-blank-fix-result_CN.md`。
+- 2026-06-26 18084 候选环境“支付功能未开放”归因：ZPay 链路代码已打通，但候选 sanitize 误把克隆来的 `ZPay Alipay` provider 和支付宝可见方式关掉，导致 checkout `methods={}`；已恢复为支付宝-only `easypay_alipay`、`payment_mode=popup`，并修正候选 sanitize 只关闭其他 provider/退款/通知副作用。结果见 `docs/ai/context/20260626-221915-candidate-zpay-provider-restore-result_CN.md`。
+- 2026-06-26 已在 18084 候选环境对应数据库 `sub2api-candidate-postgres` 创建普通用户 `1038686518@qq.com`，用户 id=48，email 登录接口返回 200；只写候选库，未改生产库、API Key、套餐、余额或支付配置。结果见 `docs/ai/context/20260626-234732-candidate-18084-create-user-result_CN.md`。
+- 套餐分组名 `codex-pool-19-usd`、`codex-pool-29-usd`、`codex-pool-49-usd` 分别对应每日 19/29/49 USD。
+- 当前售卖套餐里 `29 元订阅池` 对应 `subscription_plans.id=1 -> group_id=2 -> codex-pool-19-usd`；不要误绑到 `codex-pool-29-usd`。
+- `/purchase` 只负责充值、订阅和 GPT 流量包购买，不再展示当前订阅详情；当前订阅状态统一在“我的订阅”页查看。
+- `xiaobianfuai@gmail.com` 是管理员和本机 Codex Local Key 所属账号，不要按普通用户删除。
 
-## 易踩坑
+## 维护规则
 
-- 前端 chunk 命名已从源头改为 `pkg-*`；不要再把真实 `/assets/pkg-*` 反向 rewrite 到 `/assets/vendor-*`。公网入口兼容只保留 `app-index-* -> index-*` 方向。
-- Docker 构建需要复制 `docs/legal/*.md`，否则前端 raw import 会失败。
-- 更新 Sub2API account credentials 时要带回 `base_url` 等非敏感字段；后端只保留未提交的敏感字段，非敏感字段会被 incoming credentials map 覆盖。
-- 当前 SMTP 已配置为 Gmail 发信，发件邮箱 `xiaobianfuai@gmail.com`，`email_verify_enabled=true`、`password_reset_enabled=true`；忘记密码实现是邮件重置链接 token，不是用户手输验证码。不要在文档或提交中记录 Gmail 应用专用密码；该密码曾在对话中出现，后续建议重新生成并替换。
-- `/purchase` 在未配置支付服务商时展示手动收款码，引导用户去 `/redeem`；该路径不创建支付订单、不自动开通订阅、不写账单或用量。
-- 当前售卖套餐里 `29 元订阅池` 对应 `subscription_plans.id=1 -> group_id=2 -> codex-pool-19-usd`；`codex-pool-29-usd` 实际对应 `39 元订阅池`，不要按分组名误绑 29 元/月用户。
-
-## 运行记录
-
-- 2026-06-19：`18405650929@phone.com` 用户存在且状态 active，已有 active API Key（掩码 `sk-yui-l...OQjSJH`），绑定 `codex-pool-19-usd`，订阅 active 且到期时间 `2026-07-17 16:06:37.531+08`；使用该 Key 访问 `https://aaccx.pw/v1/models` 和 `https://api.aaccx.pw/v1/models` 均返回 200，模型列表包含 `gpt-5.5`、`gpt-5.4` 等 10 个模型。结果见 `docs/ai/context/20260619-152007-18405650929-api-key-public-models-result_CN.md`。
-- 2026-06-19：已为当前运行态配置 Gmail SMTP，发件邮箱为 `xiaobianfuai@gmail.com`，`frontend_url=https://aaccx.pw`，并开启 `email_verify_enabled=true`、`password_reset_enabled=true`；SMTP 登录验证成功，`/api/v1/auth/forgot-password` 已对该邮箱入队并由 worker 发送密码重置邮件。结果见 `docs/ai/context/20260619-220357-gmail-smtp-enabled-result_CN.md`。
-- 2026-06-20：邮件重置链接 `https://aaccx.pw/reset-password?...` 404 的根因是 `aaccx.pw` nginx 只代理部分 Sub2API SPA 路由，漏掉 `reset-password`、`forgot-password`、`email-verify` 等认证入口；已补明确白名单并 reload nginx，公网三条路径均返回 200，`/shop` 仍归 yui.web。截图里暴露的旧 Gmail reset token 已从 Redis 删除，并重新发送新的密码重置邮件。结果见 `docs/ai/context/20260620-100611-aaccx-reset-password-route-404-fix-result_CN.md`。
-- 2026-06-20：已将手机号迁移用户 `13052071067@phone.com` 的身份字段更新为真实邮箱 `milesyang987@gmail.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash 均未改动，并已清理该用户 API Key auth cache。结果见 `docs/ai/context/20260620-110315-phone-user-real-email-update-result_CN.md`。
-- 2026-06-20：已批量将 6 个手机号迁移用户从 `<手机号>@phone.com` 更新为真实邮箱：`18367290091 -> changjunwang123@gmail.com`、`13052071067 -> milesyang987@gmail.com`、`19520434236 -> xunskyler@gmail.com`、`18405650929 -> xwh1124wcw@163.com`、`13584052801 -> 897858381@qq.com`、`15995436627 -> 15995436627@163.com`；同步修改 `users.email`、`users.username`、`auth_identities.provider_subject`，API Key/订阅/余额/用量/密码 hash 均未改动，并清理这些用户的 API Key auth cache。结果见 `docs/ai/context/20260620-110907-batch-phone-users-real-email-update-result_CN.md`。
-- 2026-06-20：已将手机号迁移用户 `15062376174@phone.com` 的身份字段更新为真实邮箱 `313398924@qq.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash 均未改动，并清理该用户 API Key auth cache。结果见 `docs/ai/context/20260620-111205-phone-user-15062376174-real-email-update-result_CN.md`。
-- 2026-06-20：已将手机号迁移用户 `15776812883@phone.com` 的身份字段更新为真实邮箱 `liyutong2883@gmail.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash 均未改动，并清理该用户 API Key auth cache。结果见 `docs/ai/context/20260620-111404-phone-user-15776812883-real-email-update-result_CN.md`。
-- 2026-06-20：`18014503779 -> 1915474749@qq.com` 迁移时发现真实邮箱已存在空壳账号 `users.id=25`；已将其 email identity、user affiliate 和 user platform quota 合并到有权益主账号 `users.id=16`，软删除 `users.id=25`，并把 `users.id=16` 的 `email/username` 更新为 `1915474749@qq.com`；主账号 API Key/订阅/余额/用量/密码 hash 未改动，并清理主账号 API Key auth cache。结果见 `docs/ai/context/20260620-112250-phone-user-18014503779-real-email-merge-result_CN.md`。
-- 2026-06-20：已将手机号迁移用户 `17371571728@phone.com` 的身份字段更新为真实邮箱 `2246950894@qq.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash 均未改动，并清理该用户 API Key auth cache。结果见 `docs/ai/context/20260620-194159-phone-user-17371571728-real-email-update-result_CN.md`。
-- 2026-06-20：已直接创建用户 `2316095427@qq.com`，按用户指定初始密码设置 bcrypt 登录密码，绑定 29 元/月套餐 `subscription_plans.id=1` / `codex-pool-19-usd` / `group_id=2`，创建默认 API Key（掩码 `sk-bf709...e7c6fd`）和 4 条默认 `user_platform_quotas`；登录、`/v1/models` 和 `/v1/chat/completions` 公网验证均返回 200。结果见 `docs/ai/context/20260620-180728-add-2316095427-user-29-result_CN.md`。
-- 2026-06-20：已将管理员账号 `users.id=13` 从 `15951875192@phone.com` 改为 `xiaobianfuai@gmail.com`，仍保持 `admin`；管理员本机无限额 API Key（掩码 `sk-LOCAL...e28804`）未改动。已软删除占用该邮箱的普通测试账号 `users.id=26`，删除其邮箱 identity，软删除测试 API Key 并写入 `deleted_api_key_audits`，同时清理测试 Key auth cache 和测试账号 refresh token 集合。结果见 `docs/ai/context/20260620-195106-admin-15951875192-renamed-xiaobianfuai-test-user-deleted-result_CN.md`。
-- 2026-06-20：已完成 Sub2API 前端 yui.web 黑白灰视觉重设计，默认品牌呈现为「天才程序员小站」，覆盖用户页和管理后台；后端、API、路由、计费逻辑未修改。结果见 `docs/ai/context/20260620-214423-sub2api-yuiweb-black-white-ui-redesign-result_CN.md`。
-- 2026-06-21：已修正默认首页展示：未登录态只保留 Hero 区「立即登录」入口，右上角匿名登录按钮移除；中部三张卡片改为 29/39/59 元套餐及每日 24 点刷新说明；支持模型只展示 GPT 5.3、Codex 5.4、GPT 5.5。结果见 `docs/ai/context/20260621-101724-home-login-plans-models-result_CN.md`。
-- 2026-06-21：已调整 `/purchase` 前端展示：打开页面默认展示订阅页签，页签顺序为订阅在左、充值在右；支付接口、订单、订阅和计费逻辑未修改。结果见 `docs/ai/context/20260621-110615-purchase-default-subscription-tab-result_CN.md`。
-- 2026-06-21：已精简购买页订阅卡片和首页套餐卡片文案：带日限额月度套餐右侧价格改为 `¥xx元`，描述统一为「月度订阅-时间 30天，日限额 x刀，24点刷新」，并移除重复的美元价格、周期、倍率、模型 scope 和 features 展示；后端、支付和计费逻辑未修改。结果见 `docs/ai/context/20260621-111028-subscription-card-copy-price-result_CN.md`。
-- 2026-06-21：已在 nginx 公网分流层下线 yui.web 旧 Shop 路由 `/shop/login/`、`/shop/register/`、`/shop/reset-password/`、`/shop/account/`、`/shop/admin/`、`/shop/redeem/`、`/shop/key/`、`/shop/query/`、`/shop/order/`、`/shop/pay/`、`/shop/result/`、`/shop/content/`，公网返回 410；`/shop/` 和 `/shop/guide/` 保留 200，Sub2API `/dashboard`、`/v1/*` 未受影响。结果见 `docs/ai/context/20260621-120456-yuiweb-public-shop-legacy-routes-retired-result_CN.md`。
-- 2026-06-21：已将手机号迁移用户 `19814722044@phone.com` 的身份字段更新为真实邮箱 `varmons@proton.me`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash、角色和状态均未改动，并已广播该用户 API Key auth cache 失效。结果见 `docs/ai/context/20260621-121301-phone-user-19814722044-real-email-update-result_CN.md`。
-- 2026-06-21：已在普通用户面板新增「使用方法」页面 `/usage-guide`，左侧导航仅普通用户可见，管理员页面和管理员侧栏不新增入口；页面只展示 8 个步骤和用户提供的 10 张截图，后端、支付、订阅、兑换码、API Key、计费和公网配置未修改。结果见 `docs/ai/context/20260621-160506-user-usage-guide-result_CN.md`。
-- 2026-06-21：已调查当前生图能力与计费：代码支持 `/v1/images/generations`、`/v1/images/edits` 和 `/v1/responses` 的 `image_generation` 工具，但当前三个在售订阅分组 `codex-pool-19-usd`、`codex-pool-29-usd`、`codex-pool-49-usd` 的 `allow_image_generation=false`，因此当前没有在售档位可用生图；若启用则按图片张数、尺寸和倍率消耗订阅日额度。结果见 `docs/ai/context/20260621-155950-image-generation-access-billing-current-state_CN.md`。
-- 2026-06-21：已将手机号迁移用户 `15706598243@phone.com` 的身份字段更新为真实邮箱 `15706598243@163.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash、角色和状态均未改动，并已广播该用户 API Key auth cache 失效。结果见 `docs/ai/context/20260621-155951-phone-user-15706598243-real-email-update-result_CN.md`。
-- 2026-06-21：已移除 CLIProxyAPI 运行配置中错误的 `gpt-image-2 -> gemini-3.1-flash-image` Antigravity 别名映射；使用 CLIProxyAPI 当前 API Key 直连 `http://127.0.0.1:8317/v1/images/generations` 真实生图返回 200，得到 1 张 PNG，并视觉确认结果有效。本次未修改 Sub2API 套餐生图开关、价格或计费逻辑。结果见 `docs/ai/context/20260621-161803-cliproxyapi-gpt-image-2-native-image-test-result_CN.md`。
-- 2026-06-21：已通过 Sub2API 后台 API 开启三个在售订阅分组和本机自用分组的生图能力：`groups.id=2/3/4/5` 均设置 `allow_image_generation=true`，图片价格统一为 `1K=0.10 USD/张`、`2K=0.20 USD/张`、`4K=0.40 USD/张`，并保持三档在售分组日限额 `19/29/49 USD` 不变；本机无限额分组同价用于统一成本口径但不限制自用量。结果见 `docs/ai/context/20260621-162628-enable-image-generation-sale-and-local-groups-result_CN.md`。
-- 2026-06-21：已将当前工作区使用教程前端改动整理到分支 `codex/usage-guide-review-merge-20260621` 并合并回本地 `main`；review 后遮挡教程截图中的浏览器个人信息和用户邮箱，补充 `.gitignore` 防止本地 dump/sqlite/env 进入仓库；验证包含 UsageGuide/AppSidebar 测试、前端 typecheck 和 build。结果见 `docs/ai/context/20260621-161806-usage-guide-branch-review-merge-result_CN.md`。
-- 2026-06-21：检查确认 `13813756694@phone.com` 尚未改为真实邮箱；已将该手机号迁移用户的身份字段更新为 `amarsimoss@gmail.com`，同步修改 `users.email`、`users.username` 和 `auth_identities.provider_subject`；用户 id、API Key、订阅、余额、用量、密码 hash、角色和状态均未改动，并已广播该用户 API Key auth cache 失效。结果见 `docs/ai/context/20260621-163447-phone-user-13813756694-real-email-update-result_CN.md`。
-- 2026-06-21：已将 `/usage-guide` 改为页面内“使用方法控制台”，桌面端左侧二级导航、移动端顶部标签；当前包含「Codex 接入」和「生图方法」两个栏目，生图栏目只展示用户接入信息、`https://api.aaccx.pw/v1`、`POST /v1/images/generations`、1K/2K/4K 单价和 `sk-xxxx` 占位示例，不展示管理员分组 id、本地端口或后台 API 细节。结果见 `docs/ai/context/20260621-164648-usage-guide-console-image-generation-result_CN.md`。
-- 2026-06-21：已移除用户仪表盘图表区域的「模型分布」/按模型拆分卡片，保留时间筛选、刷新、粒度选择和 Token 使用趋势；后端、API、路由、计费和公网配置未修改。验证包含新增 UserDashboardCharts 组件测试和前端 build。结果见 `docs/ai/context/20260621-164422-dashboard-remove-model-card-result_CN.md`。
-- 2026-06-23：已修复手机端响应式下部分按钮触屏点击被移动侧栏遮罩/Header 层级竞争影响的问题；根因是 `AppSidebar` 移动遮罩和 `AppHeader` 同为 `z-30`，触屏命中顺序不稳定。已将移动遮罩提升为 `z-[35]`，保持低于侧栏 `z-40`、高于 Header `z-30`，并用 `2799523972@qq.com` 在本地源码预览真实登录验证移动菜单、侧栏链接、页面按钮和用户下拉命中正常。结果见 `docs/ai/context/20260623-214754-mobile-touch-buttons-fix-result_CN.md`。
-- 2026-06-21：已从普通用户侧边栏移除 `/monitor`「渠道状态」入口，但保留 `/monitor` 路由、用户只读接口和管理员 `/admin/channels/monitor`；`/available-channels` 新增「当前价格」摘要，展示用户可见 `gpt-5.4`、`gpt-5.5` 的 token 单价，以及从 `/groups/available` 读取的生图 1K/2K/4K 单价。验证包含新增 AppSidebar/AvailableChannelsView 测试和前端 build。结果见 `docs/ai/context/20260621-184738-available-channels-price-summary-monitor-hide-result_CN.md`。
-- 2026-06-21：已修复 `/available-channels` 顶部价格摘要在渠道表为空时不展示 `gpt-5.4/gpt-5.5` 的问题；根因是上一版从 `/channels/available` 渠道响应派生 GPT 价格，而当前运行态该接口返回空。新增用户侧只读接口 `/api/v1/channels/prices`，复用 `ModelPricingResolver` 实际计费口径返回 `gpt-5.4/gpt-5.5` token 与 priority 单价；前端优先读取该接口，生图价格继续从当前用户可用分组读取。当前本地预览为前端 `http://localhost:5174/available-channels` 代理到源码预览后端 `127.0.0.1:18081`，未改动正式公网 `18080` 容器。结果见 `docs/ai/context/20260621-191954-available-channels-billing-price-source-result_CN.md`。
-- 2026-06-21：已用本机管理员自用 API Key（掩码 `sk-LOCAL-454...e28804`）在正式本地入口 `127.0.0.1:18080/v1/responses` 验证 `gpt-5.5` 的 `service_tier=fast` 计费；`fast` 被归一化为 `priority`，同 token 数记录中普通请求 `usage_logs.id=5897` 总成本 `0.005197`，fast 请求 `usage_logs.id=5898` 总成本 `0.010394`，输入/输出/缓存读取成本均为 2 倍。结果见 `docs/ai/context/20260621-202151-openai-fast-priority-billing-test-result_CN.md`。
-- 2026-06-21：已将源码中的 OpenAI `service_tier=priority` 和客户端别名 `fast` 计费规则从 2 倍改为 1.5 倍；`BillingService` 统一把 priority 作为服务等级倍率处理，覆盖输入、输出、缓存写入、缓存读取和图片输出 token 成本，并把 `/api/v1/channels/prices` 的 priority 展示价归一为基础价 `* 1.5`。修改前的 2 倍实测记录仅代表历史运行态；公网或本地服务需重启/发布新代码后才会按 1.5 倍生效。结果见 `docs/ai/context/20260621-204154-priority-fast-1-5x-pricing-result_CN.md`。
-- 2026-06-23：已修复手机端响应式下部分按钮触屏点击被移动侧栏遮罩/Header 层级竞争影响的问题；根因是 `AppSidebar` 移动遮罩和 `AppHeader` 同为 `z-30`，触屏命中顺序不稳定。已将移动遮罩提升为 `z-[35]`，保持低于侧栏 `z-40`、高于 Header `z-30`，并用 `2799523972@qq.com` 在本地源码预览真实登录验证移动菜单、侧栏链接、页面按钮和用户下拉命中正常。结果见 `docs/ai/context/20260623-214754-mobile-touch-buttons-fix-result_CN.md`。
-- 2026-06-24：已补充公网 Sub2API 重启与低影响发布方法文档，明确重启 Sub2API 会短暂影响 `https://api.aaccx.pw/v1/*`，并记录直接重启、蓝绿切换和仅前端样式小修的零重启临时覆盖方案；本次未重启任何服务。结果见 `docs/ai/context/20260624-101657-public-restart-runbook_CN.md`。
-- 2026-06-24：已新增 Sub2API 一键重启脚本 `deploy/restart-sub2api.sh` 和 dry-run/mock 回归测试 `deploy/restart-sub2api.test.sh`；脚本默认提示 `api.aaccx.pw/v1` 断联风险，只重启 Sub2API 本体，不触碰 Postgres、Redis、CLIProxyAPI、nginx 或 Cloudflare Tunnel。本次仅执行语法检查、测试和 dry-run，未真实重启。结果见 `docs/ai/context/20260624-104042-sub2api-one-click-restart-script-result_CN.md`。
-- 2026-06-24：已新增 Sub2API 镜像替换发布脚本 `deploy/redeploy-sub2api-image.sh` 和 dry-run/mock 回归测试 `deploy/redeploy-sub2api-image.test.sh`；脚本默认后台 detached 执行“构建镜像 -> 只重建 sub2api 容器 -> 健康检查”完整流程，避免 `api.aaccx.pw/v1` 断联导致发布中断。本次仅执行语法检查、测试和 dry-run，未真实替换镜像或重启。结果见 `docs/ai/context/20260624-110251-sub2api-image-redeploy-script-result_CN.md`。
-- 2026-06-24：已在普通用户 `/usage-guide` 新增「Trae 接入」栏目，复用现有步骤式说明页样式，展示添加模型、自定义配置、填写 `https://api.aaccx.pw/v1` / API Key / `gpt-5.5`、选择自定义模型四步；后端、计费、API Key 和公网配置未修改。结果见 `docs/ai/context/20260624-113544-usage-guide-trae-access-result_CN.md`。
-- 2026-06-24：已修复 `/purchase` 中 GPT 一次性流量包在“未配置在线支付服务商、仅手动收款码”运行态下无法继续购买的问题；根因是次卡确认态未复用订阅池的 `ManualPaymentDialog` 分支，导致 `确认支付` 被前端禁用。现已让次卡与订阅统一复用手动收款弹窗，并为订阅/次卡确认态补充顶部返回入口、将底部次级按钮统一为 `返回`。验证包含 `PaymentView` / `ManualPaymentDialog` 单测、前端 `typecheck` 与 `build`。结果见 `docs/ai/context/20260624-154901-gpt-traffic-pack-purchase-fix-result_CN.md`。
+- 需要新增长期上下文时，只在 `docs/ai/context/` 创建新文件。
+- 进入实现前先写 design/plan 上下文；完成后写结果上下文。
+- 若上下文过长，先沉淀到新的压缩文档，再继续精简本文件。

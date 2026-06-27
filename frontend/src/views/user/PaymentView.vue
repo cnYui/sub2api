@@ -23,20 +23,19 @@
         </template>
         <!-- Subscription and traffic pack purchases -->
         <template v-else>
-          <template>
-            <div v-if="selectedPlan || selectedTrafficPack" class="mb-1">
-              <button
-                type="button"
-                class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                @click="backToSubscriptionList"
-              >
-                <Icon name="arrowLeft" size="sm" />
-                {{ t('common.back') }}
-              </button>
-            </div>
-            <!-- Traffic pack confirm (inline, reuses subscription payment flow) -->
-            <template v-if="selectedTrafficPack">
-              <div class="card p-5">
+          <div v-if="selectedPlan || selectedTrafficPack" class="mb-1">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+              @click="backToSubscriptionList"
+            >
+              <Icon name="arrowLeft" size="sm" />
+              {{ t('common.back') }}
+            </button>
+          </div>
+          <!-- Traffic pack confirm (inline, reuses subscription payment flow) -->
+          <template v-if="selectedTrafficPack">
+            <div class="card p-5">
                 <div class="mb-3 flex flex-wrap items-center gap-2">
                   <span class="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">GPT</span>
                   <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedTrafficPack.name }}</h3>
@@ -192,7 +191,6 @@
                 </div>
               </div>
             </template>
-          </template>
         </template>
         <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan && !selectedTrafficPack" class="card p-4">
           <div class="flex flex-col items-center gap-3">

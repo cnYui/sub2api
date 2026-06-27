@@ -350,6 +350,32 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
   })
 
+  it('does not hide purchasable items inside a native template element', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<main><slot /></main>',
+          },
+          Teleport: true,
+          Transition: false,
+          SubscriptionPlanCard: {
+            name: 'SubscriptionPlanCard',
+            template: '<div data-testid="subscription-plan-card"></div>',
+          },
+          TrafficPackCard: {
+            name: 'TrafficPackCard',
+            template: '<div data-testid="traffic-pack-card"></div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.find('main > div > template').exists()).toBe(false)
+  })
+
   it('ignores the legacy recharge tab query and stays on subscription purchases', async () => {
     routeState.query = { tab: 'recharge' }
     const wrapper = shallowMount(PaymentView, {

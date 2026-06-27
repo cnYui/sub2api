@@ -81,4 +81,3 @@ Sub2API 不是只展示用量。它有可用的真实套餐与计费模型：
 - 直接写 `usage_logs` 会需要合成 API Key 和上游 account，后续管理员报表会混入旧系统数据。
 - 如果只迁 active 订阅而不迁当日 usage，用户当天额度会被重置，可能多用。
 - 如果迁移 `daily_usage_usd` 后不清 Redis 缓存，运行时可能继续读旧缓存。
-

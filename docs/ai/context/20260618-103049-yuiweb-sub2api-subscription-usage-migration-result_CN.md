@@ -48,4 +48,3 @@
 - 后续真实请求将由 Sub2API 自己记录到 `usage_logs`。
 - 若需要展示 yui.web 历史趋势，单独设计 legacy usage 只读归档，不要污染 Sub2API 原生 `usage_logs`。
 - 如果之后要迁真实邮箱，需要同步更新 `users.email`、`users.username` 和 `auth_identities.provider_subject`。
-

@@ -33,4 +33,3 @@
 - 用户真实邮箱确认后，将对应用户的 `users.email`、`users.username` 和 `auth_identities.provider_subject` 同步替换为真实邮箱。
 - 如果要让新用户注册时必须收邮箱验证码，需要先配置 SMTP，再打开 `email_verify_enabled=true`。
 - 若要启用忘记密码，同样需要 SMTP 可用，然后打开 `password_reset_enabled=true`。
-
