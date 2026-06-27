@@ -64,6 +64,66 @@ func TestBuildUsageBillingCommand_UsesTrafficPackInsteadOfBalance(t *testing.T) 
 	require.Zero(t, cmd.SubscriptionCost)
 }
 
+func TestBuildUsageBillingCommand_UsesTrafficPackInsteadOfSubscription(t *testing.T) {
+	t.Parallel()
+
+	subscriptionID := int64(17)
+	cmd := buildUsageBillingCommand("req-traffic-pack-subscription", &UsageLog{RequestID: "req-traffic-pack-subscription"}, &postUsageBillingParams{
+		Cost:               &CostBreakdown{ActualCost: 0.25, TotalCost: 0.25},
+		User:               &User{ID: 7},
+		APIKey:             &APIKey{ID: 9},
+		Account:            &Account{ID: 11},
+		Subscription:       &UserSubscription{ID: subscriptionID},
+		IsSubscriptionBill: false,
+		Platform:           PlatformOpenAI,
+		UseTrafficPack:     true,
+	})
+
+	require.NotNil(t, cmd)
+	require.Equal(t, 0.25, cmd.TrafficPackCost)
+	require.Zero(t, cmd.BalanceCost)
+	require.Zero(t, cmd.SubscriptionCost)
+	require.Nil(t, cmd.SubscriptionID)
+}
+
+func TestShouldBillWithTrafficPackWhenSubscriptionRequestWouldExceedLimit(t *testing.T) {
+	t.Parallel()
+
+	dailyLimit := 19.0
+	deps := &billingDeps{
+		trafficPackService: NewTrafficPackService(trafficPackEligibilityRepo{hasAvailable: true}),
+	}
+	group := &Group{
+		ID:               2,
+		Platform:         PlatformOpenAI,
+		SubscriptionType: SubscriptionTypeSubscription,
+		DailyLimitUSD:    &dailyLimit,
+	}
+	user := &User{ID: 7}
+	subscription := &UserSubscription{ID: 17, UserID: user.ID, GroupID: group.ID, DailyUsageUSD: 18.9}
+
+	require.True(t, shouldBillWithTrafficPack(
+		context.Background(),
+		deps,
+		user,
+		PlatformOpenAI,
+		subscription,
+		group,
+		&CostBreakdown{ActualCost: 0.2},
+		true,
+	))
+	require.False(t, shouldBillWithTrafficPack(
+		context.Background(),
+		deps,
+		user,
+		PlatformOpenAI,
+		subscription,
+		group,
+		&CostBreakdown{ActualCost: 0.05},
+		true,
+	))
+}
+
 type trafficPackEligibilityRepo struct {
 	TrafficPackRepository
 	hasAvailable bool
