@@ -195,7 +195,7 @@ function checkoutInfoWithManualPlansFixture() {
   }
 }
 
-function checkoutInfoWithFourManualPlansFixture() {
+function checkoutInfoWithFiveManualPlansFixture() {
   return {
     data: {
       ...checkoutInfoWithManualPlansFixture().data,
@@ -226,6 +226,16 @@ function checkoutInfoWithFourManualPlansFixture() {
         },
         {
           ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 5,
+          group_id: 5,
+          name: '79 元订阅池',
+          price: 79.79,
+          daily_limit_usd: 69,
+          group_name: 'codex-pool-69-usd',
+          sort_order: 79,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
           id: 4,
           group_id: 6,
           name: '99 元订阅池',
@@ -239,10 +249,10 @@ function checkoutInfoWithFourManualPlansFixture() {
   }
 }
 
-function checkoutInfoWithFourZPayPlansFixture() {
+function checkoutInfoWithFiveZPayPlansFixture() {
   return {
     data: {
-      ...checkoutInfoWithFourManualPlansFixture().data,
+      ...checkoutInfoWithFiveManualPlansFixture().data,
       methods: {
         alipay: {
           currency: 'CNY',
@@ -461,7 +471,7 @@ describe('PaymentView tab defaults', () => {
   it('passes the checkout fee rate to subscription and traffic pack cards', async () => {
     getCheckoutInfo.mockResolvedValue({
       data: {
-        ...checkoutInfoWithFourZPayPlansFixture().data,
+        ...checkoutInfoWithFiveZPayPlansFixture().data,
         recharge_fee_rate: 1,
       },
     })
@@ -538,8 +548,9 @@ describe('PaymentView tab defaults', () => {
   it.each([
     { index: 0, planId: 1, amount: 29, name: '29 元订阅池' },
     { index: 1, planId: 2, amount: 39, name: '39 元订阅池' },
+    { index: 3, planId: 5, amount: 79.79, name: '79 元订阅池' },
   ])('creates a ZPay dynamic subscription order for $name', async ({ index, planId, amount }) => {
-    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourZPayPlansFixture())
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveZPayPlansFixture())
     createOrder.mockResolvedValue({
       order_id: 8800 + planId,
       amount,
@@ -576,7 +587,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
-    expect(planCards).toHaveLength(4)
+    expect(planCards).toHaveLength(5)
     expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
 
     await planCards[index].trigger('click')
@@ -683,8 +694,8 @@ describe('PaymentView without configured payment methods', () => {
     expect(wrapper.text()).toContain('payment.notAvailable')
   })
 
-  it('renders four subscription tiers in a four-column desktop grid and disables the 99 yuan tier without payment methods', async () => {
-    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFourManualPlansFixture())
+  it('renders five subscription tiers in a four-column desktop grid and disables the 79 yuan tier without payment methods', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveManualPlansFixture())
 
     const wrapper = shallowMount(PaymentView, {
       global: {
@@ -706,7 +717,7 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
-    expect(planCards).toHaveLength(4)
+    expect(planCards).toHaveLength(5)
     expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
 
     await planCards[3].trigger('click')

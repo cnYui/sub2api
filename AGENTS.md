@@ -44,8 +44,9 @@
 - 2026-06-26 `/purchase` 主内容空白归因：`PaymentView.vue` 购买选择态多包了一层无指令裸 `<template>`，构建后套餐卡片进入原生 template content，DOM 有文字但视觉不渲染；已删除 wrapper 并新增回归测试。结果见 `docs/ai/context/20260626-221115-payment-view-native-template-blank-fix-result_CN.md`。
 - 2026-06-26 18084 候选环境“支付功能未开放”归因：ZPay 链路代码已打通，但候选 sanitize 误把克隆来的 `ZPay Alipay` provider 和支付宝可见方式关掉，导致 checkout `methods={}`；已恢复为支付宝-only `easypay_alipay`、`payment_mode=popup`，并修正候选 sanitize 只关闭其他 provider/退款/通知副作用。结果见 `docs/ai/context/20260626-221915-candidate-zpay-provider-restore-result_CN.md`。
 - 2026-06-26 已在 18084 候选环境对应数据库 `sub2api-candidate-postgres` 创建普通用户 `1038686518@qq.com`，用户 id=48，email 登录接口返回 200；只写候选库，未改生产库、API Key、套餐、余额或支付配置。结果见 `docs/ai/context/20260626-234732-candidate-18084-create-user-result_CN.md`。
-- 套餐分组名 `codex-pool-19-usd`、`codex-pool-29-usd`、`codex-pool-49-usd` 分别对应每日 19/29/49 USD。
+- 套餐分组名 `codex-pool-19-usd`、`codex-pool-29-usd`、`codex-pool-49-usd`、`codex-pool-69-usd` 分别对应每日 19/29/49/69 USD。
 - 当前售卖套餐里 `29 元订阅池` 对应 `subscription_plans.id=1 -> group_id=2 -> codex-pool-19-usd`；不要误绑到 `codex-pool-29-usd`。
+- `79 元订阅池` 售价为 79.79 元，30 天有效期，对应 `codex-pool-69-usd`，每日 69 USD；通过 `subscription_plans` 上架并复用现有 `/purchase` 支付和订阅履约链路。
 - `/purchase` 只负责充值、订阅和 GPT 流量包购买，不再展示当前订阅详情；当前订阅状态统一在“我的订阅”页查看。
 - `xiaobianfuai@gmail.com` 是管理员和本机 Codex Local Key 所属账号，不要按普通用户删除。
 
