@@ -170,4 +170,13 @@ func TestIsMigrationChecksumCompatible(t *testing.T) {
 		)
 		require.True(t, ok)
 	})
+
+	t.Run("156历史checksum可兼容79套餐基础价修正", func(t *testing.T) {
+		ok := isMigrationChecksumCompatible(
+			"156_seed_codex_79_subscription_plan.sql",
+			"a649d91fd0c3cda4ca75a44180129496ad9f58a1601a85e329b0cc9ea9c94cc1",
+			"82ad47de684bf8fdbfbfae9ea80298c8f6a161b4eea2b5d01adc19fafc9d45e4",
+		)
+		require.True(t, ok)
+	})
 }

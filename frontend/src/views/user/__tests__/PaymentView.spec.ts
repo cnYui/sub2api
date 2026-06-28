@@ -229,7 +229,7 @@ function checkoutInfoWithFiveManualPlansFixture() {
           id: 5,
           group_id: 5,
           name: '79 元订阅池',
-          price: 79.79,
+          price: 79,
           daily_limit_usd: 69,
           group_name: 'codex-pool-69-usd',
           sort_order: 79,
@@ -548,7 +548,7 @@ describe('PaymentView tab defaults', () => {
   it.each([
     { index: 0, planId: 1, amount: 29, name: '29 元订阅池' },
     { index: 1, planId: 2, amount: 39, name: '39 元订阅池' },
-    { index: 3, planId: 5, amount: 79.79, name: '79 元订阅池' },
+    { index: 3, planId: 5, amount: 79, name: '79 元订阅池' },
   ])('creates a ZPay dynamic subscription order for $name', async ({ index, planId, amount }) => {
     getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveZPayPlansFixture())
     createOrder.mockResolvedValue({

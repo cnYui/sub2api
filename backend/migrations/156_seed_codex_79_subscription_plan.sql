@@ -1,4 +1,4 @@
--- 新增 79.79 元订阅套餐：30 天有效期，每日 69 USD。
+-- 新增 79 元订阅套餐：30 天有效期，每日 69 USD。
 -- 只 seed 分组和商品计划，不复制或绑定上游账号。
 
 DO $$
@@ -113,7 +113,7 @@ BEGIN
         group_id = target_group_id,
         name = '79 元订阅池',
         description = '月度订阅-时间 30天，日限额 69刀，24点刷新',
-        price = 79.79,
+        price = 79.00,
         original_price = NULL,
         validity_days = 30,
         validity_unit = 'day',
@@ -145,7 +145,7 @@ BEGIN
         target_group_id,
         '79 元订阅池',
         '月度订阅-时间 30天，日限额 69刀，24点刷新',
-        79.79,
+        79.00,
         NULL,
         30,
         'day',

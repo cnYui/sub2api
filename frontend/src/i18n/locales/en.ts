@@ -7180,7 +7180,7 @@ export default {
       deletePlan: 'Delete Plan',
       deletePlanConfirm: 'Are you sure you want to delete this plan?',
       originalPrice: 'Original Price',
-      price: 'Price',
+      price: 'Base Price',
       validityDays: 'Validity (days)',
       validityUnit: 'Validity Unit',
       sortOrder: 'Sort Order',

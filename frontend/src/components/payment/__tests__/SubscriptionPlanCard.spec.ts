@@ -133,4 +133,23 @@ describe('SubscriptionPlanCard', () => {
     expect(text).toContain('¥29.29元')
     expect(text).toContain('¥29元 + 1% 手续费')
   })
+
+  it('shows 79.79 yuan payable price for the 79 yuan plan with a 1 percent fee', () => {
+    const wrapper = mount(SubscriptionPlanCard, {
+      props: {
+        plan: planFixture({
+          name: '79 元订阅池',
+          price: 79,
+          daily_limit_usd: 69,
+        }),
+        feeRate: 1,
+      },
+      global: { plugins: [createTestI18n('zh')] },
+    })
+    const text = wrapper.text()
+
+    expect(text).toContain('¥79.79元')
+    expect(text).toContain('¥79元 + 1% 手续费')
+    expect(text).not.toContain('¥80.59元')
+  })
 })

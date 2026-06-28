@@ -7359,7 +7359,7 @@ export default {
       deletePlan: '删除套餐',
       deletePlanConfirm: '确定要删除此套餐吗？',
       originalPrice: '原价',
-      price: '价格',
+      price: '基础价',
       validityDays: '有效期（天）',
       validityUnit: '有效期单位',
       sortOrder: '排序',
