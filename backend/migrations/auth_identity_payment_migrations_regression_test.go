@@ -90,6 +90,16 @@ func TestMigration110SeedsAuthSourceSignupGrantsDisabledByDefault(t *testing.T) 
 	require.NotContains(t, sql, "('auth_source_default_email_grant_on_signup', 'true')")
 }
 
+func TestMigration158EnablesAffiliateFeature(t *testing.T) {
+	content, err := FS.ReadFile("158_enable_affiliate_default.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "affiliate_enabled")
+	require.Contains(t, sql, "value = 'true'")
+	require.Contains(t, sql, "ON CONFLICT (key) DO UPDATE")
+}
+
 func TestMigration122ScrubsPendingOAuthCompletionTokensAtRest(t *testing.T) {
 	content, err := FS.ReadFile("122_pending_auth_completion_token_cleanup.sql")
 	require.NoError(t, err)

@@ -47,13 +47,11 @@ func TestResolveRebateRatePercent_PerUserOverride(t *testing.T) {
 }
 
 // TestIsEnabled_NilSettingServiceReturnsDefault verifies that IsEnabled
-// safely handles a nil settingService dependency by returning the default
-// (off). This protects callers from nil-pointer crashes in misconfigured
-// environments.
+// safely handles a nil settingService dependency by returning the default.
 func TestIsEnabled_NilSettingServiceReturnsDefault(t *testing.T) {
 	t.Parallel()
 	svc := &AffiliateService{}
-	require.False(t, svc.IsEnabled(context.Background()))
+	require.True(t, svc.IsEnabled(context.Background()))
 	require.Equal(t, AffiliateEnabledDefault, svc.IsEnabled(context.Background()))
 }
 
