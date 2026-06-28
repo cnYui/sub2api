@@ -365,6 +365,37 @@ func TestAuthService_Register_EmailExists(t *testing.T) {
 	require.ErrorIs(t, err, ErrEmailExists)
 }
 
+func TestAuthService_PrecheckRegisterEmail_EmailExists(t *testing.T) {
+	repo := &userRepoStub{exists: true}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled: "true",
+	}, nil, nil)
+
+	err := service.PrecheckRegisterEmail(context.Background(), "user@test.com")
+	require.ErrorIs(t, err, ErrEmailExists)
+}
+
+func TestAuthService_PrecheckRegisterEmail_EmailSuffixNotAllowed(t *testing.T) {
+	repo := &userRepoStub{}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:              "true",
+		SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
+	}, nil, nil)
+
+	err := service.PrecheckRegisterEmail(context.Background(), "user@other.com")
+	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
+}
+
+func TestAuthService_PrecheckRegisterEmail_Success(t *testing.T) {
+	repo := &userRepoStub{}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled: "true",
+	}, nil, nil)
+
+	err := service.PrecheckRegisterEmail(context.Background(), "user@test.com")
+	require.NoError(t, err)
+}
+
 func TestAuthService_Register_CheckEmailError(t *testing.T) {
 	repo := &userRepoStub{existsErr: errors.New("db down")}
 	service := newAuthService(repo, map[string]string{

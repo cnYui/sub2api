@@ -317,6 +317,31 @@ func (s *AuthService) SendVerifyCode(ctx context.Context, email string, locale .
 	return s.emailService.SendVerifyCode(ctx, email, siteName, firstEmailLocale(locale))
 }
 
+// PrecheckRegisterEmail 执行不发信的注册前校验，避免重复邮箱进入验证码发送流程。
+func (s *AuthService) PrecheckRegisterEmail(ctx context.Context, email string) error {
+	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
+		return ErrRegDisabled
+	}
+
+	if isReservedEmail(email) {
+		return ErrEmailReserved
+	}
+	if err := s.validateRegistrationEmailPolicy(ctx, email); err != nil {
+		return err
+	}
+
+	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	if err != nil {
+		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email exists: %v", err)
+		return ErrServiceUnavailable
+	}
+	if existsEmail {
+		return ErrEmailExists
+	}
+
+	return nil
+}
+
 // SendVerifyCodeAsync 异步发送邮箱验证码并返回倒计时
 func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, locale ...string) (*SendVerifyCodeResult, error) {
 	logger.LegacyPrintf("service.auth", "[Auth] SendVerifyCodeAsync called for email: %s", email)
