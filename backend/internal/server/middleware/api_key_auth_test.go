@@ -182,6 +182,34 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, w.Code)
 	})
+
+	t.Run("standard_mode_defers_missing_subscription_to_unified_billing", func(t *testing.T) {
+		cfg := &config.Config{RunMode: config.RunModeStandard}
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+
+		subscriptionRepo := &stubUserSubscriptionRepo{
+			getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+				require.Equal(t, user.ID, userID)
+				require.Equal(t, group.ID, groupID)
+				return nil, service.ErrSubscriptionNotFound
+			},
+		}
+		subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+		router := gin.New()
+		router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, cfg)))
+		router.GET("/t", func(c *gin.Context) {
+			_, ok := GetSubscriptionFromContext(c)
+			require.False(t, ok, "missing subscription should not be written to context")
+			c.JSON(http.StatusOK, gin.H{"ok": true})
+		})
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/t", nil)
+		req.Header.Set("x-api-key", apiKey.Key)
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+	})
 }
 
 func TestAPIKeyAuthDefersZeroBalanceToUnifiedBilling(t *testing.T) {
@@ -645,6 +673,72 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	require.Equal(t, apiKey.ID, fallback.ID)
 	require.NotNil(t, fallback.User)
 	require.Equal(t, user.ID, fallback.User.ID)
+}
+
+func TestAPIKeyAuthGoogleDefersMissingSubscriptionToUnifiedBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	limit := 19.0
+	groupID := int64(302)
+	group := &service.Group{
+		ID:               groupID,
+		Name:             "openai-sub",
+		Status:           service.StatusActive,
+		Platform:         service.PlatformOpenAI,
+		Hydrated:         true,
+		SubscriptionType: service.SubscriptionTypeSubscription,
+		DailyLimitUSD:    &limit,
+	}
+	user := &service.User{
+		ID:          31,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     0,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:      37,
+		UserID:  user.ID,
+		GroupID: &groupID,
+		Key:     "google-missing-subscription-key",
+		Status:  service.StatusActive,
+		User:    user,
+		Group:   group,
+	}
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	subscriptionRepo := &stubUserSubscriptionRepo{
+		getActive: func(ctx context.Context, userID, gotGroupID int64) (*service.UserSubscription, error) {
+			require.Equal(t, user.ID, userID)
+			require.Equal(t, groupID, gotGroupID)
+			return nil, service.ErrSubscriptionNotFound
+		},
+	}
+	subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+
+	router := gin.New()
+	router.Use(gin.HandlerFunc(APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)))
+	router.GET("/t", func(c *gin.Context) {
+		_, ok := GetSubscriptionFromContext(c)
+		require.False(t, ok, "missing subscription should not be written to context")
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("x-goog-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRequireGroupAssignmentMarksUngroupedKeyBusinessLimited(t *testing.T) {

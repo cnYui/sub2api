@@ -157,11 +157,11 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				apiKey.Group.ID,
 			)
 			if subErr != nil {
-				if !skipBilling {
-					AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
+				if !errors.Is(subErr, service.ErrSubscriptionNotFound) {
+					AbortWithError(c, 500, "SUBSCRIPTION_LOAD_FAILED", "Failed to load subscription")
 					return
 				}
-				// skipBilling: 订阅不存在也放行，handler 会返回可用的数据
+				// 订阅不存在时不在认证层硬拒绝；统一计费入口会决定余额或 OpenAI 流量卡是否可兜底。
 			} else {
 				subscription = sub
 			}
