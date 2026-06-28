@@ -332,5 +332,15 @@ describe('useAppStore', () => {
       expect(localStorage.getItem('table-page-size')).toBeNull()
       expect(localStorage.getItem('table-page-size-source')).toBeNull()
     })
+
+    it('公开设置缓存兜底默认开启邀请返利', async () => {
+      const store = useAppStore()
+      store.publicSettingsLoaded = true
+      store.cachedPublicSettings = null
+
+      const settings = await store.fetchPublicSettings(false)
+
+      expect(settings?.affiliate_enabled).toBe(true)
+    })
   })
 })

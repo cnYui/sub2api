@@ -7851,7 +7851,7 @@ const form = reactive<SettingsForm>({
   // Available Channels feature switch
   available_channels_enabled: false,
   // Affiliate (邀请返利) feature switch
-  affiliate_enabled: false,
+  affiliate_enabled: true,
   // Allow user view error requests
   allow_user_view_error_requests: false,
 });
