@@ -25,19 +25,34 @@ assert_not_contains() {
 }
 
 main() {
-  local compose_output dry_run_output promote_output promote_status
+  local compose_output dry_run_output promote_output promote_status sanitize_sql
+
+  sanitize_sql="$(<"${REPO_ROOT}/deploy/sql/candidate-sanitize.sql")"
+  assert_contains "${sanitize_sql}" "('payment_enabled', 'true'"
+  assert_contains "${sanitize_sql}" "('payment_visible_method_alipay_enabled', 'true'"
+  assert_contains "${sanitize_sql}" "('payment_visible_method_alipay_source', 'easypay_alipay'"
+  assert_contains "${sanitize_sql}" "('ENABLED_PAYMENT_TYPES', 'alipay'"
+  assert_contains "${sanitize_sql}" "name = 'ZPay Alipay'"
+  assert_not_contains "${sanitize_sql}" "('payment_enabled', 'false'"
+  assert_not_contains "${sanitize_sql}" "('payment_visible_method_alipay_enabled', 'false'"
+  assert_not_contains "${sanitize_sql}" "UPDATE payment_provider_instances SET enabled = false"
 
   compose_output="$("${DOCKER_BIN:-/Applications/Docker.app/Contents/Resources/bin/docker}" compose \
     --env-file "${REPO_ROOT}/deploy/.env.candidate.local.example" \
     -f "${REPO_ROOT}/deploy/docker-compose.candidate.yml" \
     config 2>&1)"
   assert_contains "${compose_output}" "name: sub2api-candidate-rehearsal"
+  assert_contains "${compose_output}" "TOTP_ENCRYPTION_KEY: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+  assert_not_contains "${compose_output}" "candidate-local-totp-key-change-me"
 
   dry_run_output="$("${REPO_ROOT}/deploy/rehearse-sub2api-candidate.sh" --dry-run --reset-db 2>&1)"
   assert_contains "${dry_run_output}" "sub2api-candidate:"
   assert_contains "${dry_run_output}" "127.0.0.1:18081"
   assert_contains "${dry_run_output}" "-p sub2api-candidate-rehearsal"
+  assert_contains "${dry_run_output}" "pg_isready"
+  assert_contains "${dry_run_output}" "inspect public container compose project labels"
   assert_not_contains "${dry_run_output}" "https://api.aaccx.pw/v1"
+  assert_not_contains "${dry_run_output}" "down --remove-orphans"
   assert_not_contains "${dry_run_output}" "up -d --no-deps --force-recreate sub2api"
   assert_not_contains "${dry_run_output}" "weishaw/sub2api:latest -f"
 

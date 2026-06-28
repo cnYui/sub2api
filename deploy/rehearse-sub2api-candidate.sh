@@ -165,10 +165,46 @@ run_candidate_compose() {
   candidate_compose "$@"
 }
 
+assert_public_container_isolation() {
+  local public_containers=(sub2api sub2api-postgres sub2api-redis)
+  local container project
+
+  if [[ "${DRY_RUN}" == true ]]; then
+    printf '[DRY-RUN] inspect public container compose project labels:'
+    printf ' %s' "${public_containers[@]}"
+    printf '\n'
+    return 0
+  fi
+
+  for container in "${public_containers[@]}"; do
+    project="$("${DOCKER_BIN}" inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "${container}" 2>/dev/null || true)"
+    [[ -n "${project}" ]] || die "公网容器不存在或缺少 compose project label：${container}"
+    [[ "${project}" != "${COMPOSE_PROJECT_NAME}" ]] || die "候选 project 与公网容器 ${container} 相同：${project}"
+  done
+
+  log "公网容器 project label 已确认不属于候选 project：${COMPOSE_PROJECT_NAME}"
+}
+
+remove_candidate_containers() {
+  local candidate_containers=(sub2api-candidate sub2api-candidate-postgres sub2api-candidate-redis)
+  local container
+
+  for container in "${candidate_containers[@]}"; do
+    if [[ "${DRY_RUN}" == true ]]; then
+      printf '[DRY-RUN] %q rm -f %q\n' "${DOCKER_BIN}" "${container}"
+      continue
+    fi
+
+    if "${DOCKER_BIN}" container inspect "${container}" >/dev/null 2>&1; then
+      run_cmd "${DOCKER_BIN}" rm -f "${container}"
+    fi
+  done
+}
+
 prepare_candidate_dirs() {
   mkdir -p "${REPO_ROOT}/deploy/candidate/dumps" "${REPO_ROOT}/deploy/candidate/logs"
   if [[ "${RESET_DB}" == true ]]; then
-    run_candidate_compose down --remove-orphans
+    remove_candidate_containers
     run_cmd rm -rf \
       "${REPO_ROOT}/deploy/candidate/postgres_data" \
       "${REPO_ROOT}/deploy/candidate/redis_data" \
@@ -198,7 +234,25 @@ dump_public_db() {
 }
 
 start_candidate_db() {
-  run_candidate_compose up -d sub2api-candidate-postgres sub2api-candidate-redis
+	run_candidate_compose up -d sub2api-candidate-postgres sub2api-candidate-redis
+}
+
+wait_candidate_db() {
+	if [[ "${DRY_RUN}" == true ]]; then
+		printf '[DRY-RUN] %q exec sub2api-candidate-postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"\n' "${DOCKER_BIN}"
+		return 0
+	fi
+
+	local deadline
+	deadline=$((SECONDS + 60))
+	while (( SECONDS <= deadline )); do
+		if "${DOCKER_BIN}" exec sub2api-candidate-postgres sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' >/dev/null; then
+			log "候选 Postgres 已就绪"
+			return 0
+		fi
+		sleep 1
+	done
+	die "候选 Postgres 等待超时"
 }
 
 restore_candidate_db() {
@@ -280,6 +334,7 @@ check_candidate_logs() {
 main() {
   parse_args "$@"
   require_files
+  assert_public_container_isolation
   find_main_worktree
   ensure_main_worktree_clean
   compute_candidate_image
@@ -288,9 +343,10 @@ main() {
   log "候选端口：http://127.0.0.1:${CANDIDATE_PORT}"
   build_candidate_image
   prepare_candidate_dirs
-  dump_public_db
-  start_candidate_db
-  restore_candidate_db
+	dump_public_db
+	start_candidate_db
+	wait_candidate_db
+	restore_candidate_db
   start_candidate_app
   wait_candidate_health
   smoke_candidate_http

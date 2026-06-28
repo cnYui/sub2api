@@ -6,10 +6,12 @@ BEGIN
   IF to_regclass('public.settings') IS NOT NULL THEN
     INSERT INTO settings (key, value, updated_at)
     VALUES
-      ('payment_enabled', 'false', NOW()),
-      ('payment_visible_method_alipay_enabled', 'false', NOW()),
+      ('payment_enabled', 'true', NOW()),
+      ('payment_visible_method_alipay_enabled', 'true', NOW()),
+      ('payment_visible_method_alipay_source', 'easypay_alipay', NOW()),
       ('payment_visible_method_wxpay_enabled', 'false', NOW()),
-      ('ENABLED_PAYMENT_TYPES', '[]', NOW()),
+      ('payment_visible_method_wxpay_source', '', NOW()),
+      ('ENABLED_PAYMENT_TYPES', 'alipay', NOW()),
       ('smtp_host', '', NOW()),
       ('smtp_username', '', NOW()),
       ('smtp_password', '', NOW()),
@@ -29,7 +31,24 @@ BEGIN
   END IF;
 
   IF to_regclass('public.payment_provider_instances') IS NOT NULL THEN
-    EXECUTE 'UPDATE payment_provider_instances SET enabled = false';
+    EXECUTE $sql$
+      UPDATE payment_provider_instances
+         SET enabled = CASE
+               WHEN provider_key = 'easypay' AND name = 'ZPay Alipay' THEN true
+               ELSE false
+             END,
+             supported_types = CASE
+               WHEN provider_key = 'easypay' AND name = 'ZPay Alipay' THEN 'alipay'
+               ELSE supported_types
+             END,
+             payment_mode = CASE
+               WHEN provider_key = 'easypay' AND name = 'ZPay Alipay' THEN 'popup'
+               ELSE payment_mode
+             END,
+             refund_enabled = false,
+             allow_user_refund = false,
+             updated_at = NOW()
+    $sql$;
   END IF;
 
   IF to_regclass('public.channel_monitors') IS NOT NULL THEN
