@@ -114,6 +114,7 @@ backend/data/
 backend/config.yaml
 deploy/config.yaml
 deploy/.env.*
+deploy/backups/
 backend/.installed
 
 # ===================
