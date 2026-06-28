@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { resolveDocumentTitle, resolveRouteDocumentTitle } from '@/router/title'
 
 describe('resolveDocumentTitle', () => {
@@ -45,5 +46,24 @@ describe('resolveRouteDocumentTitle', () => {
         sort_order: 0
       }
     ])).toBe('账号调度器 - EzouAPI')
+  })
+})
+
+describe('/purchase route header', () => {
+  it('登录后的购买页只展示标题，不展示标题下方说明', () => {
+    const routerSource = readFileSync('src/router/index.ts', 'utf8')
+    const purchaseRoute = routerSource.match(/path: '\/purchase'[\s\S]*?path: '\/orders'/)?.[0] ?? ''
+
+    expect(purchaseRoute).toContain("titleKey: 'nav.buySubscription'")
+    expect(purchaseRoute).toContain('requiresPayment: true')
+    expect(purchaseRoute).not.toContain('descriptionKey')
+  })
+
+  it('不保留购买页旧说明文案', () => {
+    const zhLocale = readFileSync('src/i18n/locales/zh.ts', 'utf8')
+    const enLocale = readFileSync('src/i18n/locales/en.ts', 'utf8')
+
+    expect(zhLocale.includes('通过内嵌页面完成订阅购买')).toBe(false)
+    expect(enLocale.includes('Purchase subscriptions via the embedded page')).toBe(false)
   })
 })

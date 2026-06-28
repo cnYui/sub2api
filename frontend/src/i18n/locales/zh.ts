@@ -6862,7 +6862,6 @@ export default {
   // Recharge / Subscription Page
   purchase: {
     title: '购买订阅',
-    description: '通过内嵌页面完成订阅购买',
     openInNewTab: '新窗口打开',
     notEnabledTitle: '该功能未开启',
     notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',

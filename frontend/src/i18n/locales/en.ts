@@ -6707,7 +6707,6 @@ export default {
   // Recharge / Subscription Page
   purchase: {
     title: 'Buy Subscription',
-    description: 'Purchase subscriptions via the embedded page',
     openInNewTab: 'Open in new tab',
     notEnabledTitle: 'Feature not enabled',
     notEnabledDesc: 'The administrator has not enabled the recharge/subscription entry. Please contact admin.',
