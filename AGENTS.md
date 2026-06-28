@@ -75,3 +75,4 @@
 - 不要把 `docs/ai/context/` 加回 `.gitignore`；未跟踪状态表示尚未提交，不表示被忽略。
 - 如果某个上下文文档暂不提交，必须在回复里说明原因和后续处理方式。
 - 若上下文过长，先沉淀到新的压缩文档，再继续精简本文件。
+- Git 远端：`origin=https://github.com/Wei-Shaw/sub2api.git` 是上游；`personal=https://github.com/cnYui/sub2api.git` 是用户个人 fork。后续保存当前工作分支优先推送到 `personal`，不要误推到上游 `origin`。
