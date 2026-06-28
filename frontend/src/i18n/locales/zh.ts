@@ -1227,6 +1227,11 @@ export default {
     pleaseEnterCode: '请输入兑换码'
   },
 
+  usageGuide: {
+    title: '使用方法',
+    description: '查看从购买订阅到配置 cc-switch 的完整步骤'
+  },
+
   // Profile
   profile: {
     title: '个人设置',

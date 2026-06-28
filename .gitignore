@@ -116,6 +116,7 @@ deploy/config.yaml
 deploy/.env.*
 deploy/backups/
 backend/.installed
+deploy/.env.scheme-a.runtime
 
 # ===================
 # 其他

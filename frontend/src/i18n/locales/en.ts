@@ -1223,6 +1223,11 @@ export default {
     pleaseEnterCode: 'Please enter a redeem code'
   },
 
+  usageGuide: {
+    title: 'Usage Guide',
+    description: 'View the complete flow from subscription purchase to cc-switch setup'
+  },
+
   // Profile
   profile: {
     title: 'Profile Settings',
