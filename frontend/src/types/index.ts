@@ -126,6 +126,14 @@ export interface RegisterRequest {
   aff_code?: string
 }
 
+export interface PrecheckRegisterRequest {
+  email: string
+}
+
+export interface PrecheckRegisterResponse {
+  ok: boolean
+}
+
 export interface AffiliateInvitee {
   user_id: number
   email: string

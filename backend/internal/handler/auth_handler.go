@@ -63,6 +63,11 @@ type SendVerifyCodeRequest struct {
 	TurnstileToken string `json:"turnstile_token"`
 }
 
+// PrecheckRegisterRequest 注册预检请求
+type PrecheckRegisterRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
 // SendVerifyCodeResponse 发送验证码响应
 type SendVerifyCodeResponse struct {
 	Message   string `json:"message"`
@@ -213,6 +218,23 @@ func (h *AuthHandler) SendVerifyCode(c *gin.Context) {
 		Message:   "Verification code sent successfully",
 		Countdown: result.Countdown,
 	})
+}
+
+// PrecheckRegister 执行注册前只读校验，不发送验证码。
+// POST /api/v1/auth/precheck-register
+func (h *AuthHandler) PrecheckRegister(c *gin.Context) {
+	var req PrecheckRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.authService.PrecheckRegisterEmail(c.Request.Context(), req.Email); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{"ok": true})
 }
 
 // Login handles user login

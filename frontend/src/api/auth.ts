@@ -7,6 +7,8 @@ import { apiClient } from './client'
 import type {
   LoginRequest,
   RegisterRequest,
+  PrecheckRegisterRequest,
+  PrecheckRegisterResponse,
   AuthResponse,
   CurrentUserResponse,
   SendVerifyCodeRequest,
@@ -145,6 +147,16 @@ export async function register(userData: RegisterRequest): Promise<AuthResponse>
   }
   localStorage.setItem('auth_user', JSON.stringify(data.user))
 
+  return data
+}
+
+export async function precheckRegister(
+  request: PrecheckRegisterRequest
+): Promise<PrecheckRegisterResponse> {
+  const { data } = await apiClient.post<PrecheckRegisterResponse>(
+    '/auth/precheck-register',
+    request
+  )
   return data
 }
 
@@ -662,6 +674,7 @@ export const authAPI = {
   login2FA,
   isTotp2FARequired,
   register,
+  precheckRegister,
   getCurrentUser,
   logout,
   isAuthenticated,
