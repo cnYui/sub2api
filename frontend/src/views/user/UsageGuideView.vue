@@ -125,8 +125,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import step01Image from '@/assets/usage-guide/step-01-shop-entry.png'
 import step02Image from '@/assets/usage-guide/step-02-login-register.png'
 import step03Image from '@/assets/usage-guide/step-03-subscription-plans.png'
-import step04PaymentImage from '@/assets/usage-guide/step-04-payment-submitted.png'
-import step04RedeemImage from '@/assets/usage-guide/step-04-redeem-code.png'
+import step04ConfirmPaymentImage from '@/assets/usage-guide/step-04-confirm-payment.png'
 import step05Image from '@/assets/usage-guide/step-05-create-api-key.png'
 import step06Image from '@/assets/usage-guide/step-06-key-group-advanced.png'
 import step07ProviderImage from '@/assets/usage-guide/step-07-cc-switch-provider-list.png'
@@ -165,15 +164,12 @@ const codexSetupSteps: GuideStep[] = [
   },
   {
     step: 4,
-    title: '完成支付后，悠一会给你一个兑换码',
-    images: [
-      { src: step04PaymentImage, alt: '步骤 4 截图 1' },
-      { src: step04RedeemImage, alt: '步骤 4 截图 2' },
-    ],
+    title: '完成支付',
+    images: [{ src: step04ConfirmPaymentImage, alt: '步骤 4 截图 1' }],
   },
   {
     step: 5,
-    title: '兑换成功后，去 API Key 页面生成密钥',
+    title: '支付完成后，去 API Key 页面生成密钥',
     images: [{ src: step05Image, alt: '步骤 5 截图 1' }],
   },
   {

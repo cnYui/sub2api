@@ -58,6 +58,7 @@
 - `79 元订阅池` 售价为 79.79 元，30 天有效期，对应 `codex-pool-69-usd`，每日 69 USD；通过 `subscription_plans` 上架并复用现有 `/purchase` 支付和订阅履约链路。
 - `/purchase` 只负责充值、订阅和 GPT 流量包购买，不再展示当前订阅详情；当前订阅状态统一在“我的订阅”页查看。
 - 2026-06-28 本地 main 已移除 `/purchase` 登录后页面标题下方说明“通过内嵌页面完成订阅购买”，仅改前端路由 meta 与未引用 locale 文案，未改支付流程；结果见 `docs/ai/context/20260628-165245-purchase-remove-description-result_CN.md`。
+- 2026-06-28 `/usage-guide` Codex 接入第 4 步已从“支付后发兑换码”改为“完成支付”，只保留一张支付确认截图；第 5 步同步改为“支付完成后，去 API Key 页面生成密钥”；旧两张兑换码流程配图已删除，因当前支付成功后自动履约、用户可直接使用。结果见 `docs/ai/context/20260628-171325-usage-guide-step4-payment-direct-result_CN.md`。
 - `xiaobianfuai@gmail.com` 是管理员和本机 Codex Local Key 所属账号，不要按普通用户删除。
 
 ## 维护规则

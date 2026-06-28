@@ -28,7 +28,7 @@ describe('UsageGuideView', () => {
     expect(source).toContain('data-test="usage-guide-topic-tabs-mobile"')
   })
 
-  it('Codex 接入声明 8 个使用步骤和 10 张截图，保持指定图片顺序', () => {
+  it('Codex 接入声明 8 个使用步骤和 9 张截图，保持指定图片顺序', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -44,10 +44,9 @@ describe('UsageGuideView', () => {
       "alt: '步骤 2 截图 1'",
       "title: '选择订阅的页面，选择合适的套餐'",
       "alt: '步骤 3 截图 1'",
-      "title: '完成支付后，悠一会给你一个兑换码'",
+      "title: '完成支付'",
       "alt: '步骤 4 截图 1'",
-      "alt: '步骤 4 截图 2'",
-      "title: '兑换成功后，去 API Key 页面生成密钥'",
+      "title: '支付完成后，去 API Key 页面生成密钥'",
       "alt: '步骤 5 截图 1'",
       "title: '选择分组，并且可以设置高级功能'",
       "alt: '步骤 6 截图 1'",
@@ -68,7 +67,10 @@ describe('UsageGuideView', () => {
 
     expect(source.match(/data-test="usage-guide-step"/g)?.length).toBe(1)
     expect(codexSource.match(/step: /g)).toHaveLength(8)
-    expect(codexSource.match(/alt: '/g)).toHaveLength(10)
+    expect(codexSource.match(/alt: '/g)).toHaveLength(9)
+    expect(codexSource).not.toContain('完成支付后，悠一会给你一个兑换码')
+    expect(codexSource).not.toContain('兑换成功后，去 API Key 页面生成密钥')
+    expect(codexSource).not.toContain("alt: '步骤 4 截图 2'")
   })
 
   it('生图方法教程只展示用户需要知道的接入和扣费信息', () => {
@@ -132,13 +134,12 @@ describe('UsageGuideView', () => {
     expect(source).not.toContain('sk-LOCAL')
   })
 
-  it('14 张教程截图资源都存在', () => {
+  it('13 张教程截图资源都存在', () => {
     const expectedAssetNames = [
       'step-01-shop-entry.png',
       'step-02-login-register.png',
       'step-03-subscription-plans.png',
-      'step-04-payment-submitted.png',
-      'step-04-redeem-code.png',
+      'step-04-confirm-payment.png',
       'step-05-create-api-key.png',
       'step-06-key-group-advanced.png',
       'step-07-cc-switch-provider-list.png',
