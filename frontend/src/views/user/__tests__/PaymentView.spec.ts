@@ -291,6 +291,17 @@ function jsapiOrderFixture(resumeToken: string) {
   }
 }
 
+const purchaseProductCardStub = {
+  name: 'PurchaseProductCard',
+  props: ['product'],
+  template: `
+    <button data-testid="purchase-product-card" @click="$emit('select', product)">
+      {{ product.title }} {{ product.priceText }}
+      <span v-for="row in product.detailRows" :key="row.label">{{ row.label }}{{ row.value }}</span>
+    </button>
+  `,
+}
+
 function oauthOrderFixture() {
   return {
     order_id: 456,
@@ -337,10 +348,7 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            template: '<div data-testid="subscription-plan-card"></div>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
@@ -353,7 +361,7 @@ describe('PaymentView tab defaults', () => {
       .filter(text => text === 'payment.tabSubscribe' || text === 'payment.tabTopUp')
 
     expect(tabTexts).toEqual([])
-    expect(wrapper.find('[data-testid="subscription-plan-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="purchase-product-card"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
     expect(wrapper.text()).not.toContain('payment.currentBalance')
     expect(wrapper.text()).not.toContain('payment.paymentAmount')
@@ -369,14 +377,7 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            template: '<div data-testid="subscription-plan-card"></div>',
-          },
-          TrafficPackCard: {
-            name: 'TrafficPackCard',
-            template: '<div data-testid="traffic-pack-card"></div>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
@@ -396,17 +397,14 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            template: '<div data-testid="subscription-plan-card"></div>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="subscription-plan-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="purchase-product-card"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
     expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
   })
@@ -430,28 +428,22 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            template: '<div data-testid="subscription-plan-card"></div>',
-          },
-          TrafficPackCard: {
-            name: 'TrafficPackCard',
-            props: ['pack'],
-            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('GPT 流量包 5 刀')
-    expect(wrapper.text()).toContain('GPT 流量包 10 刀')
-    expect(wrapper.text()).toContain('GPT 流量包 20 刀')
+    expect(wrapper.text()).toContain('5刀流量卡')
+    expect(wrapper.text()).toContain('10刀流量卡')
+    expect(wrapper.text()).toContain('20刀流量卡')
+    expect(wrapper.text()).not.toContain('一次性流量包-有效期')
+    expect(wrapper.text()).toContain('刷新时间365天')
 
-    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
-    expect(trafficPackCards).toHaveLength(3)
-    await trafficPackCards[2].trigger('click')
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(4)
+    await purchaseCards[3].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -468,7 +460,7 @@ describe('PaymentView tab defaults', () => {
     }))
   })
 
-  it('passes the checkout fee rate to subscription and traffic pack cards', async () => {
+  it('passes the checkout fee rate to the unified purchase cards', async () => {
     getCheckoutInfo.mockResolvedValue({
       data: {
         ...checkoutInfoWithFiveZPayPlansFixture().data,
@@ -483,27 +475,21 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            props: ['plan', 'feeRate'],
-            template: '<div data-testid="subscription-plan-card">{{ plan.name }} {{ feeRate }}</div>',
-          },
-          TrafficPackCard: {
-            name: 'TrafficPackCard',
-            props: ['pack', 'feeRate'],
-            template: '<div data-testid="traffic-pack-card">{{ pack.name }} {{ feeRate }}</div>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="subscription-plan-card"]').text()).toContain('1')
-    expect(wrapper.find('[data-testid="traffic-pack-card"]').text()).toContain('1')
+    const text = wrapper.text()
+    expect(text).toContain('阅读订阅套餐A')
+    expect(text).toContain('手续费详情¥29元 + 1%')
+    expect(text).toContain('5刀流量卡')
+    expect(text).toContain('手续费详情¥2元 + 1%')
   })
 
-  it('keeps active subscription state for plan cards without rendering the duplicated current subscription block', async () => {
+  it('marks active subscription purchase cards without rendering the duplicated current subscription block', async () => {
     activeSubscriptionsState.items = [
       {
         id: 42,
@@ -528,10 +514,10 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            props: ['activeSubscriptions'],
-            template: '<div data-testid="subscription-plan-card">{{ activeSubscriptions.length }}</div>',
+          PurchaseProductCard: {
+            name: 'PurchaseProductCard',
+            props: ['product'],
+            template: '<div data-testid="purchase-product-card">{{ product.active ? "active" : "inactive" }}</div>',
           },
         },
       },
@@ -539,8 +525,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
     await flushPromises()
 
-    const planCard = wrapper.findComponent({ name: 'SubscriptionPlanCard' })
-    expect(planCard.props('activeSubscriptions')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="purchase-product-card"]').text()).toContain('active')
     expect(wrapper.text()).not.toContain('payment.activeSubscription')
     expect(wrapper.text()).not.toContain('codex-pool-19-usd')
   })
@@ -570,11 +555,7 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            props: ['plan'],
-            template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
           PaymentStatusPanel: {
             name: 'PaymentStatusPanel',
             props: ['orderId', 'qrImageUrl', 'orderType'],
@@ -586,11 +567,14 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
     await flushPromises()
 
-    const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
-    expect(planCards).toHaveLength(5)
-    expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(8)
+    expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+    expect(wrapper.text()).toContain('阅读订阅套餐A')
+    expect(wrapper.text()).toContain('阅读订阅套餐D')
+    expect(wrapper.text()).toContain('5刀流量卡')
 
-    await planCards[index].trigger('click')
+    await purchaseCards[index].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -625,10 +609,7 @@ describe('PaymentView tab defaults', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            template: '<div data-testid="subscription-plan-card"></div>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
@@ -636,7 +617,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('GPT 流量包')
-    expect(wrapper.findAll('button').some(button => button.text() === '购买')).toBe(false)
+    expect(wrapper.findAll('button').some(button => button.text() === '立即购买')).toBe(false)
   })
 })
 
@@ -673,15 +654,16 @@ describe('PaymentView without configured payment methods', () => {
           },
           Teleport: true,
           Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    const planCard = wrapper.findComponent({ name: 'SubscriptionPlanCard' })
+    const planCard = wrapper.findComponent({ name: 'PurchaseProductCard' })
     expect(planCard.exists()).toBe(true)
-    await planCard.vm.$emit('select', checkoutInfoWithManualPlansFixture().data.plans[0])
+    await planCard.vm.$emit('select', planCard.props('product'))
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -705,22 +687,18 @@ describe('PaymentView without configured payment methods', () => {
           },
           Teleport: true,
           Transition: false,
-          SubscriptionPlanCard: {
-            name: 'SubscriptionPlanCard',
-            props: ['plan'],
-            template: '<button data-testid="subscription-plan-card" @click="$emit(\'select\', plan)">{{ plan.name }}</button>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    const planCards = wrapper.findAll('[data-testid="subscription-plan-card"]')
-    expect(planCards).toHaveLength(5)
-    expect(planCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(8)
+    expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
 
-    await planCards[3].trigger('click')
+    await purchaseCards[3].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -742,20 +720,16 @@ describe('PaymentView without configured payment methods', () => {
           },
           Teleport: true,
           Transition: false,
-          TrafficPackCard: {
-            name: 'TrafficPackCard',
-            props: ['pack'],
-            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
-    expect(trafficPackCards).toHaveLength(3)
-    await trafficPackCards[0].trigger('click')
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(4)
+    await purchaseCards[1].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -777,20 +751,16 @@ describe('PaymentView without configured payment methods', () => {
           },
           Teleport: true,
           Transition: false,
-          TrafficPackCard: {
-            name: 'TrafficPackCard',
-            props: ['pack'],
-            template: '<button data-testid="traffic-pack-card" @click="$emit(\'select\', pack)">{{ pack.name }}</button>',
-          },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })
     await flushPromises()
     await flushPromises()
 
-    const trafficPackCards = wrapper.findAll('[data-testid="traffic-pack-card"]')
-    expect(trafficPackCards).toHaveLength(3)
-    await trafficPackCards[1].trigger('click')
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(4)
+    await purchaseCards[2].trigger('click')
     await flushPromises()
 
     const backButton = wrapper.findAll('button').find(button => button.text().includes('common.back'))
@@ -799,7 +769,7 @@ describe('PaymentView without configured payment methods', () => {
     await backButton?.trigger('click')
     await flushPromises()
 
-    expect(wrapper.findAll('[data-testid="traffic-pack-card"]')).toHaveLength(3)
+    expect(wrapper.findAll('[data-testid="purchase-product-card"]')).toHaveLength(4)
     expect(wrapper.findAll('button').some(button => button.text().includes('payment.createOrder'))).toBe(false)
   })
 })
@@ -892,7 +862,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
           Teleport: true,
           Transition: false,
           Icon: { template: '<span />' },
-          SubscriptionPlanCard: { template: '<div />' },
+          PurchaseProductCard: purchaseProductCardStub,
         },
       },
     })

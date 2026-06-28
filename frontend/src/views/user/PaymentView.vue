@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-4xl space-y-6">
+    <div :class="['mx-auto space-y-6', paymentPhase === 'select' && !selectedPlan && !selectedTrafficPack ? 'max-w-7xl' : 'max-w-4xl']">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-900 border-t-transparent dark:border-gray-100 dark:border-t-transparent"></div>
       </div>
@@ -49,12 +49,12 @@
                 </p>
                 <div class="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">可用范围</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">GPT</div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">刷新时间</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.validity_days }} 天</div>
                   </div>
                   <div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">有效期</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.validity_days }} 天</div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">可用额度</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.credit_usd }} 刀</div>
                   </div>
                 </div>
               </div>
@@ -176,19 +176,19 @@
               </button>
               <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
             </template>
-            <!-- Plan list -->
+            <!-- Product list -->
             <template v-else>
-              <div v-if="checkout.plans.length === 0" class="card py-16 text-center">
+              <div v-if="purchaseProducts.length === 0" class="card py-16 text-center">
                 <Icon name="gift" size="xl" class="mx-auto mb-3 text-gray-300 dark:text-dark-600" />
                 <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
               </div>
-              <div v-else :class="planGridClass">
-                <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" :fee-rate="feeRate" @select="selectPlan" />
-              </div>
-              <div v-if="checkout.traffic_packs.length > 0" class="space-y-3">
-                <div :class="trafficPackGridClass">
-                  <TrafficPackCard v-for="pack in checkout.traffic_packs" :key="pack.id" :pack="pack" :fee-rate="feeRate" @select="selectTrafficPack" />
-                </div>
+              <div v-else :class="purchaseProductGridClass">
+                <PurchaseProductCard
+                  v-for="item in purchaseProducts"
+                  :key="item.id"
+                  :product="item.product"
+                  @select="selectPurchaseProduct(item)"
+                />
               </div>
             </template>
         </template>
@@ -213,7 +213,12 @@
             </button>
             <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.selectPlan') }}</h3>
             <div class="space-y-4">
-              <SubscriptionPlanCard v-for="plan in renewalPlans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlanFromModal" />
+              <PurchaseProductCard
+                v-for="item in renewalProducts"
+                :key="item.id"
+                :product="item.product"
+                @select="selectPlanFromModal(item.plan)"
+              />
             </div>
           </div>
         </div>
@@ -257,12 +262,13 @@ import {
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
 import { platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
-import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
-import TrafficPackCard from '@/components/payment/TrafficPackCard.vue'
+import PurchaseProductCard from '@/components/payment/PurchaseProductCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
+import { calculatePayableAmount } from '@/components/payment/payableAmount'
+import type { PurchaseProductCardModel } from '@/components/payment/purchaseProductCard'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 
@@ -480,18 +486,11 @@ const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
 const hasPaymentMethods = computed(() => enabledMethods.value.length > 0)
 const validAmount = computed(() => amount.value ?? 0)
-// Adaptive grid: center single card, 2-col for 2 plans, 4-col for 4+ plans
-const planGridClass = computed(() => {
-  const n = checkout.value.plans.length
-  if (n <= 2) return 'grid grid-cols-1 gap-5 sm:grid-cols-2'
-  if (n >= 4) return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4'
-  return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'
-})
-
-const trafficPackGridClass = computed(() => {
-  const n = checkout.value.traffic_packs.length
-  if (n <= 2) return 'grid grid-cols-1 gap-5 sm:grid-cols-2'
-  return 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3'
+const purchaseProductGridClass = computed(() => {
+  const n = purchaseProducts.value.length
+  if (n <= 2) return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8'
+  if (n >= 4) return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4 lg:gap-12'
+  return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-12'
 })
 
 // Check if an amount fits a method's [min, max]. 0 = no limit.
@@ -521,6 +520,74 @@ function formatSelectedPaymentAmount(value: number): string {
 }
 
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
+
+type SubscriptionPurchaseProduct = { id: string; type: 'subscription'; plan: SubscriptionPlan; product: PurchaseProductCardModel }
+type TrafficPackPurchaseProduct = { id: string; type: 'traffic_pack'; pack: TrafficPack; product: PurchaseProductCardModel }
+type PurchaseProduct = SubscriptionPurchaseProduct | TrafficPackPurchaseProduct
+
+const formatCompactNumber = (value: number) => {
+  if (!Number.isFinite(value)) return '0'
+  return Number(value.toFixed(2)).toString()
+}
+
+const formatCardPrice = (value: number) => `¥${formatCompactNumber(value)}`
+const formatCardBasePrice = (value: number) => `¥${formatCompactNumber(value)}元`
+const cardFeeDetail = (price: number) =>
+  feeRate.value > 0 ? `${formatCardBasePrice(price)} + ${formatCompactNumber(feeRate.value)}%` : formatCardBasePrice(price)
+
+const planTitleSuffix = (index: number) => {
+  if (index >= 0 && index < 26) return String.fromCharCode(65 + index)
+  return String(index + 1)
+}
+
+const isPlanActive = (plan: SubscriptionPlan) =>
+  activeSubscriptions.value.some(s => s.group_id === plan.group_id && s.status === 'active')
+
+function buildSubscriptionProduct(plan: SubscriptionPlan, index: number): SubscriptionPurchaseProduct {
+  const active = isPlanActive(plan)
+  const dailyLimit = plan.daily_limit_usd == null ? '0' : formatCompactNumber(plan.daily_limit_usd)
+  return {
+    id: `subscription-${plan.id}`,
+    type: 'subscription',
+    plan,
+    product: {
+      testId: 'purchase-product-card',
+      title: `阅读订阅套餐${planTitleSuffix(index)}`,
+      priceText: formatCardPrice(calculatePayableAmount(plan.price, feeRate.value)),
+      buttonText: active ? t('payment.renewNow') : t('payment.subscribeNow'),
+      active,
+      detailRows: [
+        { label: '日限额', value: `${dailyLimit}刀` },
+        { label: '刷新时间', value: '24点刷新' },
+        { label: '手续费详情', value: cardFeeDetail(plan.price) },
+      ],
+    },
+  }
+}
+
+function buildTrafficPackProduct(pack: TrafficPack): TrafficPackPurchaseProduct {
+  return {
+    id: `traffic-pack-${pack.id}`,
+    type: 'traffic_pack',
+    pack,
+    product: {
+      testId: 'purchase-product-card',
+      title: `${formatCompactNumber(pack.credit_usd)}刀流量卡`,
+      priceText: formatCardPrice(calculatePayableAmount(pack.price, feeRate.value)),
+      buttonText: '立即购买',
+      detailRows: [
+        { label: '可用额度', value: `${formatCompactNumber(pack.credit_usd)}刀` },
+        { label: '刷新时间', value: `${pack.validity_days}天` },
+        { label: '手续费详情', value: cardFeeDetail(pack.price) },
+      ],
+    },
+  }
+}
+
+const purchaseProducts = computed<PurchaseProduct[]>(() => [
+  ...checkout.value.plans.map((plan, index) => buildSubscriptionProduct(plan, index)),
+  ...checkout.value.traffic_packs.map(pack => buildTrafficPackProduct(pack)),
+])
 
 // Subscription-specific: method options based on plan price
 const subMethodOptions = computed<PaymentMethodOption[]>(() => {
@@ -612,6 +679,7 @@ const renewalPlans = computed(() => {
   if (renewGroupId.value == null) return []
   return checkout.value.plans.filter(p => p.group_id === renewGroupId.value)
 })
+const renewalProducts = computed(() => renewalPlans.value.map((plan, index) => buildSubscriptionProduct(plan, index)))
 
 const planValiditySuffix = computed(() => {
   if (!selectedPlan.value) return ''
@@ -631,6 +699,14 @@ function selectTrafficPack(pack: TrafficPack) {
   selectedTrafficPack.value = pack
   selectedPlan.value = null
   errorMessage.value = ''
+}
+
+function selectPurchaseProduct(item: PurchaseProduct) {
+  if (item.type === 'subscription') {
+    selectPlan(item.plan)
+    return
+  }
+  selectTrafficPack(item.pack)
 }
 
 function backToSubscriptionList() {
