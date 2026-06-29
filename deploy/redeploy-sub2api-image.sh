@@ -31,6 +31,11 @@ usage() {
   本脚本会构建新镜像并重建 Sub2API 容器，因此会短暂影响 https://api.aaccx.pw/v1/*。
   正在运行的 Codex 流式请求可能断开。
 
+建议：
+  常规公网发布先执行 deploy/rehearse-sub2api-candidate.sh --reset-db，
+  候选预演通过后再使用 deploy/promote-sub2api-candidate.sh 发布。
+  本脚本保留为应急直接替换入口。
+
 默认行为：
   - 默认 detached 后台执行，日志写入 deploy/logs/redeploy-sub2api-*.log。
   - 构建镜像 weishaw/sub2api:latest。

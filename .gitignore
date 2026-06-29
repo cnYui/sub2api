@@ -115,6 +115,8 @@ backend/config.yaml
 deploy/config.yaml
 deploy/.env.*
 deploy/backups/
+!deploy/.env.candidate.local.example
+deploy/candidate/
 backend/.installed
 deploy/.env.scheme-a.runtime
 
