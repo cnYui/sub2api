@@ -1029,7 +1029,7 @@ describe('PaymentView page responsibility', () => {
     showInfo.mockReset()
     showWarning.mockReset()
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture())
-    activeSubscriptionsState.value = [
+    activeSubscriptionsState.items = [
       {
         id: 101,
         group_id: 2,
