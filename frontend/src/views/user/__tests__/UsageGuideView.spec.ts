@@ -80,7 +80,7 @@ describe('UsageGuideView', () => {
     const source = readFileSync(viewPath, 'utf8')
     const expectedTokens = [
       "title: '生图方法'",
-      '29/39/59/99 元套餐已支持生图和图生图',
+      '29/39/59/79/99 元套餐已支持生图和图生图',
       '客户端 Base URL 填 https://api.aaccx.pw/v1',
       '接口路径填 /images/edits',
       '如果工具要求完整 URL，使用 https://api.aaccx.pw/v1/images/edits',
