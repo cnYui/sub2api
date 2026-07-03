@@ -28,7 +28,17 @@ describe('PurchaseProductCard', () => {
     const button = wrapper.get('button')
     const text = wrapper.text()
 
-    expect(card.classes()).toEqual(expect.arrayContaining(['rounded-2xl', 'border', 'bg-black']))
+    expect(card.classes()).toEqual(expect.arrayContaining([
+      'rounded-2xl',
+      'border',
+      'bg-gradient-to-b',
+      'from-white',
+      'to-gray-50',
+      'text-gray-900',
+      'dark:bg-black',
+      'dark:from-black',
+      'dark:to-black',
+    ]))
     expect(text).toContain('PLAN')
     expect(text).toContain('阅读订阅套餐A')
     expect(text).toContain('Price')
@@ -36,7 +46,14 @@ describe('PurchaseProductCard', () => {
     expect(text).toContain('日限额19刀')
     expect(text).toContain('刷新时间24点刷新')
     expect(text).toContain('手续费详情¥29元 + 1%')
-    expect(button.classes()).toEqual(expect.arrayContaining(['rounded-full', 'bg-white', 'py-4']))
+    expect(button.classes()).toEqual(expect.arrayContaining([
+      'rounded-full',
+      'bg-gray-950',
+      'text-white',
+      'dark:bg-white',
+      'dark:text-black',
+      'py-4',
+    ]))
 
     await button.trigger('click')
 
