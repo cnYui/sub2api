@@ -141,3 +141,31 @@ func TestEffectiveGroupResolver_SubscriptionLoadErrorDoesNotFallbackToTrafficPac
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrNoOpenAIEntitlement)
 }
+
+func TestEffectiveGroupResolver_RequestPathInfersOpenAI(t *testing.T) {
+	now := time.Date(2026, 7, 5, 12, 0, 0, 0, time.UTC)
+	trafficGroup := Group{ID: 77, Name: TrafficPackOpenAIGroupName, Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard, IsExclusive: true}
+	resolver := NewEffectiveGroupResolver(
+		&effectiveGroupSubRepoStub{},
+		&effectiveGroupGroupRepoStub{groups: []Group{trafficGroup}},
+		NewTrafficPackService(&effectiveGroupTrafficRepoStub{has: true}),
+	)
+	resolver.now = func() time.Time { return now }
+
+	result, err := resolver.ResolveEffectiveGroupForRequest(context.Background(), 62, "/v1/responses", "")
+	require.NoError(t, err)
+	require.Equal(t, EffectiveGroupSourceTrafficPack, result.Source)
+	require.Equal(t, trafficGroup.ID, result.Group.ID)
+}
+
+func TestEffectiveGroupResolver_ForcePlatformWinsOverPath(t *testing.T) {
+	resolver := NewEffectiveGroupResolver(
+		&effectiveGroupSubRepoStub{},
+		&effectiveGroupGroupRepoStub{},
+		NewTrafficPackService(&effectiveGroupTrafficRepoStub{has: true}),
+	)
+
+	result, err := resolver.ResolveEffectiveGroupForRequest(context.Background(), 62, "/v1/responses", PlatformAntigravity)
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrNoOpenAIEntitlement)
+}

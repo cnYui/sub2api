@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -12,7 +13,7 @@ import (
 const TrafficPackOpenAIGroupName = "traffic-pack-openai"
 
 var (
-	ErrNoOpenAIEntitlement            = infraerrors.Forbidden("NO_OPENAI_ENTITLEMENT", "请先购买套餐或 GPT 流量包")
+	ErrNoOpenAIEntitlement           = infraerrors.Forbidden("NO_OPENAI_ENTITLEMENT", "请先购买套餐或 GPT 流量包")
 	ErrOpenAITrafficGroupUnavailable = infraerrors.ServiceUnavailable("OPENAI_TRAFFIC_GROUP_UNAVAILABLE", "OpenAI 流量包入口分组不可用")
 )
 
@@ -82,6 +83,14 @@ func (r *EffectiveGroupResolver) ResolveEffectiveGroup(ctx context.Context, user
 	return &EffectiveGroupResult{Group: group, Source: EffectiveGroupSourceTrafficPack}, nil
 }
 
+func (r *EffectiveGroupResolver) ResolveEffectiveGroupForRequest(ctx context.Context, userID int64, path string, forcePlatform string) (*EffectiveGroupResult, error) {
+	platform := forcePlatform
+	if platform == "" {
+		platform = inferEffectiveGroupPlatform(path)
+	}
+	return r.ResolveEffectiveGroup(ctx, userID, platform)
+}
+
 func (r *EffectiveGroupResolver) resolveOpenAISubscription(ctx context.Context, userID int64) (*EffectiveGroupResult, error) {
 	if r.subRepo == nil {
 		return nil, nil
@@ -143,4 +152,17 @@ func (r *EffectiveGroupResolver) resolveTrafficPackOpenAIGroup(ctx context.Conte
 		}
 	}
 	return nil, ErrOpenAITrafficGroupUnavailable
+}
+
+func inferEffectiveGroupPlatform(path string) string {
+	switch {
+	case strings.Contains(path, "/responses"),
+		strings.Contains(path, "/chat/completions"),
+		strings.Contains(path, "/embeddings"),
+		strings.Contains(path, "/images/"),
+		strings.Contains(path, "/messages"):
+		return PlatformOpenAI
+	default:
+		return ""
+	}
 }

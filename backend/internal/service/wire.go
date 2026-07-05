@@ -514,6 +514,10 @@ func ProvideAPIKeyService(
 	return svc
 }
 
+func ProvideEffectiveGroupResolver(subRepo UserSubscriptionRepository, groupRepo GroupRepository, trafficPackService *TrafficPackService) *EffectiveGroupResolver {
+	return NewEffectiveGroupResolver(subRepo, groupRepo, trafficPackService)
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -521,6 +525,7 @@ var ProviderSet = wire.NewSet(
 	NewUserService,
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
+	ProvideEffectiveGroupResolver,
 	NewGroupService,
 	NewAccountService,
 	NewProxyService,
