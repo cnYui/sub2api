@@ -62,6 +62,44 @@ type UpdateAPIKeyRequest struct {
 	ResetRateLimitUsage *bool    `json:"reset_rate_limit_usage"` // 重置限速用量
 }
 
+func automaticCreateAPIKeyServiceRequest(req CreateAPIKeyRequest) service.CreateAPIKeyRequest {
+	svcReq := service.CreateAPIKeyRequest{
+		Name:          req.Name,
+		GroupID:       nil,
+		CustomKey:     req.CustomKey,
+		IPWhitelist:   req.IPWhitelist,
+		IPBlacklist:   req.IPBlacklist,
+		ExpiresInDays: req.ExpiresInDays,
+	}
+	if req.Quota != nil {
+		svcReq.Quota = *req.Quota
+	}
+	if req.RateLimit5h != nil {
+		svcReq.RateLimit5h = *req.RateLimit5h
+	}
+	if req.RateLimit1d != nil {
+		svcReq.RateLimit1d = *req.RateLimit1d
+	}
+	if req.RateLimit7d != nil {
+		svcReq.RateLimit7d = *req.RateLimit7d
+	}
+	return svcReq
+}
+
+func automaticUpdateAPIKeyServiceRequest(req UpdateAPIKeyRequest) service.UpdateAPIKeyRequest {
+	return service.UpdateAPIKeyRequest{
+		GroupID:             nil,
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
+		Quota:               req.Quota,
+		ResetQuota:          req.ResetQuota,
+		RateLimit5h:         req.RateLimit5h,
+		RateLimit1d:         req.RateLimit1d,
+		RateLimit7d:         req.RateLimit7d,
+		ResetRateLimitUsage: req.ResetRateLimitUsage,
+	}
+}
+
 // List handles listing user's API keys with pagination
 // GET /api/v1/api-keys
 func (h *APIKeyHandler) List(c *gin.Context) {
@@ -153,26 +191,8 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		return
 	}
 
-	svcReq := service.CreateAPIKeyRequest{
-		Name:          req.Name,
-		GroupID:       req.GroupID,
-		CustomKey:     req.CustomKey,
-		IPWhitelist:   req.IPWhitelist,
-		IPBlacklist:   req.IPBlacklist,
-		ExpiresInDays: req.ExpiresInDays,
-	}
-	if req.Quota != nil {
-		svcReq.Quota = *req.Quota
-	}
-	if req.RateLimit5h != nil {
-		svcReq.RateLimit5h = *req.RateLimit5h
-	}
-	if req.RateLimit1d != nil {
-		svcReq.RateLimit1d = *req.RateLimit1d
-	}
-	if req.RateLimit7d != nil {
-		svcReq.RateLimit7d = *req.RateLimit7d
-	}
+	// 普通用户 Key 统一走运行时 effective group，避免套餐升级后必须重建 Key。
+	svcReq := automaticCreateAPIKeyServiceRequest(req)
 
 	executeUserIdempotentJSON(c, "user.api_keys.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		key, err := h.apiKeyService.Create(ctx, subject.UserID, svcReq)
@@ -204,20 +224,11 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		return
 	}
 
-	svcReq := service.UpdateAPIKeyRequest{
-		IPWhitelist:         req.IPWhitelist,
-		IPBlacklist:         req.IPBlacklist,
-		Quota:               req.Quota,
-		ResetQuota:          req.ResetQuota,
-		RateLimit5h:         req.RateLimit5h,
-		RateLimit1d:         req.RateLimit1d,
-		RateLimit7d:         req.RateLimit7d,
-		ResetRateLimitUsage: req.ResetRateLimitUsage,
-	}
+	// 普通用户不能把自动 Key 改回固定分组；管理员后台 API 保留固定分组能力。
+	svcReq := automaticUpdateAPIKeyServiceRequest(req)
 	if req.Name != "" {
 		svcReq.Name = &req.Name
 	}
-	svcReq.GroupID = req.GroupID
 	if req.Status != "" {
 		svcReq.Status = &req.Status
 	}
