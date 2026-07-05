@@ -732,6 +732,8 @@ export default {
     apiKey: 'API Key',
     group: 'Group',
     noGroup: 'No group',
+    autoGroup: 'Automatic group',
+    autoGroupHint: 'Uses the current plan or GPT traffic pack',
     searchGroup: 'Search groups...',
     noGroupFound: 'No groups found',
     created: 'Created',

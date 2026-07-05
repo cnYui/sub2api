@@ -5,7 +5,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -148,6 +150,149 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 	requireIndex(t, tx, "payment_orders", "paymentorder_out_trade_no")
 	requirePartialUniqueIndexDefinition(t, tx, "payment_orders", "paymentorder_out_trade_no", "out_trade_no", "WHERE")
 	requireIndexAbsent(t, tx, "payment_orders", "paymentorder_out_trade_no_unique")
+}
+
+func TestMigrationsRunner_AutoAPIKeyEffectiveGroupSeed(t *testing.T) {
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	email := fmt.Sprintf("auto-key-migration-%d@example.test", suffix)
+	openAIGroupName := fmt.Sprintf("auto-key-openai-%d", suffix)
+	anthropicGroupName := fmt.Sprintf("auto-key-anthropic-%d", suffix)
+	activeOpenAIAccountName := fmt.Sprintf("auto-key-openai-active-%d", suffix)
+	deletedOpenAIAccountName := fmt.Sprintf("auto-key-openai-deleted-%d", suffix)
+	anthropicAccountName := fmt.Sprintf("auto-key-anthropic-%d", suffix)
+
+	_, _ = integrationDB.ExecContext(ctx, "DELETE FROM schema_migrations WHERE filename = '159_auto_api_key_effective_group.sql'")
+	_, _ = integrationDB.ExecContext(ctx, "DELETE FROM groups WHERE name = 'traffic-pack-openai'")
+
+	var userID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO users (email, password_hash, role, status)
+VALUES ($1, 'hash', 'user', 'active')
+RETURNING id
+`, email).Scan(&userID))
+
+	var openAIGroupID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO groups (name, platform, subscription_type, status, rate_multiplier, is_exclusive)
+VALUES ($1, 'openai', 'subscription', 'active', 1, false)
+RETURNING id
+`, openAIGroupName).Scan(&openAIGroupID))
+
+	var anthropicGroupID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO groups (name, platform, subscription_type, status, rate_multiplier, is_exclusive)
+VALUES ($1, 'anthropic', 'subscription', 'active', 1, false)
+RETURNING id
+`, anthropicGroupName).Scan(&anthropicGroupID))
+
+	var activeOpenAIAccountID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO accounts (name, platform, type, credentials, extra, status)
+VALUES ($1, 'openai', 'oauth', '{}'::jsonb, '{}'::jsonb, 'active')
+RETURNING id
+`, activeOpenAIAccountName).Scan(&activeOpenAIAccountID))
+
+	var deletedOpenAIAccountID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO accounts (name, platform, type, credentials, extra, status, deleted_at)
+VALUES ($1, 'openai', 'oauth', '{}'::jsonb, '{}'::jsonb, 'active', NOW())
+RETURNING id
+`, deletedOpenAIAccountName).Scan(&deletedOpenAIAccountID))
+
+	var anthropicAccountID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO accounts (name, platform, type, credentials, extra, status)
+VALUES ($1, 'anthropic', 'oauth', '{}'::jsonb, '{}'::jsonb, 'active')
+RETURNING id
+`, anthropicAccountName).Scan(&anthropicAccountID))
+
+	var openAIKeyID, anthropicKeyID, deletedOpenAIKeyID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO api_keys (user_id, key, name, group_id, status)
+VALUES ($1, $2, 'openai-key', $3, 'active')
+RETURNING id
+`, userID, fmt.Sprintf("sk-auto-openai-%d", suffix), openAIGroupID).Scan(&openAIKeyID))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO api_keys (user_id, key, name, group_id, status)
+VALUES ($1, $2, 'anthropic-key', $3, 'active')
+RETURNING id
+`, userID, fmt.Sprintf("sk-auto-anthropic-%d", suffix), anthropicGroupID).Scan(&anthropicKeyID))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+INSERT INTO api_keys (user_id, key, name, group_id, status, deleted_at)
+VALUES ($1, $2, 'deleted-openai-key', $3, 'active', NOW())
+RETURNING id
+`, userID, fmt.Sprintf("sk-auto-deleted-%d", suffix), openAIGroupID).Scan(&deletedOpenAIKeyID))
+
+	require.NoError(t, ApplyMigrations(ctx, integrationDB))
+
+	var trafficGroup struct {
+		ID                   int64
+		Platform             string
+		SubscriptionType     string
+		IsExclusive          bool
+		Status               string
+		AllowImageGeneration bool
+	}
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+SELECT id, platform, subscription_type, is_exclusive, status, allow_image_generation
+FROM groups
+WHERE name = 'traffic-pack-openai'
+  AND deleted_at IS NULL
+`).Scan(
+		&trafficGroup.ID,
+		&trafficGroup.Platform,
+		&trafficGroup.SubscriptionType,
+		&trafficGroup.IsExclusive,
+		&trafficGroup.Status,
+		&trafficGroup.AllowImageGeneration,
+	))
+	require.Equal(t, "openai", trafficGroup.Platform)
+	require.Equal(t, "standard", trafficGroup.SubscriptionType)
+	require.True(t, trafficGroup.IsExclusive)
+	require.Equal(t, "active", trafficGroup.Status)
+	require.True(t, trafficGroup.AllowImageGeneration)
+
+	requireAccountGroupCount(t, activeOpenAIAccountID, trafficGroup.ID, 1)
+	requireAccountGroupCount(t, deletedOpenAIAccountID, trafficGroup.ID, 0)
+	requireAccountGroupCount(t, anthropicAccountID, trafficGroup.ID, 0)
+
+	requireAPIKeyGroupID(t, openAIKeyID, nil)
+	requireAPIKeyGroupID(t, anthropicKeyID, &anthropicGroupID)
+	requireAPIKeyGroupID(t, deletedOpenAIKeyID, &openAIGroupID)
+
+	require.NoError(t, ApplyMigrations(ctx, integrationDB))
+	requireAccountGroupCount(t, activeOpenAIAccountID, trafficGroup.ID, 1)
+}
+
+func requireAccountGroupCount(t *testing.T, accountID int64, groupID int64, expected int) {
+	t.Helper()
+
+	var count int
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+SELECT COUNT(*)
+FROM account_groups
+WHERE account_id = $1
+  AND group_id = $2
+`, accountID, groupID).Scan(&count))
+	require.Equal(t, expected, count)
+}
+
+func requireAPIKeyGroupID(t *testing.T, apiKeyID int64, expected *int64) {
+	t.Helper()
+
+	var groupID sql.NullInt64
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+SELECT group_id
+FROM api_keys
+WHERE id = $1
+`, apiKeyID).Scan(&groupID))
+	if expected == nil {
+		require.False(t, groupID.Valid)
+		return
+	}
+	require.True(t, groupID.Valid)
+	require.Equal(t, *expected, groupID.Int64)
 }
 
 func requireIndex(t *testing.T, tx *sql.Tx, table, index string) {

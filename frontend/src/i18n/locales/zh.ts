@@ -731,6 +731,8 @@ export default {
     apiKey: 'API 密钥',
     group: '分组',
     noGroup: '无分组',
+    autoGroup: '自动分组',
+    autoGroupHint: '按当前套餐或 GPT 流量包自动使用',
     searchGroup: '搜索分组...',
     noGroupFound: '未找到匹配的分组',
     created: '创建时间',

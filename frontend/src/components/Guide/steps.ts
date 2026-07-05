@@ -205,16 +205,6 @@ export const getAdminSteps = (t: (key: string) => string, isSimpleMode = false):
     }
   },
   {
-    element: '[data-tour="key-form-group"]',
-    popover: {
-      title: t('onboarding.admin.keyGroup.title'),
-      description: t('onboarding.admin.keyGroup.description'),
-      side: 'right',
-      align: 'start',
-      showButtons: ['next', 'previous']
-    }
-  },
-  {
     element: '[data-tour="key-form-submit"]',
     popover: {
       title: t('onboarding.admin.keySubmit.title'),
@@ -281,16 +271,6 @@ export const getUserSteps = (t: (key: string) => string): DriveStep[] => [
     popover: {
       title: t('onboarding.user.keyName.title'),
       description: t('onboarding.user.keyName.description'),
-      side: 'right',
-      align: 'start',
-      showButtons: ['next', 'previous']
-    }
-  },
-  {
-    element: '[data-tour="key-form-group"]',
-    popover: {
-      title: t('onboarding.user.keyGroup.title'),
-      description: t('onboarding.user.keyGroup.description'),
       side: 'right',
       align: 'start',
       showButtons: ['next', 'previous']
