@@ -109,3 +109,19 @@ func TestJitteredTTL_HasVariation(t *testing.T) {
 	// 50 次调用中应该至少有 2 个不同的值
 	require.Greater(t, len(seen), 1, "jitteredTTL() 应产生不同的 TTL 值")
 }
+
+func TestParseSubscriptionCache_RejectsLegacyCacheWithoutWindowFields(t *testing.T) {
+	cache := &billingCache{}
+
+	_, err := cache.parseSubscriptionCache(map[string]string{
+		subFieldStatus:       "active",
+		subFieldExpiresAt:    "1780000000",
+		subFieldDailyUsage:   "19.5",
+		subFieldWeeklyUsage:  "19.5",
+		subFieldMonthlyUsage: "19.5",
+		subFieldVersion:      "1780000000",
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "window")
+}

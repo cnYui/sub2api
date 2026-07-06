@@ -336,6 +336,57 @@ func (r *userSubscriptionRepository) ResetMonthlyUsage(ctx context.Context, id i
 	return translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 }
 
+// RefreshExpiredUsageWindows 条件式刷新过期窗口，供 API 计费入口在限额判断前修正事实源。
+func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error) {
+	const updateSQL = `
+		UPDATE user_subscriptions
+		SET
+			daily_usage_usd = CASE
+				WHEN daily_window_start IS NOT NULL AND daily_window_start < $2 THEN 0
+				ELSE daily_usage_usd
+			END,
+			daily_window_start = CASE
+				WHEN daily_window_start IS NULL OR daily_window_start < $2 THEN $2
+				ELSE daily_window_start
+			END,
+			weekly_usage_usd = CASE
+				WHEN weekly_window_start IS NOT NULL AND weekly_window_start < $3 THEN 0
+				ELSE weekly_usage_usd
+			END,
+			weekly_window_start = CASE
+				WHEN weekly_window_start IS NULL OR weekly_window_start < $3 THEN $3
+				ELSE weekly_window_start
+			END,
+			monthly_usage_usd = CASE
+				WHEN monthly_window_start IS NOT NULL AND monthly_window_start + INTERVAL '30 days' <= $5 THEN 0
+				ELSE monthly_usage_usd
+			END,
+			monthly_window_start = CASE
+				WHEN monthly_window_start IS NULL OR monthly_window_start + INTERVAL '30 days' <= $5 THEN $4
+				ELSE monthly_window_start
+			END,
+			updated_at = $5
+		WHERE id = $1
+			AND deleted_at IS NULL
+			AND (
+				daily_window_start IS NULL OR daily_window_start < $2
+				OR weekly_window_start IS NULL OR weekly_window_start < $3
+				OR monthly_window_start IS NULL OR monthly_window_start + INTERVAL '30 days' <= $5
+			)
+	`
+
+	client := clientFromContext(ctx, r.client)
+	result, err := client.ExecContext(ctx, updateSQL, id, dailyStart, weeklyStart, monthlyStart, now)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected > 0, nil
+}
+
 // IncrementUsage 原子性地累加订阅用量。
 // 限额检查已在请求前由 BillingCacheService.CheckBillingEligibility 完成，
 // 此处仅负责记录实际消费，确保消费数据的完整性。

@@ -119,6 +119,9 @@ func (userSubRepoNoop) ResetWeeklyUsage(context.Context, int64, time.Time) error
 func (userSubRepoNoop) ResetMonthlyUsage(context.Context, int64, time.Time) error {
 	panic("unexpected ResetMonthlyUsage call")
 }
+func (userSubRepoNoop) RefreshExpiredUsageWindows(context.Context, int64, time.Time, time.Time, time.Time, time.Time) (bool, error) {
+	panic("unexpected RefreshExpiredUsageWindows call")
+}
 func (userSubRepoNoop) IncrementUsage(context.Context, int64, float64) error {
 	panic("unexpected IncrementUsage call")
 }

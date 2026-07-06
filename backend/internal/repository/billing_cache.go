@@ -49,12 +49,15 @@ func billingSubKey(userID, groupID int64) string {
 }
 
 const (
-	subFieldStatus       = "status"
-	subFieldExpiresAt    = "expires_at"
-	subFieldDailyUsage   = "daily_usage"
-	subFieldWeeklyUsage  = "weekly_usage"
-	subFieldMonthlyUsage = "monthly_usage"
-	subFieldVersion      = "version"
+	subFieldStatus        = "status"
+	subFieldExpiresAt     = "expires_at"
+	subFieldDailyUsage    = "daily_usage"
+	subFieldWeeklyUsage   = "weekly_usage"
+	subFieldMonthlyUsage  = "monthly_usage"
+	subFieldVersion       = "version"
+	subFieldDailyWindow   = "daily_window_start"
+	subFieldWeeklyWindow  = "weekly_window_start"
+	subFieldMonthlyWindow = "monthly_window_start"
 )
 
 // billingRateLimitKey generates the Redis key for API key rate limit cache.
@@ -215,7 +218,31 @@ func (c *billingCache) parseSubscriptionCache(data map[string]string) (*service.
 		result.Version, _ = strconv.ParseInt(versionStr, 10, 64)
 	}
 
+	var err error
+	if result.DailyWindowStart, err = parseRequiredUnixTimePtr(data, subFieldDailyWindow); err != nil {
+		return nil, err
+	}
+	if result.WeeklyWindowStart, err = parseRequiredUnixTimePtr(data, subFieldWeeklyWindow); err != nil {
+		return nil, err
+	}
+	if result.MonthlyWindowStart, err = parseRequiredUnixTimePtr(data, subFieldMonthlyWindow); err != nil {
+		return nil, err
+	}
+
 	return result, nil
+}
+
+func parseRequiredUnixTimePtr(data map[string]string, field string) (*time.Time, error) {
+	value, ok := data[field]
+	if !ok || strings.TrimSpace(value) == "" {
+		return nil, fmt.Errorf("invalid cache: missing %s window field", field)
+	}
+	seconds, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid cache: parse %s: %w", field, err)
+	}
+	t := time.Unix(seconds, 0)
+	return &t, nil
 }
 
 func (c *billingCache) SetSubscriptionCache(ctx context.Context, userID, groupID int64, data *service.SubscriptionCacheData) error {
@@ -226,12 +253,15 @@ func (c *billingCache) SetSubscriptionCache(ctx context.Context, userID, groupID
 	key := billingSubKey(userID, groupID)
 
 	fields := map[string]any{
-		subFieldStatus:       data.Status,
-		subFieldExpiresAt:    data.ExpiresAt.Unix(),
-		subFieldDailyUsage:   data.DailyUsage,
-		subFieldWeeklyUsage:  data.WeeklyUsage,
-		subFieldMonthlyUsage: data.MonthlyUsage,
-		subFieldVersion:      data.Version,
+		subFieldStatus:        data.Status,
+		subFieldExpiresAt:     data.ExpiresAt.Unix(),
+		subFieldDailyUsage:    data.DailyUsage,
+		subFieldWeeklyUsage:   data.WeeklyUsage,
+		subFieldMonthlyUsage:  data.MonthlyUsage,
+		subFieldVersion:       data.Version,
+		subFieldDailyWindow:   formatUnixTimePtr(data.DailyWindowStart),
+		subFieldWeeklyWindow:  formatUnixTimePtr(data.WeeklyWindowStart),
+		subFieldMonthlyWindow: formatUnixTimePtr(data.MonthlyWindowStart),
 	}
 
 	pipe := c.rdb.Pipeline()
@@ -239,6 +269,13 @@ func (c *billingCache) SetSubscriptionCache(ctx context.Context, userID, groupID
 	pipe.Expire(ctx, key, jitteredTTL())
 	_, err := pipe.Exec(ctx)
 	return err
+}
+
+func formatUnixTimePtr(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return strconv.FormatInt(t.Unix(), 10)
 }
 
 func (c *billingCache) UpdateSubscriptionUsage(ctx context.Context, userID, groupID int64, cost float64) error {
