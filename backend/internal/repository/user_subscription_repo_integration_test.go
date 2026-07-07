@@ -431,6 +431,64 @@ func (s *UserSubscriptionRepoSuite) TestResetMonthlyUsage() {
 	s.Require().WithinDuration(resetAt, *got.MonthlyWindowStart, time.Microsecond)
 }
 
+func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_NullWindowsResetUsage() {
+	user := s.mustCreateUser("refresh-null-windows@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-refresh-null-windows")
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyUsageUsd(9.9)
+		c.SetWeeklyUsageUsd(19.9)
+		c.SetMonthlyUsageUsd(29.9)
+	})
+
+	dailyStart := time.Date(2026, 7, 7, 0, 0, 0, 0, time.UTC)
+	weeklyStart := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	monthlyStart := time.Date(2026, 7, 7, 10, 30, 0, 0, time.UTC)
+	now := monthlyStart
+
+	updated, err := s.repo.RefreshExpiredUsageWindows(s.ctx, sub.ID, dailyStart, weeklyStart, monthlyStart, now)
+	s.Require().NoError(err)
+	s.Require().True(updated)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(0.0, got.DailyUsageUSD, 1e-6)
+	s.Require().InDelta(0.0, got.WeeklyUsageUSD, 1e-6)
+	s.Require().InDelta(0.0, got.MonthlyUsageUSD, 1e-6)
+	s.Require().NotNil(got.DailyWindowStart)
+	s.Require().NotNil(got.WeeklyWindowStart)
+	s.Require().NotNil(got.MonthlyWindowStart)
+	s.Require().WithinDuration(dailyStart, *got.DailyWindowStart, time.Microsecond)
+	s.Require().WithinDuration(weeklyStart, *got.WeeklyWindowStart, time.Microsecond)
+	s.Require().WithinDuration(monthlyStart, *got.MonthlyWindowStart, time.Microsecond)
+}
+
+func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_CurrentWindowsKeepUsage() {
+	user := s.mustCreateUser("refresh-current-windows@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-refresh-current-windows")
+	dailyStart := time.Date(2026, 7, 7, 0, 0, 0, 0, time.UTC)
+	weeklyStart := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	monthlyStart := time.Date(2026, 7, 7, 10, 30, 0, 0, time.UTC)
+	now := monthlyStart.Add(2 * time.Hour)
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(dailyStart)
+		c.SetWeeklyWindowStart(weeklyStart)
+		c.SetMonthlyWindowStart(monthlyStart)
+		c.SetDailyUsageUsd(1.1)
+		c.SetWeeklyUsageUsd(2.2)
+		c.SetMonthlyUsageUsd(3.3)
+	})
+
+	updated, err := s.repo.RefreshExpiredUsageWindows(s.ctx, sub.ID, dailyStart, weeklyStart, monthlyStart, now)
+	s.Require().NoError(err)
+	s.Require().False(updated)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(1.1, got.DailyUsageUSD, 1e-6)
+	s.Require().InDelta(2.2, got.WeeklyUsageUSD, 1e-6)
+	s.Require().InDelta(3.3, got.MonthlyUsageUSD, 1e-6)
+}
+
 // --- UpdateStatus / ExtendExpiry / UpdateNotes ---
 
 func (s *UserSubscriptionRepoSuite) TestUpdateStatus() {

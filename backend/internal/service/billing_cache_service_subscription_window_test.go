@@ -40,26 +40,17 @@ func (r *subscriptionWindowRepoStub) RefreshExpiredUsageWindows(_ context.Contex
 	}
 
 	changed := false
-	if r.sub.DailyWindowStart == nil {
-		r.sub.DailyWindowStart = timePtrForWindowTest(dailyStart)
-		changed = true
-	} else if r.sub.DailyWindowStart.Before(dailyStart) {
+	if r.sub.DailyWindowStart == nil || r.sub.DailyWindowStart.Before(dailyStart) {
 		r.sub.DailyUsageUSD = 0
 		r.sub.DailyWindowStart = timePtrForWindowTest(dailyStart)
 		changed = true
 	}
-	if r.sub.WeeklyWindowStart == nil {
-		r.sub.WeeklyWindowStart = timePtrForWindowTest(weeklyStart)
-		changed = true
-	} else if r.sub.WeeklyWindowStart.Before(weeklyStart) {
+	if r.sub.WeeklyWindowStart == nil || r.sub.WeeklyWindowStart.Before(weeklyStart) {
 		r.sub.WeeklyUsageUSD = 0
 		r.sub.WeeklyWindowStart = timePtrForWindowTest(weeklyStart)
 		changed = true
 	}
-	if r.sub.MonthlyWindowStart == nil {
-		r.sub.MonthlyWindowStart = timePtrForWindowTest(monthlyStart)
-		changed = true
-	} else if !r.sub.MonthlyWindowStart.Add(30 * 24 * time.Hour).After(now) {
+	if r.sub.MonthlyWindowStart == nil || !r.sub.MonthlyWindowStart.Add(30*24*time.Hour).After(now) {
 		r.sub.MonthlyUsageUSD = 0
 		r.sub.MonthlyWindowStart = timePtrForWindowTest(monthlyStart)
 		changed = true

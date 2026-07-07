@@ -703,23 +703,39 @@ func (s *SubscriptionService) List(ctx context.Context, page, pageSize int, user
 // normalizeExpiredWindows 将已过期窗口的数据清零（仅影响返回数据，不影响数据库）
 // 这确保前端显示正确的当前窗口状态，而不是过期窗口的历史数据
 func normalizeExpiredWindows(subs []UserSubscription) {
+	now := time.Now()
 	for i := range subs {
-		sub := &subs[i]
-		// 日窗口过期：清零展示数据
-		if sub.NeedsDailyReset() {
-			sub.DailyWindowStart = nil
+		normalizeExpiredWindowForDisplay(&subs[i], now)
+	}
+}
+
+func normalizeExpiredWindowForDisplay(sub *UserSubscription, now time.Time) {
+	if sub == nil {
+		return
+	}
+	if sub.DailyWindowStart == nil {
+		if sub.DailyUsageUSD > 0 {
 			sub.DailyUsageUSD = 0
 		}
-		// 周窗口过期：清零展示数据
-		if sub.NeedsWeeklyReset() {
-			sub.WeeklyWindowStart = nil
+	} else if sub.NeedsDailyResetAt(now) {
+		sub.DailyWindowStart = nil
+		sub.DailyUsageUSD = 0
+	}
+	if sub.WeeklyWindowStart == nil {
+		if sub.WeeklyUsageUSD > 0 {
 			sub.WeeklyUsageUSD = 0
 		}
-		// 月窗口过期：清零展示数据
-		if sub.NeedsMonthlyReset() {
-			sub.MonthlyWindowStart = nil
+	} else if usagewindow.WeeklyExpired(sub.WeeklyWindowStart, now) {
+		sub.WeeklyWindowStart = nil
+		sub.WeeklyUsageUSD = 0
+	}
+	if sub.MonthlyWindowStart == nil {
+		if sub.MonthlyUsageUSD > 0 {
 			sub.MonthlyUsageUSD = 0
 		}
+	} else if usagewindow.MonthlyExpired(sub.MonthlyWindowStart, now) {
+		sub.MonthlyWindowStart = nil
+		sub.MonthlyUsageUSD = 0
 	}
 }
 
@@ -984,6 +1000,7 @@ func (s *SubscriptionService) GetSubscriptionProgress(ctx context.Context, subsc
 		}
 	}
 
+	normalizeExpiredWindowForDisplay(sub, time.Now())
 	return s.calculateProgress(sub, group), nil
 }
 

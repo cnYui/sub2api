@@ -342,7 +342,7 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 		UPDATE user_subscriptions
 		SET
 			daily_usage_usd = CASE
-				WHEN daily_window_start IS NOT NULL AND daily_window_start < $2 THEN 0
+				WHEN daily_window_start IS NULL OR daily_window_start < $2 THEN 0
 				ELSE daily_usage_usd
 			END,
 			daily_window_start = CASE
@@ -350,7 +350,7 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 				ELSE daily_window_start
 			END,
 			weekly_usage_usd = CASE
-				WHEN weekly_window_start IS NOT NULL AND weekly_window_start < $3 THEN 0
+				WHEN weekly_window_start IS NULL OR weekly_window_start < $3 THEN 0
 				ELSE weekly_usage_usd
 			END,
 			weekly_window_start = CASE
@@ -358,7 +358,7 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 				ELSE weekly_window_start
 			END,
 			monthly_usage_usd = CASE
-				WHEN monthly_window_start IS NOT NULL AND monthly_window_start + INTERVAL '30 days' <= $5 THEN 0
+				WHEN monthly_window_start IS NULL OR monthly_window_start + INTERVAL '30 days' <= $5 THEN 0
 				ELSE monthly_usage_usd
 			END,
 			monthly_window_start = CASE
