@@ -58,7 +58,7 @@
             ({{ row.fee_rate }}%)
           </span>
           <div v-if="row.amount !== row.pay_amount" class="text-xs text-gray-500">
-            {{ t('payment.orders.creditedAmount') }}: {{ creditedAmountSymbol }}{{ row.amount.toFixed(2) }}
+            {{ t('payment.orders.creditedAmount') }}: {{ creditedAmountSymbol(row) }}{{ row.amount.toFixed(2) }}
           </div>
         </div>
       </template>
@@ -168,10 +168,13 @@ const emit = defineEmits<{
 
 const searchQuery = ref('')
 const filters = reactive({ status: '', payment_type: '', order_type: '' })
-const creditedAmountSymbol = currencySymbol('USD')
 
 function paymentAmountSymbol(order: PaymentOrder): string {
   return currencySymbol(order.currency)
+}
+
+function creditedAmountSymbol(order: PaymentOrder): string {
+  return currencySymbol(order.currency || 'CNY')
 }
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -216,6 +219,7 @@ const statusFilterOptions = computed(() => [
 const paymentTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allPaymentTypes') },
   { value: 'alipay', label: t('payment.methods.alipay') },
+  { value: 'balance', label: t('payment.methods.balance') },
   { value: 'wxpay', label: t('payment.methods.wxpay') },
   { value: 'stripe', label: t('payment.methods.stripe') },
   { value: 'airwallex', label: t('payment.methods.airwallex') },
@@ -225,6 +229,7 @@ const orderTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allOrderTypes') },
   { value: 'balance', label: t('payment.admin.balanceOrder') },
   { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
+  { value: 'traffic_pack', label: t('payment.admin.traffic_packOrder') },
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {

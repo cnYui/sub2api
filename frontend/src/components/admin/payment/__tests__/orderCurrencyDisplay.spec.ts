@@ -8,10 +8,14 @@ import OrderTable from '@/components/payment/OrderTable.vue'
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
+  const translations: Record<string, string> = {
+    'payment.methods.balance': '余额',
+    'payment.admin.traffic_packOrder': '流量包',
+  }
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: (key: string) => translations[key] || key,
     }),
   }
 })
@@ -27,6 +31,8 @@ const DataTableStub = {
     <div>
       <div v-for="row in data" :key="row.id">
         <slot name="cell-pay_amount" :value="row.pay_amount" :row="row" />
+        <slot name="cell-payment_type" :value="row.payment_type" :row="row" />
+        <slot name="cell-order_type" :value="row.order_type" :row="row" />
       </div>
     </div>
   `,
@@ -52,7 +58,7 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
 }
 
 describe('admin order currency display', () => {
-  it('uses order currency for paid/base/fee amounts and USD for credited/refund amounts', () => {
+  it('uses order currency for paid/base/fee/credited/refund amounts', () => {
     const wrapper = mount(AdminOrderDetail, {
       props: {
         show: true,
@@ -69,8 +75,8 @@ describe('admin order currency display', () => {
     expect(text).toContain('¥100.00')
     expect(text).toContain('¥8.00')
     expect(text).toContain('¥108.00')
-    expect(text).toContain('$100.00')
-    expect(text).toContain('$25.00')
+    expect(text).not.toContain('$100.00')
+    expect(text).toContain('¥25.00')
   })
 
   it('uses order currency for pay_amount and USD for refundable balance amounts', () => {
@@ -149,5 +155,43 @@ describe('admin order currency display', () => {
     expect(text).toContain('$108.00')
     expect(text).toContain('¥108.00')
     expect(text).toContain('$100.00')
+  })
+
+  it('shows balance payment and traffic pack order type with CNY amounts', () => {
+    const wrapper = mount(AdminOrderTable, {
+      props: {
+        orders: [
+          orderFactory({
+            id: 1,
+            amount: 79,
+            pay_amount: 79.79,
+            currency: 'CNY',
+            fee_rate: 1,
+            payment_type: 'balance',
+            order_type: 'traffic_pack',
+            status: 'COMPLETED',
+            refund_amount: 0,
+          }),
+        ],
+        loading: false,
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          Icon: true,
+          Pagination: true,
+          Select: true,
+        },
+      },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('¥79.79')
+    expect(text).toContain('¥79.00')
+    expect(text).toContain('余额')
+    expect(text).toContain('流量包')
   })
 })
