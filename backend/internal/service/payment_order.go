@@ -21,9 +21,11 @@ import (
 // --- Order Creation ---
 
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
-	if req.OrderType == "" {
-		req.OrderType = payment.OrderTypeBalance
+	orderType, ok := payment.NormalizeOrderType(req.OrderType)
+	if !ok {
+		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "invalid order type")
 	}
+	req.OrderType = orderType
 	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
 		req.PaymentType = normalized
 	}
@@ -63,6 +65,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
 	feeRate := cfg.RechargeFeeRate
+	if req.OrderType == payment.OrderTypeBalance {
+		feeRate = 0
+	}
 	methodCurrency := payment.DefaultPaymentCurrency
 	if s.configService != nil {
 		methodCurrency, err = s.configService.ValidateMethodCurrencyConsistency(ctx, req.PaymentType)
@@ -650,16 +655,15 @@ func calculateCreateOrderPayAmount(limitAmount, feeRate float64, currency string
 }
 
 func calculateCreateOrderPayAmountForOrder(orderType string, limitAmount, feeRate, multiplier float64, currency string) (string, float64, error) {
-	paymentAmount := calculateCreateOrderPaymentAmount(orderType, limitAmount, multiplier, currency)
-	return calculateCreateOrderPayAmount(paymentAmount, feeRate, currency)
+	effectiveFeeRate := feeRate
+	if orderType == payment.OrderTypeBalance {
+		effectiveFeeRate = 0
+	}
+	return calculateCreateOrderPayAmount(limitAmount, effectiveFeeRate, currency)
 }
 
 func calculateCreateOrderPaymentAmount(orderType string, limitAmount, multiplier float64, currency string) float64 {
-	normalizedCurrency, err := payment.NormalizePaymentCurrency(currency)
-	if err != nil || normalizedCurrency != payment.DefaultPaymentCurrency || orderType != payment.OrderTypeSubscription {
-		return limitAmount
-	}
-	return calculateGatewayPaymentAmount(limitAmount, multiplier, normalizedCurrency)
+	return limitAmount
 }
 
 func validateCreateOrderAmountCurrency(amount float64, currency string) error {

@@ -2,7 +2,10 @@
 // registry, load balancing, and shared utilities for the payment subsystem.
 package payment
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 // PaymentType represents a supported payment method.
 type PaymentType = string
@@ -18,6 +21,7 @@ const (
 	TypeLink         PaymentType = "link"
 	TypeEasyPay      PaymentType = "easypay"
 	TypeAirwallex    PaymentType = "airwallex"
+	TypeBalance      PaymentType = "balance"
 )
 
 // Order status constants shared across payment and service layers.
@@ -42,6 +46,19 @@ const (
 	OrderTypeSubscription = "subscription"
 	OrderTypeTrafficPack  = "traffic_pack"
 )
+
+func NormalizeOrderType(raw string) (string, bool) {
+	orderType := strings.TrimSpace(raw)
+	if orderType == "" {
+		return OrderTypeBalance, true
+	}
+	switch orderType {
+	case OrderTypeBalance, OrderTypeSubscription, OrderTypeTrafficPack:
+		return orderType, true
+	default:
+		return "", false
+	}
+}
 
 // Entity statuses shared across users, groups, etc.
 const (

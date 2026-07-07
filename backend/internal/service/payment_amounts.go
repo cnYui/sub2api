@@ -18,7 +18,6 @@ func normalizeBalanceRechargeMultiplier(multiplier float64) float64 {
 
 func calculateCreditedBalance(paymentAmount, multiplier float64) float64 {
 	return decimal.NewFromFloat(paymentAmount).
-		Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).
 		Round(2).
 		InexactFloat64()
 }
