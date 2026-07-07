@@ -63,7 +63,7 @@
             />
           </svg>
           <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-            ${{ user.balance?.toFixed(2) || '0.00' }}
+            ¥{{ user.balance?.toFixed(2) || '0.00' }}
           </span>
         </div>
 
@@ -111,7 +111,7 @@
                   {{ t('common.balance') }}
                 </div>
                 <div class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  ${{ user.balance?.toFixed(2) || '0.00' }}
+                  ¥{{ user.balance?.toFixed(2) || '0.00' }}
                 </div>
               </div>
 
