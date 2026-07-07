@@ -23,7 +23,7 @@
         </template>
         <!-- Subscription and traffic pack purchases -->
         <template v-else>
-          <div v-if="selectedPlan || selectedTrafficPack" class="mb-1">
+          <div v-if="paymentPhase === 'recharge' || selectedPlan || selectedTrafficPack" class="mb-1">
             <button
               type="button"
               class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
@@ -34,7 +34,46 @@
             </button>
           </div>
           <!-- Traffic pack confirm (inline, reuses subscription payment flow) -->
-          <template v-if="selectedTrafficPack">
+          <template v-if="paymentPhase === 'recharge'">
+            <div class="card p-5">
+              <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.recharge.title') }}</h3>
+              <label class="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payment.recharge.amount') }}</label>
+              <input
+                v-model="rechargeAmount"
+                data-testid="balance-recharge-amount"
+                class="input mt-2"
+                inputmode="numeric"
+                autocomplete="off"
+              />
+              <p v-if="rechargeError" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ rechargeError }}</p>
+            </div>
+            <div class="card p-6">
+              <PaymentMethodSelector
+                :methods="rechargeMethodOptions"
+                selected="alipay"
+                @select="selectedMethod = 'alipay'"
+              />
+            </div>
+            <div class="card p-6">
+              <div class="flex justify-between text-sm">
+                <span class="text-gray-500 dark:text-gray-400">{{ t('payment.recharge.amount') }}</span>
+                <span class="text-gray-900 dark:text-white">¥{{ validRechargeAmount.toFixed(2) }}</span>
+              </div>
+              <div class="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm dark:border-dark-600">
+                <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
+                <span class="text-lg font-bold text-gray-900 dark:text-gray-100">¥{{ validRechargeAmount.toFixed(2) }}</span>
+              </div>
+            </div>
+            <button data-testid="balance-recharge-submit" class="btn btn-alipay w-full py-3 text-base font-medium" :disabled="!!rechargeError || submitting" @click="confirmRecharge">
+              <span v-if="submitting" class="flex items-center justify-center gap-2">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                {{ t('common.processing') }}
+              </span>
+              <span v-else>{{ t('payment.recharge.confirm', { amount: validRechargeAmount.toFixed(0) }) }}</span>
+            </button>
+            <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
+          </template>
+          <template v-else-if="selectedTrafficPack">
             <div class="card p-5">
                 <div class="mb-3 flex flex-wrap items-center gap-2">
                   <span class="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">GPT</span>
@@ -255,6 +294,7 @@ import {
   buildCreateOrderPayload,
   clearPaymentRecoverySnapshot,
   decidePaymentLaunch,
+  getUserExternalPaymentMethods,
   getVisibleMethods,
   normalizeVisibleMethod,
   readPaymentRecoverySnapshot,
@@ -293,7 +333,15 @@ const selectedPlan = ref<SubscriptionPlan | null>(null)
 const selectedTrafficPack = ref<TrafficPack | null>(null)
 const previewImage = ref('')
 
-const paymentPhase = ref<'select' | 'paying'>('select')
+const paymentPhase = ref<'select' | 'recharge' | 'paying'>('select')
+const rechargeAmount = ref('1')
+const rechargeError = computed(() => {
+  if (!/^\d+$/.test(rechargeAmount.value.trim())) return t('payment.recharge.invalidAmount')
+  const value = Number(rechargeAmount.value)
+  if (value < 1 || value > 100) return t('payment.recharge.invalidAmount')
+  return ''
+})
+const validRechargeAmount = computed(() => rechargeError.value ? 0 : Number(rechargeAmount.value))
 
 interface CreateOrderOptions {
   openid?: string
@@ -483,6 +531,7 @@ const checkout = ref<CheckoutInfoResponse>({
 })
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
+const visibleExternalMethods = computed(() => getUserExternalPaymentMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
 const hasPaymentMethods = computed(() => enabledMethods.value.length > 0)
 const validAmount = computed(() => amount.value ?? 0)
@@ -521,9 +570,10 @@ function formatSelectedPaymentAmount(value: number): string {
 
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
 
+type BalanceRechargePurchaseProduct = { id: 'balance-recharge'; type: 'balance_recharge'; product: PurchaseProductCardModel }
 type SubscriptionPurchaseProduct = { id: string; type: 'subscription'; plan: SubscriptionPlan; product: PurchaseProductCardModel }
 type TrafficPackPurchaseProduct = { id: string; type: 'traffic_pack'; pack: TrafficPack; product: PurchaseProductCardModel }
-type PurchaseProduct = SubscriptionPurchaseProduct | TrafficPackPurchaseProduct
+type PurchaseProduct = BalanceRechargePurchaseProduct | SubscriptionPurchaseProduct | TrafficPackPurchaseProduct
 
 const formatCompactNumber = (value: number) => {
   if (!Number.isFinite(value)) return '0'
@@ -542,6 +592,24 @@ const planTitleSuffix = (index: number) => {
 
 const isPlanActive = (plan: SubscriptionPlan) =>
   activeSubscriptions.value.some(s => s.group_id === plan.group_id && s.status === 'active')
+
+function buildBalanceRechargeProduct(): BalanceRechargePurchaseProduct {
+  return {
+    id: 'balance-recharge',
+    type: 'balance_recharge',
+    product: {
+      testId: 'purchase-product-card',
+      title: t('payment.recharge.title'),
+      priceText: '¥1 起',
+      buttonText: t('payment.recharge.button'),
+      detailRows: [
+        { label: t('payment.recharge.usage'), value: t('payment.recharge.usageValue') },
+        { label: t('payment.recharge.arrival'), value: t('payment.recharge.arrivalValue') },
+        { label: t('payment.recharge.fee'), value: t('payment.recharge.noFee') },
+      ],
+    },
+  }
+}
 
 function buildSubscriptionProduct(plan: SubscriptionPlan, index: number): SubscriptionPurchaseProduct {
   const active = isPlanActive(plan)
@@ -585,9 +653,15 @@ function buildTrafficPackProduct(pack: TrafficPack): TrafficPackPurchaseProduct 
 }
 
 const purchaseProducts = computed<PurchaseProduct[]>(() => [
+  buildBalanceRechargeProduct(),
   ...checkout.value.plans.map((plan, index) => buildSubscriptionProduct(plan, index)),
   ...checkout.value.traffic_packs.map(pack => buildTrafficPackProduct(pack)),
 ])
+
+const rechargeMethodOptions = computed<PaymentMethodOption[]>(() => {
+  const alipay = visibleExternalMethods.value.alipay
+  return alipay ? [{ type: 'alipay', fee_rate: 0, available: alipay.available !== false }] : []
+})
 
 // Subscription-specific: method options based on plan price
 const subMethodOptions = computed<PaymentMethodOption[]>(() => {
@@ -702,6 +776,10 @@ function selectTrafficPack(pack: TrafficPack) {
 }
 
 function selectPurchaseProduct(item: PurchaseProduct) {
+  if (item.type === 'balance_recharge') {
+    openRechargeConfirm(1)
+    return
+  }
   if (item.type === 'subscription') {
     selectPlan(item.plan)
     return
@@ -710,10 +788,19 @@ function selectPurchaseProduct(item: PurchaseProduct) {
 }
 
 function backToSubscriptionList() {
+  paymentPhase.value = 'select'
   selectedPlan.value = null
   selectedTrafficPack.value = null
   errorMessage.value = ''
   errorHintMessage.value = ''
+}
+
+function openRechargeConfirm(defaultAmount = 1) {
+  selectedPlan.value = null
+  selectedTrafficPack.value = null
+  paymentPhase.value = 'recharge'
+  selectedMethod.value = 'alipay'
+  rechargeAmount.value = String(Math.min(100, Math.max(1, Math.ceil(defaultAmount))))
 }
 
 function selectPlanFromModal(plan: SubscriptionPlan) {
@@ -746,6 +833,11 @@ async function confirmTrafficPack() {
   await createOrder(selectedTrafficPack.value.price, 'traffic_pack', undefined, {
     trafficPackId: selectedTrafficPack.value.id,
   })
+}
+
+async function confirmRecharge() {
+  if (rechargeError.value || submitting.value) return
+  await createOrder(validRechargeAmount.value, 'balance', undefined, { paymentType: 'alipay' })
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {

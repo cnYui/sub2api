@@ -302,6 +302,24 @@ const purchaseProductCardStub = {
   `,
 }
 
+const paymentMethodSelectorStub = {
+  name: 'PaymentMethodSelector',
+  props: ['methods', 'selected'],
+  emits: ['select'],
+  template: `
+    <div>
+      <button
+        v-for="method in methods"
+        :key="method.type"
+        :data-testid="'payment-method-' + method.type"
+        @click="$emit('select', method.type)"
+      >
+        payment.methods.{{ method.type }}
+      </button>
+    </div>
+  `,
+}
+
 function oauthOrderFixture() {
   return {
     order_id: 456,
@@ -366,6 +384,81 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.currentBalance')
     expect(wrapper.text()).not.toContain('payment.paymentAmount')
     expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
+  })
+
+  it('shows balance recharge as the first purchase product', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const cards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(cards[0].text()).toContain('payment.recharge.title')
+    expect(cards[0].text()).toContain('¥1 起')
+  })
+
+  it('opens recharge confirm with default amount 1 and alipay only', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[0].trigger('click')
+
+    expect(wrapper.text()).toContain('payment.recharge.title')
+    expect((wrapper.get('[data-testid="balance-recharge-amount"]').element as HTMLInputElement).value).toBe('1')
+    expect(wrapper.text()).toContain('payment.methods.alipay')
+    expect(wrapper.text()).not.toContain('payment.methods.wxpay')
+    expect(wrapper.text()).not.toContain('payment.methods.stripe')
+  })
+
+  it.each(['0', '1.5', '101', ''])('rejects invalid recharge amount %s', async (value) => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[0].trigger('click')
+    await wrapper.get('[data-testid="balance-recharge-amount"]').setValue(value)
+
+    expect(wrapper.get('[data-testid="balance-recharge-submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('payment.recharge.invalidAmount')
   })
 
   it('does not hide purchasable items inside a native template element', async () => {
@@ -442,8 +535,8 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).toContain('刷新时间365天')
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
-    expect(purchaseCards).toHaveLength(4)
-    await purchaseCards[3].trigger('click')
+    expect(purchaseCards).toHaveLength(5)
+    await purchaseCards[4].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -531,9 +624,9 @@ describe('PaymentView tab defaults', () => {
   })
 
   it.each([
-    { index: 0, planId: 1, amount: 29, name: '29 元订阅池' },
-    { index: 1, planId: 2, amount: 39, name: '39 元订阅池' },
-    { index: 3, planId: 5, amount: 79, name: '79 元订阅池' },
+    { index: 1, planId: 1, amount: 29, name: '29 元订阅池' },
+    { index: 2, planId: 2, amount: 39, name: '39 元订阅池' },
+    { index: 4, planId: 5, amount: 79, name: '79 元订阅池' },
   ])('creates a ZPay dynamic subscription order for $name', async ({ index, planId, amount }) => {
     getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveZPayPlansFixture())
     createOrder.mockResolvedValue({
@@ -568,7 +661,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
-    expect(purchaseCards).toHaveLength(8)
+    expect(purchaseCards).toHaveLength(9)
     expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
     expect(wrapper.text()).toContain('阅读订阅套餐A')
     expect(wrapper.text()).toContain('阅读订阅套餐D')
@@ -661,9 +754,9 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
     await flushPromises()
 
-    const planCard = wrapper.findComponent({ name: 'PurchaseProductCard' })
-    expect(planCard.exists()).toBe(true)
-    await planCard.vm.$emit('select', planCard.props('product'))
+    const purchaseCards = wrapper.findAllComponents({ name: 'PurchaseProductCard' })
+    expect(purchaseCards[1].exists()).toBe(true)
+    await purchaseCards[1].vm.$emit('select', purchaseCards[1].props('product'))
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -695,10 +788,10 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
-    expect(purchaseCards).toHaveLength(8)
+    expect(purchaseCards).toHaveLength(9)
     expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
 
-    await purchaseCards[3].trigger('click')
+    await purchaseCards[4].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -728,8 +821,8 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
-    expect(purchaseCards).toHaveLength(4)
-    await purchaseCards[1].trigger('click')
+    expect(purchaseCards).toHaveLength(5)
+    await purchaseCards[2].trigger('click')
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
@@ -759,8 +852,8 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
-    expect(purchaseCards).toHaveLength(4)
-    await purchaseCards[2].trigger('click')
+    expect(purchaseCards).toHaveLength(5)
+    await purchaseCards[3].trigger('click')
     await flushPromises()
 
     const backButton = wrapper.findAll('button').find(button => button.text().includes('common.back'))
@@ -769,7 +862,7 @@ describe('PaymentView without configured payment methods', () => {
     await backButton?.trigger('click')
     await flushPromises()
 
-    expect(wrapper.findAll('[data-testid="purchase-product-card"]')).toHaveLength(4)
+    expect(wrapper.findAll('[data-testid="purchase-product-card"]')).toHaveLength(5)
     expect(wrapper.findAll('button').some(button => button.text().includes('payment.createOrder'))).toBe(false)
   })
 })
