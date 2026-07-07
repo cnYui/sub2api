@@ -225,13 +225,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
-		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.handleStreamingAwareError(c, status, code, message, streamStarted)
+	if failure := checkGatewayBillingEligibility(c.Request.Context(), c, h.billingCacheService, apiKey, subscription); failure != nil {
+		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(failure.Err))
+		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
 
@@ -824,12 +820,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 							return
 						}
 						fallbackAPIKey := cloneAPIKeyWithGroup(apiKey, fallbackGroup)
-						if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), fallbackAPIKey.User, fallbackAPIKey, fallbackGroup, nil, service.PlatformFromAPIKey(fallbackAPIKey)); err != nil {
-							status, code, message, retryAfter := billingErrorDetails(err)
-							if retryAfter > 0 {
-								c.Header("Retry-After", strconv.Itoa(retryAfter))
-							}
-							h.handleStreamingAwareError(c, status, code, message, streamStarted)
+						if failure := checkGatewayBillingEligibilityForPlatform(c.Request.Context(), c, h.billingCacheService, fallbackAPIKey, nil, service.PlatformFromAPIKey(fallbackAPIKey)); failure != nil {
+							h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 							return
 						}
 						// 兜底重试按"直接请求兜底分组"处理：清除强制平台，允许按分组平台调度
@@ -1764,12 +1756,8 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 
 	// 校验 billing eligibility（订阅/余额）
 	// 【注意】不计算并发，但需要校验订阅/余额
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
-		status, code, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		h.errorResponse(c, status, code, message)
+	if failure := checkGatewayBillingEligibility(c.Request.Context(), c, h.billingCacheService, apiKey, subscription); failure != nil {
+		h.errorResponse(c, failure.Status, failure.Code, failure.Message)
 		return
 	}
 

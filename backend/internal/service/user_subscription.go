@@ -1,6 +1,10 @@
 package service
 
-import "time"
+import (
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/service/usagewindow"
+)
 
 type UserSubscription struct {
 	ID      int64
@@ -62,27 +66,18 @@ func (s *UserSubscription) NeedsDailyReset() bool {
 }
 
 func (s *UserSubscription) NeedsDailyResetAt(now time.Time) bool {
-	if s.DailyWindowStart == nil {
-		return false
-	}
 	if s.HasOneTimeDailyQuota() {
-		return false
+		return usagewindow.DailyExpired(s.DailyWindowStart, now, usagewindow.DailyPolicyOneTime)
 	}
-	return !now.Before(s.DailyWindowStart.Add(24 * time.Hour))
+	return usagewindow.DailyExpired(s.DailyWindowStart, now, usagewindow.DailyPolicyNaturalDay)
 }
 
 func (s *UserSubscription) NeedsWeeklyReset() bool {
-	if s.WeeklyWindowStart == nil {
-		return false
-	}
-	return time.Since(*s.WeeklyWindowStart) >= 7*24*time.Hour
+	return usagewindow.WeeklyExpired(s.WeeklyWindowStart, time.Now())
 }
 
 func (s *UserSubscription) NeedsMonthlyReset() bool {
-	if s.MonthlyWindowStart == nil {
-		return false
-	}
-	return time.Since(*s.MonthlyWindowStart) >= 30*24*time.Hour
+	return usagewindow.MonthlyExpired(s.MonthlyWindowStart, time.Now())
 }
 
 func (s *UserSubscription) DailyResetTime() *time.Time {
@@ -93,7 +88,7 @@ func (s *UserSubscription) DailyResetTime() *time.Time {
 		t := s.ExpiresAt
 		return &t
 	}
-	t := s.DailyWindowStart.Add(24 * time.Hour)
+	t := usagewindow.NextDailyReset(*s.DailyWindowStart)
 	return &t
 }
 
@@ -101,7 +96,7 @@ func (s *UserSubscription) WeeklyResetTime() *time.Time {
 	if s.WeeklyWindowStart == nil {
 		return nil
 	}
-	t := s.WeeklyWindowStart.Add(7 * 24 * time.Hour)
+	t := usagewindow.NextWeeklyReset(*s.WeeklyWindowStart)
 	return &t
 }
 
@@ -109,7 +104,7 @@ func (s *UserSubscription) MonthlyResetTime() *time.Time {
 	if s.MonthlyWindowStart == nil {
 		return nil
 	}
-	t := s.MonthlyWindowStart.Add(30 * 24 * time.Hour)
+	t := usagewindow.NextMonthlyReset(s.MonthlyWindowStart, time.Now())
 	return &t
 }
 

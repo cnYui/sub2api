@@ -1399,6 +1399,10 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 	return errors.New("not implemented")
 }
 
+func (r *stubUserSubscriptionRepo) RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error) {
+	return false, errors.New("not implemented")
+}
+
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }

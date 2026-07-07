@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/service/usagewindow"
 	"github.com/dgraph-io/ristretto"
 	"golang.org/x/sync/singleflight"
 )
@@ -736,7 +737,7 @@ func normalizeSubscriptionStatus(subs []UserSubscription) {
 
 // startOfDay 返回给定时间所在日期的零点（保持原时区）
 func startOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	return usagewindow.CurrentDailyStart(t)
 }
 
 // CheckAndActivateWindow 检查并激活窗口（首次使用时）

@@ -1238,6 +1238,35 @@ export interface OpenAIFastPolicySettings {
   rules: OpenAIFastPolicyRule[];
 }
 
+export function buildOpenAIFastPolicySettingsPayload(
+  settings: OpenAIFastPolicySettings,
+): OpenAIFastPolicySettings {
+  return {
+    rules: settings.rules.map((rule) => {
+      const whitelist = (rule.model_whitelist || [])
+        .map((pattern) => pattern.trim())
+        .filter((pattern) => pattern !== "");
+      const hasWhitelist = whitelist.length > 0;
+
+      return {
+        service_tier: rule.service_tier,
+        action: rule.action,
+        scope: rule.scope,
+        error_message:
+          rule.action === "block" ? rule.error_message : undefined,
+        model_whitelist: hasWhitelist ? whitelist : undefined,
+        fallback_action: hasWhitelist
+          ? rule.fallback_action || "pass"
+          : undefined,
+        fallback_error_message:
+          hasWhitelist && rule.fallback_action === "block"
+            ? rule.fallback_error_message
+            : undefined,
+      };
+    }),
+  };
+}
+
 // ==================== Beta Policy Settings ====================
 
 /**

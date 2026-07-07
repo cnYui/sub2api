@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -14,7 +15,21 @@ type EffectiveGroupResolver interface {
 	ResolveEffectiveGroupForRequest(ctx context.Context, userID int64, path string, forcePlatform string) (*service.EffectiveGroupResult, error)
 }
 
+type AutomaticKeyEndpointPolicy func(*gin.Context) (platform string, supported bool)
+
 func ResolveEffectiveGroup(resolver EffectiveGroupResolver, writeError GatewayErrorWriter) gin.HandlerFunc {
+	return resolveEffectiveGroup(resolver, writeError, nil)
+}
+
+func ResolveEffectiveGroupForSupportedEndpoints(resolver EffectiveGroupResolver, writeError GatewayErrorWriter) gin.HandlerFunc {
+	return ResolveEffectiveGroupWithPolicy(resolver, writeError, DefaultAutomaticKeyEndpointPolicy)
+}
+
+func ResolveEffectiveGroupWithPolicy(resolver EffectiveGroupResolver, writeError GatewayErrorWriter, policy AutomaticKeyEndpointPolicy) gin.HandlerFunc {
+	return resolveEffectiveGroup(resolver, writeError, policy)
+}
+
+func resolveEffectiveGroup(resolver EffectiveGroupResolver, writeError GatewayErrorWriter, policy AutomaticKeyEndpointPolicy) gin.HandlerFunc {
 	if writeError == nil {
 		writeError = AnthropicErrorWriter
 	}
@@ -32,6 +47,19 @@ func ResolveEffectiveGroup(resolver EffectiveGroupResolver, writeError GatewayEr
 		}
 
 		forcePlatform, _ := c.Request.Context().Value(ctxkey.ForcePlatform).(string)
+		if policy != nil {
+			platform, supported := policy(c)
+			if !supported {
+				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned)
+				writeError(c, http.StatusForbidden, "AUTO_KEY_UNSUPPORTED_ENDPOINT: Automatic API Key is not supported for this endpoint.")
+				c.Abort()
+				return
+			}
+			if platform != "" {
+				forcePlatform = platform
+			}
+		}
+
 		result, err := resolver.ResolveEffectiveGroupForRequest(c.Request.Context(), apiKey.UserID, c.Request.URL.Path, forcePlatform)
 		if err != nil {
 			status, message := effectiveGroupErrorResponse(err)
@@ -58,6 +86,30 @@ func ResolveEffectiveGroup(resolver EffectiveGroupResolver, writeError GatewayEr
 		}
 		setGroupContext(c, result.Group)
 		c.Next()
+	}
+}
+
+func DefaultAutomaticKeyEndpointPolicy(c *gin.Context) (string, bool) {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return "", false
+	}
+	forcePlatform, _ := c.Request.Context().Value(ctxkey.ForcePlatform).(string)
+	if forcePlatform != "" {
+		return forcePlatform, forcePlatform == service.PlatformOpenAI
+	}
+
+	path := c.Request.URL.Path
+	switch {
+	case strings.HasPrefix(path, "/v1beta"), strings.HasPrefix(path, "/antigravity/"):
+		return "", false
+	case strings.Contains(path, "/responses"),
+		strings.Contains(path, "/chat/completions"),
+		strings.Contains(path, "/embeddings"),
+		strings.Contains(path, "/images/"),
+		strings.Contains(path, "/messages"):
+		return service.PlatformOpenAI, true
+	default:
+		return "", false
 	}
 }
 

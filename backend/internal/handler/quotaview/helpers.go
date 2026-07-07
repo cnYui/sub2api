@@ -5,8 +5,8 @@ package quotaview
 import (
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/service/usagewindow"
 )
 
 // LazyZeroQuotaForResponse 按 D14 规则把过期档位归零（不写 DB）。
@@ -61,33 +61,24 @@ func buildWindowSlice(usage float64, limit *float64, start *time.Time, expired b
 // NeedsDailyReset 判断日窗口是否已过期：start 早于「全局时区当天 0 点」即过期。
 // 时区跟随 timezone.Location()（全局服务器时区），与 billing / repo 写入的 window_start 同口径。
 func NeedsDailyReset(start *time.Time, now time.Time) bool {
-	if start == nil {
-		return false
-	}
-	return start.Before(timezone.StartOfDay(now))
+	return usagewindow.DailyExpired(start, now, usagewindow.DailyPolicyNaturalDay)
 }
 
 func NeedsWeeklyReset(start *time.Time, now time.Time) bool {
-	if start == nil {
-		return false
-	}
-	return start.Before(timezone.StartOfWeek(now))
+	return usagewindow.WeeklyExpired(start, now)
 }
 
 // NeedsMonthlyReset 30 天滚动窗口语义（与订阅模式 NeedsMonthlyReset 一致）。
 func NeedsMonthlyReset(start *time.Time, now time.Time) bool {
-	if start == nil {
-		return false
-	}
-	return now.Sub(*start) >= 30*24*time.Hour
+	return usagewindow.MonthlyExpired(start, now)
 }
 
 func nextDailyResetTime(now time.Time) time.Time {
-	return timezone.StartOfDay(now).AddDate(0, 0, 1)
+	return usagewindow.NextDailyReset(now)
 }
 
 func nextWeeklyResetTime(now time.Time) time.Time {
-	return timezone.StartOfWeek(now).AddDate(0, 0, 7)
+	return usagewindow.NextWeeklyReset(now)
 }
 
 // NextMonthlyResetTimeFrom 计算 30 天滚动月度窗口的下次重置时间。
@@ -97,8 +88,5 @@ func nextWeeklyResetTime(now time.Time) time.Time {
 //
 // 导出（首字母大写）以允许测试直接调用。
 func NextMonthlyResetTimeFrom(start *time.Time, now time.Time) time.Time {
-	if start == nil {
-		return now.Add(30 * 24 * time.Hour)
-	}
-	return start.Add(30 * 24 * time.Hour)
+	return usagewindow.NextMonthlyReset(start, now)
 }

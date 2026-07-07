@@ -1039,7 +1039,9 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
   error.value = null
 
   try {
-    const fetchFn = () => adminAPI.accounts.getUsage(props.account.id, options?.source)
+    const fetchFn = () => options?.source
+      ? adminAPI.accounts.getUsage(props.account.id, options.source)
+      : adminAPI.accounts.getUsage(props.account.id)
     const result = await enqueueUsageRequest(props.account, fetchFn)
     if (!unmounted.value) {
       usageInfo.value = result
@@ -1228,6 +1230,29 @@ watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
 
   requestAutoLoad()
 })
+
+watch(
+  () => [
+    props.account.id,
+    props.account.platform,
+    props.account.type,
+    props.account.updated_at,
+  ],
+  (nextValue, prevValue) => {
+    if (!prevValue) return
+    if (nextValue.every((value, index) => value === prevValue[index])) return
+    if (!shouldFetchUsage.value) {
+      usageInfo.value = null
+      return
+    }
+
+    const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
+    _usageCache.delete(props.account.id)
+    loadUsage({ source, bypassCache: true }).catch((e) => {
+      console.error('Failed to refresh usage after account row update:', e)
+    })
+  }
+)
 
 watch(
   () => props.manualRefreshToken,

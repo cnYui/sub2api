@@ -78,3 +78,29 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
 	}
 }
+
+func TestOpenAIOnlyRejectsNonOpenAIPlatform(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		groupID := int64(2)
+		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+			GroupID: &groupID,
+			Group:   &service.Group{Platform: service.PlatformAnthropic},
+		})
+		c.Next()
+	})
+	called := false
+	router.POST("/embeddings", openAIOnly("Embeddings", func(c *gin.Context) {
+		called = true
+		c.Status(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/embeddings", strings.NewReader(`{}`))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusNotFound, w.Code)
+	require.False(t, called)
+	require.Contains(t, w.Body.String(), "Embeddings API is not supported for this platform")
+}

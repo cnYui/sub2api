@@ -468,6 +468,7 @@ import ModelDistributionChart from '@/components/charts/ModelDistributionChart.v
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { adminAPI } from '@/api/admin'
+import { useAccountStatsFormatters } from '@/composables/useAccountStatsFormatters'
 import type { Account, AccountUsageStatsResponse } from '@/types'
 
 ChartJS.register(
@@ -482,6 +483,7 @@ ChartJS.register(
 )
 
 const { t } = useI18n()
+const { formatCost, formatNumber, formatTokens, formatDuration } = useAccountStatsFormatters()
 
 const props = defineProps<{
   show: boolean
@@ -672,42 +674,4 @@ const handleClose = () => {
   emit('close')
 }
 
-// Format helpers
-const formatCost = (value: number): string => {
-  if (value >= 1000) {
-    return (value / 1000).toFixed(2) + 'K'
-  } else if (value >= 1) {
-    return value.toFixed(2)
-  } else if (value >= 0.01) {
-    return value.toFixed(3)
-  }
-  return value.toFixed(4)
-}
-
-const formatNumber = (value: number): string => {
-  if (value >= 1_000_000) {
-    return (value / 1_000_000).toFixed(2) + 'M'
-  } else if (value >= 1_000) {
-    return (value / 1_000).toFixed(2) + 'K'
-  }
-  return value.toLocaleString()
-}
-
-const formatTokens = (value: number): string => {
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`
-  } else if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`
-  } else if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}K`
-  }
-  return value.toLocaleString()
-}
-
-const formatDuration = (ms: number): string => {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(2)}s`
-  }
-  return `${Math.round(ms)}ms`
-}
 </script>

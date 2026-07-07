@@ -12,6 +12,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/service/usagewindow"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -1037,24 +1038,15 @@ func subscriptionWindowsNeedRefresh(subData *subscriptionCacheData, dailyStart, 
 }
 
 func subscriptionDailyWindowNeedsRefresh(windowStart *time.Time, currentStart time.Time) bool {
-	if windowStart == nil {
-		return true
-	}
-	return windowStart.Before(currentStart)
+	return usagewindow.QuotaDailyExpired(windowStart, currentStart)
 }
 
 func subscriptionWeeklyWindowNeedsRefresh(windowStart *time.Time, currentStart time.Time) bool {
-	if windowStart == nil {
-		return true
-	}
-	return windowStart.Before(currentStart)
+	return usagewindow.QuotaWeeklyExpired(windowStart, currentStart)
 }
 
 func subscriptionMonthlyWindowNeedsRefresh(windowStart *time.Time, now time.Time) bool {
-	if windowStart == nil {
-		return true
-	}
-	return !windowStart.Add(30 * 24 * time.Hour).After(now)
+	return usagewindow.QuotaMonthlyExpired(windowStart, now)
 }
 
 type billingCircuitBreakerState int
@@ -1436,13 +1428,13 @@ func withWindowResetsMetadata(err error, resetAt time.Time) error {
 // nextDailyReset 计算下一个日窗口起点（次日全局时区 0 点）。
 // 必须与 timezone.StartOfDay 同口径，否则 Retry-After 会偏差。
 func nextDailyReset(now time.Time) time.Time {
-	return timezone.StartOfDay(now).AddDate(0, 0, 1)
+	return usagewindow.NextDailyReset(now)
 }
 
 // nextWeeklyReset 计算下一个周窗口起点（下周一全局时区 0 点）。
 // 必须与 timezone.StartOfWeek 同口径，否则 Retry-After 会偏差。
 func nextWeeklyReset(now time.Time) time.Time {
-	return timezone.StartOfWeek(now).AddDate(0, 0, 7)
+	return usagewindow.NextWeeklyReset(now)
 }
 
 // nextMonthlyResetFrom 返回 30 天滚动窗口的下次重置时间（start + 30d）。
@@ -1450,10 +1442,7 @@ func nextWeeklyReset(now time.Time) time.Time {
 // 退化为 now+30d：过期窗口会在下次 increment 时重置为 now，下次重置即 now+30d；
 // 否则按 start 计算会得到一个过去的时间，使 Retry-After 落回 fallback 并触发客户端紧凑重试。
 func nextMonthlyResetFrom(start *time.Time, now time.Time) time.Time {
-	if start == nil || now.Sub(*start) >= 30*24*time.Hour {
-		return now.Add(30 * 24 * time.Hour)
-	}
-	return start.Add(30 * 24 * time.Hour)
+	return usagewindow.NextMonthlyReset(start, now)
 }
 
 // quotaWindowExpired 判断窗口是否已过期：start 为 nil（未初始化）或在 currWindowStart 之前视为已过期。
@@ -1468,10 +1457,7 @@ func quotaWindowExpired(start *time.Time, currWindowStart time.Time) bool {
 // 过期条件：now - start >= 30×24h（与订阅模式 NeedsMonthlyReset 语义一致）。
 // start 为 nil 时视为已过期（未初始化窗口）。
 func monthlyQuotaWindowExpired(start *time.Time, now time.Time) bool {
-	if start == nil {
-		return true
-	}
-	return now.Sub(*start) >= 30*24*time.Hour
+	return usagewindow.QuotaMonthlyExpired(start, now)
 }
 
 // HasUserPlatformQuotaLimit 判断该 user×platform 是否设了任一非 nil limit。

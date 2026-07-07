@@ -249,6 +249,11 @@ import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
+import {
+  buildAccountTestRequestBody,
+  parseAccountTestSSEChunk,
+  type AccountTestStreamEvent
+} from '@/composables/useAccountTestStream'
 import { adminAPI } from '@/api/admin'
 import type { Account, ClaudeModel } from '@/types'
 
@@ -427,11 +432,12 @@ const startTest = async () => {
         Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model_id: selectedModelId.value,
-        prompt: supportsImageTest.value ? testPrompt.value.trim() : '',
+      body: JSON.stringify(buildAccountTestRequestBody({
+        modelId: selectedModelId.value,
+        prompt: testPrompt.value,
+        supportsImageTest: supportsImageTest.value,
         mode: isOpenAIAccount.value ? testMode.value : 'default'
-      }),
+      })),
       signal: abortController.signal
     })
 
@@ -451,22 +457,13 @@ const startTest = async () => {
       const { done, value } = await reader.read()
       if (done) break
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+      const parsed = parseAccountTestSSEChunk(buffer, decoder.decode(value, { stream: true }), (error) => {
+        console.error('Failed to parse SSE event:', error)
+      })
+      buffer = parsed.buffer
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.slice(6).trim()
-          if (jsonStr) {
-            try {
-              const event = JSON.parse(jsonStr)
-              handleEvent(event)
-            } catch (e) {
-              console.error('Failed to parse SSE event:', e)
-            }
-          }
-        }
+      for (const event of parsed.events) {
+        handleEvent(event)
       }
     }
   } catch (error: unknown) {
@@ -481,15 +478,7 @@ const startTest = async () => {
   }
 }
 
-const handleEvent = (event: {
-  type: string
-  text?: string
-  model?: string
-  success?: boolean
-  error?: string
-  image_url?: string
-  mime_type?: string
-}) => {
+const handleEvent = (event: AccountTestStreamEvent) => {
   switch (event.type) {
     case 'test_start':
       addLine(t('admin.accounts.connectedToApi'), 'text-green-400')

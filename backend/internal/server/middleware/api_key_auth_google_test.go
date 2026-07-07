@@ -186,6 +186,9 @@ func (f fakeGoogleSubscriptionRepo) ResetMonthlyUsage(ctx context.Context, id in
 func (f fakeGoogleSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {
 	return errors.New("not implemented")
 }
+func (f fakeGoogleSubscriptionRepo) RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error) {
+	return false, errors.New("not implemented")
+}
 func (f fakeGoogleSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }
@@ -746,4 +749,65 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	r.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestApiKeyAuthWithSubscriptionGoogle_EnforcesIPRestriction(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:          100,
+		UserID:      user.ID,
+		Key:         "google-ip-acl-key",
+		Status:      service.StatusActive,
+		User:        user,
+		IPWhitelist: []string{"1.2.3.4"},
+	}
+
+	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	})
+
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	var markedBusinessLimited bool
+	var businessLimitedReason string
+	r.Use(func(c *gin.Context) {
+		c.Next()
+		markedBusinessLimited = service.HasOpsClientBusinessLimited(c)
+		if v, ok := c.Get(service.OpsClientBusinessLimitedReasonKey); ok {
+			businessLimitedReason, _ = v.(string)
+		}
+	})
+	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, cfg))
+	r.GET("/v1beta/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/test", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("x-goog-api-key", apiKey.Key)
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	var resp googleErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, http.StatusForbidden, resp.Error.Code)
+	require.Equal(t, "Access denied. Your IP is 9.9.9.9", resp.Error.Message)
+	require.Equal(t, "PERMISSION_DENIED", resp.Error.Status)
+	require.True(t, markedBusinessLimited)
+	require.Equal(t, service.OpsClientBusinessLimitedReasonIPRestriction, businessLimitedReason)
 }

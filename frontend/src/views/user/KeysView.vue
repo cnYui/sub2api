@@ -1328,7 +1328,6 @@ const handleSubmit = async () => {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
         formData.value.name,
-        undefined,
         customKey,
         ipWhitelist,
         ipBlacklist,

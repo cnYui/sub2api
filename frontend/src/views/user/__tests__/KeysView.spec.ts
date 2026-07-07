@@ -180,7 +180,6 @@ describe('KeysView 自动 API Key', () => {
     expect(keysCreate).toHaveBeenCalledWith(
       'Created Key',
       undefined,
-      undefined,
       [],
       [],
       0,

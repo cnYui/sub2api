@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -22,111 +21,29 @@ func APIKeyAuthGoogle(apiKeyService *service.APIKeyService, cfg *config.Config) 
 // It is intended for Gemini native endpoints (/v1beta) to match Gemini SDK expectations.
 func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if v := strings.TrimSpace(c.Query("api_key")); v != "" {
-			abortWithGoogleError(c, 400, "Query parameter api_key is deprecated. Use Authorization header or key instead.")
-			return
-		}
-		apiKeyString := extractAPIKeyForGoogle(c)
-		if apiKeyString == "" {
-			abortWithGoogleError(c, 401, "API key is required")
-			return
-		}
-
-		apiKey, err := apiKeyService.GetByKey(c.Request.Context(), apiKeyString)
-		if err != nil {
-			if errors.Is(err, service.ErrAPIKeyNotFound) {
-				abortWithGoogleError(c, 401, "Invalid API key")
-				return
-			}
-			abortWithGoogleError(c, 500, "Failed to validate API key")
-			return
-		}
-
-		// 同 api_key_auth.go：早退中断前也写入 Ops 回退 key，便于错误日志展示
-		// user/group/platform。
-		SetOpsFallbackAPIKey(c, apiKey)
-
-		if !apiKey.IsActive() {
-			abortWithGoogleError(c, 401, "API key is disabled")
-			return
-		}
-		if apiKey.User == nil {
-			abortWithGoogleError(c, 401, "User associated with API key not found")
-			return
-		}
-		if !apiKey.User.IsActive() {
-			abortWithGoogleError(c, 401, "User account is not active")
-			return
-		}
-		if _, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)
-			abortWithGoogleError(c, 403, message)
-			return
-		}
-
-		// 简易模式：跳过余额和订阅检查
-		if cfg.RunMode == config.RunModeSimple {
-			c.Set(string(ContextKeyAPIKey), apiKey)
-			c.Set(string(ContextKeyUser), AuthSubject{
-				UserID:      apiKey.User.ID,
-				Concurrency: apiKey.User.Concurrency,
-			})
-			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-			setGroupContext(c, apiKey.Group)
-			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
-			c.Next()
-			return
-		}
-
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-		if isSubscriptionType && subscriptionService != nil {
-			subscription, err := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
-			)
-			if err != nil {
-				if !errors.Is(err, service.ErrSubscriptionNotFound) {
-					abortWithGoogleError(c, 500, "Failed to load subscription")
-					return
-				}
-			} else {
-				needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-				if err != nil {
-					if !isSubscriptionUsageLimitError(err) {
-						abortWithGoogleError(c, 403, err.Error())
-						return
-					}
-				}
-
-				c.Set(string(ContextKeySubscription), subscription)
-
-				if needsMaintenance {
-					maintenanceCopy := *subscription
-					subscriptionService.DoWindowMaintenance(&maintenanceCopy)
-				}
-			}
-		}
-
-		c.Set(string(ContextKeyAPIKey), apiKey)
-		c.Set(string(ContextKeyUser), AuthSubject{
-			UserID:      apiKey.User.ID,
-			Concurrency: apiKey.User.Concurrency,
+		authenticateAPIKeyCore(c, apiKeyService, subscriptionService, cfg, apiKeyAuthOptions{
+			extractAPIKey: extractAPIKeyForGoogle,
+			writeError:    writeGoogleAPIKeyAuthError,
+			skipBilling:   func(path string) bool { return path == "/v1/usage" },
 		})
-		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-		setGroupContext(c, apiKey.Group)
-		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
-		c.Next()
 	}
 }
 
 // extractAPIKeyForGoogle extracts API key for Google/Gemini endpoints.
 // Priority: x-goog-api-key > Authorization: Bearer > x-api-key > query key
 // This allows OpenClaw and other clients using Bearer auth to work with Gemini endpoints.
-func extractAPIKeyForGoogle(c *gin.Context) string {
+func extractAPIKeyForGoogle(c *gin.Context) (string, *apiKeyAuthFailure) {
+	if v := strings.TrimSpace(c.Query("api_key")); v != "" {
+		return "", &apiKeyAuthFailure{
+			status:  400,
+			code:    "api_key_in_query_deprecated",
+			message: "Query parameter api_key is deprecated. Use Authorization header or key instead.",
+		}
+	}
+
 	// 1) preferred: Gemini native header
 	if k := strings.TrimSpace(c.GetHeader("x-goog-api-key")); k != "" {
-		return k
+		return k, nil
 	}
 
 	// 2) fallback: Authorization: Bearer <key>
@@ -135,24 +52,24 @@ func extractAPIKeyForGoogle(c *gin.Context) string {
 		parts := strings.SplitN(auth, " ", 2)
 		if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
 			if k := strings.TrimSpace(parts[1]); k != "" {
-				return k
+				return k, nil
 			}
 		}
 	}
 
 	// 3) x-api-key header (backward compatibility)
 	if k := strings.TrimSpace(c.GetHeader("x-api-key")); k != "" {
-		return k
+		return k, nil
 	}
 
 	// 4) query parameter key (for specific paths)
 	if allowGoogleQueryKey(c.Request.URL.Path) {
 		if v := strings.TrimSpace(c.Query("key")); v != "" {
-			return v
+			return v, nil
 		}
 	}
 
-	return ""
+	return "", &apiKeyAuthFailure{status: 401, code: "API_KEY_REQUIRED", message: "API key is required"}
 }
 
 func allowGoogleQueryKey(path string) bool {
@@ -168,4 +85,8 @@ func abortWithGoogleError(c *gin.Context, status int, message string) {
 		},
 	})
 	c.Abort()
+}
+
+func writeGoogleAPIKeyAuthError(c *gin.Context, failure apiKeyAuthFailure) {
+	abortWithGoogleError(c, failure.status, failure.message)
 }

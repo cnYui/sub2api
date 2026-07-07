@@ -78,3 +78,51 @@ func TestResolveEffectiveGroupMiddlewareSkipsFixedGroupKey(t *testing.T) {
 	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/responses", nil))
 	require.Equal(t, http.StatusNoContent, rec.Code)
 }
+
+func TestResolveEffectiveGroupMiddlewareRejectsUnsupportedAutomaticKeyEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	original := &service.APIKey{ID: 1, UserID: 62, Key: "auto-key", GroupID: nil, User: &service.User{ID: 62, Status: service.StatusActive}}
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(ContextKeyAPIKey), original)
+		c.Next()
+	})
+	router.Use(ResolveEffectiveGroupForSupportedEndpoints(&effectiveGroupResolverStub{
+		result: &service.EffectiveGroupResult{
+			Group:  &service.Group{ID: 77, Platform: service.PlatformOpenAI},
+			Source: service.EffectiveGroupSourceTrafficPack,
+		},
+	}, AnthropicErrorWriter))
+	router.GET("/v1beta/models", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1beta/models", nil))
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "AUTO_KEY_UNSUPPORTED_ENDPOINT")
+}
+
+func TestResolveEffectiveGroupMiddlewareWritesGoogleErrorForUnsupportedAutomaticKeyEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	original := &service.APIKey{ID: 1, UserID: 62, Key: "auto-key", GroupID: nil, User: &service.User{ID: 62, Status: service.StatusActive}}
+
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(ContextKeyAPIKey), original)
+		c.Next()
+	})
+	router.Use(ResolveEffectiveGroupForSupportedEndpoints(&effectiveGroupResolverStub{}, GoogleErrorWriter))
+	router.GET("/v1beta/models", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1beta/models", nil))
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), "AUTO_KEY_UNSUPPORTED_ENDPOINT")
+	require.Contains(t, rec.Body.String(), "PERMISSION_DENIED")
+}

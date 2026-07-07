@@ -6954,6 +6954,7 @@ import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
 import {
   appendAuthSourceDefaultsToUpdateRequest,
+  buildOpenAIFastPolicySettingsPayload,
   buildAuthSourceDefaultsState,
   normalizePlatformQuotasMap,
   sanitizePlatformQuotasMap,
@@ -9025,29 +9026,8 @@ async function saveSettings() {
     // 仅当 openai_fast_policy_settings 已成功从后端加载时才回写，
     // 否则省略整个字段，让后端保留既有规则（含默认值）。
     if (openaiFastPolicyLoaded.value) {
-      payload.openai_fast_policy_settings = {
-        rules: openaiFastPolicyForm.rules.map((rule) => {
-          const whitelist = (rule.model_whitelist || [])
-            .map((p) => p.trim())
-            .filter((p) => p !== "");
-          const hasWhitelist = whitelist.length > 0;
-          return {
-            service_tier: rule.service_tier,
-            action: rule.action,
-            scope: rule.scope,
-            error_message:
-              rule.action === "block" ? rule.error_message : undefined,
-            model_whitelist: hasWhitelist ? whitelist : undefined,
-            fallback_action: hasWhitelist
-              ? rule.fallback_action || "pass"
-              : undefined,
-            fallback_error_message:
-              hasWhitelist && rule.fallback_action === "block"
-                ? rule.fallback_error_message
-                : undefined,
-          };
-        }),
-      };
+      payload.openai_fast_policy_settings =
+        buildOpenAIFastPolicySettingsPayload(openaiFastPolicyForm);
     }
 
     payload.default_platform_quotas = sanitizePlatformQuotasMap(form.default_platform_quotas);

@@ -31,7 +31,8 @@ func RegisterGatewayRoutes(
 	// 未分组 Key 拦截中间件（按协议格式区分错误响应）
 	requireGroupAnthropic := middleware.RequireGroupAssignment(settingService, middleware.AnthropicErrorWriter)
 	requireGroupGoogle := middleware.RequireGroupAssignment(settingService, middleware.GoogleErrorWriter)
-	resolveGroupAnthropic := middleware.ResolveEffectiveGroup(effectiveGroupResolver, middleware.AnthropicErrorWriter)
+	resolveGroupAnthropic := middleware.ResolveEffectiveGroupForSupportedEndpoints(effectiveGroupResolver, middleware.AnthropicErrorWriter)
+	resolveGroupGoogle := middleware.ResolveEffectiveGroupForSupportedEndpoints(effectiveGroupResolver, middleware.GoogleErrorWriter)
 
 	// API网关（Claude API兼容）
 	gateway := r.Group("/v1")
@@ -93,43 +94,13 @@ func RegisterGatewayRoutes(
 			h.Gateway.ChatCompletions(c)
 		})
 		gateway.POST("/embeddings", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformOpenAI {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": gin.H{
-						"type":    "not_found_error",
-						"message": "Embeddings API is not supported for this platform",
-					},
-				})
-				return
-			}
-			h.OpenAIGateway.Embeddings(c)
+			openAIOnly("Embeddings", h.OpenAIGateway.Embeddings)(c)
 		})
 		gateway.POST("/images/generations", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformOpenAI {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": gin.H{
-						"type":    "not_found_error",
-						"message": "Images API is not supported for this platform",
-					},
-				})
-				return
-			}
-			h.OpenAIGateway.Images(c)
+			openAIOnly("Images", h.OpenAIGateway.Images)(c)
 		})
 		gateway.POST("/images/edits", func(c *gin.Context) {
-			if getGroupPlatform(c) != service.PlatformOpenAI {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{
-					"error": gin.H{
-						"type":    "not_found_error",
-						"message": "Images API is not supported for this platform",
-					},
-				})
-				return
-			}
-			h.OpenAIGateway.Images(c)
+			openAIOnly("Images", h.OpenAIGateway.Images)(c)
 		})
 	}
 
@@ -140,6 +111,7 @@ func RegisterGatewayRoutes(
 	gemini.Use(opsErrorLogger)
 	gemini.Use(endpointNorm)
 	gemini.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
+	gemini.Use(resolveGroupGoogle)
 	gemini.Use(requireGroupGoogle)
 	{
 		gemini.GET("/models", h.Gateway.GeminiV1BetaListModels)
@@ -175,47 +147,17 @@ func RegisterGatewayRoutes(
 		h.Gateway.ChatCompletions(c)
 	})
 	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		if getGroupPlatform(c) != service.PlatformOpenAI {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": gin.H{
-					"type":    "not_found_error",
-					"message": "Embeddings API is not supported for this platform",
-				},
-			})
-			return
-		}
-		h.OpenAIGateway.Embeddings(c)
+		openAIOnly("Embeddings", h.OpenAIGateway.Embeddings)(c)
 	})
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		if getGroupPlatform(c) != service.PlatformOpenAI {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": gin.H{
-					"type":    "not_found_error",
-					"message": "Images API is not supported for this platform",
-				},
-			})
-			return
-		}
-		h.OpenAIGateway.Images(c)
+		openAIOnly("Images", h.OpenAIGateway.Images)(c)
 	})
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		if getGroupPlatform(c) != service.PlatformOpenAI {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": gin.H{
-					"type":    "not_found_error",
-					"message": "Images API is not supported for this platform",
-				},
-			})
-			return
-		}
-		h.OpenAIGateway.Images(c)
+		openAIOnly("Images", h.OpenAIGateway.Images)(c)
 	})
 
 	// Antigravity 模型列表
-	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.AntigravityModels)
+	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, h.Gateway.AntigravityModels)
 
 	// Antigravity 专用路由（仅使用 antigravity 账户，不混合调度）
 	antigravityV1 := r.Group("/antigravity/v1")
@@ -225,6 +167,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(endpointNorm)
 	antigravityV1.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
+	antigravityV1.Use(resolveGroupAnthropic)
 	antigravityV1.Use(requireGroupAnthropic)
 	{
 		antigravityV1.POST("/messages", h.Gateway.Messages)
@@ -240,6 +183,7 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(endpointNorm)
 	antigravityV1Beta.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1Beta.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
+	antigravityV1Beta.Use(resolveGroupGoogle)
 	antigravityV1Beta.Use(requireGroupGoogle)
 	{
 		antigravityV1Beta.GET("/models", h.Gateway.GeminiV1BetaListModels)
@@ -256,4 +200,20 @@ func getGroupPlatform(c *gin.Context) string {
 		return ""
 	}
 	return apiKey.Group.Platform
+}
+
+func openAIOnly(featureName string, handler gin.HandlerFunc) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": featureName + " API is not supported for this platform",
+				},
+			})
+			return
+		}
+		handler(c)
+	}
 }

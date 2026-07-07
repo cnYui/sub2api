@@ -9,7 +9,6 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -223,13 +222,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}
 
 	// 2) billing eligibility check (after wait)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
-		reqLog.Info("gemini.billing_eligibility_check_failed", zap.Error(err))
-		status, _, message, retryAfter := billingErrorDetails(err)
-		if retryAfter > 0 {
-			c.Header("Retry-After", strconv.Itoa(retryAfter))
-		}
-		googleError(c, status, message)
+	if failure := checkGatewayBillingEligibility(c.Request.Context(), c, h.billingCacheService, apiKey, subscription); failure != nil {
+		reqLog.Info("gemini.billing_eligibility_check_failed", zap.Error(failure.Err))
+		googleError(c, failure.Status, failure.Message)
 		return
 	}
 
@@ -651,15 +646,7 @@ func writeUpstreamResponse(c *gin.Context, res *service.UpstreamHTTPResult) {
 		googleError(c, http.StatusBadGateway, "Empty upstream response")
 		return
 	}
-	for k, vv := range res.Headers {
-		// Avoid overriding content-length and hop-by-hop headers.
-		if strings.EqualFold(k, "Content-Length") || strings.EqualFold(k, "Transfer-Encoding") || strings.EqualFold(k, "Connection") {
-			continue
-		}
-		for _, v := range vv {
-			c.Writer.Header().Add(k, v)
-		}
-	}
+	copyUpstreamPassthroughHeaders(c.Writer.Header(), res.Headers)
 	contentType := res.Headers.Get("Content-Type")
 	if contentType == "" {
 		contentType = "application/json"
