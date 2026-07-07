@@ -159,6 +159,23 @@ func TestCalculateCreateOrderPayAmountForBalanceRechargeIgnoresFeeAndMultiplier(
 	}
 }
 
+func TestValidateUserExternalPaymentTypeAllowsOnlyAlipay(t *testing.T) {
+	t.Parallel()
+
+	if err := validateUserExternalPaymentType(payment.TypeAlipay); err != nil {
+		t.Fatalf("alipay rejected: %v", err)
+	}
+	for _, method := range []string{payment.TypeWxpay, payment.TypeStripe, payment.TypeAirwallex, payment.TypeBalance, ""} {
+		err := validateUserExternalPaymentType(method)
+		if err == nil {
+			t.Fatalf("method %q should be rejected", method)
+		}
+		if appErr := infraerrors.FromError(err); appErr.Reason != "PAYMENT_METHOD_NOT_AVAILABLE" {
+			t.Fatalf("reason = %q, want PAYMENT_METHOD_NOT_AVAILABLE", appErr.Reason)
+		}
+	}
+}
+
 func TestCalculateCreateOrderPayAmountRejectsFractionalZeroDecimal(t *testing.T) {
 	t.Parallel()
 

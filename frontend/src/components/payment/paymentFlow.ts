@@ -114,6 +114,11 @@ export function getVisibleMethods(methods: Record<string, MethodLimit>): Record<
   return visible
 }
 
+export function getUserExternalPaymentMethods(methods: Record<string, MethodLimit>): Record<string, MethodLimit> {
+  const visible = getVisibleMethods(methods)
+  return visible.alipay ? { alipay: visible.alipay } : {}
+}
+
 export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): CreateOrderRequest {
   const visibleMethod = normalizeVisibleMethod(input.paymentType) || input.paymentType.trim()
   const normalizedOrigin = (input.origin || '').trim().replace(/\/+$/, '')

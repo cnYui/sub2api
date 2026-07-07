@@ -3,6 +3,7 @@ import type { CreateOrderResult, MethodLimit } from '@/types/payment'
 import {
   buildCreateOrderPayload,
   decidePaymentLaunch,
+  getUserExternalPaymentMethods,
   getVisibleMethods,
   readPaymentRecoverySnapshot,
   type PaymentRecoverySnapshot,
@@ -58,6 +59,17 @@ describe('getVisibleMethods', () => {
 
     expect(visible.alipay.single_min).toBe(2)
     expect(visible.wxpay.fee_rate).toBe(1.2)
+  })
+
+  it('filters user checkout external methods to alipay only', () => {
+    const methods = getUserExternalPaymentMethods({
+      alipay: methodLimit(),
+      wxpay: methodLimit(),
+      stripe: methodLimit(),
+      airwallex: methodLimit(),
+    })
+
+    expect(Object.keys(methods)).toEqual(['alipay'])
   })
 })
 

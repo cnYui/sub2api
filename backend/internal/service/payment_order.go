@@ -29,6 +29,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
 		req.PaymentType = normalized
 	}
+	if err := validateUserExternalPaymentType(req.PaymentType); err != nil {
+		return nil, err
+	}
 	cfg, err := s.configService.GetPaymentConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get payment config: %w", err)
@@ -635,6 +638,13 @@ func (s *PaymentService) validateSelectedCreateOrderInstance(ctx context.Context
 		return infraerrors.TooManyRequests("NO_AVAILABLE_INSTANCE", "selected payment instance is not compatible with the current WeChat OAuth app")
 	}
 	return nil
+}
+
+func validateUserExternalPaymentType(paymentType string) error {
+	if strings.TrimSpace(paymentType) == payment.TypeAlipay {
+		return nil
+	}
+	return infraerrors.BadRequest("PAYMENT_METHOD_NOT_AVAILABLE", "payment method is not available for user checkout")
 }
 
 func calculateCreateOrderPayAmount(limitAmount, feeRate float64, currency string) (string, float64, error) {
