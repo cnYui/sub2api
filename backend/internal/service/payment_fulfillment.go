@@ -247,16 +247,11 @@ func (s *PaymentService) ExecuteTrafficPackFulfillment(ctx context.Context, oid 
 	if c == 0 {
 		return nil
 	}
-	input, err := trafficPackCreditInputFromOrder(o)
-	if err != nil {
+	if err := s.fulfillTrafficPackOrderInTx(ctx, s.entClient, o); err != nil {
 		s.markFailed(ctx, oid, err)
 		return err
 	}
-	if err := s.trafficPackService.CreditPurchase(ctx, input); err != nil {
-		s.markFailed(ctx, oid, err)
-		return err
-	}
-	return s.markCompleted(ctx, o, "TRAFFIC_PACK_SUCCESS")
+	return nil
 }
 
 func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int64) error {
@@ -341,12 +336,16 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 }
 
 func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrder, auditAction string) error {
+	return s.markCompletedWithClient(ctx, s.entClient, o, auditAction)
+}
+
+func (s *PaymentService) markCompletedWithClient(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder, auditAction string) error {
 	now := time.Now()
-	_, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
+	_, err := client.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
 	if err != nil {
 		return fmt.Errorf("mark completed: %w", err)
 	}
-	s.writeAuditLog(ctx, o.ID, auditAction, "system", map[string]any{
+	s.writeAuditLogWithClient(ctx, client, o.ID, auditAction, "system", map[string]any{
 		"rechargeCode":   o.RechargeCode,
 		"creditedAmount": o.Amount,
 		"payAmount":      o.PayAmount,
@@ -464,35 +463,56 @@ func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid
 }
 
 func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error {
+	return s.fulfillSubscriptionOrderInTx(ctx, s.entClient, o, true)
+}
+
+func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder, applyRebate bool) error {
 	gid := *o.SubscriptionGroupID
 	days := *o.SubscriptionDays
 	g, err := s.groupRepo.GetByID(ctx, gid)
 	if err != nil || g.Status != payment.EntityStatusActive {
 		return fmt.Errorf("group %d no longer exists or inactive", gid)
 	}
-	assigned := s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_ASSIGNED") || s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_SUCCESS")
+	assigned := s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_ASSIGNED") || s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_SUCCESS")
 	if !assigned {
 		orderNote := fmt.Sprintf("payment order %d", o.ID)
 		_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
 		if err != nil {
 			return fmt.Errorf("assign subscription: %w", err)
 		}
-		s.writeAuditLog(ctx, o.ID, "SUBSCRIPTION_ASSIGNED", "system", map[string]any{
+		s.writeAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_ASSIGNED", "system", map[string]any{
 			"groupID":      gid,
 			"validityDays": days,
 		})
 	} else {
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
 	}
-	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
+	if applyRebate {
+		if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
+			return err
+		}
+	}
+	return s.markCompletedWithClient(ctx, client, o, "SUBSCRIPTION_SUCCESS")
+}
+
+func (s *PaymentService) fulfillTrafficPackOrderInTx(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder) error {
+	input, err := trafficPackCreditInputFromOrder(o)
+	if err != nil {
 		return err
 	}
-	return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+	if err := s.trafficPackService.CreditPurchase(ctx, input); err != nil {
+		return err
+	}
+	return s.markCompletedWithClient(ctx, client, o, "TRAFFIC_PACK_SUCCESS")
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {
+	return s.hasAuditLogWithClient(ctx, s.entClient, orderID, action)
+}
+
+func (s *PaymentService) hasAuditLogWithClient(ctx context.Context, client *dbent.Client, orderID int64, action string) bool {
 	oid := strconv.FormatInt(orderID, 10)
-	c, _ := s.entClient.PaymentAuditLog.Query().
+	c, _ := client.PaymentAuditLog.Query().
 		Where(paymentauditlog.OrderIDEQ(oid), paymentauditlog.ActionEQ(action)).
 		Limit(1).Count(ctx)
 	return c > 0

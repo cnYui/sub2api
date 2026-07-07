@@ -112,6 +112,29 @@ type CreateOrderResponse struct {
 	ResumeToken  string                          `json:"resume_token,omitempty"`
 }
 
+type BalancePayOrderRequest struct {
+	UserID        int64
+	OrderType     string
+	PlanID        int64
+	TrafficPackID int64
+	ClientIP      string
+	SrcHost       string
+	SrcURL        string
+	Locale        string
+}
+
+type BalancePayOrderResponse struct {
+	OrderID     int64   `json:"order_id"`
+	Amount      float64 `json:"amount"`
+	PayAmount   float64 `json:"pay_amount"`
+	FeeRate     float64 `json:"fee_rate"`
+	Status      string  `json:"status"`
+	PaymentType string  `json:"payment_type"`
+	OrderType   string  `json:"order_type"`
+	OutTradeNo  string  `json:"out_trade_no"`
+	Currency    string  `json:"currency"`
+}
+
 type OrderListParams struct {
 	Page        int
 	PageSize    int
@@ -191,6 +214,7 @@ type PaymentService struct {
 	affiliateService         *AffiliateService
 	notificationEmailService *NotificationEmailService
 	trafficPackService       *TrafficPackService
+	billingCacheService      *BillingCacheService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {
@@ -205,6 +229,10 @@ func (s *PaymentService) SetNotificationEmailService(notificationEmailService *N
 
 func (s *PaymentService) SetTrafficPackService(trafficPackService *TrafficPackService) {
 	s.trafficPackService = trafficPackService
+}
+
+func (s *PaymentService) SetBillingCacheService(cache *BillingCacheService) {
+	s.billingCacheService = cache
 }
 
 func (s *PaymentService) ListTrafficPacksForSale(ctx context.Context) ([]TrafficPack, error) {

@@ -236,6 +236,12 @@ type CreateOrderRequest struct {
 	IsMobile *bool `json:"is_mobile,omitempty"`
 }
 
+type BalancePayOrderRequest struct {
+	OrderType     string `json:"order_type" binding:"required"`
+	PlanID        int64  `json:"plan_id"`
+	TrafficPackID int64  `json:"traffic_pack_id"`
+}
+
 // CreateOrder creates a new payment order.
 // POST /api/v1/payment/orders
 func (h *PaymentHandler) CreateOrder(c *gin.Context) {
@@ -281,6 +287,33 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		PlanID:          req.PlanID,
 		TrafficPackID:   req.TrafficPackID,
 		Locale:          c.GetHeader("Accept-Language"),
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *PaymentHandler) BalancePayOrder(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	var req BalancePayOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.paymentService.BalancePayOrder(c.Request.Context(), service.BalancePayOrderRequest{
+		UserID:        subject.UserID,
+		OrderType:     req.OrderType,
+		PlanID:        req.PlanID,
+		TrafficPackID: req.TrafficPackID,
+		ClientIP:      c.ClientIP(),
+		SrcHost:       c.Request.Host,
+		SrcURL:        c.Request.Referer(),
+		Locale:        c.GetHeader("Accept-Language"),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
