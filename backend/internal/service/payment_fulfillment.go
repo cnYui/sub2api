@@ -596,11 +596,11 @@ func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *db
 }
 
 func affiliateRebateBaseAmount(o *dbent.PaymentOrder) float64 {
-	if o == nil {
+	if o == nil || o.PaymentType != payment.TypeAlipay {
 		return 0
 	}
 	switch o.OrderType {
-	case payment.OrderTypeBalance, payment.OrderTypeSubscription:
+	case payment.OrderTypeBalance, payment.OrderTypeSubscription, payment.OrderTypeTrafficPack:
 		return o.Amount
 	default:
 		return 0

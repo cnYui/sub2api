@@ -659,6 +659,28 @@ func TestPaymentAmountToleranceForThreeDecimalCurrency(t *testing.T) {
 	assert.InDelta(t, 0.0005, paymentAmountToleranceForCurrency("KWD"), 1e-12)
 }
 
+func TestAffiliateRebateBaseAmountRequiresAlipayAndIncludesTrafficPack(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		order dbent.PaymentOrder
+		want  float64
+	}{
+		{name: "alipay balance recharge", order: dbent.PaymentOrder{PaymentType: payment.TypeAlipay, OrderType: payment.OrderTypeBalance, Amount: 100, PayAmount: 100}, want: 100},
+		{name: "alipay subscription uses amount not pay amount", order: dbent.PaymentOrder{PaymentType: payment.TypeAlipay, OrderType: payment.OrderTypeSubscription, Amount: 79, PayAmount: 79.79}, want: 79},
+		{name: "alipay traffic pack", order: dbent.PaymentOrder{PaymentType: payment.TypeAlipay, OrderType: payment.OrderTypeTrafficPack, Amount: 5, PayAmount: 5.05}, want: 5},
+		{name: "balance payment subscription skipped", order: dbent.PaymentOrder{PaymentType: payment.TypeBalance, OrderType: payment.OrderTypeSubscription, Amount: 79, PayAmount: 79.79}, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := affiliateRebateBaseAmount(&tt.order); got != tt.want {
+				t.Fatalf("affiliateRebateBaseAmount = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestConfirmPaymentRejectsSubscriptionAmountMismatch(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

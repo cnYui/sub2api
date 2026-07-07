@@ -24,15 +24,15 @@ const (
 
 // Affiliate rebate settings
 const (
-	AffiliateRebateRateDefault          = 20.0
+	AffiliateRebateRateDefault          = 8.0
 	AffiliateRebateRateMin              = 0.0
 	AffiliateRebateRateMax              = 100.0
 	AffiliateEnabledDefault             = true // 邀请返利总开关默认开启
-	AffiliateRebateFreezeHoursDefault   = 0    // 0 = 不冻结（向后兼容）
-	AffiliateRebateFreezeHoursMax       = 720  // 最大 30 天
-	AffiliateRebateDurationDaysDefault  = 0    // 0 = 永久有效
+	AffiliateRebateFreezeHoursDefault   = 24
+	AffiliateRebateFreezeHoursMax       = 720 // 最大 30 天
+	AffiliateRebateDurationDaysDefault  = 365
 	AffiliateRebateDurationDaysMax      = 3650 // ~10 年
-	AffiliateRebatePerInviteeCapDefault = 0.0  // 0 = 无上限
+	AffiliateRebatePerInviteeCapDefault = 100.0
 )
 
 // Platform constants

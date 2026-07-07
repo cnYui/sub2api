@@ -100,6 +100,21 @@ func TestMigration158EnablesAffiliateFeature(t *testing.T) {
 	require.Contains(t, sql, "ON CONFLICT (key) DO UPDATE")
 }
 
+func TestMigration160SetsAffiliateRebateDefaults(t *testing.T) {
+	content, err := FS.ReadFile("160_rmb_balance_payment_affiliate_defaults.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "affiliate_rebate_rate")
+	require.Contains(t, sql, "'8'")
+	require.Contains(t, sql, "affiliate_rebate_freeze_hours")
+	require.Contains(t, sql, "'24'")
+	require.Contains(t, sql, "affiliate_rebate_duration_days")
+	require.Contains(t, sql, "'365'")
+	require.Contains(t, sql, "affiliate_rebate_per_invitee_cap")
+	require.Contains(t, sql, "'100'")
+}
+
 func TestMigration122ScrubsPendingOAuthCompletionTokensAtRest(t *testing.T) {
 	content, err := FS.ReadFile("122_pending_auth_completion_token_cleanup.sql")
 	require.NoError(t, err)

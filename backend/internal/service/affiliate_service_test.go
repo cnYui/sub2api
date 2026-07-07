@@ -15,13 +15,13 @@ import (
 // global rate, and that out-of-range exclusive rates are clamped silently.
 //
 // SettingService is left nil here so globalRebateRatePercent returns the
-// documented default (AffiliateRebateRateDefault = 20%) — this exercises the
+// documented default (AffiliateRebateRateDefault = 8%) — this exercises the
 // fallback path without spinning up a settings stub.
 func TestResolveRebateRatePercent_PerUserOverride(t *testing.T) {
 	t.Parallel()
 	svc := &AffiliateService{}
 
-	// nil exclusive rate → falls back to global default (20%)
+	// nil exclusive rate → falls back to global default (8%)
 	require.InDelta(t, AffiliateRebateRateDefault,
 		svc.resolveRebateRatePercent(context.Background(), &AffiliateSummary{}), 1e-9)
 
