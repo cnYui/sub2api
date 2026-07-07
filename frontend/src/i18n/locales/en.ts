@@ -6944,6 +6944,7 @@ export default {
       wxpay: 'WeChat Pay',
       stripe: 'Stripe',
       airwallex: 'Airwallex',
+      balance: 'Balance',
       card: 'Card',
       link: 'Link',
       alipay_direct: 'Alipay (Direct)',
@@ -6961,6 +6962,10 @@ export default {
       noFee: 'None',
       invalidAmount: 'Top-up amount must be an integer from 1 to 100',
       confirm: 'Pay ¥{amount}',
+      maxOnce: 'Single top-up is limited to ¥100. Please top up in batches.',
+    },
+    balancePay: {
+      success: 'Balance payment successful',
     },
     status: {
       pending: 'Pending',

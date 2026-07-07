@@ -12,6 +12,7 @@ const routerReplace = vi.hoisted(() => vi.fn())
 const routerPush = vi.hoisted(() => vi.fn())
 const routerResolve = vi.hoisted(() => vi.fn(() => ({ href: '/payment/stripe?mock=1' })))
 const createOrder = vi.hoisted(() => vi.fn())
+const balancePayOrder = vi.hoisted(() => vi.fn())
 const refreshUser = vi.hoisted(() => vi.fn())
 const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const activeSubscriptionsState = vi.hoisted(() => ({
@@ -19,8 +20,12 @@ const activeSubscriptionsState = vi.hoisted(() => ({
 }))
 const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
+const showSuccess = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
+const authState = vi.hoisted(() => ({
+  userBalance: 0,
+}))
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
@@ -50,7 +55,7 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     user: {
       username: 'demo-user',
-      balance: 0,
+      balance: authState.userBalance,
     },
     refreshUser,
   }),
@@ -73,12 +78,14 @@ vi.mock('@/stores', () => ({
   useAppStore: () => ({
     showError,
     showInfo,
+    showSuccess,
     showWarning,
   }),
 }))
 
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
+    balancePayOrder,
     getCheckoutInfo,
   },
 }))
@@ -346,13 +353,27 @@ describe('PaymentView tab defaults', () => {
     routerPush.mockReset().mockResolvedValue(undefined)
     routerResolve.mockClear()
     createOrder.mockReset()
+    balancePayOrder.mockReset().mockResolvedValue({
+      data: {
+        order_id: 9001,
+        amount: 29,
+        pay_amount: 29,
+        fee_rate: 0,
+        status: 'COMPLETED',
+        payment_type: 'balance',
+        order_type: 'subscription',
+        out_trade_no: 'sub2_balance_test',
+      },
+    })
     refreshUser.mockReset()
     fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
     activeSubscriptionsState.items = []
     showError.mockReset()
     showInfo.mockReset()
+    showSuccess.mockReset()
     showWarning.mockReset()
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoWithPlansFixture())
+    authState.userBalance = 0
     bridgeInvoke.mockReset()
     window.localStorage.clear()
   })
@@ -436,6 +457,95 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.methods.stripe')
   })
 
+  it('shows alipay and balance only for product checkout', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+
+    expect(wrapper.text()).toContain('payment.methods.alipay')
+    expect(wrapper.text()).toContain('payment.methods.balance')
+    expect(wrapper.text()).not.toContain('payment.methods.wxpay')
+    expect(wrapper.text()).not.toContain('payment.methods.stripe')
+    expect(wrapper.text()).not.toContain('payment.methods.airwallex')
+  })
+
+  it('opens recharge confirm with rounded shortage when balance is insufficient', async () => {
+    getCheckoutInfo.mockResolvedValueOnce({
+      data: {
+        ...checkoutInfoWithFiveZPayPlansFixture().data,
+        recharge_fee_rate: 1,
+      },
+    })
+    authState.userBalance = 10
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+    await wrapper.find('[data-testid="payment-method-balance"]').trigger('click')
+    await wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))?.trigger('click')
+
+    expect(wrapper.text()).toContain('payment.recharge.title')
+    expect((wrapper.get('[data-testid="balance-recharge-amount"]').element as HTMLInputElement).value).toBe('20')
+  })
+
+  it('calls balance pay api when balance is sufficient', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+    authState.userBalance = 100
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+    await wrapper.find('[data-testid="payment-method-balance"]').trigger('click')
+    await wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))?.trigger('click')
+    await flushPromises()
+
+    expect(balancePayOrder).toHaveBeenCalledWith({
+      order_type: 'subscription',
+      plan_id: 1,
+    })
+    expect(createOrder).not.toHaveBeenCalled()
+  })
+
   it.each(['0', '1.5', '101', ''])('rejects invalid recharge amount %s', async (value) => {
     getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
 
@@ -503,13 +613,19 @@ describe('PaymentView tab defaults', () => {
   })
 
   it('renders GPT traffic pack cards and creates a traffic pack order', async () => {
+    getCheckoutInfo.mockResolvedValueOnce({
+      data: {
+        ...checkoutInfoWithPlansFixture().data,
+        methods: checkoutInfoWithFiveZPayPlansFixture().data.methods,
+      },
+    })
     createOrder.mockResolvedValue({
       order_id: 991,
       amount: 5,
       pay_amount: 5,
       fee_rate: 0,
       expires_at: '2099-01-01T00:10:00.000Z',
-      payment_type: 'wxpay',
+      payment_type: 'alipay',
       qr_code: 'weixin://wxpay/bizpayurl?pr=traffic-pack',
       out_trade_no: 'sub2_traffic_pack_991',
     })
@@ -546,7 +662,7 @@ describe('PaymentView tab defaults', () => {
 
     expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
       amount: 5,
-      payment_type: 'wxpay',
+      payment_type: 'alipay',
       order_type: 'traffic_pack',
       traffic_pack_id: 3,
       is_mobile: true,
@@ -738,7 +854,7 @@ describe('PaymentView without configured payment methods', () => {
     }
   })
 
-  it('disables subscription confirmation instead of opening manual payment when no payment methods are configured', async () => {
+  it('opens recharge confirmation for subscription checkout when only balance is available and insufficient', async () => {
     const wrapper = shallowMount(PaymentView, {
       global: {
         stubs: {
@@ -760,16 +876,19 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeDefined()
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
+    expect(balancePayOrder).not.toHaveBeenCalled()
     expect(wrapper.html()).not.toContain('manual-payment-dialog')
-    expect(wrapper.text()).toContain('payment.notAvailable')
+    expect(wrapper.text()).toContain('payment.recharge.title')
+    expect((wrapper.get('[data-testid="balance-recharge-amount"]').element as HTMLInputElement).value).toBe('100')
+    expect(showWarning).toHaveBeenCalledWith('payment.recharge.maxOnce')
   })
 
-  it('renders five subscription tiers in a four-column desktop grid and disables the 79 yuan tier without payment methods', async () => {
+  it('renders five subscription tiers in a four-column desktop grid and routes the 79 yuan tier to recharge when balance is insufficient', async () => {
     getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveManualPlansFixture())
 
     const wrapper = shallowMount(PaymentView, {
@@ -795,16 +914,18 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeDefined()
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
+    expect(balancePayOrder).not.toHaveBeenCalled()
     expect(wrapper.html()).not.toContain('manual-payment-dialog')
-    expect(wrapper.text()).toContain('payment.notAvailable')
+    expect(wrapper.text()).toContain('payment.recharge.title')
+    expect((wrapper.get('[data-testid="balance-recharge-amount"]').element as HTMLInputElement).value).toBe('79')
   })
 
-  it('disables traffic pack confirmation instead of opening manual payment when no payment methods are configured', async () => {
+  it('opens recharge confirmation for traffic pack checkout when only balance is available and insufficient', async () => {
     const wrapper = shallowMount(PaymentView, {
       global: {
         stubs: {
@@ -826,13 +947,15 @@ describe('PaymentView without configured payment methods', () => {
     await flushPromises()
 
     const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
-    expect(confirmButton?.attributes('disabled')).toBeDefined()
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
     await confirmButton?.trigger('click')
     await flushPromises()
 
     expect(createOrder).not.toHaveBeenCalled()
+    expect(balancePayOrder).not.toHaveBeenCalled()
     expect(wrapper.html()).not.toContain('manual-payment-dialog')
-    expect(wrapper.text()).toContain('payment.notAvailable')
+    expect(wrapper.text()).toContain('payment.recharge.title')
+    expect((wrapper.get('[data-testid="balance-recharge-amount"]').element as HTMLInputElement).value).toBe('2')
   })
 
   it('shows a back action in traffic pack confirm view and returns to the list', async () => {

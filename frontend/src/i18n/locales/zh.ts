@@ -7124,6 +7124,7 @@ export default {
       wxpay: '微信支付',
       stripe: 'Stripe',
       airwallex: 'Airwallex',
+      balance: '余额',
       card: '银行卡',
       link: 'Link',
       alipay_direct: '支付宝（直连）',
@@ -7141,6 +7142,10 @@ export default {
       noFee: '无',
       invalidAmount: '充值金额必须是 1-100 的整数',
       confirm: '确认支付 ¥{amount}',
+      maxOnce: '单次最多充值 100 元，请分多次充值',
+    },
+    balancePay: {
+      success: '余额支付成功',
     },
     status: {
       pending: '待支付',

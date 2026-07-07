@@ -97,14 +97,14 @@
                   </div>
                 </div>
               </div>
-              <div v-if="enabledMethods.length >= 1" class="card p-6">
+              <div v-if="trafficPackMethodOptions.length >= 1" class="card p-6">
                 <PaymentMethodSelector
                   :methods="trafficPackMethodOptions"
                   :selected="selectedMethod"
                   @select="selectedMethod = $event"
                 />
               </div>
-              <div v-if="!hasPaymentMethods" class="card p-4 text-center">
+              <div v-if="trafficPackMethodOptions.length === 0" class="card p-4 text-center">
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
               </div>
               <div v-if="feeRate > 0 && selectedTrafficPack.price > 0" class="card p-6">
@@ -180,14 +180,14 @@
                   </div>
                 </div>
               </div>
-              <div v-if="enabledMethods.length >= 1" class="card p-6">
+              <div v-if="subMethodOptions.length >= 1" class="card p-6">
                 <PaymentMethodSelector
                   :methods="subMethodOptions"
                   :selected="selectedMethod"
                   @select="selectedMethod = $event"
                 />
               </div>
-              <div v-if="!hasPaymentMethods" class="card p-4 text-center">
+              <div v-if="subMethodOptions.length === 0" class="card p-4 text-center">
                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
               </div>
               <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
@@ -285,7 +285,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, TrafficPack } from '@/types/payment'
+import type { BalancePayOrderRequest, SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, TrafficPack } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
@@ -663,17 +663,24 @@ const rechargeMethodOptions = computed<PaymentMethodOption[]>(() => {
   return alipay ? [{ type: 'alipay', fee_rate: 0, available: alipay.available !== false }] : []
 })
 
+function productMethodOptionsFor(price: number): PaymentMethodOption[] {
+  const methods: PaymentMethodOption[] = []
+  const alipay = visibleExternalMethods.value.alipay
+  if (alipay) {
+    methods.push({
+      type: 'alipay',
+      fee_rate: alipay.fee_rate ?? 0,
+      available: alipay.available !== false && amountFitsMethod(price, 'alipay'),
+    })
+  }
+  methods.push({ type: 'balance', fee_rate: feeRate.value, available: true })
+  return methods
+}
+
 // Subscription-specific: method options based on plan price
 const subMethodOptions = computed<PaymentMethodOption[]>(() => {
   const planPrice = selectedPlan.value?.price ?? 0
-  return enabledMethods.value.map((type) => {
-    const ml = visibleMethods.value[type]
-    return {
-      type,
-      fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(planPrice, type),
-    }
-  })
+  return productMethodOptionsFor(planPrice)
 })
 
 const subFeeAmount = computed(() => {
@@ -689,21 +696,13 @@ const subTotalAmount = computed(() => {
 })
 
 const canSubmitSubscription = computed(() => {
-  if (!selectedPlan.value || !hasPaymentMethods.value) return false
-  return amountFitsMethod(selectedPlan.value.price, selectedMethod.value)
-    && selectedLimit.value?.available !== false
+  if (!selectedPlan.value) return false
+  return subMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
 })
 
 const trafficPackMethodOptions = computed<PaymentMethodOption[]>(() => {
   const price = selectedTrafficPack.value?.price ?? 0
-  return enabledMethods.value.map((type) => {
-    const ml = visibleMethods.value[type]
-    return {
-      type,
-      fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(price, type),
-    }
-  })
+  return productMethodOptionsFor(price)
 })
 
 const trafficPackFeeAmount = computed(() => {
@@ -719,10 +718,15 @@ const trafficPackTotalAmount = computed(() => {
 })
 
 const canSubmitTrafficPack = computed(() => {
-  if (!selectedTrafficPack.value || !hasPaymentMethods.value) return false
-  return amountFitsMethod(selectedTrafficPack.value.price, selectedMethod.value)
-    && selectedLimit.value?.available !== false
+  if (!selectedTrafficPack.value) return false
+  return trafficPackMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
 })
+
+function selectFirstAvailableProductMethod(methods: PaymentMethodOption[]) {
+  const current = methods.find(method => method.type === selectedMethod.value && method.available)
+  if (current) return
+  selectedMethod.value = methods.find(method => method.available)?.type || ''
+}
 
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
@@ -767,12 +771,14 @@ function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   selectedTrafficPack.value = null
   errorMessage.value = ''
+  selectFirstAvailableProductMethod(productMethodOptionsFor(plan.price))
 }
 
 function selectTrafficPack(pack: TrafficPack) {
   selectedTrafficPack.value = pack
   selectedPlan.value = null
   errorMessage.value = ''
+  selectFirstAvailableProductMethod(productMethodOptionsFor(pack.price))
 }
 
 function selectPurchaseProduct(item: PurchaseProduct) {
@@ -808,6 +814,7 @@ function selectPlanFromModal(plan: SubscriptionPlan) {
   renewGroupId.value = null
   selectedPlan.value = plan
   errorMessage.value = ''
+  selectFirstAvailableProductMethod(productMethodOptionsFor(plan.price))
 }
 
 function closeRenewalModal() {
@@ -817,8 +824,14 @@ function closeRenewalModal() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  if (!hasPaymentMethods.value) {
+  if (!canSubmitSubscription.value) {
     appStore.showError(t('payment.notAvailable'))
+    return
+  }
+  const total = subTotalAmount.value
+  if (!ensureBalanceEnough(total)) return
+  if (selectedMethod.value === 'balance') {
+    await balancePayProduct({ order_type: 'subscription', plan_id: selectedPlan.value.id })
     return
   }
   await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
@@ -826,8 +839,14 @@ async function confirmSubscribe() {
 
 async function confirmTrafficPack() {
   if (!selectedTrafficPack.value || submitting.value) return
-  if (!hasPaymentMethods.value) {
+  if (!canSubmitTrafficPack.value) {
     appStore.showError(t('payment.notAvailable'))
+    return
+  }
+  const total = trafficPackTotalAmount.value
+  if (!ensureBalanceEnough(total)) return
+  if (selectedMethod.value === 'balance') {
+    await balancePayProduct({ order_type: 'traffic_pack', traffic_pack_id: selectedTrafficPack.value.id })
     return
   }
   await createOrder(selectedTrafficPack.value.price, 'traffic_pack', undefined, {
@@ -838,6 +857,56 @@ async function confirmTrafficPack() {
 async function confirmRecharge() {
   if (rechargeError.value || submitting.value) return
   await createOrder(validRechargeAmount.value, 'balance', undefined, { paymentType: 'alipay' })
+}
+
+function userBalanceAmount(): number {
+  return Number(authStore.user?.balance || 0)
+}
+
+function ensureBalanceEnough(totalAmount: number): boolean {
+  if (selectedMethod.value !== 'balance') return true
+  const shortage = Math.max(0, totalAmount - userBalanceAmount())
+  if (shortage <= 0) return true
+  openRechargeConfirm(shortage)
+  if (shortage > 100) {
+    appStore.showWarning(t('payment.recharge.maxOnce'))
+  }
+  return false
+}
+
+async function balancePayProduct(payload: BalancePayOrderRequest) {
+  submitting.value = true
+  try {
+    const result = await paymentAPI.balancePayOrder(payload)
+    appStore.showSuccess(t('payment.balancePay.success'))
+    await authStore.refreshUser()
+    if (payload.order_type === 'subscription') {
+      await subscriptionStore.fetchActiveSubscriptions(true)
+    }
+    if (payload.order_type === 'traffic_pack') {
+      await reloadCheckoutInfo()
+    }
+    backToSubscriptionList()
+    paymentState.value = {
+      ...emptyPaymentState(),
+      orderId: result.data.order_id,
+      amount: result.data.amount,
+      payAmount: result.data.pay_amount,
+      paymentType: 'balance',
+      orderType: payload.order_type,
+      outTradeNo: result.data.out_trade_no || '',
+      currency: 'CNY',
+    }
+  } catch (err: unknown) {
+    const reason = typeof err === 'object' && err && 'reason' in err ? String(err.reason) : ''
+    if (reason === 'BALANCE_INSUFFICIENT') {
+      openRechargeConfirm(1)
+      return
+    }
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('payment.result.failed')))
+  } finally {
+    submitting.value = false
+  }
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {
