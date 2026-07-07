@@ -37,4 +37,15 @@ describe('payment api', () => {
       resume_token: 'resume-token-123',
     })
   })
+
+  it('posts balance pay orders to the dedicated endpoint', async () => {
+    post.mockResolvedValueOnce({ data: { order_id: 9, status: 'COMPLETED', payment_type: 'balance' } })
+
+    await paymentAPI.balancePayOrder({ order_type: 'subscription', plan_id: 7 })
+
+    expect(post).toHaveBeenCalledWith('/payment/orders/balance-pay', {
+      order_type: 'subscription',
+      plan_id: 7,
+    })
+  })
 })

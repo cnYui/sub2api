@@ -12,6 +12,7 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
+  BalancePayOrderRequest,
   PaymentOrder
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
@@ -45,6 +46,11 @@ export const paymentAPI = {
   /** Create a new payment order */
   createOrder(data: CreateOrderRequest) {
     return apiClient.post<CreateOrderResult>('/payment/orders', data)
+  },
+
+  /** Pay for a product with the user's RMB balance */
+  balancePayOrder(data: BalancePayOrderRequest) {
+    return apiClient.post<CreateOrderResult>('/payment/orders/balance-pay', data)
   },
 
   /** Get current user's orders */
