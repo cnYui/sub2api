@@ -6,6 +6,7 @@
 
 ## 最高优先级定论
 
+- 2026-07-08 已修正公网 18084 的 2026-07-07 旧邀请返利：写库前备份 `deploy/backups/20260708-100436-sub2api-candidate-before-affiliate-recalc.dump`；删除旧 20% 返利流水 `15.80/19.80` 和已转余额 `19.80`，按当前 8%、单被邀请用户上限 100 元重算为 `6.32/7.92`，按原订单返利时间冻结 24 小时，两个邀请人当前 `aff_frozen_quota=6.32/7.92`、`balance=0`；旧金额残留数为 0，18084/8080 health 正常。同轮本地修复实质漏返 bug：支付宝 `traffic_pack` 履约原先未调用 `applyAffiliateRebateForOrder()`，会导致被邀请用户买 GPT 流量包不返利；已按 TDD 补测试并修复，后端 service 单测和前端 aff_code 传递目标测试通过。代码修复尚未部署公网。结果见 `docs/ai/context/20260708-101706-affiliate-rebate-recalculation-and-traffic-pack-bugfix-result_CN.md`。
 - 2026-07-08 已修复用户 `/affiliate` 页返利金额币种展示：可转返利额度、历史返利额度，以及同页冻结额度、邀请明细返利和转入成功提示均使用人民币窄符号 `¥`；仅改前端展示，不改后端返利计算和 API 字段。计划见 `docs/ai/context/20260708-101332-affiliate-rebate-rmb-symbol-ui-plan_CN.md`。
 - 2026-07-08 本地分支 `codex/rmb-balance-payment-affiliate-rebate` 已完成人民币余额支付与邀请返利重构：余额充值支付宝-only 且 1:1 人民币入账；用户购买页只展示支付宝和余额；余额支付套餐/流量包走 `payment_type=balance` 完成订单并事务内扣 `pay_amount`，不产生返利；支付宝完成订单按 `amount` 返利，默认 8%、冻结 24 小时、有效期 365 天、单被邀请用户累计上限 ¥100；订单展示与余额文案改为人民币，后台订单筛选补 `balance`/`traffic_pack`。已通过后端 unit/migrations、前端 typecheck/目标 vitest/build、`go test ./cmd/server`；未部署公网、未执行本地浏览器手工验收。结果见 `docs/ai/context/20260708-090140-rmb-balance-payment-affiliate-rebate-result_CN.md`。
 - 2026-07-07 已写人民币余额支付与邀请返利重构实施计划：计划按 TDD 拆为订单类型/金额口径、外部支付支付宝-only、余额支付事务、邀请返利默认值、前端充值/余额支付、订单展示、人民币文案和全量验收；执行时必须先修正 `users.balance` 透支扣减风险，余额购买只能条件扣款成功后发货。计划见 `docs/ai/context/20260707-230444-rmb-balance-payment-affiliate-rebate-implementation-plan_CN.md`。

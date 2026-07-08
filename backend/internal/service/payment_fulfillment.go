@@ -503,6 +503,9 @@ func (s *PaymentService) fulfillTrafficPackOrderInTx(ctx context.Context, client
 	if err := s.trafficPackService.CreditPurchase(ctx, input); err != nil {
 		return err
 	}
+	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
+		return err
+	}
 	return s.markCompletedWithClient(ctx, client, o, "TRAFFIC_PACK_SUCCESS")
 }
 

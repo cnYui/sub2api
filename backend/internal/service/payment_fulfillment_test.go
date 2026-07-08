@@ -506,6 +506,89 @@ func TestExecuteTrafficPackFulfillment_CreditsBatchAndIsIdempotent(t *testing.T)
 	require.Equal(t, 1, repo.creditCalls)
 }
 
+func TestExecuteTrafficPackFulfillmentAppliesAffiliateRebateForAlipay(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	paidAt := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+
+	user, err := client.User.Create().
+		SetEmail("traffic-pack-affiliate@example.com").
+		SetPasswordHash("hash").
+		SetUsername("traffic-pack-affiliate-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(10).
+		SetPayAmount(10.1).
+		SetFeeRate(1).
+		SetRechargeCode("PAY-TRAFFIC-PACK-AFFILIATE").
+		SetOutTradeNo("sub2_traffic_pack_affiliate").
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo("alipay-trade-traffic-pack-affiliate").
+		SetOrderType(payment.OrderTypeTrafficPack).
+		SetStatus(OrderStatusPaid).
+		SetPaidAt(paidAt).
+		SetExpiresAt(paidAt.Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("app.example.com").
+		SetProviderSnapshot(map[string]any{
+			"traffic_pack_id":            float64(3),
+			"traffic_pack_credit_usd":    float64(20),
+			"traffic_pack_validity_days": float64(365),
+		}).
+		Save(ctx)
+	require.NoError(t, err)
+
+	inviterID := int64(9201)
+	affiliateRepo := &paymentFulfillmentAffiliateRepoStub{
+		inviteeSummary: &AffiliateSummary{
+			UserID:    user.ID,
+			AffCode:   "INVITEE",
+			InviterID: &inviterID,
+			CreatedAt: time.Now().Add(-24 * time.Hour),
+		},
+		inviterSummary: &AffiliateSummary{
+			UserID:    inviterID,
+			AffCode:   "INVITER",
+			CreatedAt: time.Now().Add(-48 * time.Hour),
+		},
+	}
+	settingSvc := NewSettingService(&paymentFulfillmentSettingRepoStub{values: map[string]string{
+		SettingKeyAffiliateEnabled:           "true",
+		SettingKeyAffiliateRebateRate:        "8",
+		SettingKeyAffiliateRebateFreezeHours: "24",
+	}}, nil)
+	repo := &paymentFulfillmentTrafficPackRepo{}
+	svc := &PaymentService{
+		entClient:          client,
+		trafficPackService: NewTrafficPackService(repo),
+		affiliateService:   NewAffiliateService(affiliateRepo, settingSvc, nil, nil),
+	}
+
+	require.NoError(t, svc.ExecuteTrafficPackFulfillment(ctx, order.ID))
+
+	require.Equal(t, 1, repo.creditCalls)
+	require.Len(t, affiliateRepo.accrueCalls, 1)
+	require.Equal(t, inviterID, affiliateRepo.accrueCalls[0].inviterID)
+	require.Equal(t, user.ID, affiliateRepo.accrueCalls[0].inviteeUserID)
+	require.Equal(t, 0.8, affiliateRepo.accrueCalls[0].amount)
+	require.Equal(t, 24, affiliateRepo.accrueCalls[0].freezeHours)
+	require.NotNil(t, affiliateRepo.accrueCalls[0].sourceOrderID)
+	require.Equal(t, order.ID, *affiliateRepo.accrueCalls[0].sourceOrderID)
+
+	applied, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REBATE_APPLIED")).
+		Only(ctx)
+	require.NoError(t, err)
+	require.Contains(t, applied.Detail, `"baseAmount":10`)
+	require.Contains(t, applied.Detail, `"rebateAmount":0.8`)
+}
+
 func TestValidateProviderNotificationMetadataRejectsWxpaySnapshotMismatch(t *testing.T) {
 	t.Parallel()
 
