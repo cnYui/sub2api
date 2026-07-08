@@ -533,7 +533,6 @@ const checkout = ref<CheckoutInfoResponse>({
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const visibleExternalMethods = computed(() => getUserExternalPaymentMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
-const hasPaymentMethods = computed(() => enabledMethods.value.length > 0)
 const validAmount = computed(() => amount.value ?? 0)
 const purchaseProductGridClass = computed(() => {
   const n = purchaseProducts.value.length

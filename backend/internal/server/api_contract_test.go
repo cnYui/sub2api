@@ -410,9 +410,9 @@ func TestAPIContracts(t *testing.T) {
 						"daily_window_start": null,
 						"weekly_window_start": null,
 						"monthly_window_start": null,
-						"daily_usage_usd": 1.23,
-						"weekly_usage_usd": 2.34,
-						"monthly_usage_usd": 3.45,
+						"daily_usage_usd": 0,
+						"weekly_usage_usd": 0,
+						"monthly_usage_usd": 0,
 						"created_at": "2025-01-02T03:04:05Z",
 						"updated_at": "2025-01-02T03:04:05Z"
 					}
@@ -810,7 +810,7 @@ func TestAPIContracts(t *testing.T) {
 					"auth_source_default_oidc_platform_quotas": null,
 					"auth_source_default_wechat_platform_quotas": null,
 					"auth_source_default_dingtalk_platform_quotas": null,
-					"affiliate_rebate_rate": 20,
+					"affiliate_rebate_rate": 8,
 					"affiliate_rebate_freeze_hours": 0,
 					"affiliate_rebate_duration_days": 0,
 					"affiliate_rebate_per_invitee_cap": 0,
@@ -889,7 +889,7 @@ func TestAPIContracts(t *testing.T) {
 					"risk_control_enabled": false,
 					"cyber_session_block_enabled": false,
 					"cyber_session_block_ttl_seconds": 3600,
-					"affiliate_enabled": false,
+					"affiliate_enabled": true,
 					"wechat_connect_enabled": false,
 					"wechat_connect_app_id": "",
 					"wechat_connect_app_secret_configured": false,
@@ -1056,7 +1056,7 @@ func TestAPIContracts(t *testing.T) {
 					"custom_endpoints": [],
 					"default_concurrency": 0,
 					"default_balance": 0,
-					"affiliate_rebate_rate": 20,
+					"affiliate_rebate_rate": 8,
 					"affiliate_rebate_freeze_hours": 0,
 					"affiliate_rebate_duration_days": 0,
 					"affiliate_rebate_per_invitee_cap": 0,
@@ -1130,7 +1130,7 @@ func TestAPIContracts(t *testing.T) {
 					"risk_control_enabled": false,
 					"cyber_session_block_enabled": false,
 					"cyber_session_block_ttl_seconds": 3600,
-					"affiliate_enabled": false,
+					"affiliate_enabled": true,
 					"wechat_connect_enabled": true,
 					"wechat_connect_app_id": "wx-open-config",
 					"wechat_connect_app_secret_configured": true,
@@ -2036,6 +2036,9 @@ func (stubUserSubscriptionRepo) ResetWeeklyUsage(ctx context.Context, id int64, 
 }
 func (stubUserSubscriptionRepo) ResetMonthlyUsage(ctx context.Context, id int64, newWindowStart time.Time) error {
 	return errors.New("not implemented")
+}
+func (stubUserSubscriptionRepo) RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error) {
+	return false, nil
 }
 func (stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {
 	return errors.New("not implemented")
