@@ -1227,6 +1227,19 @@ func TestAPIContracts(t *testing.T) {
 	}
 }
 
+func TestStubUserSubscriptionRepoRejectsUnexpectedDailyWindowCalibrationCalls(t *testing.T) {
+	repo := stubUserSubscriptionRepo{}
+	now := time.Date(2026, 7, 8, 0, 0, 0, 0, time.UTC)
+
+	result, err := repo.CalibrateActiveDailyUsageWindows(context.Background(), now, now, now, 100)
+	require.Nil(t, result)
+	require.ErrorContains(t, err, "not implemented")
+
+	stale, err := repo.CountStaleActiveDailyWindows(context.Background(), now, now)
+	require.Zero(t, stale)
+	require.ErrorContains(t, err, "not implemented")
+}
+
 type contractDeps struct {
 	now         time.Time
 	router      http.Handler
@@ -2044,6 +2057,12 @@ func (stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, co
 	return errors.New("not implemented")
 }
 func (stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+func (stubUserSubscriptionRepo) CalibrateActiveDailyUsageWindows(ctx context.Context, dailyStart, upperBound, now time.Time, batchSize int) (*service.SubscriptionDailyWindowCalibrationResult, error) {
+	return nil, errors.New("not implemented")
+}
+func (stubUserSubscriptionRepo) CountStaleActiveDailyWindows(ctx context.Context, windowStart, now time.Time) (int64, error) {
 	return 0, errors.New("not implemented")
 }
 

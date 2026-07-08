@@ -1,4 +1,4 @@
-.PHONY: build generate test test-unit test-integration test-e2e
+.PHONY: build generate test test-unit test-server-unit test-integration test-e2e
 
 VERSION ?= $(shell tr -d '\r\n' < ./cmd/server/VERSION)
 LDFLAGS ?= -s -w -X main.Version=$(VERSION)
@@ -16,6 +16,9 @@ test:
 
 test-unit:
 	go test -tags=unit ./...
+
+test-server-unit:
+	go test -count=1 -tags=unit ./internal/server
 
 test-integration:
 	go test -tags=integration ./...
