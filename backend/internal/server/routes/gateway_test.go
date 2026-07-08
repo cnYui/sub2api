@@ -43,39 +43,62 @@ func newGatewayRoutesTestRouter() *gin.Engine {
 	return router
 }
 
-func TestGatewayRoutesOpenAIResponsesCompactPathIsRegistered(t *testing.T) {
+func TestGatewayRoutesRejectBareOpenAICompatiblePaths(t *testing.T) {
 	router := newGatewayRoutesTestRouter()
 
-	for _, path := range []string{
-		"/v1/responses/compact",
-		"/responses/compact",
-		"/backend-api/codex/responses",
-		"/backend-api/codex/responses/compact",
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/models?client_version=0.142.5"},
+		{http.MethodPost, "/responses"},
+		{http.MethodPost, "/responses/compact"},
+		{http.MethodGet, "/responses"},
+		{http.MethodPost, "/chat/completions"},
+		{http.MethodPost, "/embeddings"},
+		{http.MethodPost, "/images/generations"},
+		{http.MethodPost, "/images/edits"},
+		{http.MethodPost, "/backend-api/codex/responses"},
+		{http.MethodPost, "/backend-api/codex/responses/compact"},
+		{http.MethodGet, "/backend-api/codex/responses"},
 	} {
-		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-5"}`))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{"model":"gpt-5"}`))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
 
-		router.ServeHTTP(w, req)
-		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI responses handler", path)
+			router.ServeHTTP(w, req)
+
+			require.Equal(t, http.StatusBadRequest, w.Code)
+			require.Contains(t, w.Body.String(), `"code":"INVALID_BASE_URL"`)
+			require.Contains(t, w.Body.String(), `https://api.aaccx.pw/v1`)
+		})
 	}
 }
 
-func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
+func TestGatewayRoutesKeepFormalV1OpenAIPathsRegistered(t *testing.T) {
 	router := newGatewayRoutesTestRouter()
 
-	for _, path := range []string{
-		"/v1/images/generations",
-		"/v1/images/edits",
-		"/images/generations",
-		"/images/edits",
-	} {
-		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-image-2","prompt":"draw a cat"}`))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
+	routes := make(map[string]bool)
+	for _, route := range router.Routes() {
+		routes[route.Method+" "+route.Path] = true
+	}
 
-		router.ServeHTTP(w, req)
-		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/v1/models"},
+		{http.MethodPost, "/v1/responses"},
+		{http.MethodPost, "/v1/responses/*subpath"},
+		{http.MethodPost, "/v1/chat/completions"},
+		{http.MethodPost, "/v1/embeddings"},
+		{http.MethodPost, "/v1/images/generations"},
+		{http.MethodPost, "/v1/images/edits"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			require.True(t, routes[tc.method+" "+tc.path], "formal route must remain registered")
+		})
 	}
 }
 

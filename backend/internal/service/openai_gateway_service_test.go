@@ -2181,7 +2181,7 @@ func TestOpenAIResponsesRequestPathSuffix(t *testing.T) {
 	}{
 		{name: "exact v1 responses", path: "/v1/responses", want: ""},
 		{name: "compact v1 responses", path: "/v1/responses/compact", want: "/compact"},
-		{name: "compact alias responses", path: "/responses/compact/", want: "/compact"},
+		{name: "bare compact alias ignored", path: "/responses/compact/", want: ""},
 		{name: "nested suffix", path: "/openai/v1/responses/compact/detail", want: "/compact/detail"},
 		{name: "unrelated path", path: "/v1/chat/completions", want: ""},
 	}
@@ -2278,7 +2278,7 @@ func TestOpenAIBuildUpstreamRequestPreservesCompactPathForAPIKeyBaseURL(t *testi
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/responses/compact", bytes.NewReader([]byte(`{"model":"gpt-5"}`)))
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses/compact", bytes.NewReader([]byte(`{"model":"gpt-5"}`)))
 
 	svc := &OpenAIGatewayService{cfg: &config.Config{
 		Security: config.SecurityConfig{

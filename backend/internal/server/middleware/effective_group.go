@@ -93,25 +93,35 @@ func DefaultAutomaticKeyEndpointPolicy(c *gin.Context) (string, bool) {
 	if c == nil || c.Request == nil || c.Request.URL == nil {
 		return "", false
 	}
+	path := c.Request.URL.Path
 	forcePlatform, _ := c.Request.Context().Value(ctxkey.ForcePlatform).(string)
 	if forcePlatform != "" {
-		return forcePlatform, forcePlatform == service.PlatformOpenAI
+		return forcePlatform, forcePlatform == service.PlatformOpenAI && automaticKeySupportsOpenAIEndpoint(path)
 	}
 
-	path := c.Request.URL.Path
+	if automaticKeySupportsOpenAIEndpoint(path) {
+		return service.PlatformOpenAI, true
+	}
+	return "", false
+}
+
+func automaticKeySupportsOpenAIEndpoint(path string) bool {
+	path = strings.TrimRight(strings.TrimSpace(path), "/")
 	switch {
 	case strings.EqualFold(path, "/v1/usage"):
-		return service.PlatformOpenAI, true
-	case strings.HasPrefix(path, "/v1beta"), strings.HasPrefix(path, "/antigravity/"):
-		return "", false
-	case strings.Contains(path, "/responses"),
-		strings.Contains(path, "/chat/completions"),
-		strings.Contains(path, "/embeddings"),
-		strings.Contains(path, "/images/"),
-		strings.Contains(path, "/messages"):
-		return service.PlatformOpenAI, true
+		return true
+	case path == "/v1/responses" || strings.HasPrefix(path, "/v1/responses/"):
+		return true
+	case path == "/v1/messages" || strings.HasPrefix(path, "/v1/messages/"):
+		return true
+	case path == "/v1/chat/completions":
+		return true
+	case path == "/v1/embeddings":
+		return true
+	case path == "/v1/images/generations", path == "/v1/images/edits":
+		return true
 	default:
-		return "", false
+		return false
 	}
 }
 

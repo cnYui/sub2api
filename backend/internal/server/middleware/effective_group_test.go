@@ -137,3 +137,55 @@ func TestDefaultAutomaticKeyEndpointPolicyAllowsUsage(t *testing.T) {
 	require.True(t, supported)
 	require.Equal(t, service.PlatformOpenAI, platform)
 }
+
+func TestDefaultAutomaticKeyEndpointPolicyAllowsOnlyFormalV1OpenAIEndpoints(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, path := range []string{
+		"/v1/usage",
+		"/v1/messages",
+		"/v1/messages/count_tokens",
+		"/v1/responses",
+		"/v1/responses/compact",
+		"/v1/chat/completions",
+		"/v1/embeddings",
+		"/v1/images/generations",
+		"/v1/images/edits",
+	} {
+		t.Run("allow "+path, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, path, nil)
+
+			platform, supported := DefaultAutomaticKeyEndpointPolicy(c)
+
+			require.True(t, supported)
+			require.Equal(t, service.PlatformOpenAI, platform)
+		})
+	}
+
+	for _, path := range []string{
+		"/models",
+		"/responses",
+		"/responses/compact",
+		"/backend-api/codex/responses",
+		"/backend-api/codex/responses/compact",
+		"/chat/completions",
+		"/embeddings",
+		"/images/generations",
+		"/images/edits",
+		"/openai/v1/responses",
+		"/foo/v1/responses",
+		"/v1beta/models",
+		"/antigravity/v1/messages",
+	} {
+		t.Run("reject "+path, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, path, nil)
+
+			platform, supported := DefaultAutomaticKeyEndpointPolicy(c)
+
+			require.False(t, supported)
+			require.Empty(t, platform)
+		})
+	}
+}

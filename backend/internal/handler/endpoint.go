@@ -33,8 +33,8 @@ const (
 // Normalization functions
 // ──────────────────────────────────────────────────────────
 
-// NormalizeInboundEndpoint maps a raw request path (which may carry
-// prefixes like /antigravity, /openai) to its canonical form.
+// NormalizeInboundEndpoint maps a raw request path with known gateway prefixes
+// to its canonical form.
 //
 //	"/antigravity/v1/messages"   → "/v1/messages"
 //	"/v1/chat/completions"       → "/v1/chat/completions"
@@ -43,23 +43,38 @@ const (
 func NormalizeInboundEndpoint(path string) string {
 	path = strings.TrimSpace(path)
 	switch {
-	case strings.Contains(path, EndpointEmbeddings):
+	case endpointPathMatches(path, EndpointEmbeddings, false) ||
+		endpointPathMatches(path, "/openai"+EndpointEmbeddings, false):
 		return EndpointEmbeddings
-	case strings.Contains(path, EndpointChatCompletions):
+	case endpointPathMatches(path, EndpointChatCompletions, false) ||
+		endpointPathMatches(path, "/openai"+EndpointChatCompletions, false):
 		return EndpointChatCompletions
-	case strings.Contains(path, EndpointMessages):
+	case endpointPathMatches(path, EndpointMessages, true) ||
+		endpointPathMatches(path, "/openai"+EndpointMessages, true) ||
+		endpointPathMatches(path, "/antigravity"+EndpointMessages, true):
 		return EndpointMessages
-	case strings.Contains(path, EndpointImagesGenerations) || strings.Contains(path, "/images/generations"):
+	case endpointPathMatches(path, EndpointImagesGenerations, false) ||
+		endpointPathMatches(path, "/openai"+EndpointImagesGenerations, false):
 		return EndpointImagesGenerations
-	case strings.Contains(path, EndpointImagesEdits) || strings.Contains(path, "/images/edits"):
+	case endpointPathMatches(path, EndpointImagesEdits, false) ||
+		endpointPathMatches(path, "/openai"+EndpointImagesEdits, false):
 		return EndpointImagesEdits
-	case strings.Contains(path, EndpointResponses):
+	case endpointPathMatches(path, EndpointResponses, true) ||
+		endpointPathMatches(path, "/openai"+EndpointResponses, true):
 		return EndpointResponses
-	case strings.Contains(path, EndpointGeminiModels):
+	case endpointPathMatches(path, EndpointGeminiModels, true) ||
+		endpointPathMatches(path, "/antigravity"+EndpointGeminiModels, true):
 		return EndpointGeminiModels
 	default:
 		return path
 	}
+}
+
+func endpointPathMatches(path, endpoint string, allowSubpath bool) bool {
+	if path == endpoint {
+		return true
+	}
+	return allowSubpath && strings.HasPrefix(path, endpoint+"/")
 }
 
 // DeriveUpstreamEndpoint determines the upstream endpoint from the
@@ -111,18 +126,15 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
 // Returns "" when there is no meaningful suffix.
 func responsesSubpathSuffix(rawPath string) string {
 	trimmed := strings.TrimRight(strings.TrimSpace(rawPath), "/")
-	idx := strings.LastIndex(trimmed, "/responses")
-	if idx < 0 {
-		return ""
+	for _, prefix := range []string{EndpointResponses, "/openai" + EndpointResponses} {
+		if trimmed == prefix {
+			return ""
+		}
+		if strings.HasPrefix(trimmed, prefix+"/") {
+			return strings.TrimPrefix(trimmed, prefix)
+		}
 	}
-	suffix := trimmed[idx+len("/responses"):]
-	if suffix == "" || suffix == "/" {
-		return ""
-	}
-	if !strings.HasPrefix(suffix, "/") {
-		return ""
-	}
-	return suffix
+	return ""
 }
 
 // ──────────────────────────────────────────────────────────
