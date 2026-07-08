@@ -54,6 +54,26 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 	}
 }
 
+func TestNormalizeInboundEndpointDoesNotCanonicalizeNonFormalOpenAIPaths(t *testing.T) {
+	tests := []string{
+		"/models",
+		"/responses",
+		"/responses/compact",
+		"/backend-api/codex/responses",
+		"/backend-api/codex/responses/compact",
+		"/chat/completions",
+		"/embeddings",
+		"/images/generations",
+		"/images/edits",
+		"/foo/v1/responses",
+	}
+	for _, path := range tests {
+		t.Run(path, func(t *testing.T) {
+			require.Equal(t, path, NormalizeInboundEndpoint(path))
+		})
+	}
+}
+
 // ──────────────────────────────────────────────────────────
 // DeriveUpstreamEndpoint
 // ──────────────────────────────────────────────────────────

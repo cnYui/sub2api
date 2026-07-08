@@ -158,6 +158,34 @@ func TestEffectiveGroupResolver_RequestPathInfersOpenAI(t *testing.T) {
 	require.Equal(t, trafficGroup.ID, result.Group.ID)
 }
 
+func TestEffectiveGroupResolver_RequestPathDoesNotInferBareOpenAICompatiblePaths(t *testing.T) {
+	resolver := NewEffectiveGroupResolver(
+		&effectiveGroupSubRepoStub{},
+		&effectiveGroupGroupRepoStub{groups: []Group{{ID: 77, Name: TrafficPackOpenAIGroupName, Platform: PlatformOpenAI, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard}}},
+		NewTrafficPackService(&effectiveGroupTrafficRepoStub{has: true}),
+	)
+
+	for _, path := range []string{
+		"/responses",
+		"/responses/compact",
+		"/backend-api/codex/responses",
+		"/backend-api/codex/responses/compact",
+		"/chat/completions",
+		"/embeddings",
+		"/images/generations",
+		"/images/edits",
+		"/openai/v1/responses",
+		"/foo/v1/responses",
+	} {
+		t.Run(path, func(t *testing.T) {
+			result, err := resolver.ResolveEffectiveGroupForRequest(context.Background(), 62, path, "")
+
+			require.Nil(t, result)
+			require.ErrorIs(t, err, ErrNoOpenAIEntitlement)
+		})
+	}
+}
+
 func TestEffectiveGroupResolver_ForcePlatformWinsOverPath(t *testing.T) {
 	resolver := NewEffectiveGroupResolver(
 		&effectiveGroupSubRepoStub{},

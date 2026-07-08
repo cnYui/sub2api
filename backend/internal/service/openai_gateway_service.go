@@ -5925,18 +5925,15 @@ func openAIResponsesRequestPathSuffix(c *gin.Context) string {
 	if normalizedPath == "" {
 		return ""
 	}
-	idx := strings.LastIndex(normalizedPath, "/responses")
-	if idx < 0 {
-		return ""
+	for _, prefix := range []string{"/v1/responses", "/openai/v1/responses"} {
+		if normalizedPath == prefix {
+			return ""
+		}
+		if strings.HasPrefix(normalizedPath, prefix+"/") {
+			return strings.TrimPrefix(normalizedPath, prefix)
+		}
 	}
-	suffix := normalizedPath[idx+len("/responses"):]
-	if suffix == "" || suffix == "/" {
-		return ""
-	}
-	if !strings.HasPrefix(suffix, "/") {
-		return ""
-	}
-	return suffix
+	return ""
 }
 
 func appendOpenAIResponsesRequestPathSuffix(baseURL, suffix string) string {

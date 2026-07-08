@@ -85,22 +85,11 @@ func writeResponsesFailedSSE(c *gin.Context, errType, message string) bool {
 	return true
 }
 
-// inboundIsResponses 判断当前请求是否落在任何 /responses 路由上。
+// inboundIsResponses 判断当前请求是否落在正式 Responses API 路由上。
 //
 // 不能直接用 GetInboundEndpoint(c) == EndpointResponses 比较，因为
-// NormalizeInboundEndpoint 只识别包含 "/v1/responses" 子串的路径；
-// 项目里实际注册了多组路由（gateway_v1、top-level bare、codex direct），
-// 其中 r.POST("/responses", ...) 和 codexDirect.POST("/responses", ...)
-// 的 c.FullPath() 不含 "/v1/" 前缀，会被归一化为原始路径，
-// 导致协议合规终止事件没法发出去。
-//
-// 这里用 FullPath 的后缀判断，覆盖所有变体：
-//   - /v1/responses
-//   - /v1/responses/compact
-//   - /responses
-//   - /responses/compact
-//   - /backend-api/codex/responses
-//   - /backend-api/codex/responses/compact
+// 测试和部分 handler 直连会使用 /openai/v1/responses。裸 /responses 与
+// /backend-api/codex/responses 已由 INVALID_BASE_URL 处理，不再属于有效 API。
 func inboundIsResponses(c *gin.Context) bool {
 	if c == nil {
 		return false
@@ -112,7 +101,8 @@ func inboundIsResponses(c *gin.Context) bool {
 	if p == "" {
 		return false
 	}
-	return strings.HasSuffix(p, "/responses") || strings.Contains(p, "/responses/")
+	return endpointPathMatches(p, EndpointResponses, true) ||
+		endpointPathMatches(p, "/openai"+EndpointResponses, true)
 }
 
 // synthesizeResponseID 为合成的 response.failed 事件生成一个稳定的 id。

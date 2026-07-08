@@ -155,14 +155,28 @@ func (r *EffectiveGroupResolver) resolveTrafficPackOpenAIGroup(ctx context.Conte
 }
 
 func inferEffectiveGroupPlatform(path string) string {
-	switch {
-	case strings.Contains(path, "/responses"),
-		strings.Contains(path, "/chat/completions"),
-		strings.Contains(path, "/embeddings"),
-		strings.Contains(path, "/images/"),
-		strings.Contains(path, "/messages"):
+	if isFormalOpenAIRequestPath(path) {
 		return PlatformOpenAI
+	}
+	return ""
+}
+
+func isFormalOpenAIRequestPath(path string) bool {
+	path = strings.TrimRight(strings.TrimSpace(path), "/")
+	switch {
+	case path == "/v1/usage":
+		return true
+	case path == "/v1/responses" || strings.HasPrefix(path, "/v1/responses/"):
+		return true
+	case path == "/v1/messages" || strings.HasPrefix(path, "/v1/messages/"):
+		return true
+	case path == "/v1/chat/completions":
+		return true
+	case path == "/v1/embeddings":
+		return true
+	case path == "/v1/images/generations", path == "/v1/images/edits":
+		return true
 	default:
-		return ""
+		return false
 	}
 }

@@ -120,41 +120,7 @@ func RegisterGatewayRoutes(
 		gemini.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
-	// OpenAI Responses API（不带v1前缀的别名）— auto-route based on group platform
-	responsesHandler := func(c *gin.Context) {
-		if getGroupPlatform(c) == service.PlatformOpenAI {
-			h.OpenAIGateway.Responses(c)
-			return
-		}
-		h.Gateway.Responses(c)
-	}
-	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, responsesHandler)
-	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, responsesHandler)
-	r.GET("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, h.OpenAIGateway.ResponsesWebSocket)
-	codexDirect := r.Group("/backend-api/codex")
-	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic)
-	{
-		codexDirect.POST("/responses", responsesHandler)
-		codexDirect.POST("/responses/*subpath", responsesHandler)
-		codexDirect.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
-	}
-	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
-	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		if getGroupPlatform(c) == service.PlatformOpenAI {
-			h.OpenAIGateway.ChatCompletions(c)
-			return
-		}
-		h.Gateway.ChatCompletions(c)
-	})
-	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		openAIOnly("Embeddings", h.OpenAIGateway.Embeddings)(c)
-	})
-	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		openAIOnly("Images", h.OpenAIGateway.Images)(c)
-	})
-	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, func(c *gin.Context) {
-		openAIOnly("Images", h.OpenAIGateway.Images)(c)
-	})
+	registerInvalidBaseURLRoutes(r)
 
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), resolveGroupAnthropic, requireGroupAnthropic, h.Gateway.AntigravityModels)
@@ -191,6 +157,28 @@ func RegisterGatewayRoutes(
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
+}
+
+func invalidBaseURLHandler(c *gin.Context) {
+	c.JSON(http.StatusBadRequest, gin.H{
+		"error": gin.H{
+			"type":    "invalid_request_error",
+			"code":    "INVALID_BASE_URL",
+			"message": "Invalid API path. Use base_url=https://api.aaccx.pw/v1 and the corresponding /v1 endpoint.",
+		},
+	})
+}
+
+func registerInvalidBaseURLRoutes(r *gin.Engine) {
+	r.Any("/models", invalidBaseURLHandler)
+	r.Any("/responses", invalidBaseURLHandler)
+	r.Any("/responses/*subpath", invalidBaseURLHandler)
+	r.Any("/chat/completions", invalidBaseURLHandler)
+	r.Any("/embeddings", invalidBaseURLHandler)
+	r.Any("/images/generations", invalidBaseURLHandler)
+	r.Any("/images/edits", invalidBaseURLHandler)
+	r.Any("/backend-api/codex/responses", invalidBaseURLHandler)
+	r.Any("/backend-api/codex/responses/*subpath", invalidBaseURLHandler)
 }
 
 // getGroupPlatform extracts the group platform from the API Key stored in context.
