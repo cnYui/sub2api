@@ -183,6 +183,19 @@ func (s *subscriptionUserSubRepoStub) GetByUserIDAndGroupID(_ context.Context, u
 	return &cp, nil
 }
 
+func (s *subscriptionUserSubRepoStub) ListActiveByUserID(_ context.Context, userID int64) ([]UserSubscription, error) {
+	now := time.Now()
+	out := make([]UserSubscription, 0)
+	for _, sub := range s.byID {
+		if sub == nil || sub.UserID != userID || sub.Status != SubscriptionStatusActive || !sub.ExpiresAt.After(now) {
+			continue
+		}
+		cp := *sub
+		out = append(out, cp)
+	}
+	return out, nil
+}
+
 func (s *subscriptionUserSubRepoStub) Create(_ context.Context, sub *UserSubscription) error {
 	if sub == nil {
 		return nil

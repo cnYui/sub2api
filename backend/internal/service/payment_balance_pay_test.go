@@ -6,6 +6,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -13,6 +14,92 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateSubOrderRejectsExistingActiveSubscriptionAcrossGroups(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
+
+	u, err := client.User.Create().
+		SetEmail("existing-subscription@example.com").
+		SetUsername("existing-subscription").
+		SetPasswordHash("hash").
+		SetBalance(100).
+		SetStatus(payment.EntityStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        42,
+		UserID:    u.ID,
+		GroupID:   2,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  time.Now().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().Add(29 * 24 * time.Hour),
+	})
+	svc := newBalancePayTestService(client, 0)
+	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+
+	_, err = svc.validateSubOrder(ctx, CreateOrderRequest{
+		UserID:    u.ID,
+		OrderType: payment.OrderTypeSubscription,
+		PlanID:    planID,
+	})
+	require.Error(t, err)
+	require.Equal(t, "ACTIVE_SUBSCRIPTION_EXISTS", infraerrors.FromError(err).Reason)
+	require.Equal(t, "需要先和管理员联系来进行退款", infraerrors.FromError(err).Message)
+}
+
+func TestBalancePaySubscriptionWithExistingActiveSubscriptionDoesNotCreateOrderOrDeduct(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
+
+	u, err := client.User.Create().
+		SetEmail("balance-pay-existing-subscription@example.com").
+		SetUsername("balance-pay-existing-subscription").
+		SetPasswordHash("hash").
+		SetBalance(100).
+		SetStatus(payment.EntityStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        43,
+		UserID:    u.ID,
+		GroupID:   2,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  time.Now().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().Add(29 * 24 * time.Hour),
+	})
+	svc := newBalancePayTestService(client, 0)
+	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+
+	_, err = svc.BalancePayOrder(ctx, BalancePayOrderRequest{
+		UserID:    u.ID,
+		OrderType: payment.OrderTypeSubscription,
+		PlanID:    planID,
+		ClientIP:  "127.0.0.1",
+		SrcHost:   "api.example.com",
+	})
+	require.Error(t, err)
+	require.Equal(t, "ACTIVE_SUBSCRIPTION_EXISTS", infraerrors.FromError(err).Reason)
+
+	orderCount, err := client.PaymentOrder.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, orderCount)
+
+	reloaded, err := client.User.Query().Where(user.IDEQ(u.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 100.0, reloaded.Balance)
+	require.Zero(t, subRepo.createCalls)
+}
 
 func TestBalancePaySubscriptionInsufficientDoesNotCreateOrder(t *testing.T) {
 	ctx := context.Background()

@@ -592,6 +592,16 @@ const planTitleSuffix = (index: number) => {
 const isPlanActive = (plan: SubscriptionPlan) =>
   activeSubscriptions.value.some(s => s.group_id === plan.group_id && s.status === 'active')
 
+const hasActiveSubscriptionForPurchase = computed(() =>
+  activeSubscriptions.value.some(subscription => subscription.status === 'active')
+)
+
+function showActiveSubscriptionPurchaseBlocked(): boolean {
+  if (!hasActiveSubscriptionForPurchase.value) return false
+  appStore.showError(t('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS'))
+  return true
+}
+
 function buildBalanceRechargeProduct(): BalanceRechargePurchaseProduct {
   return {
     id: 'balance-recharge',
@@ -767,6 +777,7 @@ const planValiditySuffix = computed(() => {
 })
 
 function selectPlan(plan: SubscriptionPlan) {
+  if (showActiveSubscriptionPurchaseBlocked()) return
   selectedPlan.value = plan
   selectedTrafficPack.value = null
   errorMessage.value = ''
@@ -809,6 +820,7 @@ function openRechargeConfirm(defaultAmount = 1) {
 }
 
 function selectPlanFromModal(plan: SubscriptionPlan) {
+  if (showActiveSubscriptionPurchaseBlocked()) return
   showRenewalModal.value = false
   renewGroupId.value = null
   selectedPlan.value = plan
@@ -823,6 +835,7 @@ function closeRenewalModal() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
+  if (showActiveSubscriptionPurchaseBlocked()) return
   if (!canSubmitSubscription.value) {
     appStore.showError(t('payment.notAvailable'))
     return

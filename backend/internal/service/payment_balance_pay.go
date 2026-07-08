@@ -123,7 +123,7 @@ func (s *PaymentService) resolveBalancePayProduct(ctx context.Context, req Balan
 	feeRate := cfg.RechargeFeeRate
 	switch req.OrderType {
 	case payment.OrderTypeSubscription:
-		plan, err := s.validateSubOrder(ctx, CreateOrderRequest{OrderType: req.OrderType, PlanID: req.PlanID})
+		plan, err := s.validateSubOrder(ctx, CreateOrderRequest{UserID: req.UserID, OrderType: req.OrderType, PlanID: req.PlanID})
 		if err != nil {
 			return 0, 0, 0, nil, nil, err
 		}

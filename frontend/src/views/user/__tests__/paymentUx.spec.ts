@@ -4,6 +4,13 @@ import {
   describePaymentScenarioError,
   normalizePaymentMethodForDisplay,
 } from '../paymentUx'
+import zh from '@/i18n/locales/zh'
+
+const messages = zh as {
+  payment: {
+    errors: Record<string, string>
+  }
+}
 
 describe('normalizePaymentMethodForDisplay', () => {
   it('collapses visible payment aliases to canonical method ids', () => {
@@ -78,5 +85,11 @@ describe('buildPaymentErrorToastMessage', () => {
     expect(buildPaymentErrorToastMessage('Payment failed', 'Open WeChat to continue.')).toBe(
       'Payment failed Open WeChat to continue.'
     )
+  })
+})
+
+describe('payment subscription guard copy', () => {
+  it('uses the required refund-contact message for active subscription conflicts', () => {
+    expect(messages.payment.errors.ACTIVE_SUBSCRIPTION_EXISTS).toBe('需要先和管理员联系来进行退款')
   })
 })

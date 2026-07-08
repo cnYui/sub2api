@@ -7255,6 +7255,7 @@ export default {
       PLAN_NOT_AVAILABLE: '套餐不存在或已下架',
       GROUP_NOT_FOUND: '订阅分组不可用',
       GROUP_TYPE_MISMATCH: '分组类型不是订阅类型',
+      ACTIVE_SUBSCRIPTION_EXISTS: '需要先和管理员联系来进行退款',
       TOO_MANY_PENDING: '待支付订单过多（最多 {max} 个），请先完成或取消现有订单',
       DAILY_LIMIT_EXCEEDED: '今日充值已达上限，剩余额度 {remaining}',
       PAYMENT_GATEWAY_ERROR: '支付方式不可用',

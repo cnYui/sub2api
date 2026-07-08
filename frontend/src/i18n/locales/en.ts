@@ -7075,6 +7075,7 @@ export default {
       PLAN_NOT_AVAILABLE: 'Plan not found or no longer available.',
       GROUP_NOT_FOUND: 'Subscription group is no longer available.',
       GROUP_TYPE_MISMATCH: 'Group is not a subscription type.',
+      ACTIVE_SUBSCRIPTION_EXISTS: 'Contact an administrator for a refund before buying another subscription.',
       TOO_MANY_PENDING: 'Too many pending orders (max {max}). Please complete or cancel existing orders first.',
       DAILY_LIMIT_EXCEEDED: 'Daily recharge limit reached. Remaining: {remaining}.',
       PAYMENT_GATEWAY_ERROR: 'Payment method is unavailable.',

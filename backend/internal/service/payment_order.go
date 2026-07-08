@@ -20,6 +20,10 @@ import (
 
 // --- Order Creation ---
 
+const activeSubscriptionExistsRefundMessage = "需要先和管理员联系来进行退款"
+
+var ErrActiveSubscriptionExists = infraerrors.Conflict("ACTIVE_SUBSCRIPTION_EXISTS", activeSubscriptionExistsRefundMessage)
+
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
 	orderType, ok := payment.NormalizeOrderType(req.OrderType)
 	if !ok {
@@ -160,7 +164,24 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	if !group.IsSubscriptionType() {
 		return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
 	}
+	if err := s.ensureNoActiveSubscriptionForPurchase(ctx, req.UserID); err != nil {
+		return nil, err
+	}
 	return plan, nil
+}
+
+func (s *PaymentService) ensureNoActiveSubscriptionForPurchase(ctx context.Context, userID int64) error {
+	if userID <= 0 || s == nil || s.subscriptionSvc == nil || s.subscriptionSvc.userSubRepo == nil {
+		return nil
+	}
+	subs, err := s.subscriptionSvc.userSubRepo.ListActiveByUserID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("list active subscriptions: %w", err)
+	}
+	if len(subs) > 0 {
+		return ErrActiveSubscriptionExists
+	}
+	return nil
 }
 
 func (s *PaymentService) validateTrafficPackOrder(ctx context.Context, req CreateOrderRequest) (*TrafficPack, error) {

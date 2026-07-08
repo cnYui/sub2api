@@ -484,6 +484,42 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.methods.airwallex')
   })
 
+  it('blocks subscription purchase when the user already has an active subscription', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+    activeSubscriptionsState.items = [
+      {
+        id: 42,
+        group_id: 2,
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00Z',
+      },
+    ]
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+
+    expect(showError).toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS')
+    expect(wrapper.text()).not.toContain('payment.methods.alipay')
+    expect(wrapper.text()).not.toContain('payment.methods.balance')
+    expect(createOrder).not.toHaveBeenCalled()
+    expect(balancePayOrder).not.toHaveBeenCalled()
+  })
+
   it('opens recharge confirm with rounded shortage when balance is insufficient', async () => {
     getCheckoutInfo.mockResolvedValueOnce({
       data: {
