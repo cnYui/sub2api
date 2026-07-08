@@ -7,6 +7,18 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
+type SubscriptionWindowCacheKey struct {
+	SubscriptionID int64
+	UserID         int64
+	GroupID        int64
+}
+
+type SubscriptionDailyWindowCalibrationResult struct {
+	Updated        []SubscriptionWindowCacheKey
+	UpdatedCount   int64
+	StaleRemaining int64
+}
+
 type UserSubscriptionRepository interface {
 	Create(ctx context.Context, sub *UserSubscription) error
 	GetByID(ctx context.Context, id int64) (*UserSubscription, error)
@@ -29,8 +41,9 @@ type UserSubscriptionRepository interface {
 	ResetDailyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetWeeklyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetMonthlyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
-	RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error)
 	IncrementUsage(ctx context.Context, id int64, costUSD float64) error
+	CalibrateActiveDailyUsageWindows(ctx context.Context, dailyStart, upperBound, now time.Time, batchSize int) (*SubscriptionDailyWindowCalibrationResult, error)
+	CountStaleActiveDailyWindows(ctx context.Context, dailyStart, now time.Time) (int64, error)
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }

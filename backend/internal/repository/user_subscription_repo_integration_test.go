@@ -10,7 +10,9 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -80,6 +82,44 @@ func (s *UserSubscriptionRepoSuite) mustCreateSubscription(userID, groupID int64
 	sub, err := create.Save(s.ctx)
 	s.Require().NoError(err, "create user subscription")
 	return sub
+}
+
+func (s *UserSubscriptionRepoSuite) mustCreateAPIKey(userID, groupID int64, key string) *service.APIKey {
+	s.T().Helper()
+	groupIDPtr := groupID
+	return mustCreateApiKey(s.T(), s.client, &service.APIKey{
+		UserID:  userID,
+		GroupID: &groupIDPtr,
+		Key:     key,
+		Name:    "key-" + uuid.NewString(),
+	})
+}
+
+func (s *UserSubscriptionRepoSuite) mustCreateUsageLog(apiKeyID, userID, groupID, subscriptionID int64, cost float64, createdAt time.Time) {
+	s.T().Helper()
+
+	account, err := s.client.Account.Create().
+		SetName("usage-window-account-" + uuid.NewString()).
+		SetPlatform(service.PlatformOpenAI).
+		SetType(service.AccountTypeAPIKey).
+		SetCredentials(map[string]any{"api_key": "sk-test"}).
+		Save(s.ctx)
+	s.Require().NoError(err, "create account")
+
+	_, err = s.client.UsageLog.Create().
+		SetUserID(userID).
+		SetAPIKeyID(apiKeyID).
+		SetAccountID(account.ID).
+		SetRequestID(uuid.NewString()).
+		SetModel("gpt-5.5").
+		SetGroupID(groupID).
+		SetSubscriptionID(subscriptionID).
+		SetTotalCost(cost).
+		SetActualCost(cost).
+		SetBillingType(service.BillingTypeSubscription).
+		SetCreatedAt(createdAt).
+		Save(s.ctx)
+	s.Require().NoError(err, "create usage log")
 }
 
 // --- Create / GetByID / Update / Delete ---
@@ -487,6 +527,110 @@ func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_CurrentWindow
 	s.Require().InDelta(1.1, got.DailyUsageUSD, 1e-6)
 	s.Require().InDelta(2.2, got.WeeklyUsageUSD, 1e-6)
 	s.Require().InDelta(3.3, got.MonthlyUsageUSD, 1e-6)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_UsesTodayUsageLogs() {
+	user := s.mustCreateUser("calibrate-daily@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-daily")
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	upperBound := today.Add(10 * time.Minute)
+	now := upperBound
+
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(99)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	apiKey := s.mustCreateAPIKey(user.ID, group.ID, "sk-calibrate-daily-"+uuid.NewString())
+
+	s.mustCreateUsageLog(apiKey.ID, user.ID, group.ID, sub.ID, 1.25, today.Add(30*time.Second))
+	s.mustCreateUsageLog(apiKey.ID, user.ID, group.ID, sub.ID, 2.75, today.Add(2*time.Minute))
+	s.mustCreateUsageLog(apiKey.ID, user.ID, group.ID, sub.ID, 100, yesterday.Add(23*time.Hour))
+	s.mustCreateUsageLog(apiKey.ID, user.ID, group.ID, sub.ID, 50, upperBound.Add(time.Second))
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, upperBound, now, 100)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), result.UpdatedCount)
+	s.Require().Len(result.Updated, 1)
+	s.Require().Equal(sub.ID, result.Updated[0].SubscriptionID)
+	s.Require().Equal(user.ID, result.Updated[0].UserID)
+	s.Require().Equal(group.ID, result.Updated[0].GroupID)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(4.0, got.DailyUsageUSD, 0.000001)
+	s.Require().NotNil(got.DailyWindowStart)
+	s.Require().WithinDuration(today, *got.DailyWindowStart, time.Microsecond)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_DoesNotOverwriteCurrentWindow() {
+	user := s.mustCreateUser("calibrate-current@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-current")
+	today := timezone.StartOfDay(timezone.Now())
+	now := today.Add(15 * time.Minute)
+
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(today)
+		c.SetDailyUsageUsd(7.5)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, now, now, 100)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(0), result.UpdatedCount)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(7.5, got.DailyUsageUSD, 0.000001)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_RespectsBatchSize() {
+	user1 := s.mustCreateUser("calibrate-batch-1@test.com", service.RoleUser)
+	user2 := s.mustCreateUser("calibrate-batch-2@test.com", service.RoleUser)
+	user3 := s.mustCreateUser("calibrate-batch-3@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-batch")
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	now := today.Add(20 * time.Minute)
+
+	sub1 := s.mustCreateSubscription(user1.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(10)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	sub2 := s.mustCreateSubscription(user2.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(11)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	sub3 := s.mustCreateSubscription(user3.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(12)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, now, now, 2)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(2), result.UpdatedCount)
+	s.Require().Len(result.Updated, 2)
+	s.Require().Equal(int64(1), result.StaleRemaining)
+	s.Require().Equal([]int64{sub1.ID, sub2.ID}, []int64{result.Updated[0].SubscriptionID, result.Updated[1].SubscriptionID})
+
+	got1, err := s.repo.GetByID(s.ctx, sub1.ID)
+	s.Require().NoError(err)
+	got2, err := s.repo.GetByID(s.ctx, sub2.ID)
+	s.Require().NoError(err)
+	got3, err := s.repo.GetByID(s.ctx, sub3.ID)
+	s.Require().NoError(err)
+	s.Require().WithinDuration(today, *got1.DailyWindowStart, time.Microsecond)
+	s.Require().WithinDuration(today, *got2.DailyWindowStart, time.Microsecond)
+	s.Require().WithinDuration(yesterday, *got3.DailyWindowStart, time.Microsecond)
 }
 
 // --- UpdateStatus / ExtendExpiry / UpdateNotes ---

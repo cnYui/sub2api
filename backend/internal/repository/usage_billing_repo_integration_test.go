@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -126,6 +127,122 @@ func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.
 	var dailyUsage float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT daily_usage_usd FROM user_subscriptions WHERE id = $1", subscription.ID).Scan(&dailyUsage))
 	require.InDelta(t, 2.5, dailyUsage, 0.000001)
+}
+
+func TestUsageBillingRepositoryApply_SubscriptionBillingAdvancesExpiredDailyWindowAtCompletedAt(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-sub-window-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+	})
+	group := mustCreateGroup(t, client, &service.Group{
+		Name:             "usage-billing-sub-window-" + uuid.NewString(),
+		Platform:         service.PlatformOpenAI,
+		SubscriptionType: service.SubscriptionTypeSubscription,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID:  user.ID,
+		GroupID: &group.ID,
+		Key:     "sk-usage-billing-sub-window-" + uuid.NewString(),
+		Name:    "billing-sub-window",
+	})
+
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	completedAt := today.Add(90 * time.Second)
+	subscription := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:  user.ID,
+		GroupID: group.ID,
+	})
+	_, err := integrationDB.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET daily_usage_usd = $1,
+			weekly_usage_usd = $2,
+			monthly_usage_usd = $3,
+			daily_window_start = $4,
+			weekly_window_start = $4,
+			monthly_window_start = $4
+		WHERE id = $5
+	`, 19.5, 20.5, 21.5, yesterday, subscription.ID)
+	require.NoError(t, err)
+
+	cmd := &service.UsageBillingCommand{
+		RequestID:        uuid.NewString(),
+		APIKeyID:         apiKey.ID,
+		UserID:           user.ID,
+		SubscriptionID:   &subscription.ID,
+		SubscriptionCost: 0.75,
+		CompletedAt:      completedAt,
+	}
+	result, err := repo.Apply(ctx, cmd)
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+
+	var dailyUsage float64
+	var dailyWindow time.Time
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT daily_usage_usd, daily_window_start
+		FROM user_subscriptions
+		WHERE id = $1
+	`, subscription.ID).Scan(&dailyUsage, &dailyWindow))
+	require.InDelta(t, 0.75, dailyUsage, 0.000001)
+	require.WithinDuration(t, today, dailyWindow, time.Microsecond)
+}
+
+func TestUsageBillingRepositoryApply_SubscriptionBillingAccumulatesCurrentDailyWindow(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-sub-current-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+	})
+	group := mustCreateGroup(t, client, &service.Group{
+		Name:             "usage-billing-sub-current-" + uuid.NewString(),
+		Platform:         service.PlatformOpenAI,
+		SubscriptionType: service.SubscriptionTypeSubscription,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID:  user.ID,
+		GroupID: &group.ID,
+		Key:     "sk-usage-billing-sub-current-" + uuid.NewString(),
+		Name:    "billing-sub-current",
+	})
+
+	today := timezone.StartOfDay(timezone.Now())
+	completedAt := today.Add(2 * time.Minute)
+	subscription := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:  user.ID,
+		GroupID: group.ID,
+	})
+	_, err := integrationDB.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET daily_usage_usd = $1,
+			daily_window_start = $2,
+			weekly_window_start = $2,
+			monthly_window_start = $2
+		WHERE id = $3
+	`, 1.25, today, subscription.ID)
+	require.NoError(t, err)
+
+	cmd := &service.UsageBillingCommand{
+		RequestID:        uuid.NewString(),
+		APIKeyID:         apiKey.ID,
+		UserID:           user.ID,
+		SubscriptionID:   &subscription.ID,
+		SubscriptionCost: 0.75,
+		CompletedAt:      completedAt,
+	}
+	_, err = repo.Apply(ctx, cmd)
+	require.NoError(t, err)
+
+	var dailyUsage float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT daily_usage_usd FROM user_subscriptions WHERE id = $1", subscription.ID).Scan(&dailyUsage))
+	require.InDelta(t, 2.0, dailyUsage, 0.000001)
 }
 
 func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {

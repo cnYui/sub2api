@@ -126,3 +126,14 @@ func TestResolveEffectiveGroupMiddlewareWritesGoogleErrorForUnsupportedAutomatic
 	require.Contains(t, rec.Body.String(), "AUTO_KEY_UNSUPPORTED_ENDPOINT")
 	require.Contains(t, rec.Body.String(), "PERMISSION_DENIED")
 }
+
+func TestDefaultAutomaticKeyEndpointPolicyAllowsUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/usage", nil)
+
+	platform, supported := DefaultAutomaticKeyEndpointPolicy(c)
+
+	require.True(t, supported)
+	require.Equal(t, service.PlatformOpenAI, platform)
+}

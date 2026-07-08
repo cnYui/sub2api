@@ -1388,6 +1388,7 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 		// 订阅信息可能不在 context 中（/v1/usage 路径跳过了中间件的计费检查）
 		subscription, ok := middleware2.GetSubscriptionFromContext(c)
 		if ok {
+			subscription = normalizedSubscriptionForUsageResponse(subscription, timezone.Now())
 			remaining := h.calculateSubscriptionRemaining(apiKey.Group, subscription)
 			resp["remaining"] = remaining
 			resp["subscription"] = gin.H{
@@ -1439,6 +1440,29 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 		resp["model_stats"] = modelStats
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+func normalizedSubscriptionForUsageResponse(sub *service.UserSubscription, now time.Time) *service.UserSubscription {
+	if sub == nil {
+		return nil
+	}
+	if now.IsZero() {
+		now = timezone.Now()
+	}
+	normalized := *sub
+	dailyStart := timezone.StartOfDay(now)
+	weeklyStart := timezone.StartOfWeek(now)
+
+	if normalized.DailyWindowStart == nil || normalized.DailyWindowStart.Before(dailyStart) {
+		normalized.DailyUsageUSD = 0
+	}
+	if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
+		normalized.WeeklyUsageUSD = 0
+	}
+	if normalized.MonthlyWindowStart == nil || !normalized.MonthlyWindowStart.Add(30*24*time.Hour).After(now) {
+		normalized.MonthlyUsageUSD = 0
+	}
+	return &normalized
 }
 
 // calculateSubscriptionRemaining 计算订阅剩余可用额度

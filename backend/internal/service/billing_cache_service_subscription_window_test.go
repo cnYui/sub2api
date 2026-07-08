@@ -93,7 +93,7 @@ func (c *subscriptionWindowCacheStub) InvalidateSubscriptionCache(_ context.Cont
 	return nil
 }
 
-func TestCheckBillingEligibility_RefreshesExpiredDailyWindowBeforeLimitCheck(t *testing.T) {
+func TestCheckBillingEligibility_NormalizesExpiredDailyWindowWithoutRepositoryWrite(t *testing.T) {
 	today := timezone.StartOfDay(time.Now())
 	yesterday := today.Add(-24 * time.Hour)
 	now := time.Now()
@@ -123,9 +123,9 @@ func TestCheckBillingEligibility_RefreshesExpiredDailyWindowBeforeLimitCheck(t *
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, 1, repo.refreshCalls)
-	require.Zero(t, repo.sub.DailyUsageUSD)
-	require.True(t, repo.sub.DailyWindowStart.Equal(today))
+	require.Zero(t, repo.refreshCalls)
+	require.InDelta(t, 19.5, repo.sub.DailyUsageUSD, 0.000001)
+	require.True(t, repo.sub.DailyWindowStart.Equal(yesterday))
 }
 
 func TestCheckBillingEligibility_OldSubscriptionCacheWithoutWindowsFallsBackToDB(t *testing.T) {
@@ -168,7 +168,7 @@ func TestCheckBillingEligibility_OldSubscriptionCacheWithoutWindowsFallsBackToDB
 	}, time.Second, 10*time.Millisecond)
 }
 
-func TestCheckBillingEligibility_RefreshesExpiredWeeklyAndMonthlyWindowsBeforeLimitCheck(t *testing.T) {
+func TestCheckBillingEligibility_NormalizesExpiredWeeklyAndMonthlyWindowsWithoutRepositoryWrite(t *testing.T) {
 	today := timezone.StartOfDay(time.Now())
 	thisWeek := timezone.StartOfWeek(time.Now())
 	lastWeek := thisWeek.Add(-7 * 24 * time.Hour)
@@ -202,10 +202,10 @@ func TestCheckBillingEligibility_RefreshesExpiredWeeklyAndMonthlyWindowsBeforeLi
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, 1, repo.refreshCalls)
-	require.Zero(t, repo.sub.WeeklyUsageUSD)
-	require.Zero(t, repo.sub.MonthlyUsageUSD)
-	require.True(t, repo.sub.WeeklyWindowStart.Equal(thisWeek))
+	require.Zero(t, repo.refreshCalls)
+	require.InDelta(t, 20.5, repo.sub.WeeklyUsageUSD, 0.000001)
+	require.InDelta(t, 51.0, repo.sub.MonthlyUsageUSD, 0.000001)
+	require.True(t, repo.sub.WeeklyWindowStart.Equal(lastWeek))
 }
 
 func TestCheckBillingEligibility_CurrentDailyWindowStillRejectsRealExhaustion(t *testing.T) {

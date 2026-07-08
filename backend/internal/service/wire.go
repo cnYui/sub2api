@@ -193,6 +193,13 @@ func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, se
 	return svc
 }
 
+func ProvideSubscriptionUsageWindowScheduler(userSubRepo UserSubscriptionRepository, billingCache *BillingCacheService, lockCache LeaderLockCache, db *sql.DB) *SubscriptionUsageWindowScheduler {
+	svc := NewSubscriptionUsageWindowScheduler(userSubRepo, billingCache, subscriptionUsageWindowBatchSize)
+	svc.SetLeaderLock(lockCache, db)
+	svc.Start()
+	return svc
+}
+
 // ProvideTimingWheelService creates and starts TimingWheelService
 func ProvideTimingWheelService() (*TimingWheelService, error) {
 	svc, err := NewTimingWheelService()
@@ -587,6 +594,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountExpiryService,
 	ProvideProxyExpiryService,
 	ProvideSubscriptionExpiryService,
+	ProvideSubscriptionUsageWindowScheduler,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,

@@ -167,12 +167,15 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				data := &service.SubscriptionCacheData{
-					Status:       "active",
-					ExpiresAt:    time.Now().Add(1 * time.Hour),
-					DailyUsage:   1.0,
-					WeeklyUsage:  2.0,
-					MonthlyUsage: 3.0,
-					Version:      7,
+					Status:             "active",
+					ExpiresAt:          time.Now().Add(1 * time.Hour),
+					DailyUsage:         1.0,
+					WeeklyUsage:        2.0,
+					MonthlyUsage:       3.0,
+					Version:            7,
+					DailyWindowStart:   ptrTimeForBillingCacheIntegration(time.Now()),
+					WeeklyWindowStart:  ptrTimeForBillingCacheIntegration(time.Now()),
+					MonthlyWindowStart: ptrTimeForBillingCacheIntegration(time.Now()),
 				}
 				require.NoError(s.T(), cache.SetSubscriptionCache(ctx, userID, groupID, data), "SetSubscriptionCache")
 
@@ -194,12 +197,15 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 				groupID := int64(23)
 
 				data := &service.SubscriptionCacheData{
-					Status:       "active",
-					ExpiresAt:    time.Now().Add(1 * time.Hour),
-					DailyUsage:   1.0,
-					WeeklyUsage:  2.0,
-					MonthlyUsage: 3.0,
-					Version:      1,
+					Status:             "active",
+					ExpiresAt:          time.Now().Add(1 * time.Hour),
+					DailyUsage:         1.0,
+					WeeklyUsage:        2.0,
+					MonthlyUsage:       3.0,
+					Version:            1,
+					DailyWindowStart:   ptrTimeForBillingCacheIntegration(time.Now()),
+					WeeklyWindowStart:  ptrTimeForBillingCacheIntegration(time.Now()),
+					MonthlyWindowStart: ptrTimeForBillingCacheIntegration(time.Now()),
 				}
 				require.NoError(s.T(), cache.SetSubscriptionCache(ctx, userID, groupID, data), "SetSubscriptionCache")
 
@@ -220,12 +226,15 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				data := &service.SubscriptionCacheData{
-					Status:       "active",
-					ExpiresAt:    time.Now().Add(1 * time.Hour),
-					DailyUsage:   1.0,
-					WeeklyUsage:  2.0,
-					MonthlyUsage: 3.0,
-					Version:      1,
+					Status:             "active",
+					ExpiresAt:          time.Now().Add(1 * time.Hour),
+					DailyUsage:         1.0,
+					WeeklyUsage:        2.0,
+					MonthlyUsage:       3.0,
+					Version:            1,
+					DailyWindowStart:   ptrTimeForBillingCacheIntegration(time.Now()),
+					WeeklyWindowStart:  ptrTimeForBillingCacheIntegration(time.Now()),
+					MonthlyWindowStart: ptrTimeForBillingCacheIntegration(time.Now()),
 				}
 				require.NoError(s.T(), cache.SetSubscriptionCache(ctx, userID, groupID, data), "SetSubscriptionCache")
 
@@ -348,9 +357,12 @@ func (s *BillingCacheSuite) TestUpdateSubscriptionUsage_ErrorPropagation() {
 		ctx := context.Background()
 
 		data := &service.SubscriptionCacheData{
-			Status:    "active",
-			ExpiresAt: time.Now().Add(1 * time.Hour),
-			Version:   1,
+			Status:             "active",
+			ExpiresAt:          time.Now().Add(1 * time.Hour),
+			Version:            1,
+			DailyWindowStart:   ptrTimeForBillingCacheIntegration(time.Now()),
+			WeeklyWindowStart:  ptrTimeForBillingCacheIntegration(time.Now()),
+			MonthlyWindowStart: ptrTimeForBillingCacheIntegration(time.Now()),
 		}
 		require.NoError(s.T(), cache.SetSubscriptionCache(ctx, 301, 401, data))
 
@@ -360,6 +372,10 @@ func (s *BillingCacheSuite) TestUpdateSubscriptionUsage_ErrorPropagation() {
 		err := cache.UpdateSubscriptionUsage(cancelCtx, 301, 401, 1.0)
 		require.Error(s.T(), err, "cancelled context should propagate error")
 	})
+}
+
+func ptrTimeForBillingCacheIntegration(t time.Time) *time.Time {
+	return &t
 }
 
 func TestBillingCacheSuite(t *testing.T) {

@@ -95,6 +95,14 @@ func (r *subscriptionExpiryRepoStub) IncrementUsage(context.Context, int64, floa
 	return nil
 }
 
+func (r *subscriptionExpiryRepoStub) CalibrateActiveDailyUsageWindows(context.Context, time.Time, time.Time, time.Time, int) (*SubscriptionDailyWindowCalibrationResult, error) {
+	return &SubscriptionDailyWindowCalibrationResult{}, nil
+}
+
+func (r *subscriptionExpiryRepoStub) CountStaleActiveDailyWindows(context.Context, time.Time, time.Time) (int64, error) {
+	return 0, nil
+}
+
 func (r *subscriptionExpiryRepoStub) BatchUpdateExpiredStatus(context.Context) (int64, error) {
 	return 0, nil
 }

@@ -1403,6 +1403,14 @@ func (r *stubUserSubscriptionRepo) RefreshExpiredUsageWindows(ctx context.Contex
 	return false, errors.New("not implemented")
 }
 
+func (r *stubUserSubscriptionRepo) CalibrateActiveDailyUsageWindows(ctx context.Context, dailyStart, upperBound, now time.Time, batchSize int) (*service.SubscriptionDailyWindowCalibrationResult, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (r *stubUserSubscriptionRepo) CountStaleActiveDailyWindows(ctx context.Context, dailyStart, now time.Time) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }

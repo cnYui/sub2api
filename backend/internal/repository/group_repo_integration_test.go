@@ -250,28 +250,39 @@ func (s *GroupRepoSuite) TestListWithFilters_Status() {
 }
 
 func (s *GroupRepoSuite) TestListWithFilters_IsExclusive() {
-	s.Require().NoError(s.repo.Create(s.ctx, &service.Group{
+	nonExclusive := &service.Group{
 		Name:             "g1",
 		Platform:         service.PlatformAnthropic,
 		RateMultiplier:   1.0,
 		IsExclusive:      false,
 		Status:           service.StatusActive,
 		SubscriptionType: service.SubscriptionTypeStandard,
-	}))
-	s.Require().NoError(s.repo.Create(s.ctx, &service.Group{
+	}
+	exclusive := &service.Group{
 		Name:             "g2",
 		Platform:         service.PlatformAnthropic,
 		RateMultiplier:   1.0,
 		IsExclusive:      true,
 		Status:           service.StatusActive,
 		SubscriptionType: service.SubscriptionTypeStandard,
-	}))
+	}
+	s.Require().NoError(s.repo.Create(s.ctx, nonExclusive))
+	s.Require().NoError(s.repo.Create(s.ctx, exclusive))
 
 	isExclusive := true
 	groups, _, err := s.repo.ListWithFilters(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, "", "", "", &isExclusive)
 	s.Require().NoError(err)
-	s.Require().Len(groups, 1)
-	s.Require().True(groups[0].IsExclusive)
+	s.Require().NotEmpty(groups)
+
+	foundExclusive := false
+	for _, group := range groups {
+		s.Require().True(group.IsExclusive)
+		s.Require().NotEqual(nonExclusive.ID, group.ID)
+		if group.ID == exclusive.ID {
+			foundExclusive = true
+		}
+	}
+	s.Require().True(foundExclusive)
 }
 
 func (s *GroupRepoSuite) TestListWithFilters_Search() {

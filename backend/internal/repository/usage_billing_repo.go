@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -107,7 +109,7 @@ func (r *usageBillingRepository) claimUsageBillingKey(ctx context.Context, tx *s
 
 func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, result *service.UsageBillingApplyResult) error {
 	if cmd.SubscriptionCost > 0 && cmd.SubscriptionID != nil {
-		if err := incrementUsageBillingSubscription(ctx, tx, *cmd.SubscriptionID, cmd.SubscriptionCost); err != nil {
+		if err := incrementUsageBillingSubscription(ctx, tx, *cmd.SubscriptionID, cmd.SubscriptionCost, cmd.CompletedAt); err != nil {
 			return err
 		}
 	}
@@ -228,21 +230,49 @@ func listUsageBillingTrafficCredits(ctx context.Context, tx *sql.Tx, userID int6
 	return batches, nil
 }
 
-func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {
+func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64, completedAt time.Time) error {
+	if completedAt.IsZero() {
+		completedAt = time.Now()
+	}
+	completedAt = completedAt.In(timezone.Location())
+	dailyStart := timezone.StartOfDay(completedAt)
+	weeklyStart := timezone.StartOfWeek(completedAt)
+
 	const updateSQL = `
 		UPDATE user_subscriptions us
 		SET
-			daily_usage_usd = us.daily_usage_usd + $1,
-			weekly_usage_usd = us.weekly_usage_usd + $1,
-			monthly_usage_usd = us.monthly_usage_usd + $1,
-			updated_at = NOW()
+			daily_usage_usd = CASE
+				WHEN us.daily_window_start IS NULL OR us.daily_window_start < $3 THEN $1
+				ELSE us.daily_usage_usd + $1
+			END,
+			daily_window_start = CASE
+				WHEN us.daily_window_start IS NULL OR us.daily_window_start < $3 THEN $3
+				ELSE us.daily_window_start
+			END,
+			weekly_usage_usd = CASE
+				WHEN us.weekly_window_start IS NULL OR us.weekly_window_start < $4 THEN $1
+				ELSE us.weekly_usage_usd + $1
+			END,
+			weekly_window_start = CASE
+				WHEN us.weekly_window_start IS NULL OR us.weekly_window_start < $4 THEN $4
+				ELSE us.weekly_window_start
+			END,
+			monthly_usage_usd = CASE
+				WHEN us.monthly_window_start IS NULL OR us.monthly_window_start + INTERVAL '30 days' <= $5 THEN $1
+				ELSE us.monthly_usage_usd + $1
+			END,
+			monthly_window_start = CASE
+				WHEN us.monthly_window_start IS NULL OR us.monthly_window_start + INTERVAL '30 days' <= $5 THEN $5
+				ELSE us.monthly_window_start
+			END,
+			updated_at = $5
 		FROM groups g
 		WHERE us.id = $2
 			AND us.deleted_at IS NULL
 			AND us.group_id = g.id
 			AND g.deleted_at IS NULL
 	`
-	res, err := tx.ExecContext(ctx, updateSQL, costUSD, subscriptionID)
+	res, err := tx.ExecContext(ctx, updateSQL, costUSD, subscriptionID, dailyStart, weeklyStart, completedAt)
 	if err != nil {
 		return err
 	}

@@ -125,6 +125,12 @@ func (userSubRepoNoop) RefreshExpiredUsageWindows(context.Context, int64, time.T
 func (userSubRepoNoop) IncrementUsage(context.Context, int64, float64) error {
 	panic("unexpected IncrementUsage call")
 }
+func (userSubRepoNoop) CalibrateActiveDailyUsageWindows(context.Context, time.Time, time.Time, time.Time, int) (*SubscriptionDailyWindowCalibrationResult, error) {
+	panic("unexpected CalibrateActiveDailyUsageWindows call")
+}
+func (userSubRepoNoop) CountStaleActiveDailyWindows(context.Context, time.Time, time.Time) (int64, error) {
+	panic("unexpected CountStaleActiveDailyWindows call")
+}
 func (userSubRepoNoop) BatchUpdateExpiredStatus(context.Context) (int64, error) {
 	panic("unexpected BatchUpdateExpiredStatus call")
 }

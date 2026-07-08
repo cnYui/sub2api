@@ -100,6 +100,8 @@ func DefaultAutomaticKeyEndpointPolicy(c *gin.Context) (string, bool) {
 
 	path := c.Request.URL.Path
 	switch {
+	case strings.EqualFold(path, "/v1/usage"):
+		return service.PlatformOpenAI, true
 	case strings.HasPrefix(path, "/v1beta"), strings.HasPrefix(path, "/antigravity/"):
 		return "", false
 	case strings.Contains(path, "/responses"),

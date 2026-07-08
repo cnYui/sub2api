@@ -115,14 +115,13 @@ type BillingCacheService struct {
 	userPlatformQuotaRepo UserPlatformQuotaRepository
 	trafficPackService    *TrafficPackService
 
-	cacheWriteChan       chan cacheWriteTask
-	cacheWriteWg         sync.WaitGroup
-	cacheWriteStopOnce   sync.Once
-	cacheWriteMu         sync.RWMutex
-	stopped              atomic.Bool
-	balanceLoadSF        singleflight.Group
-	quotaLoadSF          singleflight.Group
-	subscriptionWindowSF singleflight.Group
+	cacheWriteChan     chan cacheWriteTask
+	cacheWriteWg       sync.WaitGroup
+	cacheWriteStopOnce sync.Once
+	cacheWriteMu       sync.RWMutex
+	stopped            atomic.Bool
+	balanceLoadSF      singleflight.Group
+	quotaLoadSF        singleflight.Group
 	// 丢弃日志节流计数器（减少高负载下日志噪音）
 	cacheWriteDropFullCount     uint64
 	cacheWriteDropFullLastLog   int64
@@ -951,19 +950,6 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 		s.circuitBreaker.OnSuccess()
 	}
 
-	if refreshed, err := s.refreshExpiredSubscriptionWindowsIfNeeded(ctx, userID, group.ID, subscription.ID, subData); err != nil {
-		if s.circuitBreaker != nil {
-			s.circuitBreaker.OnFailure(err)
-		}
-		logger.LegacyPrintf("service.billing_cache", "ALERT: subscription window refresh failed for user %d group %d: %v", userID, group.ID, err)
-		return ErrBillingServiceUnavailable.WithCause(err)
-	} else if refreshed != nil {
-		subData = refreshed
-		if s.circuitBreaker != nil {
-			s.circuitBreaker.OnSuccess()
-		}
-	}
-
 	// 检查订阅状态
 	if subData.Status != SubscriptionStatusActive {
 		return ErrSubscriptionInvalid
@@ -973,6 +959,9 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	if time.Now().After(subData.ExpiresAt) {
 		return ErrSubscriptionInvalid
 	}
+
+	normalized := normalizeSubscriptionCacheForEligibility(subData, timezone.Now())
+	subData = &normalized
 
 	// 检查限额（使用传入的Group限额配置）
 	if group.HasDailyLimit() && subData.DailyUsage >= *group.DailyLimitUSD {
@@ -990,63 +979,24 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	return nil
 }
 
-func (s *BillingCacheService) refreshExpiredSubscriptionWindowsIfNeeded(ctx context.Context, userID, groupID, subscriptionID int64, subData *subscriptionCacheData) (*subscriptionCacheData, error) {
-	if s == nil || s.subRepo == nil || subData == nil {
-		return nil, nil
+func normalizeSubscriptionCacheForEligibility(subData *subscriptionCacheData, now time.Time) subscriptionCacheData {
+	if subData == nil {
+		return subscriptionCacheData{}
 	}
-
-	now := timezone.Now()
+	normalized := *subData
 	dailyStart := timezone.StartOfDay(now)
 	weeklyStart := timezone.StartOfWeek(now)
-	monthlyStart := now
 
-	if !subscriptionWindowsNeedRefresh(subData, dailyStart, weeklyStart, now) {
-		return nil, nil
+	if normalized.DailyWindowStart == nil || normalized.DailyWindowStart.Before(dailyStart) {
+		normalized.DailyUsage = 0
 	}
-
-	key := fmt.Sprintf("%d:%d", userID, groupID)
-	value, err, _ := s.subscriptionWindowSF.Do(key, func() (any, error) {
-		_, refreshErr := s.subRepo.RefreshExpiredUsageWindows(ctx, subscriptionID, dailyStart, weeklyStart, monthlyStart, now)
-		if refreshErr != nil {
-			return nil, refreshErr
-		}
-
-		refreshed, loadErr := s.getSubscriptionFromDB(ctx, userID, groupID)
-		if loadErr != nil {
-			return nil, loadErr
-		}
-		s.setSubscriptionCache(ctx, userID, groupID, refreshed)
-		return refreshed, nil
-	})
-	if err != nil {
-		return nil, err
+	if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
+		normalized.WeeklyUsage = 0
 	}
-	refreshed, ok := value.(*subscriptionCacheData)
-	if !ok {
-		return nil, fmt.Errorf("unexpected subscription refresh type: %T", value)
+	if normalized.MonthlyWindowStart == nil || !normalized.MonthlyWindowStart.Add(30*24*time.Hour).After(now) {
+		normalized.MonthlyUsage = 0
 	}
-	return refreshed, nil
-}
-
-func subscriptionWindowsNeedRefresh(subData *subscriptionCacheData, dailyStart, weeklyStart, now time.Time) bool {
-	if subData == nil {
-		return false
-	}
-	return subscriptionDailyWindowNeedsRefresh(subData.DailyWindowStart, dailyStart) ||
-		subscriptionWeeklyWindowNeedsRefresh(subData.WeeklyWindowStart, weeklyStart) ||
-		subscriptionMonthlyWindowNeedsRefresh(subData.MonthlyWindowStart, now)
-}
-
-func subscriptionDailyWindowNeedsRefresh(windowStart *time.Time, currentStart time.Time) bool {
-	return usagewindow.QuotaDailyExpired(windowStart, currentStart)
-}
-
-func subscriptionWeeklyWindowNeedsRefresh(windowStart *time.Time, currentStart time.Time) bool {
-	return usagewindow.QuotaWeeklyExpired(windowStart, currentStart)
-}
-
-func subscriptionMonthlyWindowNeedsRefresh(windowStart *time.Time, now time.Time) bool {
-	return usagewindow.QuotaMonthlyExpired(windowStart, now)
+	return normalized
 }
 
 type billingCircuitBreakerState int

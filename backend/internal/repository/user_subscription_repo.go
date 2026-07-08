@@ -8,6 +8,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -387,17 +388,148 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 	return affected > 0, nil
 }
 
+func (r *userSubscriptionRepository) CalibrateActiveDailyUsageWindows(ctx context.Context, dailyStart, upperBound, now time.Time, batchSize int) (*service.SubscriptionDailyWindowCalibrationResult, error) {
+	if batchSize <= 0 {
+		batchSize = 200
+	}
+	if upperBound.IsZero() {
+		upperBound = now
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	const updateSQL = `
+		WITH candidates AS (
+			SELECT id, user_id, group_id
+			FROM user_subscriptions
+			WHERE deleted_at IS NULL
+				AND status = $4
+				AND expires_at > $3
+				AND (daily_window_start IS NULL OR daily_window_start < $1)
+			ORDER BY id
+			LIMIT $5
+			FOR UPDATE SKIP LOCKED
+		),
+		usage_today AS (
+			SELECT ul.subscription_id, COALESCE(SUM(ul.total_cost), 0) AS total_cost
+			FROM usage_logs ul
+			JOIN candidates c ON c.id = ul.subscription_id
+			WHERE ul.created_at >= $1
+				AND ul.created_at < $2
+			GROUP BY ul.subscription_id
+		),
+		updated AS (
+			UPDATE user_subscriptions us
+			SET daily_usage_usd = COALESCE(ut.total_cost, 0),
+				daily_window_start = $1,
+				updated_at = $3
+			FROM candidates c
+			LEFT JOIN usage_today ut ON ut.subscription_id = c.id
+			WHERE us.id = c.id
+			RETURNING us.id, us.user_id, us.group_id
+		)
+		SELECT id, user_id, group_id
+		FROM updated
+		ORDER BY id
+	`
+
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.QueryContext(ctx, updateSQL, dailyStart, upperBound, now, service.SubscriptionStatusActive, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := &service.SubscriptionDailyWindowCalibrationResult{}
+	for rows.Next() {
+		var key service.SubscriptionWindowCacheKey
+		if err := rows.Scan(&key.SubscriptionID, &key.UserID, &key.GroupID); err != nil {
+			return nil, err
+		}
+		result.Updated = append(result.Updated, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	result.UpdatedCount = int64(len(result.Updated))
+
+	stale, err := r.CountStaleActiveDailyWindows(ctx, dailyStart, now)
+	if err != nil {
+		return nil, err
+	}
+	result.StaleRemaining = stale
+	return result, nil
+}
+
+func (r *userSubscriptionRepository) CountStaleActiveDailyWindows(ctx context.Context, dailyStart, now time.Time) (int64, error) {
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	const countSQL = `
+		SELECT COUNT(*)
+		FROM user_subscriptions
+		WHERE deleted_at IS NULL
+			AND status = $3
+			AND expires_at > $2
+			AND (daily_window_start IS NULL OR daily_window_start < $1)
+	`
+
+	client := clientFromContext(ctx, r.client)
+	var count int64
+	rows, err := client.QueryContext(ctx, countSQL, dailyStart, now, service.SubscriptionStatusActive)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	if rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return 0, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // IncrementUsage 原子性地累加订阅用量。
 // 限额检查已在请求前由 BillingCacheService.CheckBillingEligibility 完成，
 // 此处仅负责记录实际消费，确保消费数据的完整性。
 func (r *userSubscriptionRepository) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {
+	now := timezone.Now()
+	dailyStart := timezone.StartOfDay(now)
+	weeklyStart := timezone.StartOfWeek(now)
+
 	const updateSQL = `
 		UPDATE user_subscriptions us
 		SET
-			daily_usage_usd = us.daily_usage_usd + $1,
-			weekly_usage_usd = us.weekly_usage_usd + $1,
-			monthly_usage_usd = us.monthly_usage_usd + $1,
-			updated_at = NOW()
+			daily_usage_usd = CASE
+				WHEN us.daily_window_start IS NULL OR us.daily_window_start < $3 THEN $1
+				ELSE us.daily_usage_usd + $1
+			END,
+			daily_window_start = CASE
+				WHEN us.daily_window_start IS NULL OR us.daily_window_start < $3 THEN $3
+				ELSE us.daily_window_start
+			END,
+			weekly_usage_usd = CASE
+				WHEN us.weekly_window_start IS NULL OR us.weekly_window_start < $4 THEN $1
+				ELSE us.weekly_usage_usd + $1
+			END,
+			weekly_window_start = CASE
+				WHEN us.weekly_window_start IS NULL OR us.weekly_window_start < $4 THEN $4
+				ELSE us.weekly_window_start
+			END,
+			monthly_usage_usd = CASE
+				WHEN us.monthly_window_start IS NULL OR us.monthly_window_start + INTERVAL '30 days' <= $5 THEN $1
+				ELSE us.monthly_usage_usd + $1
+			END,
+			monthly_window_start = CASE
+				WHEN us.monthly_window_start IS NULL OR us.monthly_window_start + INTERVAL '30 days' <= $5 THEN $5
+				ELSE us.monthly_window_start
+			END,
+			updated_at = $5
 		FROM groups g
 		WHERE us.id = $2
 			AND us.deleted_at IS NULL
@@ -406,7 +538,7 @@ func (r *userSubscriptionRepository) IncrementUsage(ctx context.Context, id int6
 	`
 
 	client := clientFromContext(ctx, r.client)
-	result, err := client.ExecContext(ctx, updateSQL, costUSD, id)
+	result, err := client.ExecContext(ctx, updateSQL, costUSD, id, dailyStart, weeklyStart, now)
 	if err != nil {
 		return err
 	}
