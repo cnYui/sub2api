@@ -276,6 +276,46 @@ function checkoutInfoWithFiveZPayPlansFixture() {
   }
 }
 
+function checkoutInfoWithSevenManualPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithFiveManualPlansFixture().data,
+      plans: [
+        ...checkoutInfoWithFiveManualPlansFixture().data.plans,
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 6,
+          group_id: 10,
+          name: '149 元订阅池',
+          price: 149,
+          daily_limit_usd: 135,
+          group_name: 'codex-pool-135-usd',
+          sort_order: 149,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 7,
+          group_id: 11,
+          name: '199 元订阅池',
+          price: 199,
+          daily_limit_usd: 179,
+          group_name: 'codex-pool-179-usd',
+          sort_order: 199,
+        },
+      ],
+    },
+  }
+}
+
+function checkoutInfoWithSevenZPayPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithSevenManualPlansFixture().data,
+      methods: checkoutInfoWithFiveZPayPlansFixture().data.methods,
+    },
+  }
+}
+
 function jsapiOrderFixture(resumeToken: string) {
   return {
     order_id: 123,
@@ -836,6 +876,66 @@ describe('PaymentView tab defaults', () => {
     }))
     expect(wrapper.find('[data-testid="payment-status-panel"]').text()).toContain(`https://zpayz.cn/qrcode/${planId}.jpg`)
     expect(wrapper.html()).not.toContain('manual-payment-dialog')
+  })
+
+  it('renders the 149 and 199 yuan tiers as plan F and G and creates a subscription order', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithSevenZPayPlansFixture())
+    createOrder.mockResolvedValue({
+      order_id: 8899,
+      amount: 199,
+      pay_amount: 199,
+      fee_rate: 0,
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'alipay',
+      qr_image_url: 'https://zpayz.cn/qrcode/199.jpg',
+      out_trade_no: 'sub2_plan_199',
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentStatusPanel: {
+            name: 'PaymentStatusPanel',
+            props: ['orderId', 'qrImageUrl', 'orderType'],
+            template: '<div data-testid="payment-status-panel">{{ orderId }} {{ qrImageUrl }} {{ orderType }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('阅读订阅套餐F')
+    expect(wrapper.text()).toContain('日限额135刀')
+    expect(wrapper.text()).toContain('¥149')
+    expect(wrapper.text()).toContain('阅读订阅套餐G')
+    expect(wrapper.text()).toContain('日限额179刀')
+    expect(wrapper.text()).toContain('¥199')
+
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    expect(purchaseCards).toHaveLength(11)
+    await purchaseCards[7].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 199,
+      payment_type: 'alipay',
+      order_type: 'subscription',
+      plan_id: 7,
+      is_mobile: true,
+    }))
+    expect(wrapper.find('[data-testid="payment-status-panel"]').text()).toContain('https://zpayz.cn/qrcode/199.jpg')
   })
 
   it('does not render traffic packs when backend returns none', async () => {
