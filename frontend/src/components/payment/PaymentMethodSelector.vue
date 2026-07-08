@@ -31,7 +31,7 @@
           <span class="flex flex-col items-start leading-none">
             <span class="text-base font-semibold">{{ t(`payment.methods.${method.type}`) }}</span>
             <span
-              v-if="method.fee_rate > 0"
+              v-if="method.type !== 'balance' && method.fee_rate > 0"
               class="text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
             >
               {{ t('payment.fee') }} {{ method.fee_rate }}%
