@@ -143,6 +143,7 @@ func TestDefaultAutomaticKeyEndpointPolicyAllowsOnlyFormalV1OpenAIEndpoints(t *t
 
 	for _, path := range []string{
 		"/v1/usage",
+		"/v1/models",
 		"/v1/messages",
 		"/v1/messages/count_tokens",
 		"/v1/responses",

@@ -152,10 +152,17 @@ func TestEffectiveGroupResolver_RequestPathInfersOpenAI(t *testing.T) {
 	)
 	resolver.now = func() time.Time { return now }
 
-	result, err := resolver.ResolveEffectiveGroupForRequest(context.Background(), 62, "/v1/responses", "")
-	require.NoError(t, err)
-	require.Equal(t, EffectiveGroupSourceTrafficPack, result.Source)
-	require.Equal(t, trafficGroup.ID, result.Group.ID)
+	for _, path := range []string{
+		"/v1/models",
+		"/v1/responses",
+	} {
+		t.Run(path, func(t *testing.T) {
+			result, err := resolver.ResolveEffectiveGroupForRequest(context.Background(), 62, path, "")
+			require.NoError(t, err)
+			require.Equal(t, EffectiveGroupSourceTrafficPack, result.Source)
+			require.Equal(t, trafficGroup.ID, result.Group.ID)
+		})
+	}
 }
 
 func TestEffectiveGroupResolver_RequestPathDoesNotInferBareOpenAICompatiblePaths(t *testing.T) {

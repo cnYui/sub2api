@@ -439,8 +439,11 @@ func TestFrontendServer_Middleware(t *testing.T) {
 			"/antigravity/test",
 			"/setup/init",
 			"/health",
+			"/models",
 			"/responses",
 			"/responses/compact",
+			"/chat/completions",
+			"/embeddings",
 		}
 
 		for _, path := range apiPaths {

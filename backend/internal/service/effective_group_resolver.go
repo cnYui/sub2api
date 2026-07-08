@@ -166,6 +166,8 @@ func isFormalOpenAIRequestPath(path string) bool {
 	switch {
 	case path == "/v1/usage":
 		return true
+	case path == "/v1/models":
+		return true
 	case path == "/v1/responses" || strings.HasPrefix(path, "/v1/responses/"):
 		return true
 	case path == "/v1/messages" || strings.HasPrefix(path, "/v1/messages/"):
