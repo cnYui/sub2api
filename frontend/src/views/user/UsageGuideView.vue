@@ -111,6 +111,46 @@
               </div>
             </div>
 
+            <div v-if="section.endpointRows" class="usage-guide-table-wrap">
+              <table class="usage-guide-endpoint-table">
+                <thead>
+                  <tr>
+                    <th>用途</th>
+                    <th>方法</th>
+                    <th>规范 URL</th>
+                    <th>大白话说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in section.endpointRows" :key="row.url">
+                    <td>{{ row.label }}</td>
+                    <td>{{ row.method }}</td>
+                    <td><code>{{ row.url }}</code></td>
+                    <td>{{ row.meaning }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div v-if="section.legacyRows" class="usage-guide-table-wrap">
+              <table class="usage-guide-endpoint-table">
+                <thead>
+                  <tr>
+                    <th>不要再这样写</th>
+                    <th>现在会怎样</th>
+                    <th>改成这样</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in section.legacyRows" :key="row.oldUrl">
+                    <td><code>{{ row.oldUrl }}</code></td>
+                    <td>{{ row.result }}</td>
+                    <td><code>{{ row.useInstead }}</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <pre v-if="section.code" class="usage-guide-code"><code>{{ section.code }}</code></pre>
           </section>
         </div>
@@ -145,6 +185,49 @@ type GuideStep = {
   }>
   imagePosition?: 'beforeTitle'
 }
+
+type GuideEndpointRow = {
+  label: string
+  method: string
+  url: string
+  meaning: string
+}
+
+type GuideLegacyRow = {
+  oldUrl: string
+  result: string
+  useInstead: string
+}
+
+type GuidePriceRow = {
+  label: string
+  price: string
+}
+
+type GuideSection = {
+  title: string
+  paragraphs: string[]
+  priceRows?: GuidePriceRow[]
+  endpointRows?: GuideEndpointRow[]
+  legacyRows?: GuideLegacyRow[]
+  code?: string
+}
+
+type GuideTopic =
+  | {
+    id: string
+    title: string
+    description: string
+    kind: 'steps'
+    steps: GuideStep[]
+  }
+  | {
+    id: string
+    title: string
+    description: string
+    kind: 'sections'
+    sections: GuideSection[]
+  }
 
 const codexSetupSteps: GuideStep[] = [
   {
@@ -218,6 +301,113 @@ curl https://api.aaccx.pw/v1/images/edits \\
   -F "size=1024x1024" \\
   -F "response_format=b64_json"`
 
+const formalAPIEndpointRows: GuideEndpointRow[] = [
+  {
+    label: 'Responses API',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/responses',
+    meaning: 'Codex 推荐走这个接口，正常对话、工具调用、流式输出都优先用它。',
+  },
+  {
+    label: 'Responses 子路径',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/responses/*',
+    meaning: '只有工具明确需要 responses 的子路径时才用，比如 compact 这类路径。',
+  },
+  {
+    label: 'Chat Completions',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/chat/completions',
+    meaning: '老版 OpenAI 兼容客户端常用这个，对话消息按 chat completions 格式传。',
+  },
+  {
+    label: 'Embeddings',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/embeddings',
+    meaning: '把文本转成向量，用在搜索、相似度匹配、知识库召回这类场景。',
+  },
+  {
+    label: 'Image Generation',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/generations',
+    meaning: '文字生成图片，提示词描述你想要的画面。',
+  },
+  {
+    label: 'Image Edit',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/edits',
+    meaning: '上传或传入图片后改图，比如局部修改、换风格、重绘。',
+  },
+  {
+    label: 'Models',
+    method: 'GET',
+    url: 'https://api.aaccx.pw/v1/models',
+    meaning: '查看当前 Key 能看到的模型列表。',
+  },
+  {
+    label: 'Usage',
+    method: 'GET',
+    url: 'https://api.aaccx.pw/v1/usage',
+    meaning: '查看当前 Key 的用量和额度信息。',
+  },
+  {
+    label: 'Claude Messages',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/messages',
+    meaning: 'Claude/Anthropic 格式客户端使用；OpenAI 分组会自动按平台处理。',
+  },
+  {
+    label: 'Claude Count Tokens',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/messages/count_tokens',
+    meaning: '给 Claude 格式请求估算 token 数，OpenAI 平台一般不需要。',
+  },
+]
+
+const legacyAPIPathRows: GuideLegacyRow[] = [
+  {
+    oldUrl: 'https://api.aaccx.pw/responses',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/responses',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/chat/completions',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/chat/completions',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/embeddings',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/embeddings',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/images/generations',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/images/generations',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/images/edits',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/images/edits',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/models',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/models',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/backend-api/codex/responses',
+    result: '400 INVALID_BASE_URL',
+    useInstead: 'https://api.aaccx.pw/v1/responses',
+  },
+]
+
+const codexFormalConfigExample = `# Codex config.toml 推荐写法
+base_url = "https://api.aaccx.pw/v1"
+wire_api = "responses"
+
+# 不要把完整接口填进 base_url。比如 /responses 应该由 Codex 自己拼出来。`
+
 const traeSetupSteps: GuideStep[] = [
   {
     step: 1,
@@ -241,13 +431,50 @@ const traeSetupSteps: GuideStep[] = [
   },
 ]
 
-const guideTopics = [
+const guideTopics: GuideTopic[] = [
   {
     id: 'codex',
     title: 'Codex 接入',
     description: '从购买订阅、兑换、创建 API Key 到配置 cc-switch 的完整步骤。',
     kind: 'steps',
     steps: codexSetupSteps,
+  },
+  {
+    id: 'formal-api',
+    title: '规范使用',
+    description: '只使用 /v1 开头的正式模型 API，避免裸路径被拒绝。',
+    kind: 'sections',
+    sections: [
+      {
+        title: '先记住一句话',
+        paragraphs: [
+          '正式 Base URL 只填 https://api.aaccx.pw/v1。工具里如果分开填写 Base URL 和接口路径，Base URL 就停在 /v1，接口路径再填 /responses、/chat/completions 这类相对路径。',
+          '不要填 https://api.aaccx.pw/responses，也不要把 /v1 写两次。裸 /responses、/models、/chat/completions 这些旧写法现在会直接返回 400 INVALID_BASE_URL。',
+        ],
+      },
+      {
+        title: '正式请求路径',
+        paragraphs: [
+          '下面这些是现在对外推荐的规范 URL。客户端能分开填时优先填 Base URL；只有工具要求完整地址时，才照抄完整 URL。',
+        ],
+        endpointRows: formalAPIEndpointRows,
+      },
+      {
+        title: '旧写法怎么改',
+        paragraphs: [
+          '如果你之前按裸路径调用，请按这一列迁移。服务不会再把裸路径偷偷转发到 /v1，报错就是提醒你改配置。',
+        ],
+        legacyRows: legacyAPIPathRows,
+      },
+      {
+        title: 'Codex 推荐配置',
+        paragraphs: [
+          'Codex 里只配置 base_url 到 /v1，wire_api 使用 responses。这样 Codex 会自己请求 /v1/responses。',
+          'API Key 只放在本机配置里，不要发到公开聊天、截图或文档里。',
+        ],
+        code: codexFormalConfigExample,
+      },
+    ],
   },
   {
     id: 'image-generation',
@@ -504,6 +731,77 @@ const activeTopic = computed(() => (
 }
 
 .dark .usage-guide-price-row strong {
+  color: rgb(243 244 246);
+}
+
+.usage-guide-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgb(229 231 235);
+  border-radius: 0.5rem;
+}
+
+.dark .usage-guide-table-wrap {
+  border-color: rgb(55 65 81);
+}
+
+.usage-guide-endpoint-table {
+  width: 100%;
+  min-width: 44rem;
+  border-collapse: collapse;
+  color: rgb(55 65 81);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.dark .usage-guide-endpoint-table {
+  color: rgb(209 213 219);
+}
+
+.usage-guide-endpoint-table th,
+.usage-guide-endpoint-table td {
+  border-bottom: 1px solid rgb(229 231 235);
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.dark .usage-guide-endpoint-table th,
+.dark .usage-guide-endpoint-table td {
+  border-bottom-color: rgb(55 65 81);
+}
+
+.usage-guide-endpoint-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.usage-guide-endpoint-table th {
+  background: rgb(249 250 251);
+  color: rgb(17 24 39);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dark .usage-guide-endpoint-table th {
+  background: rgb(3 7 18);
+  color: rgb(243 244 246);
+}
+
+.usage-guide-endpoint-table code {
+  color: rgb(17 24 39);
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.dark .usage-guide-endpoint-table code {
   color: rgb(243 244 246);
 }
 

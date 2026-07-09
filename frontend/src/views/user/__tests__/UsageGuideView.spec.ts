@@ -10,7 +10,7 @@ const routerPath = resolve(currentDir, '../../../router/index.ts')
 const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
 
 describe('UsageGuideView', () => {
-  it('声明使用方法控制台和三个教程栏目', () => {
+  it('声明使用方法控制台和四个教程栏目', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -19,6 +19,8 @@ describe('UsageGuideView', () => {
     expect(source).toContain('const guideTopics')
     expect(source).toContain("id: 'codex'")
     expect(source).toContain("title: 'Codex 接入'")
+    expect(source).toContain("id: 'formal-api'")
+    expect(source).toContain("title: '规范使用'")
     expect(source).toContain("id: 'image-generation'")
     expect(source).toContain("title: '生图方法'")
     expect(source).toContain("id: 'trae'")
@@ -101,6 +103,36 @@ describe('UsageGuideView', () => {
     expect(source).not.toContain('groups.id')
     expect(source).not.toContain('127.0.0.1:18080')
     expect(source).not.toContain('POST /v1/images/edits')
+  })
+
+  it('规范使用栏目用大白话列出正式 API 请求路径和旧路径迁移', () => {
+    expect(existsSync(viewPath)).toBe(true)
+    if (!existsSync(viewPath)) return
+
+    const source = readFileSync(viewPath, 'utf8')
+    const expectedTokens = [
+      "title: '规范使用'",
+      '正式 Base URL 只填 https://api.aaccx.pw/v1',
+      '不要填 https://api.aaccx.pw/responses',
+      'Responses API',
+      'Codex 推荐走这个接口',
+      'https://api.aaccx.pw/v1/responses',
+      'https://api.aaccx.pw/v1/chat/completions',
+      'https://api.aaccx.pw/v1/embeddings',
+      'https://api.aaccx.pw/v1/images/generations',
+      'https://api.aaccx.pw/v1/images/edits',
+      'https://api.aaccx.pw/v1/models',
+      '400 INVALID_BASE_URL',
+      'https://api.aaccx.pw/backend-api/codex/responses',
+      'base_url = "https://api.aaccx.pw/v1"',
+      'wire_api = "responses"',
+    ]
+
+    for (const token of expectedTokens) {
+      expect(source, `缺少规范使用信息：${token}`).toContain(token)
+    }
+
+    expect(source).not.toContain('base_url = "https://api.aaccx.pw/responses"')
   })
 
   it('Trae 接入教程复用步骤样式展示自定义模型配置流程', () => {
