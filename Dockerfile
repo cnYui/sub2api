@@ -106,6 +106,10 @@ RUN apk add --no-cache \
     libedit \
     && rm -rf /var/cache/apk/*
 
+# Import CLIProxy self-signed CA for upstream HTTPS
+COPY backend/resources/certs/tls.crt /tmp/cli-proxy-ca.crt
+RUN cat /tmp/cli-proxy-ca.crt >> /etc/ssl/certs/ca-certificates.crt
+
 # Copy pg_dump and psql from the same postgres image used in docker-compose
 # This ensures version consistency between backup tools and the database server
 COPY --from=pg-client /usr/local/bin/pg_dump /usr/local/bin/pg_dump

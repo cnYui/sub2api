@@ -154,6 +154,36 @@ func TestReadRequestBodyWithPrealloc_MaxBytesError(t *testing.T) {
 	require.ErrorAs(t, err, &maxErr)
 }
 
+func TestOpenAIResponsesRejectsMessagesWithoutInput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(
+		http.MethodPost,
+		"/v1/responses",
+		strings.NewReader(`{"model":"gpt-5","messages":[{"role":"user","content":"hello"}]}`),
+	)
+	groupID := int64(5)
+	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
+		ID:      32,
+		UserID:  13,
+		GroupID: &groupID,
+	})
+	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 13, Concurrency: 1})
+
+	h := &OpenAIGatewayHandler{
+		gatewayService:      &service.OpenAIGatewayService{},
+		billingCacheService: &service.BillingCacheService{},
+		apiKeyService:       &service.APIKeyService{},
+		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(nil), SSEPingFormatComment, 0),
+	}
+	h.Responses(c)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, "invalid_request_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
+	require.Equal(t, "/v1/responses expects input; use /v1/chat/completions for messages", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
+}
+
 func TestOpenAIEnsureForwardErrorResponse_WritesFallbackWhenNotWritten(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()

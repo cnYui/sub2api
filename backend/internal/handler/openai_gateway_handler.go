@@ -50,11 +50,17 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
 
+const openAIResponsesMessagesWithoutInputMessage = "/v1/responses expects input; use /v1/chat/completions for messages"
+
 func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
 	if !mapped || replace == nil {
 		return body
 	}
 	return replace(body, mappedModel)
+}
+
+func openAIResponsesHasMessagesWithoutInput(body []byte) bool {
+	return gjson.GetBytes(body, "messages").Exists() && !gjson.GetBytes(body, "input").Exists()
 }
 
 func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFunc) func(bool, string) []byte {
@@ -219,6 +225,13 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
+	if openAIResponsesHasMessagesWithoutInput(body) {
+		reqLog.Warn("openai.request_validation_failed",
+			zap.String("reason", "responses_messages_without_input"),
+		)
+		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", openAIResponsesMessagesWithoutInputMessage)
+		return
+	}
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
 	if previousResponseID != "" {
 		previousResponseIDKind := service.ClassifyOpenAIPreviousResponseIDKind(previousResponseID)

@@ -183,6 +183,15 @@ func (s *subscriptionUserSubRepoStub) GetByUserIDAndGroupID(_ context.Context, u
 	return &cp, nil
 }
 
+func (s *subscriptionUserSubRepoStub) GetActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
+	sub := s.byUserGroup[s.key(userID, groupID)]
+	if sub == nil || sub.Status != SubscriptionStatusActive || !sub.ExpiresAt.After(time.Now()) {
+		return nil, ErrSubscriptionNotFound
+	}
+	cp := *sub
+	return &cp, nil
+}
+
 func (s *subscriptionUserSubRepoStub) ListActiveByUserID(_ context.Context, userID int64) ([]UserSubscription, error) {
 	now := time.Now()
 	out := make([]UserSubscription, 0)
@@ -236,6 +245,16 @@ func (s *subscriptionUserSubRepoStub) Update(_ context.Context, sub *UserSubscri
 		delete(s.byUserGroup, oldKey)
 	}
 	s.byUserGroup[s.key(cp.UserID, cp.GroupID)] = &cp
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) Delete(_ context.Context, id int64) error {
+	existing := s.byID[id]
+	if existing == nil {
+		return nil
+	}
+	delete(s.byID, id)
+	delete(s.byUserGroup, s.key(existing.UserID, existing.GroupID))
 	return nil
 }
 

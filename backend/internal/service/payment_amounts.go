@@ -2,6 +2,7 @@ package service
 
 import (
 	"math"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/shopspring/decimal"
@@ -42,5 +43,30 @@ func calculateGatewayRefundAmount(orderAmount, payAmount, refundAmount float64, 
 		Mul(decimal.NewFromFloat(refundAmount)).
 		Div(decimal.NewFromFloat(orderAmount)).
 		Round(fractionDigits).
+		InexactFloat64()
+}
+
+func calculateSubscriptionRefundAmount(orderAmount, payAmount float64, subscriptionDays int, expiresAt, now time.Time, includeFee bool) float64 {
+	if subscriptionDays <= 0 || !expiresAt.After(now) {
+		return 0
+	}
+	base := orderAmount
+	if includeFee {
+		base = payAmount
+	}
+	if base <= 0 {
+		return 0
+	}
+	remainingDays := int(expiresAt.Sub(now).Hours() / 24)
+	if remainingDays <= 0 {
+		return 0
+	}
+	if remainingDays > subscriptionDays {
+		remainingDays = subscriptionDays
+	}
+	return decimal.NewFromFloat(base).
+		Mul(decimal.NewFromInt(int64(remainingDays))).
+		Div(decimal.NewFromInt(int64(subscriptionDays))).
+		Round(1).
 		InexactFloat64()
 }

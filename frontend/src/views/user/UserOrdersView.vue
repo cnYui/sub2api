@@ -94,6 +94,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
+import { canRequestOrderRefund } from './paymentRefund'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -173,9 +174,7 @@ async function confirmRefund() {
 }
 
 function canRequestRefund(order: PaymentOrder): boolean {
-  if (order.status !== 'COMPLETED') return false
-  if (!order.provider_instance_id) return false
-  return refundEligibleProviders.value.has(order.provider_instance_id)
+  return canRequestOrderRefund(order, refundEligibleProviders.value)
 }
 
 async function loadRefundEligibility() {
