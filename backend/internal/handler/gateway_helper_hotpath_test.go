@@ -19,16 +19,22 @@ type helperConcurrencyCacheStub struct {
 
 	accountSeq []bool
 	userSeq    []bool
+	apiKeySeq  []bool
 
-	accountAcquireCalls int
-	userAcquireCalls    int
-	accountReleaseCalls int
-	userReleaseCalls    int
-	waitAllowed         bool
-	waitIncrementCalls  int
-	waitDecrementCalls  int
-	waitMaxWait         int
-	waitIncrementHook   func()
+	accountAcquireCalls      int
+	userAcquireCalls         int
+	apiKeyAcquireCalls       int
+	accountReleaseCalls      int
+	userReleaseCalls         int
+	apiKeyReleaseCalls       int
+	waitAllowed              bool
+	waitIncrementCalls       int
+	waitDecrementCalls       int
+	waitMaxWait              int
+	apiKeyWaitIncrementCalls int
+	apiKeyWaitDecrementCalls int
+	apiKeyWaitMaxWait        int
+	waitIncrementHook        func()
 }
 
 func (s *helperConcurrencyCacheStub) AcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int, requestID string) (bool, error) {
@@ -95,6 +101,55 @@ func (s *helperConcurrencyCacheStub) ReleaseUserSlot(ctx context.Context, userID
 
 func (s *helperConcurrencyCacheStub) GetUserConcurrency(ctx context.Context, userID int64) (int, error) {
 	return 0, nil
+}
+
+func (s *helperConcurrencyCacheStub) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.apiKeyAcquireCalls++
+	if s.apiKeySeq == nil {
+		return true, nil
+	}
+	if len(s.apiKeySeq) == 0 {
+		return false, nil
+	}
+	v := s.apiKeySeq[0]
+	s.apiKeySeq = s.apiKeySeq[1:]
+	return v, nil
+}
+
+func (s *helperConcurrencyCacheStub) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.apiKeyReleaseCalls++
+	return nil
+}
+
+func (s *helperConcurrencyCacheStub) GetAPIKeyConcurrency(ctx context.Context, apiKeyID int64) (int, error) {
+	return 0, nil
+}
+
+func (s *helperConcurrencyCacheStub) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	s.mu.Lock()
+	s.apiKeyWaitIncrementCalls++
+	s.apiKeyWaitMaxWait = maxWait
+	waitAllowed := s.waitAllowed
+	hook := s.waitIncrementHook
+	s.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
+	if !waitAllowed {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (s *helperConcurrencyCacheStub) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.apiKeyWaitDecrementCalls++
+	return nil
 }
 
 func (s *helperConcurrencyCacheStub) IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error) {
@@ -287,6 +342,31 @@ func TestAcquireUserSlotWithWait_WaitSuccessDecrementsBeforeReturn(t *testing.T)
 
 	release()
 	require.Equal(t, 1, cache.userReleaseCalls)
+}
+
+func TestAcquireAPIKeySlotWithWait_WaitSuccessDecrementsBeforeReturn(t *testing.T) {
+	cache := &helperConcurrencyCacheStub{
+		apiKeySeq:   []bool{false, true},
+		waitAllowed: true,
+	}
+	concurrency := service.NewConcurrencyService(cache)
+	helper := NewConcurrencyHelper(concurrency, SSEPingFormatNone, 5*time.Millisecond)
+	c, _ := newHelperTestContext(http.MethodPost, "/v1/responses")
+	streamStarted := false
+
+	release, err := helper.AcquireAPIKeySlotWithWait(c, 96, 5, false, &streamStarted)
+	require.NoError(t, err)
+	require.NotNil(t, release)
+
+	require.Equal(t, 2, cache.apiKeyAcquireCalls)
+	require.Equal(t, 1, cache.apiKeyWaitIncrementCalls)
+	require.Equal(t, 20, cache.apiKeyWaitMaxWait)
+	require.Equal(t, 1, cache.apiKeyWaitDecrementCalls)
+	require.Equal(t, 0, cache.userAcquireCalls)
+	require.Equal(t, 0, cache.waitIncrementCalls)
+
+	release()
+	require.Equal(t, 1, cache.apiKeyReleaseCalls)
 }
 
 func TestAcquireUserSlotWithWait_TimeoutDecrementsWaitQueue(t *testing.T) {

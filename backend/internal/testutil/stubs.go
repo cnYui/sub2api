@@ -48,6 +48,21 @@ func (c StubConcurrencyCache) ReleaseUserSlot(_ context.Context, _ int64, _ stri
 func (c StubConcurrencyCache) GetUserConcurrency(_ context.Context, _ int64) (int, error) {
 	return 0, nil
 }
+func (c StubConcurrencyCache) AcquireAPIKeySlot(_ context.Context, _ int64, _ int, _ string) (bool, error) {
+	return true, nil
+}
+func (c StubConcurrencyCache) ReleaseAPIKeySlot(_ context.Context, _ int64, _ string) error {
+	return nil
+}
+func (c StubConcurrencyCache) GetAPIKeyConcurrency(_ context.Context, _ int64) (int, error) {
+	return 0, nil
+}
+func (c StubConcurrencyCache) IncrementAPIKeyWaitCount(_ context.Context, _ int64, _ int) (bool, error) {
+	return true, nil
+}
+func (c StubConcurrencyCache) DecrementAPIKeyWaitCount(_ context.Context, _ int64) error {
+	return nil
+}
 func (c StubConcurrencyCache) IncrementWaitCount(_ context.Context, _ int64, _ int) (bool, error) {
 	return true, nil
 }

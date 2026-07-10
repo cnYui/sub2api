@@ -78,12 +78,12 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 
-	userReleaseFunc, acquired := h.acquireResponsesUserSlot(c, subject.UserID, subject.Concurrency, false, &streamStarted, reqLog)
+	apiKeyReleaseFunc, acquired := h.acquireResponsesAPIKeySlot(c, apiKey.ID, subject.Concurrency, false, &streamStarted, reqLog)
 	if !acquired {
 		return
 	}
-	if userReleaseFunc != nil {
-		defer userReleaseFunc()
+	if apiKeyReleaseFunc != nil {
+		defer apiKeyReleaseFunc()
 	}
 
 	if failure := checkGatewayBillingEligibility(c.Request.Context(), c, h.billingCacheService, apiKey, subscription); failure != nil {

@@ -37,9 +37,19 @@ type ConcurrencyCache interface {
 	ReleaseUserSlot(ctx context.Context, userID int64, requestID string) error
 	GetUserConcurrency(ctx context.Context, userID int64) (int, error)
 
+	// API Key 槽位管理
+	// 键格式: concurrency:api_key:{apiKeyID}（有序集合，成员为 requestID）
+	AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error)
+	ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error
+	GetAPIKeyConcurrency(ctx context.Context, apiKeyID int64) (int, error)
+
 	// 等待队列计数（只在首次创建时设置 TTL）
 	IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error)
 	DecrementWaitCount(ctx context.Context, userID int64) error
+
+	// API Key 等待队列计数
+	IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error)
+	DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) error
 
 	// 批量负载查询（只读）
 	GetAccountsLoadBatch(ctx context.Context, accounts []AccountWithConcurrency) (map[int64]*AccountLoadInfo, error)
@@ -237,6 +247,42 @@ func (s *ConcurrencyService) AcquireUserSlot(ctx context.Context, userID int64, 
 	}, nil
 }
 
+// AcquireAPIKeySlot 获取 API Key 维度的并发槽位。
+// API Key 独立计数，避免同一用户多把 Key 被合并到一个用户槽。
+func (s *ConcurrencyService) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int) (*AcquireResult, error) {
+	if maxConcurrency <= 0 {
+		return &AcquireResult{
+			Acquired:    true,
+			ReleaseFunc: func() {},
+		}, nil
+	}
+
+	requestID := generateRequestID()
+
+	acquired, err := s.cache.AcquireAPIKeySlot(ctx, apiKeyID, maxConcurrency, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	if acquired {
+		return &AcquireResult{
+			Acquired: true,
+			ReleaseFunc: func() {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.cache.ReleaseAPIKeySlot(bgCtx, apiKeyID, requestID); err != nil {
+					logger.LegacyPrintf("service.concurrency", "Warning: failed to release api key slot for %d (req=%s): %v", apiKeyID, requestID, err)
+				}
+			},
+		}, nil
+	}
+
+	return &AcquireResult{
+		Acquired:    false,
+		ReleaseFunc: nil,
+	}, nil
+}
+
 // ============================================
 // Wait Queue Count Methods
 // ============================================
@@ -300,6 +346,34 @@ func (s *ConcurrencyService) DecrementAccountWaitCount(ctx context.Context, acco
 
 	if err := s.cache.DecrementAccountWaitCount(bgCtx, accountID); err != nil {
 		logger.LegacyPrintf("service.concurrency", "Warning: decrement wait count failed for account %d: %v", accountID, err)
+	}
+}
+
+// IncrementAPIKeyWaitCount 增加 API Key 等待队列计数。
+func (s *ConcurrencyService) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	if s.cache == nil {
+		return true, nil
+	}
+
+	result, err := s.cache.IncrementAPIKeyWaitCount(ctx, apiKeyID, maxWait)
+	if err != nil {
+		logger.LegacyPrintf("service.concurrency", "Warning: increment wait count failed for api key %d: %v", apiKeyID, err)
+		return true, nil
+	}
+	return result, nil
+}
+
+// DecrementAPIKeyWaitCount 减少 API Key 等待队列计数。
+func (s *ConcurrencyService) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) {
+	if s.cache == nil {
+		return
+	}
+
+	bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := s.cache.DecrementAPIKeyWaitCount(bgCtx, apiKeyID); err != nil {
+		logger.LegacyPrintf("service.concurrency", "Warning: decrement wait count failed for api key %d: %v", apiKeyID, err)
 	}
 }
 

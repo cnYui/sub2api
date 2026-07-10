@@ -119,6 +119,17 @@ func (f *fakeConcurrencyCache) AcquireUserSlot(context.Context, int64, int, stri
 }
 func (f *fakeConcurrencyCache) ReleaseUserSlot(context.Context, int64, string) error   { return nil }
 func (f *fakeConcurrencyCache) GetUserConcurrency(context.Context, int64) (int, error) { return 0, nil }
+func (f *fakeConcurrencyCache) AcquireAPIKeySlot(context.Context, int64, int, string) (bool, error) {
+	return true, nil
+}
+func (f *fakeConcurrencyCache) ReleaseAPIKeySlot(context.Context, int64, string) error { return nil }
+func (f *fakeConcurrencyCache) GetAPIKeyConcurrency(context.Context, int64) (int, error) {
+	return 0, nil
+}
+func (f *fakeConcurrencyCache) IncrementAPIKeyWaitCount(context.Context, int64, int) (bool, error) {
+	return true, nil
+}
+func (f *fakeConcurrencyCache) DecrementAPIKeyWaitCount(context.Context, int64) error { return nil }
 func (f *fakeConcurrencyCache) IncrementWaitCount(context.Context, int64, int) (bool, error) {
 	return true, nil
 }

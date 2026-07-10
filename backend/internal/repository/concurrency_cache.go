@@ -27,8 +27,12 @@ const (
 	accountSlotKeyPrefix = "concurrency:account:"
 	// 格式: concurrency:user:{userID}
 	userSlotKeyPrefix = "concurrency:user:"
+	// 格式: concurrency:api_key:{apiKeyID}
+	apiKeySlotKeyPrefix = "concurrency:api_key:"
 	// 等待队列计数器格式: concurrency:wait:{userID}
 	waitQueueKeyPrefix = "concurrency:wait:"
+	// API Key 等待队列计数器格式: concurrency:wait:api_key:{apiKeyID}
+	apiKeyWaitKeyPrefix = "concurrency:wait:api_key:"
 	// 账号级等待队列计数器格式: wait:account:{accountID}
 	accountWaitKeyPrefix = "wait:account:"
 
@@ -231,8 +235,16 @@ func userSlotKey(userID int64) string {
 	return fmt.Sprintf("%s%d", userSlotKeyPrefix, userID)
 }
 
+func apiKeySlotKey(apiKeyID int64) string {
+	return fmt.Sprintf("%s%d", apiKeySlotKeyPrefix, apiKeyID)
+}
+
 func waitQueueKey(userID int64) string {
 	return fmt.Sprintf("%s%d", waitQueueKeyPrefix, userID)
+}
+
+func apiKeyWaitKey(apiKeyID int64) string {
+	return fmt.Sprintf("%s%d", apiKeyWaitKeyPrefix, apiKeyID)
 }
 
 func accountWaitKey(accountID int64) string {
@@ -330,6 +342,31 @@ func (c *concurrencyCache) GetUserConcurrency(ctx context.Context, userID int64)
 	return result, nil
 }
 
+// API Key 槽位操作
+
+func (c *concurrencyCache) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	key := apiKeySlotKey(apiKeyID)
+	result, err := acquireScript.Run(ctx, c.rdb, []string{key}, maxConcurrency, c.slotTTLSeconds, requestID).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+func (c *concurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
+	key := apiKeySlotKey(apiKeyID)
+	return c.rdb.ZRem(ctx, key, requestID).Err()
+}
+
+func (c *concurrencyCache) GetAPIKeyConcurrency(ctx context.Context, apiKeyID int64) (int, error) {
+	key := apiKeySlotKey(apiKeyID)
+	result, err := getCountScript.Run(ctx, c.rdb, []string{key}, c.slotTTLSeconds).Int()
+	if err != nil {
+		return 0, err
+	}
+	return result, nil
+}
+
 // Wait queue operations
 
 func (c *concurrencyCache) IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error) {
@@ -343,6 +380,23 @@ func (c *concurrencyCache) IncrementWaitCount(ctx context.Context, userID int64,
 
 func (c *concurrencyCache) DecrementWaitCount(ctx context.Context, userID int64) error {
 	key := waitQueueKey(userID)
+	_, err := decrementWaitScript.Run(ctx, c.rdb, []string{key}).Result()
+	return err
+}
+
+// API Key 等待队列操作
+
+func (c *concurrencyCache) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	key := apiKeyWaitKey(apiKeyID)
+	result, err := incrementWaitScript.Run(ctx, c.rdb, []string{key}, maxWait, c.waitQueueTTLSeconds).Int()
+	if err != nil {
+		return false, err
+	}
+	return result == 1, nil
+}
+
+func (c *concurrencyCache) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) error {
+	key := apiKeyWaitKey(apiKeyID)
 	_, err := decrementWaitScript.Run(ctx, c.rdb, []string{key}).Result()
 	return err
 }
@@ -509,7 +563,7 @@ func (c *concurrencyCache) CleanupStaleProcessSlots(ctx context.Context, activeR
 	}
 
 	// 1. 清理有序集合中非当前进程前缀的成员
-	slotPatterns := []string{accountSlotKeyPrefix + "*", userSlotKeyPrefix + "*"}
+	slotPatterns := []string{accountSlotKeyPrefix + "*", userSlotKeyPrefix + "*", apiKeySlotKeyPrefix + "*"}
 	for _, pattern := range slotPatterns {
 		if err := c.cleanupSlotsByPattern(ctx, pattern, activeRequestPrefix); err != nil {
 			return err
@@ -517,7 +571,7 @@ func (c *concurrencyCache) CleanupStaleProcessSlots(ctx context.Context, activeR
 	}
 
 	// 2. 删除所有等待队列计数器（重启后计数器失效）
-	waitPatterns := []string{accountWaitKeyPrefix + "*", waitQueueKeyPrefix + "*"}
+	waitPatterns := []string{accountWaitKeyPrefix + "*", waitQueueKeyPrefix + "*", apiKeyWaitKeyPrefix + "*"}
 	for _, pattern := range waitPatterns {
 		if err := c.deleteKeysByPattern(ctx, pattern); err != nil {
 			return err

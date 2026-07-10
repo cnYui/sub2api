@@ -12,8 +12,10 @@ import (
 
 type concurrencyCacheMock struct {
 	acquireUserSlotFn    func(ctx context.Context, userID int64, maxConcurrency int, requestID string) (bool, error)
+	acquireAPIKeySlotFn  func(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error)
 	acquireAccountSlotFn func(ctx context.Context, accountID int64, maxConcurrency int, requestID string) (bool, error)
 	releaseUserCalled    int32
+	releaseAPIKeyCalled  int32
 	releaseAccountCalled int32
 }
 
@@ -69,6 +71,30 @@ func (m *concurrencyCacheMock) GetUserConcurrency(ctx context.Context, userID in
 	return 0, nil
 }
 
+func (m *concurrencyCacheMock) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	if m.acquireAPIKeySlotFn != nil {
+		return m.acquireAPIKeySlotFn(ctx, apiKeyID, maxConcurrency, requestID)
+	}
+	return true, nil
+}
+
+func (m *concurrencyCacheMock) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
+	atomic.AddInt32(&m.releaseAPIKeyCalled, 1)
+	return nil
+}
+
+func (m *concurrencyCacheMock) GetAPIKeyConcurrency(ctx context.Context, apiKeyID int64) (int, error) {
+	return 0, nil
+}
+
+func (m *concurrencyCacheMock) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	return true, nil
+}
+
+func (m *concurrencyCacheMock) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) error {
+	return nil
+}
+
 func (m *concurrencyCacheMock) IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error) {
 	return true, nil
 }
@@ -108,6 +134,29 @@ func TestConcurrencyHelper_TryAcquireUserSlot(t *testing.T) {
 
 	release()
 	require.Equal(t, int32(1), atomic.LoadInt32(&cache.releaseUserCalled))
+}
+
+func TestConcurrencyHelper_TryAcquireAPIKeySlot(t *testing.T) {
+	var capturedAPIKeyID int64
+	cache := &concurrencyCacheMock{
+		acquireAPIKeySlotFn: func(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+			capturedAPIKeyID = apiKeyID
+			require.Equal(t, 5, maxConcurrency)
+			require.NotEmpty(t, requestID)
+			return true, nil
+		},
+	}
+	helper := NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second)
+
+	release, acquired, err := helper.TryAcquireAPIKeySlot(context.Background(), 96, 5)
+	require.NoError(t, err)
+	require.True(t, acquired)
+	require.NotNil(t, release)
+	require.Equal(t, int64(96), capturedAPIKeyID)
+
+	release()
+	require.Equal(t, int32(1), atomic.LoadInt32(&cache.releaseAPIKeyCalled))
+	require.Equal(t, int32(0), atomic.LoadInt32(&cache.releaseUserCalled))
 }
 
 func TestConcurrencyHelper_TryAcquireAccountSlot_NotAcquired(t *testing.T) {

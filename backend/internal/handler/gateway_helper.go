@@ -188,6 +188,16 @@ func (h *ConcurrencyHelper) DecrementWaitCount(ctx context.Context, userID int64
 	h.concurrencyService.DecrementWaitCount(ctx, userID)
 }
 
+// IncrementAPIKeyWaitCount 增加 API Key 等待队列计数。
+func (h *ConcurrencyHelper) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	return h.concurrencyService.IncrementAPIKeyWaitCount(ctx, apiKeyID, maxWait)
+}
+
+// DecrementAPIKeyWaitCount 减少 API Key 等待队列计数。
+func (h *ConcurrencyHelper) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) {
+	h.concurrencyService.DecrementAPIKeyWaitCount(ctx, apiKeyID)
+}
+
 // IncrementAccountWaitCount increments the wait count for an account
 func (h *ConcurrencyHelper) IncrementAccountWaitCount(ctx context.Context, accountID int64, maxWait int) (bool, error) {
 	return h.concurrencyService.IncrementAccountWaitCount(ctx, accountID, maxWait)
@@ -202,6 +212,19 @@ func (h *ConcurrencyHelper) DecrementAccountWaitCount(ctx context.Context, accou
 // 返回值: (releaseFunc, acquired, error)
 func (h *ConcurrencyHelper) TryAcquireUserSlot(ctx context.Context, userID int64, maxConcurrency int) (func(), bool, error) {
 	result, err := h.concurrencyService.AcquireUserSlot(ctx, userID, maxConcurrency)
+	if err != nil {
+		return nil, false, err
+	}
+	if !result.Acquired {
+		return nil, false, nil
+	}
+	return result.ReleaseFunc, true, nil
+}
+
+// TryAcquireAPIKeySlot 尝试立即获取 API Key 并发槽位。
+// 返回值: (releaseFunc, acquired, error)
+func (h *ConcurrencyHelper) TryAcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int) (func(), bool, error) {
+	result, err := h.concurrencyService.AcquireAPIKeySlot(ctx, apiKeyID, maxConcurrency)
 	if err != nil {
 		return nil, false, err
 	}
@@ -261,6 +284,36 @@ func (h *ConcurrencyHelper) acquireUserSlotWithWaitTimeout(c *gin.Context, userI
 	return h.waitForSlotWithPingTimeout(c, "user", userID, maxConcurrency, timeout, isStream, streamStarted, false)
 }
 
+// AcquireAPIKeySlotWithWait 获取 API Key 并发槽位；满槽时按现有等待策略排队。
+// 流式请求等待期间需要发送 ping，避免客户端误判连接断开。
+func (h *ConcurrencyHelper) AcquireAPIKeySlotWithWait(c *gin.Context, apiKeyID int64, maxConcurrency int, isStream bool, streamStarted *bool) (func(), error) {
+	ctx := c.Request.Context()
+
+	releaseFunc, acquired, err := h.TryAcquireAPIKeySlot(ctx, apiKeyID, maxConcurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	if acquired {
+		return releaseFunc, nil
+	}
+
+	queueLimit := service.CalculateMaxWait(maxConcurrency) - maxConcurrency
+	if queueLimit < 1 {
+		queueLimit = 1
+	}
+	canWait, err := h.IncrementAPIKeyWaitCount(ctx, apiKeyID, queueLimit)
+	if err != nil {
+		return nil, err
+	}
+	if !canWait {
+		return nil, &WaitQueueFullError{SlotType: "api_key"}
+	}
+	defer h.DecrementAPIKeyWaitCount(ctx, apiKeyID)
+
+	return h.waitForSlotWithPingTimeout(c, "api_key", apiKeyID, maxConcurrency, maxConcurrencyWait, isStream, streamStarted, false)
+}
+
 // AcquireAccountSlotWithWait acquires an account concurrency slot, waiting if necessary.
 // For streaming requests, sends ping events during the wait.
 // streamStarted is updated if streaming response has begun.
@@ -293,10 +346,14 @@ func (h *ConcurrencyHelper) waitForSlotWithPingTimeout(c *gin.Context, slotType 
 	defer cancel()
 
 	acquireSlot := func() (*service.AcquireResult, error) {
-		if slotType == "user" {
+		switch slotType {
+		case "user":
 			return h.concurrencyService.AcquireUserSlot(ctx, id, maxConcurrency)
+		case "api_key":
+			return h.concurrencyService.AcquireAPIKeySlot(ctx, id, maxConcurrency)
+		default:
+			return h.concurrencyService.AcquireAccountSlot(ctx, id, maxConcurrency)
 		}
-		return h.concurrencyService.AcquireAccountSlot(ctx, id, maxConcurrency)
 	}
 
 	if tryImmediate {

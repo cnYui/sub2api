@@ -2050,6 +2050,26 @@ func (m *mockConcurrencyCache) GetUserConcurrency(ctx context.Context, userID in
 	return 0, nil
 }
 
+func (m *mockConcurrencyCache) AcquireAPIKeySlot(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+	return true, nil
+}
+
+func (m *mockConcurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
+	return nil
+}
+
+func (m *mockConcurrencyCache) GetAPIKeyConcurrency(ctx context.Context, apiKeyID int64) (int, error) {
+	return 0, nil
+}
+
+func (m *mockConcurrencyCache) IncrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64, maxWait int) (bool, error) {
+	return true, nil
+}
+
+func (m *mockConcurrencyCache) DecrementAPIKeyWaitCount(ctx context.Context, apiKeyID int64) error {
+	return nil
+}
+
 func (m *mockConcurrencyCache) IncrementWaitCount(ctx context.Context, userID int64, maxWait int) (bool, error) {
 	return true, nil
 }

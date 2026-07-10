@@ -204,21 +204,21 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	// For Gemini native API, do not send Claude-style ping frames.
 	geminiConcurrency := NewConcurrencyHelper(h.concurrencyHelper.concurrencyService, SSEPingFormatNone, 0)
 
-	// 1) user concurrency slot
+	// 1) API Key concurrency slot
 	streamStarted := false
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
 	}
-	userReleaseFunc, err := geminiConcurrency.AcquireUserSlotWithWait(c, authSubject.UserID, authSubject.Concurrency, stream, &streamStarted)
+	apiKeyReleaseFunc, err := geminiConcurrency.AcquireAPIKeySlotWithWait(c, apiKey.ID, authSubject.Concurrency, stream, &streamStarted)
 	if err != nil {
-		reqLog.Warn("gemini.user_slot_acquire_failed", zap.Error(err))
+		reqLog.Warn("gemini.api_key_slot_acquire_failed", zap.Error(err))
 		googleError(c, http.StatusTooManyRequests, err.Error())
 		return
 	}
 	// 确保请求取消时也会释放槽位，避免长连接被动中断造成泄漏
-	userReleaseFunc = wrapReleaseOnDone(c.Request.Context(), userReleaseFunc)
-	if userReleaseFunc != nil {
-		defer userReleaseFunc()
+	apiKeyReleaseFunc = wrapReleaseOnDone(c.Request.Context(), apiKeyReleaseFunc)
+	if apiKeyReleaseFunc != nil {
+		defer apiKeyReleaseFunc()
 	}
 
 	// 2) billing eligibility check (after wait)

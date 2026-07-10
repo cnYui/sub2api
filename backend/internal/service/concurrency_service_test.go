@@ -33,6 +33,7 @@ type stubConcurrencyCacheForTest struct {
 
 	// 记录调用
 	releasedAccountIDs []int64
+	releasedAPIKeyIDs  []int64
 	releasedRequestIDs []string
 	loadBatchCalls     atomic.Int64
 }
@@ -77,6 +78,23 @@ func (c *stubConcurrencyCacheForTest) ReleaseUserSlot(_ context.Context, _ int64
 }
 func (c *stubConcurrencyCacheForTest) GetUserConcurrency(_ context.Context, _ int64) (int, error) {
 	return c.concurrency, c.concurrencyErr
+}
+func (c *stubConcurrencyCacheForTest) AcquireAPIKeySlot(_ context.Context, _ int64, _ int, _ string) (bool, error) {
+	return c.acquireResult, c.acquireErr
+}
+func (c *stubConcurrencyCacheForTest) ReleaseAPIKeySlot(_ context.Context, apiKeyID int64, requestID string) error {
+	c.releasedAPIKeyIDs = append(c.releasedAPIKeyIDs, apiKeyID)
+	c.releasedRequestIDs = append(c.releasedRequestIDs, requestID)
+	return c.releaseErr
+}
+func (c *stubConcurrencyCacheForTest) GetAPIKeyConcurrency(_ context.Context, _ int64) (int, error) {
+	return c.concurrency, c.concurrencyErr
+}
+func (c *stubConcurrencyCacheForTest) IncrementAPIKeyWaitCount(_ context.Context, _ int64, _ int) (bool, error) {
+	return c.waitAllowed, c.waitErr
+}
+func (c *stubConcurrencyCacheForTest) DecrementAPIKeyWaitCount(_ context.Context, _ int64) error {
+	return nil
 }
 func (c *stubConcurrencyCacheForTest) IncrementWaitCount(_ context.Context, _ int64, _ int) (bool, error) {
 	return c.waitAllowed, c.waitErr
@@ -195,6 +213,31 @@ func TestAcquireUserSlot_UnlimitedConcurrency(t *testing.T) {
 	result, err := svc.AcquireUserSlot(context.Background(), 1, 0)
 	require.NoError(t, err)
 	require.True(t, result.Acquired)
+}
+
+func TestAcquireAPIKeySlot_UsesAPIKeyDimension(t *testing.T) {
+	cache := &stubConcurrencyCacheForTest{acquireResult: true}
+	svc := NewConcurrencyService(cache)
+
+	result, err := svc.AcquireAPIKeySlot(context.Background(), 96, 5)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.NotNil(t, result.ReleaseFunc)
+
+	result.ReleaseFunc()
+
+	require.Equal(t, []int64{96}, cache.releasedAPIKeyIDs)
+	require.Len(t, cache.releasedRequestIDs, 1)
+	require.NotEmpty(t, cache.releasedRequestIDs[0])
+}
+
+func TestAcquireAPIKeySlot_UnlimitedConcurrency(t *testing.T) {
+	svc := NewConcurrencyService(&stubConcurrencyCacheForTest{})
+
+	result, err := svc.AcquireAPIKeySlot(context.Background(), 96, 0)
+	require.NoError(t, err)
+	require.True(t, result.Acquired)
+	require.NotNil(t, result.ReleaseFunc)
 }
 
 func TestGenerateRequestID_UsesStablePrefixAndMonotonicCounter(t *testing.T) {

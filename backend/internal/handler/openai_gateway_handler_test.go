@@ -713,8 +713,8 @@ func TestOpenAIResponsesWebSocket_PreviousResponseIDKindLoggedBeforeAcquireFailu
 	gin.SetMode(gin.TestMode)
 
 	cache := &concurrencyCacheMock{
-		acquireUserSlotFn: func(ctx context.Context, userID int64, maxConcurrency int, requestID string) (bool, error) {
-			return false, errors.New("user slot unavailable")
+		acquireAPIKeySlotFn: func(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
+			return false, errors.New("api key slot unavailable")
 		},
 	}
 	h := newOpenAIHandlerForPreviousResponseIDValidation(t, cache)
@@ -743,7 +743,7 @@ func TestOpenAIResponsesWebSocket_PreviousResponseIDKindLoggedBeforeAcquireFailu
 	var closeErr coderws.CloseError
 	require.ErrorAs(t, err, &closeErr)
 	require.Equal(t, coderws.StatusInternalError, closeErr.Code)
-	require.Contains(t, strings.ToLower(closeErr.Reason), "failed to acquire user concurrency slot")
+	require.Contains(t, strings.ToLower(closeErr.Reason), "failed to acquire api key concurrency slot")
 }
 
 type contentModerationHandlerSettingRepo struct {
@@ -1098,7 +1098,7 @@ func newOpenAIHandlerForPreviousResponseIDValidation(t *testing.T, cache *concur
 	t.Helper()
 	if cache == nil {
 		cache = &concurrencyCacheMock{
-			acquireUserSlotFn: func(ctx context.Context, userID int64, maxConcurrency int, requestID string) (bool, error) {
+			acquireAPIKeySlotFn: func(ctx context.Context, apiKeyID int64, maxConcurrency int, requestID string) (bool, error) {
 				return true, nil
 			},
 			acquireAccountSlotFn: func(ctx context.Context, accountID int64, maxConcurrency int, requestID string) (bool, error) {
