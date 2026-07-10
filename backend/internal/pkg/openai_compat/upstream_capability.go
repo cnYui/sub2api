@@ -71,6 +71,19 @@ func NormalizeResponsesSupportMode(mode string) ResponsesSupportMode {
 	}
 }
 
+// ResolveResponsesSupportMode 从账号 extra 中读取手动覆盖模式。
+// 缺失、空值或非法类型按 auto 处理，让调用方继续跟随探测结果。
+func ResolveResponsesSupportMode(extra map[string]any) ResponsesSupportMode {
+	if extra == nil {
+		return ResponsesSupportModeAuto
+	}
+	mode, ok := extra[ExtraKeyResponsesMode].(string)
+	if !ok {
+		return ResponsesSupportModeAuto
+	}
+	return NormalizeResponsesSupportMode(mode)
+}
+
 // ResolveResponsesSupport 从账号的 extra map 中读取手动覆盖模式与探测标记。
 //
 // 标记缺失或类型不匹配时返回 ResponsesSupportUnknown——调用方应按

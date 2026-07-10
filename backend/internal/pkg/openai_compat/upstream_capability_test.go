@@ -64,6 +64,31 @@ func TestShouldUseResponsesAPI(t *testing.T) {
 	}
 }
 
+func TestResolveResponsesSupportMode(t *testing.T) {
+	tests := []struct {
+		name  string
+		extra map[string]any
+		want  ResponsesSupportMode
+	}{
+		{"nil extra", nil, ResponsesSupportModeAuto},
+		{"empty extra", map[string]any{}, ResponsesSupportModeAuto},
+		{"auto", map[string]any{ExtraKeyResponsesMode: string(ResponsesSupportModeAuto)}, ResponsesSupportModeAuto},
+		{"force responses", map[string]any{ExtraKeyResponsesMode: string(ResponsesSupportModeForceResponses)}, ResponsesSupportModeForceResponses},
+		{"force chat completions", map[string]any{ExtraKeyResponsesMode: string(ResponsesSupportModeForceChatCompletions)}, ResponsesSupportModeForceChatCompletions},
+		{"invalid mode", map[string]any{ExtraKeyResponsesMode: "enabled"}, ResponsesSupportModeAuto},
+		{"wrong type", map[string]any{ExtraKeyResponsesMode: true}, ResponsesSupportModeAuto},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ResolveResponsesSupportMode(tc.extra)
+			if got != tc.want {
+				t.Errorf("ResolveResponsesSupportMode(%v) = %q, want %q", tc.extra, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestNormalizeResponsesSupportMode(t *testing.T) {
 	tests := []struct {
 		name string
