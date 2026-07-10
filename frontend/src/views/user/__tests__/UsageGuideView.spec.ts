@@ -10,7 +10,7 @@ const routerPath = resolve(currentDir, '../../../router/index.ts')
 const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
 
 describe('UsageGuideView', () => {
-  it('声明使用方法控制台和四个教程栏目', () => {
+  it('声明使用方法控制台和五个教程栏目', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -21,6 +21,8 @@ describe('UsageGuideView', () => {
     expect(source).toContain("title: 'Codex 接入'")
     expect(source).toContain("id: 'formal-api'")
     expect(source).toContain("title: '规范使用'")
+    expect(source).toContain("id: 'copilot-vscode'")
+    expect(source).toContain("title: 'VS Code Copilot 接入'")
     expect(source).toContain("id: 'image-generation'")
     expect(source).toContain("title: '生图方法'")
     expect(source).toContain("id: 'trae'")
@@ -133,6 +135,40 @@ describe('UsageGuideView', () => {
     }
 
     expect(source).not.toContain('base_url = "https://api.aaccx.pw/responses"')
+  })
+
+  it('VS Code Copilot 接入栏目说明自定义端点、配置文件和 xhigh 思考程度', () => {
+    expect(existsSync(viewPath)).toBe(true)
+    if (!existsSync(viewPath)) return
+
+    const source = readFileSync(viewPath, 'utf8')
+    const expectedTokens = [
+      "title: 'VS Code Copilot 接入'",
+      '把 VS Code Copilot 的 Custom Endpoint Provider 指向 AACCX 的 Responses API。',
+      '~/Library/Application Support/Code/User/chatLanguageModels.json',
+      '~/Library/Application Support/Code/User/profiles/builtin/agents/chatLanguageModels.json',
+      '"vendor": "customendpoint"',
+      '"apiType": "responses"',
+      '"url": "https://api.aaccx.pw/v1/responses"',
+      '"Authorization": "Bearer sk-xxxx"',
+      '"model": "gpt-5.5"',
+      '"toolCalling": true',
+      '"supportsReasoningEffort": true',
+      '"reasoningEffortFormat": "openai"',
+      '"supportedReasoningEfforts": ["minimal", "low", "medium", "high", "xhigh"]',
+      '"zeroDataRetentionEnabled": true',
+      'xhigh 对应 Copilot 模型选择器里的 Extra High',
+      '如果 medium 能用、xhigh 失败，并且报 previous_response_id',
+      'Developer: Reload Window',
+      'Chat: Manage Language Models',
+      'API Key 只写在本机 VS Code 用户配置里',
+    ]
+
+    for (const token of expectedTokens) {
+      expect(source, `缺少 VS Code Copilot 接入信息：${token}`).toContain(token)
+    }
+
+    expect(source).not.toContain('sk-LOCAL')
   })
 
   it('Trae 接入教程复用步骤样式展示自定义模型配置流程', () => {
