@@ -77,6 +77,10 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 	}{
 		{name: "gpt reasoning alias strips xhigh", input: "gpt-5.4-xhigh", want: "gpt-5.4"},
 		{name: "gpt reasoning alias strips none", input: "gpt-5.4-none", want: "gpt-5.4"},
+		{name: "gpt56 sol compact spelling", input: "gpt5.6-sol", want: "gpt-5.6-sol"},
+		{name: "gpt56 terra compact spelling", input: "openai/gpt5.6terra", want: "gpt-5.6-terra"},
+		{name: "gpt56 luna compact spelling", input: "gpt_5.6_luna", want: "gpt-5.6-luna"},
+		{name: "bare gpt56 is not rewritten to gpt54", input: "gpt-5.6", want: "gpt-5.6"},
 		{name: "codex max model stays intact", input: "gpt-5.1-codex-max", want: "gpt-5.1-codex-max"},
 		{name: "non openai model unchanged", input: "claude-opus-4-6", want: "claude-opus-4-6"},
 	}
@@ -84,6 +88,28 @@ func TestNormalizeOpenAICompatRequestedModel(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, NormalizeOpenAICompatRequestedModel(tt.input))
+		})
+	}
+}
+
+func TestNormalizeKnownOpenAICodexModelGPT56CompleteNamesOnly(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "sol", input: "gpt-5.6-sol", want: "gpt-5.6-sol"},
+		{name: "terra", input: "gpt5.6terra", want: "gpt-5.6-terra"},
+		{name: "luna", input: "openai/gpt_5.6_luna", want: "gpt-5.6-luna"},
+		{name: "bare alias blocked", input: "gpt-5.6", want: ""},
+		{name: "unknown suffix blocked", input: "gpt-5.6-unknown", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, normalizeKnownOpenAICodexModel(tt.input))
 		})
 	}
 }

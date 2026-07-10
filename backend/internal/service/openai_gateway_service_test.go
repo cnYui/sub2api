@@ -2630,6 +2630,22 @@ func TestExtractOpenAIUsageFromJSONBytes_AcceptsResponseAndChatUsageShapes(t *te
 	require.Equal(t, 4, usage.CacheReadInputTokens)
 }
 
+func TestExtractOpenAIUsageFromJSONBytes_ReasoningTokensRemainInsideOutputTokens(t *testing.T) {
+	usage, ok := extractOpenAIUsageFromJSONBytes([]byte(`{
+		"id": "resp_reasoning",
+		"usage": {
+			"input_tokens": 10,
+			"output_tokens": 100,
+			"total_tokens": 110,
+			"output_tokens_details": {"reasoning_tokens": 80}
+		}
+	}`))
+
+	require.True(t, ok)
+	require.Equal(t, 10, usage.InputTokens)
+	require.Equal(t, 100, usage.OutputTokens)
+}
+
 func TestExtractCodexFinalResponse_SampleReplay(t *testing.T) {
 	body := strings.Join([]string{
 		`event: message`,

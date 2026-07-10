@@ -14,6 +14,12 @@ func NormalizeOpenAICompatRequestedModel(model string) string {
 
 	normalized, _, ok := splitOpenAICompatReasoningModel(trimmed)
 	if !ok || normalized == "" {
+		if canonical := canonicalizeOpenAIModelAliasSpelling(trimmed); strings.HasPrefix(canonical, "gpt-5.6") {
+			if known := normalizeKnownOpenAICodexModel(canonical); known != "" {
+				return known
+			}
+			return canonical
+		}
 		return trimmed
 	}
 	return normalized
