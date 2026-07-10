@@ -408,6 +408,33 @@ wire_api = "responses"
 
 # 不要把完整接口填进 base_url。比如 /responses 应该由 Codex 自己拼出来。`
 
+const copilotLanguageModelConfigExample = `{
+  "providers": [
+    {
+      "id": "aaccx",
+      "name": "AACCX",
+      "vendor": "customendpoint",
+      "apiType": "responses",
+      "url": "https://api.aaccx.pw/v1/responses",
+      "models": [
+        {
+          "id": "gpt-5.5",
+          "name": "GPT-5.5",
+          "model": "gpt-5.5",
+          "toolCalling": true,
+          "supportsReasoningEffort": true,
+          "reasoningEffortFormat": "openai",
+          "supportedReasoningEfforts": ["minimal", "low", "medium", "high", "xhigh"],
+          "zeroDataRetentionEnabled": true,
+          "requestHeaders": {
+            "Authorization": "Bearer sk-xxxx"
+          }
+        }
+      ]
+    }
+  ]
+}`
+
 const traeSetupSteps: GuideStep[] = [
   {
     step: 1,
@@ -473,6 +500,48 @@ const guideTopics: GuideTopic[] = [
           'API Key 只放在本机配置里，不要发到公开聊天、截图或文档里。',
         ],
         code: codexFormalConfigExample,
+      },
+    ],
+  },
+  {
+    id: 'copilot-vscode',
+    title: 'VS Code Copilot 接入',
+    description: '把 VS Code Copilot 的 Custom Endpoint Provider 指向 AACCX 的 Responses API。',
+    kind: 'sections',
+    sections: [
+      {
+        title: '改哪两个文件',
+        paragraphs: [
+          '把 VS Code Copilot 的 Custom Endpoint Provider 指向 AACCX 的 Responses API。需要改两个 VS Code 用户配置文件，普通 Chat 和 Agent profile 都要写，避免只在一个入口生效。',
+          '普通用户配置：~/Library/Application Support/Code/User/chatLanguageModels.json。',
+          'Agent profile 配置：~/Library/Application Support/Code/User/profiles/builtin/agents/chatLanguageModels.json。',
+          'API Key 只写在本机 VS Code 用户配置里，不要写进项目源码、公开文档、截图或聊天记录；页面示例统一使用 sk-xxxx 占位。',
+        ],
+      },
+      {
+        title: '配置要点',
+        paragraphs: [
+          '使用 vendor=customendpoint，apiType 必须是 responses，url 必须是 https://api.aaccx.pw/v1/responses。这样 Copilot 会走 /v1/responses，而不是 /v1/chat/completions。',
+          '每个模型里显式写 requestHeaders.Authorization: Bearer sk-xxxx。这样可以避开 Copilot 运行时没有把顶层 apiKey 合并进 Authorization 请求头的问题。',
+          'Agent 模式需要工具调用，所以 gpt-5.5 要保留 toolCalling: true。',
+        ],
+        code: copilotLanguageModelConfigExample,
+      },
+      {
+        title: '设置思考程度',
+        paragraphs: [
+          '给 gpt-5.5 声明 supportsReasoningEffort: true、reasoningEffortFormat: openai，并把 supportedReasoningEfforts 设置为 minimal、low、medium、high、xhigh。',
+          'xhigh 对应 Copilot 模型选择器里的 Extra High。选择 Extra High 后，请求会携带 reasoning.effort=xhigh。',
+          '如果 medium 能用、xhigh 失败，并且报 previous_response_id is only supported on Responses WebSocket v2，重点检查模型配置里是否有 zeroDataRetentionEnabled: true。这个字段会让 Copilot 不再把 previous_response_id 带给普通 /v1/responses。',
+        ],
+      },
+      {
+        title: '刷新和排查',
+        paragraphs: [
+          '保存两个 chatLanguageModels.json 后，在 VS Code 命令面板执行 Developer: Reload Window，然后新开一个 Copilot Chat 会话。',
+          '如果模型没有出现，先执行 Chat: Manage Language Models，确认 AACCX provider 和 GPT-5.5 可见。',
+          '如果仍然走 /v1/chat/completions，说明 apiType 或 url 仍是旧配置；如果报 API key is required，说明 Authorization header 没有写到对应模型的 requestHeaders 里。',
+        ],
       },
     ],
   },
