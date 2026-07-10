@@ -876,9 +876,7 @@ func (s *BillingService) computeTokenBreakdown(
 	outputPrice := pricing.OutputPricePerToken
 	cacheReadPrice := pricing.CacheReadPricePerToken
 	cacheCreationMultiplier := 1.0
-	tierMultiplier := 1.0
-
-	tierMultiplier = serviceTierCostMultiplier(serviceTier)
+	tierMultiplier := serviceTierCostMultiplier(serviceTier)
 
 	if applyLongCtx && s.shouldApplySessionLongContextPricing(tokens, pricing) {
 		inputPrice *= pricing.LongContextInputMultiplier

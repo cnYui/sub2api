@@ -189,31 +189,6 @@ func (s *PaymentService) validateUserAutoRefundRequest(ctx context.Context, oid,
 	return o, nil
 }
 
-func (s *PaymentService) validateRefundRequest(ctx context.Context, oid, uid int64) (*dbent.PaymentOrder, error) {
-	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
-	if err != nil {
-		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
-	}
-	if o.UserID != uid {
-		return nil, infraerrors.Forbidden("FORBIDDEN", "no permission")
-	}
-	if o.OrderType != payment.OrderTypeBalance {
-		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance orders can request refund")
-	}
-	if o.Status != OrderStatusCompleted {
-		return nil, infraerrors.BadRequest("INVALID_STATUS", "only completed orders can request refund")
-	}
-	// Check provider instance allows user refund
-	inst, err := s.getRefundOrderProviderInstance(ctx, o)
-	if err != nil || inst == nil {
-		return nil, infraerrors.Forbidden("USER_REFUND_DISABLED", "refund is not available for this order")
-	}
-	if !inst.AllowUserRefund {
-		return nil, infraerrors.Forbidden("USER_REFUND_DISABLED", "user refund is not enabled for this provider")
-	}
-	return o, nil
-}
-
 func (s *PaymentService) executeUserAutoRefund(ctx context.Context, o *dbent.PaymentOrder, uid int64, reason string) error {
 	if s == nil || s.subscriptionSvc == nil {
 		return infraerrors.InternalServer("SUBSCRIPTION_SERVICE_UNAVAILABLE", "subscription service is unavailable")

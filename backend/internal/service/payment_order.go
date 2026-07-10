@@ -693,10 +693,6 @@ func calculateCreateOrderPayAmountForOrder(orderType string, limitAmount, feeRat
 	return calculateCreateOrderPayAmount(limitAmount, effectiveFeeRate, currency)
 }
 
-func calculateCreateOrderPaymentAmount(orderType string, limitAmount, multiplier float64, currency string) float64 {
-	return limitAmount
-}
-
 func validateCreateOrderAmountCurrency(amount float64, currency string) error {
 	amountStr := strconv.FormatFloat(amount, 'f', -1, 64)
 	if _, err := payment.AmountToMinorUnit(amountStr, currency); err != nil {

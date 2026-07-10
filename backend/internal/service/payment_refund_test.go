@@ -239,57 +239,6 @@ func TestRequestRefundRejectsTrafficPackAutoRefund(t *testing.T) {
 	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
 }
 
-func TestValidateRefundRequestRejectsLegacyGuessedProviderInstance(t *testing.T) {
-	ctx := context.Background()
-	client := newPaymentConfigServiceTestClient(t)
-
-	user, err := client.User.Create().
-		SetEmail("refund-legacy@example.com").
-		SetPasswordHash("hash").
-		SetUsername("refund-legacy-user").
-		Save(ctx)
-	require.NoError(t, err)
-
-	_, err = client.PaymentProviderInstance.Create().
-		SetProviderKey(payment.TypeAlipay).
-		SetName("alipay-refund-instance").
-		SetConfig("{}").
-		SetSupportedTypes("alipay").
-		SetEnabled(true).
-		SetAllowUserRefund(true).
-		SetRefundEnabled(true).
-		Save(ctx)
-	require.NoError(t, err)
-
-	order, err := client.PaymentOrder.Create().
-		SetUserID(user.ID).
-		SetUserEmail(user.Email).
-		SetUserName(user.Username).
-		SetAmount(88).
-		SetPayAmount(88).
-		SetFeeRate(0).
-		SetRechargeCode("REFUND-LEGACY-ORDER").
-		SetOutTradeNo("sub2_refund_legacy_order").
-		SetPaymentType(payment.TypeAlipay).
-		SetPaymentTradeNo("trade-legacy-refund").
-		SetOrderType(payment.OrderTypeBalance).
-		SetStatus(OrderStatusCompleted).
-		SetExpiresAt(time.Now().Add(time.Hour)).
-		SetPaidAt(time.Now()).
-		SetClientIP("127.0.0.1").
-		SetSrcHost("api.example.com").
-		Save(ctx)
-	require.NoError(t, err)
-
-	svc := &PaymentService{
-		entClient: client,
-	}
-
-	_, err = svc.validateRefundRequest(ctx, order.ID, user.ID)
-	require.Error(t, err)
-	require.Equal(t, "USER_REFUND_DISABLED", infraerrors.Reason(err))
-}
-
 func TestPrepareRefundRejectsLegacyGuessedProviderInstance(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

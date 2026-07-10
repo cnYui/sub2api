@@ -29,7 +29,7 @@ func (r *trafficPackRepository) ListForSale(ctx context.Context) ([]service.Traf
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	packs := []service.TrafficPack{}
 	for rows.Next() {
 		var pack service.TrafficPack
@@ -112,7 +112,7 @@ func (r *trafficPackRepository) CreditPurchase(ctx context.Context, input servic
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	expiresAt := input.CreditedAt.AddDate(0, 0, validityDays)
 	var creditID int64
 	err = tx.QueryRowContext(ctx, `
@@ -141,7 +141,7 @@ func (r *trafficPackRepository) Deduct(ctx context.Context, userID int64, amount
 	if err != nil {
 		return false, nil, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	batches, err := r.listDeductibleCredits(ctx, tx, userID, now)
 	if err != nil {
 		return false, nil, err
@@ -182,7 +182,7 @@ func (r *trafficPackRepository) listDeductibleCredits(ctx context.Context, tx *s
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	batches := []service.TrafficCreditBatch{}
 	for rows.Next() {
 		var batch service.TrafficCreditBatch

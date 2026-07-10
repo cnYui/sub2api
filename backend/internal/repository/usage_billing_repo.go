@@ -206,7 +206,7 @@ func listUsageBillingTrafficCredits(ctx context.Context, tx *sql.Tx, userID int6
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	batches := []service.TrafficCreditBatch{}
 	for rows.Next() {

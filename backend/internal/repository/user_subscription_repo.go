@@ -439,7 +439,7 @@ func (r *userSubscriptionRepository) CalibrateActiveDailyUsageWindows(ctx contex
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := &service.SubscriptionDailyWindowCalibrationResult{}
 	for rows.Next() {
@@ -482,7 +482,7 @@ func (r *userSubscriptionRepository) CountStaleActiveDailyWindows(ctx context.Co
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	if rows.Next() {
 		if err := rows.Scan(&count); err != nil {
 			return 0, err
