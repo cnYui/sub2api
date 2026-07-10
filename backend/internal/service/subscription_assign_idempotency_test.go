@@ -248,6 +248,15 @@ func (s *subscriptionUserSubRepoStub) Update(_ context.Context, sub *UserSubscri
 	return nil
 }
 
+func (s *subscriptionUserSubRepoStub) UpdateStatus(_ context.Context, id int64, status string) error {
+	existing := s.byID[id]
+	if existing == nil {
+		return ErrSubscriptionNotFound
+	}
+	existing.Status = status
+	return nil
+}
+
 func (s *subscriptionUserSubRepoStub) Delete(_ context.Context, id int64) error {
 	existing := s.byID[id]
 	if existing == nil {

@@ -525,6 +525,10 @@ func (s *SubscriptionService) RevokeSubscription(ctx context.Context, subscripti
 		return err
 	}
 
+	if err := s.userSubRepo.UpdateStatus(ctx, subscriptionID, SubscriptionStatusExpired); err != nil {
+		return err
+	}
+
 	if err := s.userSubRepo.Delete(ctx, subscriptionID); err != nil {
 		return err
 	}

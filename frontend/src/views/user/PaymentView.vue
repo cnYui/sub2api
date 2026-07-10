@@ -596,7 +596,12 @@ const hasActiveSubscriptionForPurchase = computed(() =>
   activeSubscriptions.value.some(subscription => subscription.status === 'active')
 )
 
-function showActiveSubscriptionPurchaseBlocked(): boolean {
+async function refreshAndShowActiveSubscriptionPurchaseBlocked(): Promise<boolean> {
+  try {
+    await subscriptionStore.fetchActiveSubscriptions(true)
+  } catch {
+    // 刷新失败时保留当前缓存判断，最终仍由后端购买保护兜底。
+  }
   if (!hasActiveSubscriptionForPurchase.value) return false
   appStore.showError(t('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS'))
   return true
@@ -776,8 +781,8 @@ const planValiditySuffix = computed(() => {
   return `${selectedPlan.value.validity_days}${t('payment.days')}`
 })
 
-function selectPlan(plan: SubscriptionPlan) {
-  if (showActiveSubscriptionPurchaseBlocked()) return
+async function selectPlan(plan: SubscriptionPlan) {
+  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
   selectedPlan.value = plan
   selectedTrafficPack.value = null
   errorMessage.value = ''
@@ -791,13 +796,13 @@ function selectTrafficPack(pack: TrafficPack) {
   selectFirstAvailableProductMethod(productMethodOptionsFor(pack.price))
 }
 
-function selectPurchaseProduct(item: PurchaseProduct) {
+async function selectPurchaseProduct(item: PurchaseProduct) {
   if (item.type === 'balance_recharge') {
     openRechargeConfirm(1)
     return
   }
   if (item.type === 'subscription') {
-    selectPlan(item.plan)
+    await selectPlan(item.plan)
     return
   }
   selectTrafficPack(item.pack)
@@ -819,8 +824,8 @@ function openRechargeConfirm(defaultAmount = 1) {
   rechargeAmount.value = String(Math.min(100, Math.max(1, Math.ceil(defaultAmount))))
 }
 
-function selectPlanFromModal(plan: SubscriptionPlan) {
-  if (showActiveSubscriptionPurchaseBlocked()) return
+async function selectPlanFromModal(plan: SubscriptionPlan) {
+  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
   showRenewalModal.value = false
   renewGroupId.value = null
   selectedPlan.value = plan
@@ -835,7 +840,7 @@ function closeRenewalModal() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  if (showActiveSubscriptionPurchaseBlocked()) return
+  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
   if (!canSubmitSubscription.value) {
     appStore.showError(t('payment.notAvailable'))
     return
