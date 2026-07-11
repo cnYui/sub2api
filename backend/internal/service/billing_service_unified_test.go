@@ -60,6 +60,79 @@ func TestCalculateCostUnified_TokenMode(t *testing.T) {
 	require.Equal(t, string(BillingModeToken), cost.BillingMode)
 }
 
+func TestCalculateCostUnified_OpenAIPriorityKeepsChannelAndGroupMultipliers(t *testing.T) {
+	flatGroupID := int64(10)
+	intervalGroupID := int64(11)
+	cs := newTestChannelServiceWithCache(t, &channelCache{
+		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{
+			{groupID: flatGroupID, model: "gpt-5.5"}: {
+				BillingMode:    BillingModeToken,
+				InputPrice:     testPtrFloat64(4e-6),
+				OutputPrice:    testPtrFloat64(20e-6),
+				CacheReadPrice: testPtrFloat64(0.4e-6),
+			},
+			{groupID: intervalGroupID, model: "gpt-5.4"}: {
+				BillingMode: BillingModeToken,
+				Intervals: []PricingInterval{{
+					MinTokens:      0,
+					MaxTokens:      testPtrInt(1000),
+					InputPrice:     testPtrFloat64(3e-6),
+					OutputPrice:    testPtrFloat64(18e-6),
+					CacheReadPrice: testPtrFloat64(0.3e-6),
+				}},
+			},
+		},
+		channelByGroupID: map[int64]*Channel{
+			flatGroupID:     {ID: flatGroupID, Status: StatusActive},
+			intervalGroupID: {ID: intervalGroupID, Status: StatusActive},
+		},
+		groupPlatform:           map[int64]string{flatGroupID: "", intervalGroupID: ""},
+		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
+		mappingByGroupModel:     map[channelModelKey]string{},
+		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
+		byID:                    map[int64]*Channel{},
+	})
+
+	bs := newTestBillingService()
+	resolver := NewModelPricingResolver(cs, bs)
+	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50, CacheReadTokens: 20}
+	groupMultiplier := 1.2
+
+	tests := []struct {
+		name               string
+		model              string
+		groupID            int64
+		priorityMultiplier float64
+		inputPrice         float64
+		outputPrice        float64
+		cacheReadPrice     float64
+	}{
+		{name: "flat", model: "gpt-5.5", groupID: flatGroupID, priorityMultiplier: 2.5, inputPrice: 4e-6, outputPrice: 20e-6, cacheReadPrice: 0.4e-6},
+		{name: "interval", model: "gpt-5.4", groupID: intervalGroupID, priorityMultiplier: 2.0, inputPrice: 3e-6, outputPrice: 18e-6, cacheReadPrice: 0.3e-6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cost, err := bs.CalculateCostUnified(CostInput{
+				Ctx:            context.Background(),
+				Model:          tt.model,
+				GroupID:        &tt.groupID,
+				Tokens:         tokens,
+				RateMultiplier: groupMultiplier,
+				ServiceTier:    "priority",
+				Resolver:       resolver,
+			})
+			require.NoError(t, err)
+
+			expectedTotal := (float64(tokens.InputTokens)*tt.inputPrice +
+				float64(tokens.OutputTokens)*tt.outputPrice +
+				float64(tokens.CacheReadTokens)*tt.cacheReadPrice) * tt.priorityMultiplier
+			require.InDelta(t, expectedTotal, cost.TotalCost, 1e-12)
+			require.InDelta(t, expectedTotal*groupMultiplier, cost.ActualCost, 1e-12)
+		})
+	}
+}
+
 func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 	// Set up a ChannelService with a per-request pricing channel
 	cs := newTestChannelServiceWithCache(t, &channelCache{

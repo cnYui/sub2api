@@ -111,7 +111,7 @@ const (
 	openAIGPT54LongContextInputThreshold   = 272000
 	openAIGPT54LongContextInputMultiplier  = 2.0
 	openAIGPT54LongContextOutputMultiplier = 1.5
-	openAIPriorityServiceTierMultiplier    = 1.5
+	defaultPriorityServiceTierMultiplier   = 1.5
 )
 
 func normalizeBillingServiceTier(serviceTier string) string {
@@ -121,7 +121,7 @@ func normalizeBillingServiceTier(serviceTier string) string {
 func serviceTierCostMultiplier(serviceTier string) float64 {
 	switch normalizeBillingServiceTier(serviceTier) {
 	case "priority":
-		return openAIPriorityServiceTierMultiplier
+		return defaultPriorityServiceTierMultiplier
 	case "flex":
 		return 0.5
 	default:
@@ -129,30 +129,62 @@ func serviceTierCostMultiplier(serviceTier string) float64 {
 	}
 }
 
-func withPriorityServiceTierPrices(pricing *ModelPricing) *ModelPricing {
+func isOpenAIModelFamily(model, family string) bool {
+	return model == family || strings.HasPrefix(model, family+"-")
+}
+
+func openAIPriorityServiceTierMultiplier(model string) float64 {
+	canonical := canonicalizeOpenAIModelAliasSpelling(model)
+	switch {
+	case isOpenAIModelFamily(canonical, "gpt-5.5") &&
+		!isOpenAIModelFamily(canonical, "gpt-5.5-pro"):
+		return 2.5
+	case isOpenAIModelFamily(canonical, "gpt-5.4") &&
+		!isOpenAIModelFamily(canonical, "gpt-5.4-mini") &&
+		!isOpenAIModelFamily(canonical, "gpt-5.4-nano") &&
+		!isOpenAIModelFamily(canonical, "gpt-5.4-pro"):
+		return 2.0
+	case isOpenAIModelFamily(canonical, "gpt-5.6-sol"),
+		isOpenAIModelFamily(canonical, "gpt-5.6-terra"),
+		isOpenAIModelFamily(canonical, "gpt-5.6-luna"):
+		return 2.0
+	default:
+		return defaultPriorityServiceTierMultiplier
+	}
+}
+
+func modelServiceTierCostMultiplier(model, serviceTier string) float64 {
+	if normalizeBillingServiceTier(serviceTier) == "priority" {
+		return openAIPriorityServiceTierMultiplier(model)
+	}
+	return serviceTierCostMultiplier(serviceTier)
+}
+
+func withPriorityServiceTierPrices(model string, pricing *ModelPricing) *ModelPricing {
 	if pricing == nil {
 		return nil
 	}
 	cloned := *pricing
-	applyPriorityServiceTierPrices(&cloned)
+	applyPriorityServiceTierPrices(model, &cloned)
 	return &cloned
 }
 
-func applyPriorityServiceTierPrices(pricing *ModelPricing) {
+func applyPriorityServiceTierPrices(model string, pricing *ModelPricing) {
 	if pricing == nil {
 		return
 	}
+	multiplier := openAIPriorityServiceTierMultiplier(model)
 	pricing.InputPricePerTokenPriority = 0
 	if pricing.InputPricePerToken > 0 {
-		pricing.InputPricePerTokenPriority = pricing.InputPricePerToken * openAIPriorityServiceTierMultiplier
+		pricing.InputPricePerTokenPriority = pricing.InputPricePerToken * multiplier
 	}
 	pricing.OutputPricePerTokenPriority = 0
 	if pricing.OutputPricePerToken > 0 {
-		pricing.OutputPricePerTokenPriority = pricing.OutputPricePerToken * openAIPriorityServiceTierMultiplier
+		pricing.OutputPricePerTokenPriority = pricing.OutputPricePerToken * multiplier
 	}
 	pricing.CacheReadPricePerTokenPriority = 0
 	if pricing.CacheReadPricePerToken > 0 {
-		pricing.CacheReadPricePerTokenPriority = pricing.CacheReadPricePerToken * openAIPriorityServiceTierMultiplier
+		pricing.CacheReadPricePerTokenPriority = pricing.CacheReadPricePerToken * multiplier
 	}
 }
 
@@ -737,7 +769,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				LongContextOutputMultiplier:    litellmPricing.LongContextOutputCostMultiplier,
 				ImageOutputPricePerToken:       litellmPricing.OutputCostPerImageToken,
 			})
-			return withPriorityServiceTierPrices(pricing), nil
+			return withPriorityServiceTierPrices(model, pricing), nil
 		}
 	}
 
@@ -745,7 +777,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	fallback := s.getFallbackPricing(model)
 	if fallback != nil {
 		log.Printf("[Billing] Using fallback pricing for model: %s", model)
-		return withPriorityServiceTierPrices(s.applyModelSpecificPricingPolicy(model, fallback)), nil
+		return withPriorityServiceTierPrices(model, s.applyModelSpecificPricingPolicy(model, fallback)), nil
 	}
 
 	return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
@@ -784,7 +816,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 		pricing.ImageOutputPricePerToken = 0
 	}
 	pricing.ImageOutputPriceExplicit = true
-	applyPriorityServiceTierPrices(pricing)
+	applyPriorityServiceTierPrices(model, pricing)
 	return pricing, nil
 }
 
@@ -857,13 +889,13 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	// 长上下文定价仅在无区间定价时应用（区间定价已包含上下文分层）
 	applyLongCtx := len(resolved.Intervals) == 0
 
-	return s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx), nil
+	return s.computeTokenBreakdown(input.Model, pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx), nil
 }
 
 // computeTokenBreakdown 是 token 计费的核心逻辑，由 calculateTokenCost 和 calculateCostInternal 共用。
 // applyLongCtx 控制是否检查长上下文定价（区间定价已自含上下文分层，不需要额外应用）。
 func (s *BillingService) computeTokenBreakdown(
-	pricing *ModelPricing, tokens UsageTokens,
+	model string, pricing *ModelPricing, tokens UsageTokens,
 	rateMultiplier float64, serviceTier string,
 	applyLongCtx bool,
 ) *CostBreakdown {
@@ -876,7 +908,7 @@ func (s *BillingService) computeTokenBreakdown(
 	outputPrice := pricing.OutputPricePerToken
 	cacheReadPrice := pricing.CacheReadPricePerToken
 	cacheCreationMultiplier := 1.0
-	tierMultiplier := serviceTierCostMultiplier(serviceTier)
+	tierMultiplier := modelServiceTierCostMultiplier(model, serviceTier)
 
 	if applyLongCtx && s.shouldApplySessionLongContextPricing(tokens, pricing) {
 		inputPrice *= pricing.LongContextInputMultiplier
@@ -1014,7 +1046,7 @@ func (s *BillingService) calculateCostInternal(model string, tokens UsageTokens,
 	}
 
 	// 旧路径始终检查长上下文定价（无区间定价概念）
-	return s.computeTokenBreakdown(pricing, tokens, rateMultiplier, serviceTier, true), nil
+	return s.computeTokenBreakdown(model, pricing, tokens, rateMultiplier, serviceTier, true), nil
 }
 
 func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *ModelPricing) *ModelPricing {
