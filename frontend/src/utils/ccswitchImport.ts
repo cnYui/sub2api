@@ -25,7 +25,7 @@ function resolveOpenAiImportUrls(baseUrl: string): {
   usageBaseUrl: string
 } {
   const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '')
-  const usageBaseUrl = normalizedBaseUrl.replace(/\/v1$/i, '')
+  const usageBaseUrl = normalizedBaseUrl.replace(/(?:\/v1)+$/i, '')
 
   return {
     endpoint: `${usageBaseUrl}/v1`,

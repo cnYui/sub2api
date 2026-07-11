@@ -211,9 +211,10 @@ describe('KeysView 自动 API Key', () => {
     getPublicSettings.mockResolvedValueOnce({ api_base_url: 'https://api.aaccx.pw' })
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     let fakeTimersEnabled = false
+    let wrapper: ReturnType<typeof mountKeysView> | undefined
 
     try {
-      const wrapper = mountKeysView()
+      wrapper = mountKeysView()
       await flushPromises()
       const importButton = wrapper
         .findAll('button')
@@ -234,11 +235,15 @@ describe('KeysView 自动 API Key', () => {
       expect(params.get('usageBaseUrl')).toBe('https://api.aaccx.pw')
       expect(atob(params.get('usageScript') || '')).toContain('{{baseUrl}}/v1/usage')
     } finally {
-      if (fakeTimersEnabled) {
-        vi.clearAllTimers()
-        vi.useRealTimers()
+      try {
+        if (fakeTimersEnabled) {
+          vi.clearAllTimers()
+          vi.useRealTimers()
+        }
+        wrapper?.unmount()
+      } finally {
+        openSpy.mockRestore()
       }
-      openSpy.mockRestore()
     }
   })
 })

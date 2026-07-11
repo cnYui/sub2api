@@ -44,6 +44,8 @@ describe('ccswitchImport utils', () => {
     ['https://api.example.com/', 'https://api.example.com/v1', 'https://api.example.com'],
     ['https://api.example.com/v1', 'https://api.example.com/v1', 'https://api.example.com'],
     ['https://api.example.com/v1/', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1/v1', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1/v1/', 'https://api.example.com/v1', 'https://api.example.com'],
     ['  https://api.example.com/V1/  ', 'https://api.example.com/v1', 'https://api.example.com']
   ])(
     'normalizes OpenAI base URL %s to one v1 endpoint',
