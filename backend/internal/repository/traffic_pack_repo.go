@@ -7,6 +7,7 @@ import (
 	"math"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -108,29 +109,42 @@ func (r *trafficPackRepository) CreditPurchase(ctx context.Context, input servic
 	if input.UserID <= 0 || input.OrderID <= 0 || creditUSD <= 0 {
 		return service.ErrInvalidInput
 	}
+	expiresAt := input.CreditedAt.AddDate(0, 0, validityDays)
+	return r.withCreditPurchaseTx(ctx, func(txCtx context.Context, exec sqlExecutor) error {
+		var creditID int64
+		err := scanSingleRow(txCtx, exec, `
+			INSERT INTO user_traffic_credits (user_id, order_id, pack_id, platform, initial_usd, remaining_usd, credited_at, expires_at, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $6, $6)
+			ON CONFLICT (order_id) DO NOTHING
+			RETURNING id
+		`, []any{input.UserID, input.OrderID, input.PackID, service.TrafficPackPlatformOpenAI, creditUSD, input.CreditedAt, expiresAt}, &creditID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		_, err = exec.ExecContext(txCtx, `
+			INSERT INTO traffic_credit_ledger (user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at)
+			VALUES ($1, $2, $3, '', $4, $5, $5, $6)
+		`, input.UserID, creditID, input.OrderID, service.TrafficCreditLedgerTypePurchase, creditUSD, input.CreditedAt)
+		return err
+	})
+}
+
+func (r *trafficPackRepository) withCreditPurchaseTx(ctx context.Context, fn func(context.Context, sqlExecutor) error) error {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		// 余额支付会在外层事务内先创建订单，入账必须复用同一事务才能满足外键约束。
+		return fn(ctx, tx.Client())
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	expiresAt := input.CreditedAt.AddDate(0, 0, validityDays)
-	var creditID int64
-	err = tx.QueryRowContext(ctx, `
-		INSERT INTO user_traffic_credits (user_id, order_id, pack_id, platform, initial_usd, remaining_usd, credited_at, expires_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $6, $6)
-		ON CONFLICT (order_id) DO NOTHING
-		RETURNING id
-	`, input.UserID, input.OrderID, input.PackID, service.TrafficPackPlatformOpenAI, creditUSD, input.CreditedAt, expiresAt).Scan(&creditID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return tx.Commit()
-	}
-	if err != nil {
-		return err
-	}
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO traffic_credit_ledger (user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at)
-		VALUES ($1, $2, $3, '', $4, $5, $5, $6)
-	`, input.UserID, creditID, input.OrderID, service.TrafficCreditLedgerTypePurchase, creditUSD, input.CreditedAt); err != nil {
+
+	if err := fn(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit()
