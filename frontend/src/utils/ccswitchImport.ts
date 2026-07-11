@@ -8,6 +8,7 @@ export interface CcSwitchImportConfig {
   app: string
   endpoint: string
   model?: string
+  usageBaseUrl?: string
 }
 
 export interface CcSwitchImportDeeplinkInput {
@@ -17,6 +18,19 @@ export interface CcSwitchImportDeeplinkInput {
   providerName: string
   apiKey: string
   usageScript: string
+}
+
+function resolveOpenAiImportUrls(baseUrl: string): {
+  endpoint: string
+  usageBaseUrl: string
+} {
+  const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, '')
+  const usageBaseUrl = normalizedBaseUrl.replace(/\/v1$/i, '')
+
+  return {
+    endpoint: `${usageBaseUrl}/v1`,
+    usageBaseUrl
+  }
 }
 
 export function resolveCcSwitchImportConfig(
@@ -30,12 +44,14 @@ export function resolveCcSwitchImportConfig(
         app: clientType === 'gemini' ? 'gemini' : 'claude',
         endpoint: `${baseUrl}/antigravity`
       }
-    case 'openai':
+    case 'openai': {
+      const urls = resolveOpenAiImportUrls(baseUrl)
       return {
         app: 'codex',
-        endpoint: baseUrl,
+        ...urls,
         model: OPENAI_CC_SWITCH_CODEX_MODEL
       }
+    }
     case 'gemini':
       return {
         app: 'gemini',
@@ -54,19 +70,19 @@ export function buildCcSwitchImportDeeplink(input: CcSwitchImportDeeplinkInput):
   const entries: [string, string][] = [
     ['resource', 'provider'],
     ['app', config.app],
+    ...(config.model ? [['model', config.model] as [string, string]] : []),
     ['name', input.providerName],
     ['homepage', input.baseUrl],
     ['endpoint', config.endpoint],
+    ...(config.usageBaseUrl
+      ? [['usageBaseUrl', config.usageBaseUrl] as [string, string]]
+      : []),
     ['apiKey', input.apiKey],
     ['configFormat', 'json'],
     ['usageEnabled', 'true'],
     ['usageScript', btoa(input.usageScript)],
     ['usageAutoInterval', '30']
   ]
-
-  if (config.model) {
-    entries.splice(2, 0, ['model', config.model])
-  }
 
   return `ccswitch://v1/import?${new URLSearchParams(entries).toString()}`
 }
