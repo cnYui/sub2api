@@ -92,6 +92,18 @@ const automaticKey = {
   reset_7d_at: null,
 }
 
+const openAiKey = {
+  ...automaticKey,
+  group_id: 2,
+  group: {
+    id: 2,
+    name: 'codex-pool-19-usd',
+    platform: 'openai',
+    subscription_type: 'subscription',
+    rate_multiplier: 1,
+  },
+}
+
 function mountKeysView() {
   return mount(KeysView, {
     global: {
@@ -186,5 +198,52 @@ describe('KeysView 自动 API Key', () => {
       undefined,
       { rate_limit_5h: 0, rate_limit_1d: 0, rate_limit_7d: 0 }
     )
+  })
+
+  it('把 OpenAI Key 导入为带 v1 端点的 Codex 配置', async () => {
+    keysList.mockResolvedValueOnce({
+      items: [openAiKey],
+      total: 1,
+      pages: 1,
+      page: 1,
+      page_size: 10,
+    })
+    getPublicSettings.mockResolvedValueOnce({ api_base_url: 'https://api.aaccx.pw' })
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    let fakeTimersEnabled = false
+    let wrapper: ReturnType<typeof mountKeysView> | undefined
+
+    try {
+      wrapper = mountKeysView()
+      await flushPromises()
+      const importButton = wrapper
+        .findAll('button')
+        .find((button) => button.text() === 'keys.importToCcSwitch')
+
+      expect(importButton).toBeDefined()
+      vi.useFakeTimers()
+      fakeTimersEnabled = true
+      await importButton!.trigger('click')
+
+      expect(openSpy).toHaveBeenCalledTimes(1)
+      const [deeplink] = openSpy.mock.calls[0]
+      const query = String(deeplink).split('?')[1] || ''
+      const params = new URLSearchParams(query)
+
+      expect(params.get('app')).toBe('codex')
+      expect(params.get('endpoint')).toBe('https://api.aaccx.pw/v1')
+      expect(params.get('usageBaseUrl')).toBe('https://api.aaccx.pw')
+      expect(atob(params.get('usageScript') || '')).toContain('{{baseUrl}}/v1/usage')
+    } finally {
+      try {
+        if (fakeTimersEnabled) {
+          vi.clearAllTimers()
+          vi.useRealTimers()
+        }
+        wrapper?.unmount()
+      } finally {
+        openSpy.mockRestore()
+      }
+    }
   })
 })

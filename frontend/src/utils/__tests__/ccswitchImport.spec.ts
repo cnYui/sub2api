@@ -22,7 +22,7 @@ describe('ccswitchImport utils', () => {
     usageScript: 'return true'
   }
 
-  it('adds the Codex model parameter for OpenAI imports', () => {
+  it('adds the Codex model and dedicated usage base URL for OpenAI imports', () => {
     const params = paramsFromDeeplink(
       buildCcSwitchImportDeeplink({
         ...baseInput,
@@ -33,10 +33,36 @@ describe('ccswitchImport utils', () => {
 
     expect(params.get('resource')).toBe('provider')
     expect(params.get('app')).toBe('codex')
-    expect(params.get('endpoint')).toBe(baseInput.baseUrl)
+    expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/v1`)
+    expect(params.get('usageBaseUrl')).toBe(baseInput.baseUrl)
     expect(params.get('model')).toBe(OPENAI_CC_SWITCH_CODEX_MODEL)
     expect(atob(params.get('usageScript') || '')).toBe(baseInput.usageScript)
   })
+
+  it.each([
+    ['https://api.example.com', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1/', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1/v1', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['https://api.example.com/v1/v1/', 'https://api.example.com/v1', 'https://api.example.com'],
+    ['  https://api.example.com/V1/  ', 'https://api.example.com/v1', 'https://api.example.com']
+  ])(
+    'normalizes OpenAI base URL %s to one v1 endpoint',
+    (baseUrl, endpoint, usageBaseUrl) => {
+      const params = paramsFromDeeplink(
+        buildCcSwitchImportDeeplink({
+          ...baseInput,
+          baseUrl,
+          platform: 'openai',
+          clientType: 'claude'
+        })
+      )
+
+      expect(params.get('endpoint')).toBe(endpoint)
+      expect(params.get('usageBaseUrl')).toBe(usageBaseUrl)
+    }
+  )
 
   it.each([
     { platform: 'anthropic' as GroupPlatform, clientType: 'claude' as const, app: 'claude' },
@@ -53,6 +79,7 @@ describe('ccswitchImport utils', () => {
     expect(params.get('app')).toBe(app)
     expect(params.get('endpoint')).toBe(baseInput.baseUrl)
     expect(params.has('model')).toBe(false)
+    expect(params.has('usageBaseUrl')).toBe(false)
   })
 
   it('keeps Antigravity imports on the selected client endpoint without a model parameter', () => {
@@ -67,5 +94,6 @@ describe('ccswitchImport utils', () => {
     expect(params.get('app')).toBe('gemini')
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
     expect(params.has('model')).toBe(false)
+    expect(params.has('usageBaseUrl')).toBe(false)
   })
 })
