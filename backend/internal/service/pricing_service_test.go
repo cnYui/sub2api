@@ -169,24 +169,32 @@ func TestDefaultPricingIncludesCodexAutoReview(t *testing.T) {
 	require.InDelta(t, 5e-7, got.CacheReadInputTokenCost, 1e-12)
 }
 
-func TestDefaultPricingIncludesGPT56ModelsWithPriority15x(t *testing.T) {
+func TestDefaultPricingIncludesOfficialOpenAIPriorityRates(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
 
 	svc := &PricingService{}
 	pricingData, err := svc.parsePricingData(data)
 	require.NoError(t, err)
+	var rawPricing map[string]map[string]any
+	require.NoError(t, json.Unmarshal(data, &rawPricing))
 
 	tests := []struct {
-		model      string
-		input      float64
-		cacheRead  float64
-		cacheWrite float64
-		output     float64
+		model              string
+		input              float64
+		cacheRead          float64
+		cacheWrite         float64
+		output             float64
+		priorityMultiplier float64
+		usesLongContext    bool
 	}{
-		{model: "gpt-5.6-sol", input: 5e-6, cacheRead: 0.5e-6, cacheWrite: 6.25e-6, output: 30e-6},
-		{model: "gpt-5.6-terra", input: 2.5e-6, cacheRead: 0.25e-6, cacheWrite: 3.125e-6, output: 15e-6},
-		{model: "gpt-5.6-luna", input: 1e-6, cacheRead: 0.1e-6, cacheWrite: 1.25e-6, output: 6e-6},
+		{model: "gpt-5.4", input: 2.5e-6, cacheRead: 0.25e-6, output: 15e-6, priorityMultiplier: 2.0},
+		{model: "gpt-5.4-2026-03-05", input: 2.5e-6, cacheRead: 0.25e-6, output: 15e-6, priorityMultiplier: 2.0},
+		{model: "gpt-5.5", input: 5e-6, cacheRead: 0.5e-6, output: 30e-6, priorityMultiplier: 2.5},
+		{model: "gpt-5.5-2026-04-23", input: 5e-6, cacheRead: 0.5e-6, output: 30e-6, priorityMultiplier: 2.5},
+		{model: "gpt-5.6-sol", input: 5e-6, cacheRead: 0.5e-6, cacheWrite: 6.25e-6, output: 30e-6, priorityMultiplier: 2.0, usesLongContext: true},
+		{model: "gpt-5.6-terra", input: 2.5e-6, cacheRead: 0.25e-6, cacheWrite: 3.125e-6, output: 15e-6, priorityMultiplier: 2.0, usesLongContext: true},
+		{model: "gpt-5.6-luna", input: 1e-6, cacheRead: 0.1e-6, cacheWrite: 1.25e-6, output: 6e-6, priorityMultiplier: 2.0, usesLongContext: true},
 	}
 
 	for _, tt := range tests {
@@ -194,15 +202,20 @@ func TestDefaultPricingIncludesGPT56ModelsWithPriority15x(t *testing.T) {
 			pricing := pricingData[tt.model]
 			require.NotNil(t, pricing)
 			require.InDelta(t, tt.input, pricing.InputCostPerToken, 1e-12)
-			require.InDelta(t, tt.input*1.5, pricing.InputCostPerTokenPriority, 1e-12)
+			require.InDelta(t, tt.input*tt.priorityMultiplier, pricing.InputCostPerTokenPriority, 1e-12)
 			require.InDelta(t, tt.cacheRead, pricing.CacheReadInputTokenCost, 1e-12)
-			require.InDelta(t, tt.cacheRead*1.5, pricing.CacheReadInputTokenCostPriority, 1e-12)
+			require.InDelta(t, tt.cacheRead*tt.priorityMultiplier, pricing.CacheReadInputTokenCostPriority, 1e-12)
 			require.InDelta(t, tt.cacheWrite, pricing.CacheCreationInputTokenCost, 1e-12)
 			require.InDelta(t, tt.output, pricing.OutputCostPerToken, 1e-12)
-			require.InDelta(t, tt.output*1.5, pricing.OutputCostPerTokenPriority, 1e-12)
-			require.Equal(t, 272000, pricing.LongContextInputTokenThreshold)
-			require.InDelta(t, 2.0, pricing.LongContextInputCostMultiplier, 1e-12)
-			require.InDelta(t, 1.5, pricing.LongContextOutputCostMultiplier, 1e-12)
+			require.InDelta(t, tt.output*tt.priorityMultiplier, pricing.OutputCostPerTokenPriority, 1e-12)
+			if tt.cacheWrite > 0 {
+				require.InDelta(t, tt.cacheWrite*tt.priorityMultiplier, rawPricing[tt.model]["cache_creation_input_token_cost_priority"], 1e-12)
+			}
+			if tt.usesLongContext {
+				require.Equal(t, 272000, pricing.LongContextInputTokenThreshold)
+				require.InDelta(t, 2.0, pricing.LongContextInputCostMultiplier, 1e-12)
+				require.InDelta(t, 1.5, pricing.LongContextOutputCostMultiplier, 1e-12)
+			}
 			require.True(t, pricing.SupportsServiceTier)
 			require.True(t, pricing.SupportsPromptCaching)
 		})
