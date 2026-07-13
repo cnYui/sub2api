@@ -810,7 +810,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const text = wrapper.text()
-    expect(text).toContain('阅读订阅套餐A')
+    expect(text).toContain('月度订阅套餐A')
     expect(text).toContain('手续费详情¥29元 + 1%')
     expect(text).toContain('5刀流量卡')
     expect(text).toContain('手续费详情¥2元 + 1%')
@@ -897,8 +897,8 @@ describe('PaymentView tab defaults', () => {
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
     expect(purchaseCards).toHaveLength(9)
     expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
-    expect(wrapper.text()).toContain('阅读订阅套餐A')
-    expect(wrapper.text()).toContain('阅读订阅套餐D')
+    expect(wrapper.text()).toContain('月度订阅套餐A')
+    expect(wrapper.text()).toContain('月度订阅套餐D')
     expect(wrapper.text()).toContain('5刀流量卡')
 
     await purchaseCards[index].trigger('click')
@@ -953,10 +953,10 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('阅读订阅套餐F')
+    expect(wrapper.text()).toContain('月度订阅套餐F')
     expect(wrapper.text()).toContain('日限额135刀')
     expect(wrapper.text()).toContain('¥149')
-    expect(wrapper.text()).toContain('阅读订阅套餐G')
+    expect(wrapper.text()).toContain('月度订阅套餐G')
     expect(wrapper.text()).toContain('日限额179刀')
     expect(wrapper.text()).toContain('¥199')
 

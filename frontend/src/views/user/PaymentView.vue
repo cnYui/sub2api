@@ -634,7 +634,7 @@ function buildSubscriptionProduct(plan: SubscriptionPlan, index: number): Subscr
     plan,
     product: {
       testId: 'purchase-product-card',
-      title: `阅读订阅套餐${planTitleSuffix(index)}`,
+      title: `月度订阅套餐${planTitleSuffix(index)}`,
       priceText: formatCardPrice(calculatePayableAmount(plan.price, feeRate.value)),
       buttonText: active ? t('payment.renewNow') : t('payment.subscribeNow'),
       active,

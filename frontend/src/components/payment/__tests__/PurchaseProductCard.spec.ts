@@ -5,7 +5,7 @@ import type { PurchaseProductCardModel } from '../purchaseProductCard'
 
 const productFixture = (overrides: Partial<PurchaseProductCardModel> = {}): PurchaseProductCardModel => ({
   testId: 'purchase-product-card',
-  title: '阅读订阅套餐A',
+  title: '月度订阅套餐A',
   priceText: '¥29.29',
   buttonText: '立即开通',
   active: false,
@@ -40,7 +40,7 @@ describe('PurchaseProductCard', () => {
       'dark:to-black',
     ]))
     expect(text).toContain('PLAN')
-    expect(text).toContain('阅读订阅套餐A')
+    expect(text).toContain('月度订阅套餐A')
     expect(text).toContain('Price')
     expect(text).toContain('¥29.29')
     expect(text).toContain('日限额19刀')
