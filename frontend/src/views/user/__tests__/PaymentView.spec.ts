@@ -150,6 +150,7 @@ function checkoutInfoFixture() {
         },
       ],
       traffic_credit_summary: {
+        total_initial_usd: 10,
         total_remaining_usd: 8,
         next_expiring_usd: 5,
         next_expires_at: '2027-06-22T12:00:00Z',

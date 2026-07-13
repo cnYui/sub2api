@@ -79,6 +79,7 @@ describe('SubscriptionsView traffic packs', () => {
           },
         ],
         traffic_credit_summary: {
+          total_initial_usd: 10,
           total_remaining_usd: 10,
           next_expiring_usd: 10,
           next_expires_at: '2027-06-26T08:57:24+08:00',
@@ -114,6 +115,82 @@ describe('SubscriptionsView traffic packs', () => {
     expect(wrapper.findAll('button').some(button => button.text().includes('购买'))).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('userSubscriptions.noActiveSubscriptions')
+  })
+
+  it('按初始总额展示流量包已用额度和正向进度', async () => {
+    getMySubscriptions.mockResolvedValue([])
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        methods: {},
+        global_min: 0,
+        global_max: 0,
+        plans: [],
+        traffic_packs: [],
+        traffic_credit_summary: {
+          total_initial_usd: 10,
+          total_remaining_usd: 7,
+          next_expiring_usd: 7,
+          next_expires_at: '2027-06-26T08:57:24+08:00',
+        },
+        balance_disabled: false,
+        balance_recharge_multiplier: 1,
+        recharge_fee_rate: 0,
+        help_text: '',
+        help_image_url: '',
+        stripe_publishable_key: '',
+      },
+    })
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('$3.00 / $10.00')
+    expect(wrapper.find('[data-testid="traffic-credit-progress"]').attributes('style')).toContain('width: 30%')
+  })
+
+  it('所有流量卡用满后隐藏流量包卡片', async () => {
+    getMySubscriptions.mockResolvedValue([])
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        methods: {},
+        global_min: 0,
+        global_max: 0,
+        plans: [],
+        traffic_packs: [],
+        traffic_credit_summary: {
+          total_initial_usd: 0,
+          total_remaining_usd: 0,
+          next_expiring_usd: 0,
+        },
+        balance_disabled: false,
+        balance_recharge_multiplier: 1,
+        recharge_fee_rate: 0,
+        help_text: '',
+        help_image_url: '',
+        stripe_publishable_key: '',
+      },
+    })
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="traffic-credit-progress"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('userSubscriptions.noActiveSubscriptions')
+    expect(wrapper.text()).not.toContain('GPT 流量包')
   })
 
   it('订阅页展示 active 订阅时不提供续费入口', async () => {

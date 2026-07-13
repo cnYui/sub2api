@@ -105,12 +105,14 @@ const hasTrafficPackContent = computed(() =>
 )
 const trafficCreditExpiration = computed(() => '剩余 365 天')
 const trafficCreditUsageRows = computed<SubscriptionUsageRow[]>(() => {
+  const total = trafficCreditSummary.value?.total_initial_usd ?? 0
   const remaining = trafficCreditSummary.value?.total_remaining_usd ?? 0
+  const used = Math.max(total - remaining, 0)
   return [{
     label: '总计',
-    value: `$0.00 / $${remaining.toFixed(2)}`,
-    progressWidth: getProgressWidth(0, remaining),
-    progressClass: getProgressBarClass(0, remaining),
+    value: `$${used.toFixed(2)} / $${total.toFixed(2)}`,
+    progressWidth: getProgressWidth(used, total),
+    progressClass: getProgressBarClass(used, total),
     testId: 'traffic-credit-progress',
   }]
 })
