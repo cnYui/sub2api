@@ -61,10 +61,10 @@ func (r *trafficPackRepository) GetForSaleByID(ctx context.Context, id int64) (*
 func (r *trafficPackRepository) GetSummary(ctx context.Context, userID int64, now time.Time) (*service.TrafficCreditSummary, error) {
 	summary := &service.TrafficCreditSummary{}
 	if err := r.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(remaining_usd), 0)
+		SELECT COALESCE(SUM(initial_usd), 0), COALESCE(SUM(remaining_usd), 0)
 		FROM user_traffic_credits
 		WHERE user_id = $1 AND platform = $2 AND remaining_usd > 0 AND expires_at > $3
-	`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&summary.TotalRemainingUSD); err != nil {
+	`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&summary.TotalInitialUSD, &summary.TotalRemainingUSD); err != nil {
 		return nil, err
 	}
 	var nextExpiresAt time.Time

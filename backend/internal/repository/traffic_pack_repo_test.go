@@ -89,6 +89,7 @@ func TestTrafficPackRepository_CreditPurchaseIsIdempotentAndSummarizes(t *testin
 
 	summary, err := repo.GetSummary(ctx, 7, now)
 	require.NoError(t, err)
+	require.InDelta(t, 20, summary.TotalInitialUSD, 0.000001)
 	require.InDelta(t, 20, summary.TotalRemainingUSD, 0.000001)
 	require.InDelta(t, 20, summary.NextExpiringUSD, 0.000001)
 	require.NotNil(t, summary.NextExpiresAt)
@@ -108,6 +109,11 @@ func TestTrafficPackRepository_DeductConsumesEarliestExpiringCredits(t *testing.
 		require.NoError(t, repo.CreditPurchase(ctx, input))
 	}
 
+	summary, err := repo.GetSummary(ctx, 9, now.Add(48*time.Hour))
+	require.NoError(t, err)
+	require.InDelta(t, 15, summary.TotalInitialUSD, 0.000001)
+	require.InDelta(t, 15, summary.TotalRemainingUSD, 0.000001)
+
 	covered, deductions, err := repo.Deduct(ctx, 9, 7, "req-traffic-1", now.Add(48*time.Hour))
 
 	require.NoError(t, err)
@@ -116,7 +122,13 @@ func TestTrafficPackRepository_DeductConsumesEarliestExpiringCredits(t *testing.
 	require.InDelta(t, 5, deductions[0].AmountUSD, 0.000001)
 	require.InDelta(t, 2, deductions[1].AmountUSD, 0.000001)
 
-	summary, err := repo.GetSummary(ctx, 9, now.Add(48*time.Hour))
+	summary, err = repo.GetSummary(ctx, 9, now.Add(48*time.Hour))
 	require.NoError(t, err)
+	require.InDelta(t, 10, summary.TotalInitialUSD, 0.000001)
 	require.InDelta(t, 8, summary.TotalRemainingUSD, 0.000001)
+
+	summary, err = repo.GetSummary(ctx, 9, now.AddDate(1, 0, 2))
+	require.NoError(t, err)
+	require.Zero(t, summary.TotalInitialUSD)
+	require.Zero(t, summary.TotalRemainingUSD)
 }

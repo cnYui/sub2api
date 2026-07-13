@@ -50,6 +50,7 @@ type TrafficCreditDeduction struct {
 }
 
 type TrafficCreditSummary struct {
+	TotalInitialUSD   float64    `json:"total_initial_usd"`
 	TotalRemainingUSD float64    `json:"total_remaining_usd"`
 	NextExpiringUSD   float64    `json:"next_expiring_usd"`
 	NextExpiresAt     *time.Time `json:"next_expires_at,omitempty"`
