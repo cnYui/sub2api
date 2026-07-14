@@ -76,7 +76,7 @@ it('CCSwitch 视频和封面资源都存在', () => {
 - [ ] **步骤 5：运行目标测试确认失败**
 
 ```bash
-pnpm --dir frontend vitest run src/views/user/__tests__/UsageGuideView.spec.ts
+pnpm -C frontend test:run src/views/user/__tests__/UsageGuideView.spec.ts
 ```
 
 预期：新增测试因视频栏目和两个静态资源尚不存在而失败；原有测试继续通过。
@@ -206,7 +206,7 @@ du -h /Users/wujianxiang/Downloads/112_raw.MP4 frontend/public/usage-guide/ccswi
 - [ ] **步骤 5：运行目标测试确认通过**
 
 ```bash
-pnpm --dir frontend vitest run src/views/user/__tests__/UsageGuideView.spec.ts
+pnpm -C frontend test:run src/views/user/__tests__/UsageGuideView.spec.ts
 ```
 
 预期：`UsageGuideView.spec.ts` 全部通过。
@@ -229,9 +229,9 @@ git commit -m "feat: add CCSwitch usage guide video"
 - [ ] **步骤 1：运行前端验证**
 
 ```bash
-pnpm --dir frontend vitest run src/views/user/__tests__/UsageGuideView.spec.ts
-pnpm --dir frontend typecheck
-pnpm --dir frontend build
+pnpm -C frontend test:run src/views/user/__tests__/UsageGuideView.spec.ts
+pnpm -C frontend typecheck
+pnpm -C frontend build
 git diff --check
 ```
 
@@ -248,7 +248,7 @@ go test -C backend -count=1 -tags=embed ./internal/web
 - [ ] **步骤 3：启动前端并做桌面、移动端视觉检查**
 
 ```bash
-pnpm --dir frontend dev --host 127.0.0.1
+pnpm -C frontend dev --host 127.0.0.1
 ```
 
 检查第六栏目、封面、非自动播放、播放/暂停/拖动/全屏，以及桌面和移动视口无溢出、重叠或文字截断。
@@ -287,8 +287,8 @@ git merge --ff-only codex/add-ccswitch-usage-guide-video
 - [ ] **步骤 3：在 main 上复验**
 
 ```bash
-pnpm --dir frontend vitest run src/views/user/__tests__/UsageGuideView.spec.ts
-pnpm --dir frontend typecheck
+pnpm -C frontend test:run src/views/user/__tests__/UsageGuideView.spec.ts
+pnpm -C frontend typecheck
 git diff --check
 ```
 
