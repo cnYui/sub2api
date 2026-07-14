@@ -8,9 +8,10 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 const viewPath = resolve(currentDir, '../UsageGuideView.vue')
 const routerPath = resolve(currentDir, '../../../router/index.ts')
 const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
+const publicUsageGuideDir = resolve(currentDir, '../../../../public/usage-guide')
 
 describe('UsageGuideView', () => {
-  it('声明使用方法控制台和五个教程栏目', () => {
+  it('声明使用方法控制台和六个教程栏目', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -19,6 +20,8 @@ describe('UsageGuideView', () => {
     expect(source).toContain('const guideTopics')
     expect(source).toContain("id: 'codex'")
     expect(source).toContain("title: 'Codex 接入'")
+    expect(source).toContain("id: 'ccswitch-video'")
+    expect(source).toContain("title: 'CCSwitch 视频教程'")
     expect(source).toContain("id: 'formal-api'")
     expect(source).toContain("title: '规范使用'")
     expect(source).toContain("id: 'copilot-vscode'")
@@ -30,6 +33,39 @@ describe('UsageGuideView', () => {
     expect(source).toContain('activeTopicId')
     expect(source).toContain('data-test="usage-guide-topic-nav-desktop"')
     expect(source).toContain('data-test="usage-guide-topic-tabs-mobile"')
+  })
+
+  it('CCSwitch 视频教程使用本地视频、封面和按需加载播放器', () => {
+    expect(existsSync(viewPath)).toBe(true)
+    if (!existsSync(viewPath)) return
+
+    const source = readFileSync(viewPath, 'utf8')
+    const expectedTokens = [
+      "kind: 'video'",
+      'data-test="usage-guide-video"',
+      'controls',
+      'playsinline',
+      'preload="metadata"',
+      'ccswitch-relay-connection-guide.mp4',
+      'ccswitch-relay-connection-guide-poster.webp',
+      '使用 CCSwitch 接入中转站',
+      '解决 99% 常见的连接不上、断连问题',
+    ]
+
+    for (const token of expectedTokens) {
+      expect(source, `缺少 CCSwitch 视频教程信息：${token}`).toContain(token)
+    }
+
+    expect(source).not.toContain('autoplay')
+  })
+
+  it('CCSwitch 视频和封面资源都存在', () => {
+    expect(
+      existsSync(resolve(publicUsageGuideDir, 'ccswitch-relay-connection-guide.mp4')),
+    ).toBe(true)
+    expect(
+      existsSync(resolve(publicUsageGuideDir, 'ccswitch-relay-connection-guide-poster.webp')),
+    ).toBe(true)
   })
 
   it('Codex 接入声明 8 个使用步骤和 9 张截图，保持指定图片顺序', () => {

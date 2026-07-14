@@ -85,6 +85,22 @@
           </article>
         </div>
 
+        <section v-else-if="activeTopic.kind === 'video'" class="usage-guide-video-section">
+          <h3 class="usage-guide-video-title">{{ activeTopic.video.title }}</h3>
+          <video
+            data-test="usage-guide-video"
+            class="usage-guide-video"
+            :src="activeTopic.video.src"
+            :poster="activeTopic.video.poster"
+            controls
+            playsinline
+            preload="metadata"
+          >
+            当前浏览器无法播放视频，请
+            <a :href="activeTopic.video.src">打开视频文件</a>。
+          </video>
+        </section>
+
         <div v-else class="usage-guide-sections">
           <section
             v-for="section in activeTopic.sections"
@@ -227,6 +243,17 @@ type GuideTopic =
     description: string
     kind: 'sections'
     sections: GuideSection[]
+  }
+  | {
+    id: string
+    title: string
+    description: string
+    kind: 'video'
+    video: {
+      title: string
+      src: string
+      poster: string
+    }
   }
 
 const codexSetupSteps: GuideStep[] = [
@@ -465,6 +492,17 @@ const guideTopics: GuideTopic[] = [
     description: '从购买订阅、兑换、创建 API Key 到配置 cc-switch 的完整步骤。',
     kind: 'steps',
     steps: codexSetupSteps,
+  },
+  {
+    id: 'ccswitch-video',
+    title: 'CCSwitch 视频教程',
+    description: '完整演示使用 CCSwitch 接入中转站，解决 99% 常见的连接不上、断连问题。',
+    kind: 'video',
+    video: {
+      title: '使用 CCSwitch 接入中转站',
+      src: '/usage-guide/ccswitch-relay-connection-guide.mp4',
+      poster: '/usage-guide/ccswitch-relay-connection-guide-poster.webp',
+    },
   },
   {
     id: 'formal-api',
@@ -712,6 +750,31 @@ const activeTopic = computed(() => (
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.usage-guide-video-section {
+  width: 100%;
+  max-width: 60rem;
+}
+
+.usage-guide-video-title {
+  margin: 0 0 0.875rem;
+  color: rgb(17 24 39);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.dark .usage-guide-video-title {
+  color: rgb(248 250 252);
+}
+
+.usage-guide-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.5rem;
+  background: rgb(0 0 0);
+  object-fit: contain;
 }
 
 .guide-step,
