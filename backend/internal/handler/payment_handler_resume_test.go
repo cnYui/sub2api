@@ -75,6 +75,27 @@ func TestApplyWeChatPaymentResumeClaimsRejectsPaymentTypeMismatch(t *testing.T) 
 	}
 }
 
+func TestCreateOrderRequestBindsHybridCheckoutFields(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/payment/orders",
+		bytes.NewBufferString(`{"amount":79,"payment_type":"alipay","order_type":"subscription","plan_id":7,"use_balance":true,"expected_pay_amount":"79.79","expected_balance_amount":"6.32"}`),
+	)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	var req CreateOrderRequest
+	require.NoError(t, ctx.ShouldBindJSON(&req))
+	require.True(t, req.UseBalance)
+	require.Equal(t, "79.79", req.ExpectedPayAmount)
+	require.Equal(t, "6.32", req.ExpectedBalanceAmount)
+}
+
 func TestVerifyOrderPublicReturnsLegacyOrderState(t *testing.T) {
 	t.Parallel()
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -241,13 +243,29 @@ func (s *PaymentService) completeGatewaySubscriptionRefundTransaction(
 			return nil, failure
 		}
 	}
+	balanceRefunded := 0.0
+	if order.FundingMode == paymentFundingModeMixed && order.RefundBalanceAmount > 0 && order.RefundBalanceStatus != RefundGatewaySucceeded {
+		refundUser, err := client.User.Query().Where(user.IDEQ(order.UserID)).Only(txCtx)
+		if err != nil {
+			failure := rollback(fmt.Errorf("load user for hybrid refund balance: %w", err))
+			s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
+			return nil, failure
+		}
+		nextBalance := math.Round((refundUser.Balance+order.RefundBalanceAmount)*100) / 100
+		if _, err := client.User.UpdateOneID(order.UserID).SetBalance(nextBalance).Save(txCtx); err != nil {
+			failure := rollback(fmt.Errorf("refund hybrid balance portion: %w", err))
+			s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
+			return nil, failure
+		}
+		balanceRefunded = order.RefundBalanceAmount
+	}
 
 	finalStatus := OrderStatusRefunded
 	if order.RefundAmount < order.Amount {
 		finalStatus = OrderStatusPartiallyRefunded
 	}
 	now := time.Now()
-	if _, err := client.PaymentOrder.UpdateOneID(order.ID).
+	finalUpdate := client.PaymentOrder.UpdateOneID(order.ID).
 		SetStatus(finalStatus).
 		SetRefundAmount(order.RefundAmount).
 		SetRefundReason(reason).
@@ -255,14 +273,17 @@ func (s *PaymentService) completeGatewaySubscriptionRefundTransaction(
 		SetForceRefund(force).
 		SetRefundEntitlementStatus(RefundEntitlementSucceeded).
 		ClearFailedAt().
-		ClearFailedReason().
-		Save(txCtx); err != nil {
+		ClearFailedReason()
+	if order.FundingMode == paymentFundingModeMixed && order.RefundBalanceAmount > 0 {
+		finalUpdate.SetRefundBalanceStatus(RefundGatewaySucceeded)
+	}
+	if _, err := finalUpdate.Save(txCtx); err != nil {
 		failure := rollback(fmt.Errorf("finalize gateway refund order: %w", err))
 		s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
 		return nil, failure
 	}
 	if err := s.createAuditLogIfAbsentWithClient(txCtx, client, order.ID, "REFUND_SUCCESS", operator, map[string]any{
-		"refundAmount": order.RefundAmount, "reason": reason, "force": force,
+		"refundAmount": order.RefundAmount, "reason": reason, "force": force, "balanceRefunded": balanceRefunded,
 	}); err != nil {
 		failure := rollback(fmt.Errorf("write gateway refund success audit: %w", err))
 		s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
@@ -278,5 +299,5 @@ func (s *PaymentService) completeGatewaySubscriptionRefundTransaction(
 	if order.SubscriptionDays != nil {
 		subDays = *order.SubscriptionDays
 	}
-	return &RefundResult{Success: true, SubDaysDeducted: subDays}, nil
+	return &RefundResult{Success: true, BalanceDeducted: -balanceRefunded, SubDaysDeducted: subDays}, nil
 }

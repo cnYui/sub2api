@@ -31,6 +31,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
@@ -91,6 +92,8 @@ type Client struct {
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
 	// PaymentAuditLog is the client for interacting with the PaymentAuditLog builders.
 	PaymentAuditLog *PaymentAuditLogClient
+	// PaymentBalanceHold is the client for interacting with the PaymentBalanceHold builders.
+	PaymentBalanceHold *PaymentBalanceHoldClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
 	PaymentOrder *PaymentOrderClient
 	// PaymentProviderInstance is the client for interacting with the PaymentProviderInstance builders.
@@ -156,6 +159,7 @@ func (c *Client) init() {
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
 	c.PaymentAuditLog = NewPaymentAuditLogClient(c.config)
+	c.PaymentBalanceHold = NewPaymentBalanceHoldClient(c.config)
 	c.PaymentOrder = NewPaymentOrderClient(c.config)
 	c.PaymentProviderInstance = NewPaymentProviderInstanceClient(c.config)
 	c.PendingAuthSession = NewPendingAuthSessionClient(c.config)
@@ -283,6 +287,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
+		PaymentBalanceHold:            NewPaymentBalanceHoldClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
 		PendingAuthSession:            NewPendingAuthSessionClient(cfg),
@@ -337,6 +342,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
+		PaymentBalanceHold:            NewPaymentBalanceHoldClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
 		PendingAuthSession:            NewPendingAuthSessionClient(cfg),
@@ -390,11 +396,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
 		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.PaymentBalanceHold, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -409,11 +416,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
 		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.PaymentBalanceHold, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -454,6 +462,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.IdentityAdoptionDecision.mutate(ctx, m)
 	case *PaymentAuditLogMutation:
 		return c.PaymentAuditLog.mutate(ctx, m)
+	case *PaymentBalanceHoldMutation:
+		return c.PaymentBalanceHold.mutate(ctx, m)
 	case *PaymentOrderMutation:
 		return c.PaymentOrder.mutate(ctx, m)
 	case *PaymentProviderInstanceMutation:
@@ -3094,6 +3104,171 @@ func (c *PaymentAuditLogClient) mutate(ctx context.Context, m *PaymentAuditLogMu
 	}
 }
 
+// PaymentBalanceHoldClient is a client for the PaymentBalanceHold schema.
+type PaymentBalanceHoldClient struct {
+	config
+}
+
+// NewPaymentBalanceHoldClient returns a client for the PaymentBalanceHold from the given config.
+func NewPaymentBalanceHoldClient(c config) *PaymentBalanceHoldClient {
+	return &PaymentBalanceHoldClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `paymentbalancehold.Hooks(f(g(h())))`.
+func (c *PaymentBalanceHoldClient) Use(hooks ...Hook) {
+	c.hooks.PaymentBalanceHold = append(c.hooks.PaymentBalanceHold, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `paymentbalancehold.Intercept(f(g(h())))`.
+func (c *PaymentBalanceHoldClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PaymentBalanceHold = append(c.inters.PaymentBalanceHold, interceptors...)
+}
+
+// Create returns a builder for creating a PaymentBalanceHold entity.
+func (c *PaymentBalanceHoldClient) Create() *PaymentBalanceHoldCreate {
+	mutation := newPaymentBalanceHoldMutation(c.config, OpCreate)
+	return &PaymentBalanceHoldCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PaymentBalanceHold entities.
+func (c *PaymentBalanceHoldClient) CreateBulk(builders ...*PaymentBalanceHoldCreate) *PaymentBalanceHoldCreateBulk {
+	return &PaymentBalanceHoldCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PaymentBalanceHoldClient) MapCreateBulk(slice any, setFunc func(*PaymentBalanceHoldCreate, int)) *PaymentBalanceHoldCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PaymentBalanceHoldCreateBulk{err: fmt.Errorf("calling to PaymentBalanceHoldClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PaymentBalanceHoldCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PaymentBalanceHoldCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PaymentBalanceHold.
+func (c *PaymentBalanceHoldClient) Update() *PaymentBalanceHoldUpdate {
+	mutation := newPaymentBalanceHoldMutation(c.config, OpUpdate)
+	return &PaymentBalanceHoldUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PaymentBalanceHoldClient) UpdateOne(_m *PaymentBalanceHold) *PaymentBalanceHoldUpdateOne {
+	mutation := newPaymentBalanceHoldMutation(c.config, OpUpdateOne, withPaymentBalanceHold(_m))
+	return &PaymentBalanceHoldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PaymentBalanceHoldClient) UpdateOneID(id int64) *PaymentBalanceHoldUpdateOne {
+	mutation := newPaymentBalanceHoldMutation(c.config, OpUpdateOne, withPaymentBalanceHoldID(id))
+	return &PaymentBalanceHoldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PaymentBalanceHold.
+func (c *PaymentBalanceHoldClient) Delete() *PaymentBalanceHoldDelete {
+	mutation := newPaymentBalanceHoldMutation(c.config, OpDelete)
+	return &PaymentBalanceHoldDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PaymentBalanceHoldClient) DeleteOne(_m *PaymentBalanceHold) *PaymentBalanceHoldDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PaymentBalanceHoldClient) DeleteOneID(id int64) *PaymentBalanceHoldDeleteOne {
+	builder := c.Delete().Where(paymentbalancehold.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PaymentBalanceHoldDeleteOne{builder}
+}
+
+// Query returns a query builder for PaymentBalanceHold.
+func (c *PaymentBalanceHoldClient) Query() *PaymentBalanceHoldQuery {
+	return &PaymentBalanceHoldQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePaymentBalanceHold},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PaymentBalanceHold entity by its id.
+func (c *PaymentBalanceHoldClient) Get(ctx context.Context, id int64) (*PaymentBalanceHold, error) {
+	return c.Query().Where(paymentbalancehold.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PaymentBalanceHoldClient) GetX(ctx context.Context, id int64) *PaymentBalanceHold {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOrder queries the order edge of a PaymentBalanceHold.
+func (c *PaymentBalanceHoldClient) QueryOrder(_m *PaymentBalanceHold) *PaymentOrderQuery {
+	query := (&PaymentOrderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentbalancehold.Table, paymentbalancehold.FieldID, id),
+			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, paymentbalancehold.OrderTable, paymentbalancehold.OrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a PaymentBalanceHold.
+func (c *PaymentBalanceHoldClient) QueryUser(_m *PaymentBalanceHold) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentbalancehold.Table, paymentbalancehold.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, paymentbalancehold.UserTable, paymentbalancehold.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PaymentBalanceHoldClient) Hooks() []Hook {
+	return c.hooks.PaymentBalanceHold
+}
+
+// Interceptors returns the client interceptors.
+func (c *PaymentBalanceHoldClient) Interceptors() []Interceptor {
+	return c.inters.PaymentBalanceHold
+}
+
+func (c *PaymentBalanceHoldClient) mutate(ctx context.Context, m *PaymentBalanceHoldMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PaymentBalanceHoldCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PaymentBalanceHoldUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PaymentBalanceHoldUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PaymentBalanceHoldDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PaymentBalanceHold mutation op: %q", m.Op())
+	}
+}
+
 // PaymentOrderClient is a client for the PaymentOrder schema.
 type PaymentOrderClient struct {
 	config
@@ -3211,6 +3386,22 @@ func (c *PaymentOrderClient) QueryUser(_m *PaymentOrder) *UserQuery {
 			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, paymentorder.UserTable, paymentorder.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBalanceHold queries the balance_hold edge of a PaymentOrder.
+func (c *PaymentOrderClient) QueryBalanceHold(_m *PaymentOrder) *PaymentBalanceHoldQuery {
+	query := (&PaymentBalanceHoldClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
+			sqlgraph.To(paymentbalancehold.Table, paymentbalancehold.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.BalanceHoldTable, paymentorder.BalanceHoldColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5333,6 +5524,22 @@ func (c *UserClient) QueryPaymentOrders(_m *User) *PaymentOrderQuery {
 	return query
 }
 
+// QueryPaymentBalanceHolds queries the payment_balance_holds edge of a User.
+func (c *UserClient) QueryPaymentBalanceHolds(_m *User) *PaymentBalanceHoldQuery {
+	query := (&PaymentBalanceHoldClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(paymentbalancehold.Table, paymentbalancehold.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.PaymentBalanceHoldsTable, user.PaymentBalanceHoldsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAuthIdentities queries the auth_identities edge of a User.
 func (c *UserClient) QueryAuthIdentities(_m *User) *AuthIdentityQuery {
 	query := (&AuthIdentityClient{config: c.config}).Query()
@@ -6213,22 +6420,22 @@ type (
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
 		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		PaymentBalanceHold, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
 		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		PaymentBalanceHold, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

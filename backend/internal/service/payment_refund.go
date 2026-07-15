@@ -236,12 +236,16 @@ func (s *PaymentService) executeUserAutoRefund(ctx context.Context, o *dbent.Pay
 		if o.PaymentType == payment.TypeBalance {
 			return s.executeBalanceSubscriptionRefundTransaction(ctx, o, sub, refundAmount, nr, by, "user:"+by, requestID, false, OrderStatusCompleted, now)
 		}
+		refundBalanceAmount, refundGatewayAmount := calculateOrderRefundFundingSplit(o, refundAmount)
 		lock = lock.
 			Where(paymentorder.StatusEQ(OrderStatusCompleted)).
 			SetRefundRequestedAt(now).
 			SetRefundRequestReason(nr).
 			SetRefundRequestedBy(by).
 			SetRefundAmount(refundAmount).
+			SetRefundBalanceAmount(refundBalanceAmount).
+			SetRefundGatewayAmount(refundGatewayAmount).
+			SetRefundBalanceStatus(RefundGatewayNotStarted).
 			SetRefundRequestID(requestID).
 			SetRefundGatewayStatus(RefundGatewayNotStarted).
 			SetRefundEntitlementStatus(RefundEntitlementNotStarted)
@@ -280,7 +284,8 @@ func (s *PaymentService) executeUserGatewaySubscriptionRefund(ctx context.Contex
 		OrderID:       o.ID,
 		Order:         o,
 		RefundAmount:  refundAmount,
-		GatewayAmount: refundAmount,
+		GatewayAmount: refundGatewayAmountForOrder(o, refundAmount),
+		BalanceAmount: o.RefundBalanceAmount,
 		Reason:        reason,
 	}
 	if _, err := s.entClient.PaymentOrder.UpdateOneID(o.ID).SetRefundGatewayStatus(RefundGatewayUnknown).Save(ctx); err != nil {
@@ -323,6 +328,27 @@ func (s *PaymentService) executeUserGatewaySubscriptionRefund(ctx context.Contex
 	o.RefundProviderRef = psNilIfEmpty(resp.RefundID)
 	_, err = s.completeGatewaySubscriptionRefundTransaction(ctx, o.ID, reason, operator, false)
 	return err
+}
+
+func calculateOrderRefundFundingSplit(o *dbent.PaymentOrder, refundAmount float64) (float64, float64) {
+	if o == nil || o.FundingMode != paymentFundingModeMixed {
+		return 0, refundAmount
+	}
+	return calculateHybridRefundAmounts(o.Amount, o.BalanceAmount, refundAmount)
+}
+
+func refundGatewayAmountForOrder(o *dbent.PaymentOrder, refundAmount float64) float64 {
+	if o == nil {
+		return refundAmount
+	}
+	if o.FundingMode == paymentFundingModeMixed {
+		if o.RefundGatewayAmount > 0 {
+			return o.RefundGatewayAmount
+		}
+		_, gatewayAmount := calculateOrderRefundFundingSplit(o, refundAmount)
+		return gatewayAmount
+	}
+	return refundAmount
 }
 
 func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
@@ -487,6 +513,10 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if o.OrderType != payment.OrderTypeSubscription {
 		ga = calculateGatewayRefundAmount(o.Amount, o.PayAmount, amt, orderCurrency)
 	}
+	ba := 0.0
+	if o.FundingMode == paymentFundingModeMixed {
+		ba, ga = calculateOrderRefundFundingSplit(o, amt)
+	}
 	rr := strings.TrimSpace(reason)
 	if isExistingRefund && o.RefundRequestReason != nil {
 		rr = *o.RefundRequestReason
@@ -496,7 +526,7 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if rr == "" {
 		rr = fmt.Sprintf("refund order:%d", o.ID)
 	}
-	p := &RefundPlan{OrderID: oid, Order: o, RefundAmount: amt, GatewayAmount: ga, Reason: rr, Force: force, DeductBalance: deduct, DeductionType: payment.DeductionTypeNone}
+	p := &RefundPlan{OrderID: oid, Order: o, RefundAmount: amt, GatewayAmount: ga, BalanceAmount: ba, Reason: rr, Force: force, DeductBalance: deduct, DeductionType: payment.DeductionTypeNone}
 	if o.OrderType == payment.OrderTypeSubscription || deduct {
 		if er := s.prepDeduct(ctx, o, p, force); er != nil {
 			return nil, er, nil
@@ -592,14 +622,21 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 		if p.Reason == "" {
 			p.Reason = psStringValue(o.RefundReason)
 		}
-		p.GatewayAmount = p.RefundAmount
-		if o.OrderType != payment.OrderTypeSubscription {
+		if o.FundingMode == paymentFundingModeMixed {
+			p.BalanceAmount = o.RefundBalanceAmount
+			p.GatewayAmount = o.RefundGatewayAmount
+		} else if o.OrderType != payment.OrderTypeSubscription {
 			p.GatewayAmount = calculateGatewayRefundAmount(o.Amount, o.PayAmount, p.RefundAmount, PaymentOrderCurrency(o))
+		} else {
+			p.GatewayAmount = p.RefundAmount
 		}
 	} else {
 		requestID := psStringValue(o.RefundRequestID)
 		if requestID == "" {
 			requestID = fmt.Sprintf("refund-%d", o.ID)
+		}
+		if o.FundingMode == paymentFundingModeMixed {
+			p.BalanceAmount, p.GatewayAmount = calculateOrderRefundFundingSplit(o, p.RefundAmount)
 		}
 		gatewayStatus := RefundGatewayNotStarted
 		if o.PaymentType == payment.TypeBalance {
@@ -607,6 +644,9 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 		}
 		lock = lock.
 			SetRefundAmount(p.RefundAmount).
+			SetRefundBalanceAmount(p.BalanceAmount).
+			SetRefundGatewayAmount(p.GatewayAmount).
+			SetRefundBalanceStatus(RefundGatewayNotStarted).
 			SetRefundRequestID(requestID).
 			SetRefundRequestReason(p.Reason).
 			SetRefundGatewayStatus(gatewayStatus).

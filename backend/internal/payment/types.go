@@ -34,6 +34,7 @@ const (
 	OrderStatusExpired           = "EXPIRED"
 	OrderStatusCancelled         = "CANCELLED"
 	OrderStatusFailed            = "FAILED"
+	OrderStatusCompensated       = "COMPENSATED"
 	OrderStatusRefundRequested   = "REFUND_REQUESTED"
 	OrderStatusRefunding         = "REFUNDING"
 	OrderStatusPartiallyRefunded = "PARTIALLY_REFUNDED"

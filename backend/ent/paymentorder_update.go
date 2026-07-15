@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -151,6 +152,62 @@ func (_u *PaymentOrderUpdate) SetNillableFeeRate(v *float64) *PaymentOrderUpdate
 // AddFeeRate adds value to the "fee_rate" field.
 func (_u *PaymentOrderUpdate) AddFeeRate(v float64) *PaymentOrderUpdate {
 	_u.mutation.AddFeeRate(v)
+	return _u
+}
+
+// SetFundingMode sets the "funding_mode" field.
+func (_u *PaymentOrderUpdate) SetFundingMode(v string) *PaymentOrderUpdate {
+	_u.mutation.SetFundingMode(v)
+	return _u
+}
+
+// SetNillableFundingMode sets the "funding_mode" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableFundingMode(v *string) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetFundingMode(*v)
+	}
+	return _u
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (_u *PaymentOrderUpdate) SetBalanceAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetBalanceAmount()
+	_u.mutation.SetBalanceAmount(v)
+	return _u
+}
+
+// SetNillableBalanceAmount sets the "balance_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalanceAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalanceAmount(*v)
+	}
+	return _u
+}
+
+// AddBalanceAmount adds value to the "balance_amount" field.
+func (_u *PaymentOrderUpdate) AddBalanceAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddBalanceAmount(v)
+	return _u
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (_u *PaymentOrderUpdate) SetGatewayAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetGatewayAmount()
+	_u.mutation.SetGatewayAmount(v)
+	return _u
+}
+
+// SetNillableGatewayAmount sets the "gateway_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableGatewayAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetGatewayAmount(*v)
+	}
+	return _u
+}
+
+// AddGatewayAmount adds value to the "gateway_amount" field.
+func (_u *PaymentOrderUpdate) AddGatewayAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddGatewayAmount(v)
 	return _u
 }
 
@@ -432,6 +489,60 @@ func (_u *PaymentOrderUpdate) ClearProviderKey() *PaymentOrderUpdate {
 	return _u
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (_u *PaymentOrderUpdate) SetProviderInitStatus(v string) *PaymentOrderUpdate {
+	_u.mutation.SetProviderInitStatus(v)
+	return _u
+}
+
+// SetNillableProviderInitStatus sets the "provider_init_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableProviderInitStatus(v *string) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetProviderInitStatus(*v)
+	}
+	return _u
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (_u *PaymentOrderUpdate) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderUpdate {
+	_u.mutation.SetProviderInitAttemptedAt(v)
+	return _u
+}
+
+// SetNillableProviderInitAttemptedAt sets the "provider_init_attempted_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableProviderInitAttemptedAt(v *time.Time) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetProviderInitAttemptedAt(*v)
+	}
+	return _u
+}
+
+// ClearProviderInitAttemptedAt clears the value of the "provider_init_attempted_at" field.
+func (_u *PaymentOrderUpdate) ClearProviderInitAttemptedAt() *PaymentOrderUpdate {
+	_u.mutation.ClearProviderInitAttemptedAt()
+	return _u
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (_u *PaymentOrderUpdate) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderUpdate {
+	_u.mutation.SetProviderInitLeaseUntil(v)
+	return _u
+}
+
+// SetNillableProviderInitLeaseUntil sets the "provider_init_lease_until" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableProviderInitLeaseUntil(v *time.Time) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetProviderInitLeaseUntil(*v)
+	}
+	return _u
+}
+
+// ClearProviderInitLeaseUntil clears the value of the "provider_init_lease_until" field.
+func (_u *PaymentOrderUpdate) ClearProviderInitLeaseUntil() *PaymentOrderUpdate {
+	_u.mutation.ClearProviderInitLeaseUntil()
+	return _u
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (_u *PaymentOrderUpdate) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderUpdate {
 	_u.mutation.SetProviderSnapshot(v)
@@ -458,6 +569,101 @@ func (_u *PaymentOrderUpdate) SetNillableStatus(v *string) *PaymentOrderUpdate {
 	return _u
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (_u *PaymentOrderUpdate) SetPaymentResolutionStatus(v string) *PaymentOrderUpdate {
+	_u.mutation.SetPaymentResolutionStatus(v)
+	return _u
+}
+
+// SetNillablePaymentResolutionStatus sets the "payment_resolution_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillablePaymentResolutionStatus(v *string) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetPaymentResolutionStatus(*v)
+	}
+	return _u
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (_u *PaymentOrderUpdate) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderUpdate {
+	_u.mutation.SetPaymentResolutionDeadline(v)
+	return _u
+}
+
+// SetNillablePaymentResolutionDeadline sets the "payment_resolution_deadline" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillablePaymentResolutionDeadline(v *time.Time) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetPaymentResolutionDeadline(*v)
+	}
+	return _u
+}
+
+// ClearPaymentResolutionDeadline clears the value of the "payment_resolution_deadline" field.
+func (_u *PaymentOrderUpdate) ClearPaymentResolutionDeadline() *PaymentOrderUpdate {
+	_u.mutation.ClearPaymentResolutionDeadline()
+	return _u
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (_u *PaymentOrderUpdate) SetCancelRequestedAt(v time.Time) *PaymentOrderUpdate {
+	_u.mutation.SetCancelRequestedAt(v)
+	return _u
+}
+
+// SetNillableCancelRequestedAt sets the "cancel_requested_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableCancelRequestedAt(v *time.Time) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetCancelRequestedAt(*v)
+	}
+	return _u
+}
+
+// ClearCancelRequestedAt clears the value of the "cancel_requested_at" field.
+func (_u *PaymentOrderUpdate) ClearCancelRequestedAt() *PaymentOrderUpdate {
+	_u.mutation.ClearCancelRequestedAt()
+	return _u
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (_u *PaymentOrderUpdate) SetCompensationAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetCompensationAmount()
+	_u.mutation.SetCompensationAmount(v)
+	return _u
+}
+
+// SetNillableCompensationAmount sets the "compensation_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableCompensationAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetCompensationAmount(*v)
+	}
+	return _u
+}
+
+// AddCompensationAmount adds value to the "compensation_amount" field.
+func (_u *PaymentOrderUpdate) AddCompensationAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddCompensationAmount(v)
+	return _u
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (_u *PaymentOrderUpdate) SetCompensatedAt(v time.Time) *PaymentOrderUpdate {
+	_u.mutation.SetCompensatedAt(v)
+	return _u
+}
+
+// SetNillableCompensatedAt sets the "compensated_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableCompensatedAt(v *time.Time) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetCompensatedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompensatedAt clears the value of the "compensated_at" field.
+func (_u *PaymentOrderUpdate) ClearCompensatedAt() *PaymentOrderUpdate {
+	_u.mutation.ClearCompensatedAt()
+	return _u
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (_u *PaymentOrderUpdate) SetRefundAmount(v float64) *PaymentOrderUpdate {
 	_u.mutation.ResetRefundAmount()
@@ -476,6 +682,62 @@ func (_u *PaymentOrderUpdate) SetNillableRefundAmount(v *float64) *PaymentOrderU
 // AddRefundAmount adds value to the "refund_amount" field.
 func (_u *PaymentOrderUpdate) AddRefundAmount(v float64) *PaymentOrderUpdate {
 	_u.mutation.AddRefundAmount(v)
+	return _u
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (_u *PaymentOrderUpdate) SetRefundBalanceAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetRefundBalanceAmount()
+	_u.mutation.SetRefundBalanceAmount(v)
+	return _u
+}
+
+// SetNillableRefundBalanceAmount sets the "refund_balance_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableRefundBalanceAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetRefundBalanceAmount(*v)
+	}
+	return _u
+}
+
+// AddRefundBalanceAmount adds value to the "refund_balance_amount" field.
+func (_u *PaymentOrderUpdate) AddRefundBalanceAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddRefundBalanceAmount(v)
+	return _u
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (_u *PaymentOrderUpdate) SetRefundGatewayAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetRefundGatewayAmount()
+	_u.mutation.SetRefundGatewayAmount(v)
+	return _u
+}
+
+// SetNillableRefundGatewayAmount sets the "refund_gateway_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableRefundGatewayAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetRefundGatewayAmount(*v)
+	}
+	return _u
+}
+
+// AddRefundGatewayAmount adds value to the "refund_gateway_amount" field.
+func (_u *PaymentOrderUpdate) AddRefundGatewayAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddRefundGatewayAmount(v)
+	return _u
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (_u *PaymentOrderUpdate) SetRefundBalanceStatus(v string) *PaymentOrderUpdate {
+	_u.mutation.SetRefundBalanceStatus(v)
+	return _u
+}
+
+// SetNillableRefundBalanceStatus sets the "refund_balance_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableRefundBalanceStatus(v *string) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetRefundBalanceStatus(*v)
+	}
 	return _u
 }
 
@@ -814,6 +1076,25 @@ func (_u *PaymentOrderUpdate) SetUser(v *User) *PaymentOrderUpdate {
 	return _u.SetUserID(v.ID)
 }
 
+// SetBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID.
+func (_u *PaymentOrderUpdate) SetBalanceHoldID(id int64) *PaymentOrderUpdate {
+	_u.mutation.SetBalanceHoldID(id)
+	return _u
+}
+
+// SetNillableBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalanceHoldID(id *int64) *PaymentOrderUpdate {
+	if id != nil {
+		_u = _u.SetBalanceHoldID(*id)
+	}
+	return _u
+}
+
+// SetBalanceHold sets the "balance_hold" edge to the PaymentBalanceHold entity.
+func (_u *PaymentOrderUpdate) SetBalanceHold(v *PaymentBalanceHold) *PaymentOrderUpdate {
+	return _u.SetBalanceHoldID(v.ID)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_u *PaymentOrderUpdate) Mutation() *PaymentOrderMutation {
 	return _u.mutation
@@ -822,6 +1103,12 @@ func (_u *PaymentOrderUpdate) Mutation() *PaymentOrderMutation {
 // ClearUser clears the "user" edge to the User entity.
 func (_u *PaymentOrderUpdate) ClearUser() *PaymentOrderUpdate {
 	_u.mutation.ClearUser()
+	return _u
+}
+
+// ClearBalanceHold clears the "balance_hold" edge to the PaymentBalanceHold entity.
+func (_u *PaymentOrderUpdate) ClearBalanceHold() *PaymentOrderUpdate {
+	_u.mutation.ClearBalanceHold()
 	return _u
 }
 
@@ -873,6 +1160,11 @@ func (_u *PaymentOrderUpdate) check() error {
 			return &ValidationError{Name: "user_name", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.user_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.FundingMode(); ok {
+		if err := paymentorder.FundingModeValidator(v); err != nil {
+			return &ValidationError{Name: "funding_mode", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.funding_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.RechargeCode(); ok {
 		if err := paymentorder.RechargeCodeValidator(v); err != nil {
 			return &ValidationError{Name: "recharge_code", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.recharge_code": %w`, err)}
@@ -908,9 +1200,24 @@ func (_u *PaymentOrderUpdate) check() error {
 			return &ValidationError{Name: "provider_key", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_key": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ProviderInitStatus(); ok {
+		if err := paymentorder.ProviderInitStatusValidator(v); err != nil {
+			return &ValidationError{Name: "provider_init_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_init_status": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := paymentorder.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PaymentResolutionStatus(); ok {
+		if err := paymentorder.PaymentResolutionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "payment_resolution_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.payment_resolution_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RefundBalanceStatus(); ok {
+		if err := paymentorder.RefundBalanceStatusValidator(v); err != nil {
+			return &ValidationError{Name: "refund_balance_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_balance_status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RefundRequestedBy(); ok {
@@ -996,6 +1303,21 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.AddedFeeRate(); ok {
 		_spec.AddField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.FundingMode(); ok {
+		_spec.SetField(paymentorder.FieldFundingMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceAmount(); ok {
+		_spec.AddField(paymentorder.FieldBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.GatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedGatewayAmount(); ok {
+		_spec.AddField(paymentorder.FieldGatewayAmount, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 	}
@@ -1077,6 +1399,21 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.ProviderKeyCleared() {
 		_spec.ClearField(paymentorder.FieldProviderKey, field.TypeString)
 	}
+	if value, ok := _u.mutation.ProviderInitStatus(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ProviderInitAttemptedAt(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitAttemptedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ProviderInitAttemptedAtCleared() {
+		_spec.ClearField(paymentorder.FieldProviderInitAttemptedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ProviderInitLeaseUntil(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitLeaseUntil, field.TypeTime, value)
+	}
+	if _u.mutation.ProviderInitLeaseUntilCleared() {
+		_spec.ClearField(paymentorder.FieldProviderInitLeaseUntil, field.TypeTime)
+	}
 	if value, ok := _u.mutation.ProviderSnapshot(); ok {
 		_spec.SetField(paymentorder.FieldProviderSnapshot, field.TypeJSON, value)
 	}
@@ -1086,11 +1423,53 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(paymentorder.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.PaymentResolutionStatus(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PaymentResolutionDeadline(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.PaymentResolutionDeadlineCleared() {
+		_spec.ClearField(paymentorder.FieldPaymentResolutionDeadline, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CancelRequestedAt(); ok {
+		_spec.SetField(paymentorder.FieldCancelRequestedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CancelRequestedAtCleared() {
+		_spec.ClearField(paymentorder.FieldCancelRequestedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CompensationAmount(); ok {
+		_spec.SetField(paymentorder.FieldCompensationAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCompensationAmount(); ok {
+		_spec.AddField(paymentorder.FieldCompensationAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CompensatedAt(); ok {
+		_spec.SetField(paymentorder.FieldCompensatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompensatedAtCleared() {
+		_spec.ClearField(paymentorder.FieldCompensatedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.RefundAmount(); ok {
 		_spec.SetField(paymentorder.FieldRefundAmount, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedRefundAmount(); ok {
 		_spec.AddField(paymentorder.FieldRefundAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundBalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRefundBalanceAmount(); ok {
+		_spec.AddField(paymentorder.FieldRefundBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundGatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRefundGatewayAmount(); ok {
+		_spec.AddField(paymentorder.FieldRefundGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundBalanceStatus(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RefundReason(); ok {
 		_spec.SetField(paymentorder.FieldRefundReason, field.TypeString, value)
@@ -1207,6 +1586,35 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BalanceHoldCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.BalanceHoldTable,
+			Columns: []string{paymentorder.BalanceHoldColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BalanceHoldIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.BalanceHoldTable,
+			Columns: []string{paymentorder.BalanceHoldColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1356,6 +1764,62 @@ func (_u *PaymentOrderUpdateOne) SetNillableFeeRate(v *float64) *PaymentOrderUpd
 // AddFeeRate adds value to the "fee_rate" field.
 func (_u *PaymentOrderUpdateOne) AddFeeRate(v float64) *PaymentOrderUpdateOne {
 	_u.mutation.AddFeeRate(v)
+	return _u
+}
+
+// SetFundingMode sets the "funding_mode" field.
+func (_u *PaymentOrderUpdateOne) SetFundingMode(v string) *PaymentOrderUpdateOne {
+	_u.mutation.SetFundingMode(v)
+	return _u
+}
+
+// SetNillableFundingMode sets the "funding_mode" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableFundingMode(v *string) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetFundingMode(*v)
+	}
+	return _u
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (_u *PaymentOrderUpdateOne) SetBalanceAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalanceAmount()
+	_u.mutation.SetBalanceAmount(v)
+	return _u
+}
+
+// SetNillableBalanceAmount sets the "balance_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalanceAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalanceAmount(*v)
+	}
+	return _u
+}
+
+// AddBalanceAmount adds value to the "balance_amount" field.
+func (_u *PaymentOrderUpdateOne) AddBalanceAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalanceAmount(v)
+	return _u
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (_u *PaymentOrderUpdateOne) SetGatewayAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetGatewayAmount()
+	_u.mutation.SetGatewayAmount(v)
+	return _u
+}
+
+// SetNillableGatewayAmount sets the "gateway_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableGatewayAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetGatewayAmount(*v)
+	}
+	return _u
+}
+
+// AddGatewayAmount adds value to the "gateway_amount" field.
+func (_u *PaymentOrderUpdateOne) AddGatewayAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddGatewayAmount(v)
 	return _u
 }
 
@@ -1637,6 +2101,60 @@ func (_u *PaymentOrderUpdateOne) ClearProviderKey() *PaymentOrderUpdateOne {
 	return _u
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (_u *PaymentOrderUpdateOne) SetProviderInitStatus(v string) *PaymentOrderUpdateOne {
+	_u.mutation.SetProviderInitStatus(v)
+	return _u
+}
+
+// SetNillableProviderInitStatus sets the "provider_init_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableProviderInitStatus(v *string) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetProviderInitStatus(*v)
+	}
+	return _u
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (_u *PaymentOrderUpdateOne) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderUpdateOne {
+	_u.mutation.SetProviderInitAttemptedAt(v)
+	return _u
+}
+
+// SetNillableProviderInitAttemptedAt sets the "provider_init_attempted_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableProviderInitAttemptedAt(v *time.Time) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetProviderInitAttemptedAt(*v)
+	}
+	return _u
+}
+
+// ClearProviderInitAttemptedAt clears the value of the "provider_init_attempted_at" field.
+func (_u *PaymentOrderUpdateOne) ClearProviderInitAttemptedAt() *PaymentOrderUpdateOne {
+	_u.mutation.ClearProviderInitAttemptedAt()
+	return _u
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (_u *PaymentOrderUpdateOne) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderUpdateOne {
+	_u.mutation.SetProviderInitLeaseUntil(v)
+	return _u
+}
+
+// SetNillableProviderInitLeaseUntil sets the "provider_init_lease_until" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableProviderInitLeaseUntil(v *time.Time) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetProviderInitLeaseUntil(*v)
+	}
+	return _u
+}
+
+// ClearProviderInitLeaseUntil clears the value of the "provider_init_lease_until" field.
+func (_u *PaymentOrderUpdateOne) ClearProviderInitLeaseUntil() *PaymentOrderUpdateOne {
+	_u.mutation.ClearProviderInitLeaseUntil()
+	return _u
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (_u *PaymentOrderUpdateOne) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderUpdateOne {
 	_u.mutation.SetProviderSnapshot(v)
@@ -1663,6 +2181,101 @@ func (_u *PaymentOrderUpdateOne) SetNillableStatus(v *string) *PaymentOrderUpdat
 	return _u
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (_u *PaymentOrderUpdateOne) SetPaymentResolutionStatus(v string) *PaymentOrderUpdateOne {
+	_u.mutation.SetPaymentResolutionStatus(v)
+	return _u
+}
+
+// SetNillablePaymentResolutionStatus sets the "payment_resolution_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillablePaymentResolutionStatus(v *string) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetPaymentResolutionStatus(*v)
+	}
+	return _u
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (_u *PaymentOrderUpdateOne) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderUpdateOne {
+	_u.mutation.SetPaymentResolutionDeadline(v)
+	return _u
+}
+
+// SetNillablePaymentResolutionDeadline sets the "payment_resolution_deadline" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillablePaymentResolutionDeadline(v *time.Time) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetPaymentResolutionDeadline(*v)
+	}
+	return _u
+}
+
+// ClearPaymentResolutionDeadline clears the value of the "payment_resolution_deadline" field.
+func (_u *PaymentOrderUpdateOne) ClearPaymentResolutionDeadline() *PaymentOrderUpdateOne {
+	_u.mutation.ClearPaymentResolutionDeadline()
+	return _u
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (_u *PaymentOrderUpdateOne) SetCancelRequestedAt(v time.Time) *PaymentOrderUpdateOne {
+	_u.mutation.SetCancelRequestedAt(v)
+	return _u
+}
+
+// SetNillableCancelRequestedAt sets the "cancel_requested_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableCancelRequestedAt(v *time.Time) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetCancelRequestedAt(*v)
+	}
+	return _u
+}
+
+// ClearCancelRequestedAt clears the value of the "cancel_requested_at" field.
+func (_u *PaymentOrderUpdateOne) ClearCancelRequestedAt() *PaymentOrderUpdateOne {
+	_u.mutation.ClearCancelRequestedAt()
+	return _u
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (_u *PaymentOrderUpdateOne) SetCompensationAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetCompensationAmount()
+	_u.mutation.SetCompensationAmount(v)
+	return _u
+}
+
+// SetNillableCompensationAmount sets the "compensation_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableCompensationAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetCompensationAmount(*v)
+	}
+	return _u
+}
+
+// AddCompensationAmount adds value to the "compensation_amount" field.
+func (_u *PaymentOrderUpdateOne) AddCompensationAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddCompensationAmount(v)
+	return _u
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (_u *PaymentOrderUpdateOne) SetCompensatedAt(v time.Time) *PaymentOrderUpdateOne {
+	_u.mutation.SetCompensatedAt(v)
+	return _u
+}
+
+// SetNillableCompensatedAt sets the "compensated_at" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableCompensatedAt(v *time.Time) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetCompensatedAt(*v)
+	}
+	return _u
+}
+
+// ClearCompensatedAt clears the value of the "compensated_at" field.
+func (_u *PaymentOrderUpdateOne) ClearCompensatedAt() *PaymentOrderUpdateOne {
+	_u.mutation.ClearCompensatedAt()
+	return _u
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (_u *PaymentOrderUpdateOne) SetRefundAmount(v float64) *PaymentOrderUpdateOne {
 	_u.mutation.ResetRefundAmount()
@@ -1681,6 +2294,62 @@ func (_u *PaymentOrderUpdateOne) SetNillableRefundAmount(v *float64) *PaymentOrd
 // AddRefundAmount adds value to the "refund_amount" field.
 func (_u *PaymentOrderUpdateOne) AddRefundAmount(v float64) *PaymentOrderUpdateOne {
 	_u.mutation.AddRefundAmount(v)
+	return _u
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (_u *PaymentOrderUpdateOne) SetRefundBalanceAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetRefundBalanceAmount()
+	_u.mutation.SetRefundBalanceAmount(v)
+	return _u
+}
+
+// SetNillableRefundBalanceAmount sets the "refund_balance_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableRefundBalanceAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetRefundBalanceAmount(*v)
+	}
+	return _u
+}
+
+// AddRefundBalanceAmount adds value to the "refund_balance_amount" field.
+func (_u *PaymentOrderUpdateOne) AddRefundBalanceAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddRefundBalanceAmount(v)
+	return _u
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (_u *PaymentOrderUpdateOne) SetRefundGatewayAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetRefundGatewayAmount()
+	_u.mutation.SetRefundGatewayAmount(v)
+	return _u
+}
+
+// SetNillableRefundGatewayAmount sets the "refund_gateway_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableRefundGatewayAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetRefundGatewayAmount(*v)
+	}
+	return _u
+}
+
+// AddRefundGatewayAmount adds value to the "refund_gateway_amount" field.
+func (_u *PaymentOrderUpdateOne) AddRefundGatewayAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddRefundGatewayAmount(v)
+	return _u
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (_u *PaymentOrderUpdateOne) SetRefundBalanceStatus(v string) *PaymentOrderUpdateOne {
+	_u.mutation.SetRefundBalanceStatus(v)
+	return _u
+}
+
+// SetNillableRefundBalanceStatus sets the "refund_balance_status" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableRefundBalanceStatus(v *string) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetRefundBalanceStatus(*v)
+	}
 	return _u
 }
 
@@ -2019,6 +2688,25 @@ func (_u *PaymentOrderUpdateOne) SetUser(v *User) *PaymentOrderUpdateOne {
 	return _u.SetUserID(v.ID)
 }
 
+// SetBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID.
+func (_u *PaymentOrderUpdateOne) SetBalanceHoldID(id int64) *PaymentOrderUpdateOne {
+	_u.mutation.SetBalanceHoldID(id)
+	return _u
+}
+
+// SetNillableBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalanceHoldID(id *int64) *PaymentOrderUpdateOne {
+	if id != nil {
+		_u = _u.SetBalanceHoldID(*id)
+	}
+	return _u
+}
+
+// SetBalanceHold sets the "balance_hold" edge to the PaymentBalanceHold entity.
+func (_u *PaymentOrderUpdateOne) SetBalanceHold(v *PaymentBalanceHold) *PaymentOrderUpdateOne {
+	return _u.SetBalanceHoldID(v.ID)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_u *PaymentOrderUpdateOne) Mutation() *PaymentOrderMutation {
 	return _u.mutation
@@ -2027,6 +2715,12 @@ func (_u *PaymentOrderUpdateOne) Mutation() *PaymentOrderMutation {
 // ClearUser clears the "user" edge to the User entity.
 func (_u *PaymentOrderUpdateOne) ClearUser() *PaymentOrderUpdateOne {
 	_u.mutation.ClearUser()
+	return _u
+}
+
+// ClearBalanceHold clears the "balance_hold" edge to the PaymentBalanceHold entity.
+func (_u *PaymentOrderUpdateOne) ClearBalanceHold() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalanceHold()
 	return _u
 }
 
@@ -2091,6 +2785,11 @@ func (_u *PaymentOrderUpdateOne) check() error {
 			return &ValidationError{Name: "user_name", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.user_name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.FundingMode(); ok {
+		if err := paymentorder.FundingModeValidator(v); err != nil {
+			return &ValidationError{Name: "funding_mode", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.funding_mode": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.RechargeCode(); ok {
 		if err := paymentorder.RechargeCodeValidator(v); err != nil {
 			return &ValidationError{Name: "recharge_code", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.recharge_code": %w`, err)}
@@ -2126,9 +2825,24 @@ func (_u *PaymentOrderUpdateOne) check() error {
 			return &ValidationError{Name: "provider_key", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_key": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ProviderInitStatus(); ok {
+		if err := paymentorder.ProviderInitStatusValidator(v); err != nil {
+			return &ValidationError{Name: "provider_init_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_init_status": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := paymentorder.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.PaymentResolutionStatus(); ok {
+		if err := paymentorder.PaymentResolutionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "payment_resolution_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.payment_resolution_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.RefundBalanceStatus(); ok {
+		if err := paymentorder.RefundBalanceStatusValidator(v); err != nil {
+			return &ValidationError{Name: "refund_balance_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_balance_status": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RefundRequestedBy(); ok {
@@ -2231,6 +2945,21 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	if value, ok := _u.mutation.AddedFeeRate(); ok {
 		_spec.AddField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.FundingMode(); ok {
+		_spec.SetField(paymentorder.FieldFundingMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.BalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalanceAmount(); ok {
+		_spec.AddField(paymentorder.FieldBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.GatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedGatewayAmount(); ok {
+		_spec.AddField(paymentorder.FieldGatewayAmount, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 	}
@@ -2312,6 +3041,21 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	if _u.mutation.ProviderKeyCleared() {
 		_spec.ClearField(paymentorder.FieldProviderKey, field.TypeString)
 	}
+	if value, ok := _u.mutation.ProviderInitStatus(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ProviderInitAttemptedAt(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitAttemptedAt, field.TypeTime, value)
+	}
+	if _u.mutation.ProviderInitAttemptedAtCleared() {
+		_spec.ClearField(paymentorder.FieldProviderInitAttemptedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.ProviderInitLeaseUntil(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitLeaseUntil, field.TypeTime, value)
+	}
+	if _u.mutation.ProviderInitLeaseUntilCleared() {
+		_spec.ClearField(paymentorder.FieldProviderInitLeaseUntil, field.TypeTime)
+	}
 	if value, ok := _u.mutation.ProviderSnapshot(); ok {
 		_spec.SetField(paymentorder.FieldProviderSnapshot, field.TypeJSON, value)
 	}
@@ -2321,11 +3065,53 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(paymentorder.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.PaymentResolutionStatus(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.PaymentResolutionDeadline(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionDeadline, field.TypeTime, value)
+	}
+	if _u.mutation.PaymentResolutionDeadlineCleared() {
+		_spec.ClearField(paymentorder.FieldPaymentResolutionDeadline, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CancelRequestedAt(); ok {
+		_spec.SetField(paymentorder.FieldCancelRequestedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CancelRequestedAtCleared() {
+		_spec.ClearField(paymentorder.FieldCancelRequestedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.CompensationAmount(); ok {
+		_spec.SetField(paymentorder.FieldCompensationAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedCompensationAmount(); ok {
+		_spec.AddField(paymentorder.FieldCompensationAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.CompensatedAt(); ok {
+		_spec.SetField(paymentorder.FieldCompensatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.CompensatedAtCleared() {
+		_spec.ClearField(paymentorder.FieldCompensatedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.RefundAmount(); ok {
 		_spec.SetField(paymentorder.FieldRefundAmount, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.AddedRefundAmount(); ok {
 		_spec.AddField(paymentorder.FieldRefundAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundBalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRefundBalanceAmount(); ok {
+		_spec.AddField(paymentorder.FieldRefundBalanceAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundGatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRefundGatewayAmount(); ok {
+		_spec.AddField(paymentorder.FieldRefundGatewayAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RefundBalanceStatus(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RefundReason(); ok {
 		_spec.SetField(paymentorder.FieldRefundReason, field.TypeString, value)
@@ -2442,6 +3228,35 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(user.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BalanceHoldCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.BalanceHoldTable,
+			Columns: []string{paymentorder.BalanceHoldColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BalanceHoldIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.BalanceHoldTable,
+			Columns: []string{paymentorder.BalanceHoldColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

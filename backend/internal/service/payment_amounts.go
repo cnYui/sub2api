@@ -66,3 +66,26 @@ func calculateSubscriptionRefundAmount(orderAmount float64, subscriptionDays int
 		Round(1).
 		InexactFloat64()
 }
+
+func calculateHybridRefundAmounts(orderAmount, balanceAmount, refundAmount float64) (float64, float64) {
+	orderPrincipal := decimal.NewFromFloat(orderAmount).Round(2)
+	refund := decimal.NewFromFloat(refundAmount).Round(2)
+	if !orderPrincipal.GreaterThan(decimal.Zero) || !refund.GreaterThan(decimal.Zero) {
+		return 0, 0
+	}
+	balancePrincipal := decimalMin(decimal.NewFromFloat(balanceAmount).Round(2), orderPrincipal)
+	if !balancePrincipal.GreaterThan(decimal.Zero) {
+		return 0, refund.InexactFloat64()
+	}
+	balanceRefund := refund.Mul(balancePrincipal).Div(orderPrincipal).Round(2)
+	if balanceRefund.GreaterThan(balancePrincipal) {
+		balanceRefund = balancePrincipal
+	}
+	gatewayPrincipal := orderPrincipal.Sub(balancePrincipal).Round(2)
+	gatewayRefund := refund.Sub(balanceRefund).Round(2)
+	if gatewayRefund.GreaterThan(gatewayPrincipal) {
+		gatewayRefund = gatewayPrincipal
+		balanceRefund = refund.Sub(gatewayRefund).Round(2)
+	}
+	return balanceRefund.InexactFloat64(), gatewayRefund.InexactFloat64()
+}

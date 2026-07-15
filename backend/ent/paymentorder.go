@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
@@ -33,6 +34,12 @@ type PaymentOrder struct {
 	PayAmount float64 `json:"pay_amount,omitempty"`
 	// FeeRate holds the value of the "fee_rate" field.
 	FeeRate float64 `json:"fee_rate,omitempty"`
+	// FundingMode holds the value of the "funding_mode" field.
+	FundingMode string `json:"funding_mode,omitempty"`
+	// BalanceAmount holds the value of the "balance_amount" field.
+	BalanceAmount float64 `json:"balance_amount,omitempty"`
+	// GatewayAmount holds the value of the "gateway_amount" field.
+	GatewayAmount float64 `json:"gateway_amount,omitempty"`
 	// RechargeCode holds the value of the "recharge_code" field.
 	RechargeCode string `json:"recharge_code,omitempty"`
 	// OutTradeNo holds the value of the "out_trade_no" field.
@@ -61,12 +68,34 @@ type PaymentOrder struct {
 	ProviderInstanceID *string `json:"provider_instance_id,omitempty"`
 	// ProviderKey holds the value of the "provider_key" field.
 	ProviderKey *string `json:"provider_key,omitempty"`
+	// ProviderInitStatus holds the value of the "provider_init_status" field.
+	ProviderInitStatus string `json:"provider_init_status,omitempty"`
+	// ProviderInitAttemptedAt holds the value of the "provider_init_attempted_at" field.
+	ProviderInitAttemptedAt *time.Time `json:"provider_init_attempted_at,omitempty"`
+	// ProviderInitLeaseUntil holds the value of the "provider_init_lease_until" field.
+	ProviderInitLeaseUntil *time.Time `json:"provider_init_lease_until,omitempty"`
 	// ProviderSnapshot holds the value of the "provider_snapshot" field.
 	ProviderSnapshot map[string]interface{} `json:"provider_snapshot,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// PaymentResolutionStatus holds the value of the "payment_resolution_status" field.
+	PaymentResolutionStatus string `json:"payment_resolution_status,omitempty"`
+	// PaymentResolutionDeadline holds the value of the "payment_resolution_deadline" field.
+	PaymentResolutionDeadline *time.Time `json:"payment_resolution_deadline,omitempty"`
+	// CancelRequestedAt holds the value of the "cancel_requested_at" field.
+	CancelRequestedAt *time.Time `json:"cancel_requested_at,omitempty"`
+	// CompensationAmount holds the value of the "compensation_amount" field.
+	CompensationAmount float64 `json:"compensation_amount,omitempty"`
+	// CompensatedAt holds the value of the "compensated_at" field.
+	CompensatedAt *time.Time `json:"compensated_at,omitempty"`
 	// RefundAmount holds the value of the "refund_amount" field.
 	RefundAmount float64 `json:"refund_amount,omitempty"`
+	// RefundBalanceAmount holds the value of the "refund_balance_amount" field.
+	RefundBalanceAmount float64 `json:"refund_balance_amount,omitempty"`
+	// RefundGatewayAmount holds the value of the "refund_gateway_amount" field.
+	RefundGatewayAmount float64 `json:"refund_gateway_amount,omitempty"`
+	// RefundBalanceStatus holds the value of the "refund_balance_status" field.
+	RefundBalanceStatus string `json:"refund_balance_status,omitempty"`
 	// RefundReason holds the value of the "refund_reason" field.
 	RefundReason *string `json:"refund_reason,omitempty"`
 	// RefundAt holds the value of the "refund_at" field.
@@ -117,9 +146,11 @@ type PaymentOrder struct {
 type PaymentOrderEdges struct {
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
+	// BalanceHold holds the value of the balance_hold edge.
+	BalanceHold *PaymentBalanceHold `json:"balance_hold,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -133,6 +164,17 @@ func (e PaymentOrderEdges) UserOrErr() (*User, error) {
 	return nil, &NotLoadedError{edge: "user"}
 }
 
+// BalanceHoldOrErr returns the BalanceHold value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e PaymentOrderEdges) BalanceHoldOrErr() (*PaymentBalanceHold, error) {
+	if e.BalanceHold != nil {
+		return e.BalanceHold, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: paymentbalancehold.Label}
+	}
+	return nil, &NotLoadedError{edge: "balance_hold"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -142,13 +184,13 @@ func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case paymentorder.FieldForceRefund:
 			values[i] = new(sql.NullBool)
-		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldRefundAmount:
+		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldBalanceAmount, paymentorder.FieldGatewayAmount, paymentorder.FieldCompensationAmount, paymentorder.FieldRefundAmount, paymentorder.FieldRefundBalanceAmount, paymentorder.FieldRefundGatewayAmount:
 			values[i] = new(sql.NullFloat64)
 		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays, paymentorder.FieldSubscriptionID:
 			values[i] = new(sql.NullInt64)
-		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldRefundRequestID, paymentorder.FieldRefundGatewayStatus, paymentorder.FieldRefundEntitlementStatus, paymentorder.FieldRefundProviderRef, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
+		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldFundingMode, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldProviderInitStatus, paymentorder.FieldStatus, paymentorder.FieldPaymentResolutionStatus, paymentorder.FieldRefundBalanceStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldRefundRequestID, paymentorder.FieldRefundGatewayStatus, paymentorder.FieldRefundEntitlementStatus, paymentorder.FieldRefundProviderRef, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
 			values[i] = new(sql.NullString)
-		case paymentorder.FieldRefundAt, paymentorder.FieldRefundRequestedAt, paymentorder.FieldExpiresAt, paymentorder.FieldPaidAt, paymentorder.FieldCompletedAt, paymentorder.FieldFailedAt, paymentorder.FieldCreatedAt, paymentorder.FieldUpdatedAt:
+		case paymentorder.FieldProviderInitAttemptedAt, paymentorder.FieldProviderInitLeaseUntil, paymentorder.FieldPaymentResolutionDeadline, paymentorder.FieldCancelRequestedAt, paymentorder.FieldCompensatedAt, paymentorder.FieldRefundAt, paymentorder.FieldRefundRequestedAt, paymentorder.FieldExpiresAt, paymentorder.FieldPaidAt, paymentorder.FieldCompletedAt, paymentorder.FieldFailedAt, paymentorder.FieldCreatedAt, paymentorder.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -213,6 +255,24 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field fee_rate", values[i])
 			} else if value.Valid {
 				_m.FeeRate = value.Float64
+			}
+		case paymentorder.FieldFundingMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field funding_mode", values[i])
+			} else if value.Valid {
+				_m.FundingMode = value.String
+			}
+		case paymentorder.FieldBalanceAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_amount", values[i])
+			} else if value.Valid {
+				_m.BalanceAmount = value.Float64
+			}
+		case paymentorder.FieldGatewayAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field gateway_amount", values[i])
+			} else if value.Valid {
+				_m.GatewayAmount = value.Float64
 			}
 		case paymentorder.FieldRechargeCode:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -307,6 +367,26 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 				_m.ProviderKey = new(string)
 				*_m.ProviderKey = value.String
 			}
+		case paymentorder.FieldProviderInitStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_init_status", values[i])
+			} else if value.Valid {
+				_m.ProviderInitStatus = value.String
+			}
+		case paymentorder.FieldProviderInitAttemptedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_init_attempted_at", values[i])
+			} else if value.Valid {
+				_m.ProviderInitAttemptedAt = new(time.Time)
+				*_m.ProviderInitAttemptedAt = value.Time
+			}
+		case paymentorder.FieldProviderInitLeaseUntil:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field provider_init_lease_until", values[i])
+			} else if value.Valid {
+				_m.ProviderInitLeaseUntil = new(time.Time)
+				*_m.ProviderInitLeaseUntil = value.Time
+			}
 		case paymentorder.FieldProviderSnapshot:
 			if value, ok := values[i].(*[]byte); !ok {
 				return fmt.Errorf("unexpected type %T for field provider_snapshot", values[i])
@@ -321,11 +401,62 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Status = value.String
 			}
+		case paymentorder.FieldPaymentResolutionStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field payment_resolution_status", values[i])
+			} else if value.Valid {
+				_m.PaymentResolutionStatus = value.String
+			}
+		case paymentorder.FieldPaymentResolutionDeadline:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field payment_resolution_deadline", values[i])
+			} else if value.Valid {
+				_m.PaymentResolutionDeadline = new(time.Time)
+				*_m.PaymentResolutionDeadline = value.Time
+			}
+		case paymentorder.FieldCancelRequestedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field cancel_requested_at", values[i])
+			} else if value.Valid {
+				_m.CancelRequestedAt = new(time.Time)
+				*_m.CancelRequestedAt = value.Time
+			}
+		case paymentorder.FieldCompensationAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field compensation_amount", values[i])
+			} else if value.Valid {
+				_m.CompensationAmount = value.Float64
+			}
+		case paymentorder.FieldCompensatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field compensated_at", values[i])
+			} else if value.Valid {
+				_m.CompensatedAt = new(time.Time)
+				*_m.CompensatedAt = value.Time
+			}
 		case paymentorder.FieldRefundAmount:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field refund_amount", values[i])
 			} else if value.Valid {
 				_m.RefundAmount = value.Float64
+			}
+		case paymentorder.FieldRefundBalanceAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_balance_amount", values[i])
+			} else if value.Valid {
+				_m.RefundBalanceAmount = value.Float64
+			}
+		case paymentorder.FieldRefundGatewayAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_gateway_amount", values[i])
+			} else if value.Valid {
+				_m.RefundGatewayAmount = value.Float64
+			}
+		case paymentorder.FieldRefundBalanceStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_balance_status", values[i])
+			} else if value.Valid {
+				_m.RefundBalanceStatus = value.String
 			}
 		case paymentorder.FieldRefundReason:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -477,6 +608,11 @@ func (_m *PaymentOrder) QueryUser() *UserQuery {
 	return NewPaymentOrderClient(_m.config).QueryUser(_m)
 }
 
+// QueryBalanceHold queries the "balance_hold" edge of the PaymentOrder entity.
+func (_m *PaymentOrder) QueryBalanceHold() *PaymentBalanceHoldQuery {
+	return NewPaymentOrderClient(_m.config).QueryBalanceHold(_m)
+}
+
 // Update returns a builder for updating this PaymentOrder.
 // Note that you need to call PaymentOrder.Unwrap() before calling this method if this PaymentOrder
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -522,6 +658,15 @@ func (_m *PaymentOrder) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("fee_rate=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FeeRate))
+	builder.WriteString(", ")
+	builder.WriteString("funding_mode=")
+	builder.WriteString(_m.FundingMode)
+	builder.WriteString(", ")
+	builder.WriteString("balance_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.BalanceAmount))
+	builder.WriteString(", ")
+	builder.WriteString("gateway_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.GatewayAmount))
 	builder.WriteString(", ")
 	builder.WriteString("recharge_code=")
 	builder.WriteString(_m.RechargeCode)
@@ -583,14 +728,57 @@ func (_m *PaymentOrder) String() string {
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
+	builder.WriteString("provider_init_status=")
+	builder.WriteString(_m.ProviderInitStatus)
+	builder.WriteString(", ")
+	if v := _m.ProviderInitAttemptedAt; v != nil {
+		builder.WriteString("provider_init_attempted_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.ProviderInitLeaseUntil; v != nil {
+		builder.WriteString("provider_init_lease_until=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("provider_snapshot=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProviderSnapshot))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
 	builder.WriteString(", ")
+	builder.WriteString("payment_resolution_status=")
+	builder.WriteString(_m.PaymentResolutionStatus)
+	builder.WriteString(", ")
+	if v := _m.PaymentResolutionDeadline; v != nil {
+		builder.WriteString("payment_resolution_deadline=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.CancelRequestedAt; v != nil {
+		builder.WriteString("cancel_requested_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("compensation_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.CompensationAmount))
+	builder.WriteString(", ")
+	if v := _m.CompensatedAt; v != nil {
+		builder.WriteString("compensated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
 	builder.WriteString("refund_amount=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RefundAmount))
+	builder.WriteString(", ")
+	builder.WriteString("refund_balance_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RefundBalanceAmount))
+	builder.WriteString(", ")
+	builder.WriteString("refund_gateway_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RefundGatewayAmount))
+	builder.WriteString(", ")
+	builder.WriteString("refund_balance_status=")
+	builder.WriteString(_m.RefundBalanceStatus)
 	builder.WriteString(", ")
 	if v := _m.RefundReason; v != nil {
 		builder.WriteString("refund_reason=")

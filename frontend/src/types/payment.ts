@@ -9,6 +9,7 @@ export type OrderStatus =
   | 'PAID'
   | 'RECHARGING'
   | 'COMPLETED'
+  | 'COMPENSATED'
   | 'EXPIRED'
   | 'CANCELLED'
   | 'FAILED'
@@ -120,6 +121,16 @@ export interface PaymentOrder {
   refund_retryable?: boolean
   plan_id?: number
   provider_instance_id?: string
+  funding_mode?: 'gateway' | 'balance' | 'mixed' | string
+  balance_amount?: number
+  gateway_amount?: number
+  payment_resolution_status?: 'PAID' | 'UNPAID' | 'UNKNOWN' | string
+  payment_resolution_deadline?: string
+  compensation_amount?: number
+  compensated_at?: string
+  refund_balance_amount?: number
+  refund_gateway_amount?: number
+  refund_balance_status?: string
 }
 
 // ==================== Plans & Channels ====================
@@ -187,6 +198,9 @@ export interface CreateOrderRequest {
   openid?: string
   wechat_resume_token?: string
   is_mobile?: boolean
+  use_balance?: boolean
+  expected_pay_amount?: string
+  expected_balance_amount?: string
 }
 
 export interface BalancePayOrderRequest {
@@ -234,6 +248,13 @@ export interface CreateOrderResult {
   out_trade_no?: string
   payment_mode?: string
   resume_token?: string
+  funding_mode?: 'gateway' | 'balance' | 'mixed' | string
+  balance_amount?: number
+  gateway_amount?: number
+  payment_resolution_status?: 'PAID' | 'UNPAID' | 'UNKNOWN' | string
+  payment_resolution_deadline?: string
+  compensation_amount?: number
+  compensated_at?: string
   oauth?: WechatOAuthInfo
   jsapi?: WechatJSAPIPayload
   jsapi_payload?: WechatJSAPIPayload

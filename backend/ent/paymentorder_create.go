@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
@@ -77,6 +78,48 @@ func (_c *PaymentOrderCreate) SetFeeRate(v float64) *PaymentOrderCreate {
 func (_c *PaymentOrderCreate) SetNillableFeeRate(v *float64) *PaymentOrderCreate {
 	if v != nil {
 		_c.SetFeeRate(*v)
+	}
+	return _c
+}
+
+// SetFundingMode sets the "funding_mode" field.
+func (_c *PaymentOrderCreate) SetFundingMode(v string) *PaymentOrderCreate {
+	_c.mutation.SetFundingMode(v)
+	return _c
+}
+
+// SetNillableFundingMode sets the "funding_mode" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableFundingMode(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetFundingMode(*v)
+	}
+	return _c
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (_c *PaymentOrderCreate) SetBalanceAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetBalanceAmount(v)
+	return _c
+}
+
+// SetNillableBalanceAmount sets the "balance_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalanceAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalanceAmount(*v)
+	}
+	return _c
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (_c *PaymentOrderCreate) SetGatewayAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetGatewayAmount(v)
+	return _c
+}
+
+// SetNillableGatewayAmount sets the "gateway_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableGatewayAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetGatewayAmount(*v)
 	}
 	return _c
 }
@@ -253,6 +296,48 @@ func (_c *PaymentOrderCreate) SetNillableProviderKey(v *string) *PaymentOrderCre
 	return _c
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (_c *PaymentOrderCreate) SetProviderInitStatus(v string) *PaymentOrderCreate {
+	_c.mutation.SetProviderInitStatus(v)
+	return _c
+}
+
+// SetNillableProviderInitStatus sets the "provider_init_status" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableProviderInitStatus(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetProviderInitStatus(*v)
+	}
+	return _c
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (_c *PaymentOrderCreate) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderCreate {
+	_c.mutation.SetProviderInitAttemptedAt(v)
+	return _c
+}
+
+// SetNillableProviderInitAttemptedAt sets the "provider_init_attempted_at" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableProviderInitAttemptedAt(v *time.Time) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetProviderInitAttemptedAt(*v)
+	}
+	return _c
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (_c *PaymentOrderCreate) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderCreate {
+	_c.mutation.SetProviderInitLeaseUntil(v)
+	return _c
+}
+
+// SetNillableProviderInitLeaseUntil sets the "provider_init_lease_until" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableProviderInitLeaseUntil(v *time.Time) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetProviderInitLeaseUntil(*v)
+	}
+	return _c
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (_c *PaymentOrderCreate) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderCreate {
 	_c.mutation.SetProviderSnapshot(v)
@@ -273,6 +358,76 @@ func (_c *PaymentOrderCreate) SetNillableStatus(v *string) *PaymentOrderCreate {
 	return _c
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (_c *PaymentOrderCreate) SetPaymentResolutionStatus(v string) *PaymentOrderCreate {
+	_c.mutation.SetPaymentResolutionStatus(v)
+	return _c
+}
+
+// SetNillablePaymentResolutionStatus sets the "payment_resolution_status" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillablePaymentResolutionStatus(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetPaymentResolutionStatus(*v)
+	}
+	return _c
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (_c *PaymentOrderCreate) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderCreate {
+	_c.mutation.SetPaymentResolutionDeadline(v)
+	return _c
+}
+
+// SetNillablePaymentResolutionDeadline sets the "payment_resolution_deadline" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillablePaymentResolutionDeadline(v *time.Time) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetPaymentResolutionDeadline(*v)
+	}
+	return _c
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (_c *PaymentOrderCreate) SetCancelRequestedAt(v time.Time) *PaymentOrderCreate {
+	_c.mutation.SetCancelRequestedAt(v)
+	return _c
+}
+
+// SetNillableCancelRequestedAt sets the "cancel_requested_at" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableCancelRequestedAt(v *time.Time) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetCancelRequestedAt(*v)
+	}
+	return _c
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (_c *PaymentOrderCreate) SetCompensationAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetCompensationAmount(v)
+	return _c
+}
+
+// SetNillableCompensationAmount sets the "compensation_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableCompensationAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetCompensationAmount(*v)
+	}
+	return _c
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (_c *PaymentOrderCreate) SetCompensatedAt(v time.Time) *PaymentOrderCreate {
+	_c.mutation.SetCompensatedAt(v)
+	return _c
+}
+
+// SetNillableCompensatedAt sets the "compensated_at" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableCompensatedAt(v *time.Time) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetCompensatedAt(*v)
+	}
+	return _c
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (_c *PaymentOrderCreate) SetRefundAmount(v float64) *PaymentOrderCreate {
 	_c.mutation.SetRefundAmount(v)
@@ -283,6 +438,48 @@ func (_c *PaymentOrderCreate) SetRefundAmount(v float64) *PaymentOrderCreate {
 func (_c *PaymentOrderCreate) SetNillableRefundAmount(v *float64) *PaymentOrderCreate {
 	if v != nil {
 		_c.SetRefundAmount(*v)
+	}
+	return _c
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (_c *PaymentOrderCreate) SetRefundBalanceAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetRefundBalanceAmount(v)
+	return _c
+}
+
+// SetNillableRefundBalanceAmount sets the "refund_balance_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundBalanceAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundBalanceAmount(*v)
+	}
+	return _c
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (_c *PaymentOrderCreate) SetRefundGatewayAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetRefundGatewayAmount(v)
+	return _c
+}
+
+// SetNillableRefundGatewayAmount sets the "refund_gateway_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundGatewayAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundGatewayAmount(*v)
+	}
+	return _c
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (_c *PaymentOrderCreate) SetRefundBalanceStatus(v string) *PaymentOrderCreate {
+	_c.mutation.SetRefundBalanceStatus(v)
+	return _c
+}
+
+// SetNillableRefundBalanceStatus sets the "refund_balance_status" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundBalanceStatus(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundBalanceStatus(*v)
 	}
 	return _c
 }
@@ -548,6 +745,25 @@ func (_c *PaymentOrderCreate) SetUser(v *User) *PaymentOrderCreate {
 	return _c.SetUserID(v.ID)
 }
 
+// SetBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID.
+func (_c *PaymentOrderCreate) SetBalanceHoldID(id int64) *PaymentOrderCreate {
+	_c.mutation.SetBalanceHoldID(id)
+	return _c
+}
+
+// SetNillableBalanceHoldID sets the "balance_hold" edge to the PaymentBalanceHold entity by ID if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalanceHoldID(id *int64) *PaymentOrderCreate {
+	if id != nil {
+		_c = _c.SetBalanceHoldID(*id)
+	}
+	return _c
+}
+
+// SetBalanceHold sets the "balance_hold" edge to the PaymentBalanceHold entity.
+func (_c *PaymentOrderCreate) SetBalanceHold(v *PaymentBalanceHold) *PaymentOrderCreate {
+	return _c.SetBalanceHoldID(v.ID)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_c *PaymentOrderCreate) Mutation() *PaymentOrderMutation {
 	return _c.mutation
@@ -587,6 +803,18 @@ func (_c *PaymentOrderCreate) defaults() {
 		v := paymentorder.DefaultFeeRate
 		_c.mutation.SetFeeRate(v)
 	}
+	if _, ok := _c.mutation.FundingMode(); !ok {
+		v := paymentorder.DefaultFundingMode
+		_c.mutation.SetFundingMode(v)
+	}
+	if _, ok := _c.mutation.BalanceAmount(); !ok {
+		v := paymentorder.DefaultBalanceAmount
+		_c.mutation.SetBalanceAmount(v)
+	}
+	if _, ok := _c.mutation.GatewayAmount(); !ok {
+		v := paymentorder.DefaultGatewayAmount
+		_c.mutation.SetGatewayAmount(v)
+	}
 	if _, ok := _c.mutation.OutTradeNo(); !ok {
 		v := paymentorder.DefaultOutTradeNo
 		_c.mutation.SetOutTradeNo(v)
@@ -595,13 +823,37 @@ func (_c *PaymentOrderCreate) defaults() {
 		v := paymentorder.DefaultOrderType
 		_c.mutation.SetOrderType(v)
 	}
+	if _, ok := _c.mutation.ProviderInitStatus(); !ok {
+		v := paymentorder.DefaultProviderInitStatus
+		_c.mutation.SetProviderInitStatus(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := paymentorder.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.PaymentResolutionStatus(); !ok {
+		v := paymentorder.DefaultPaymentResolutionStatus
+		_c.mutation.SetPaymentResolutionStatus(v)
+	}
+	if _, ok := _c.mutation.CompensationAmount(); !ok {
+		v := paymentorder.DefaultCompensationAmount
+		_c.mutation.SetCompensationAmount(v)
+	}
 	if _, ok := _c.mutation.RefundAmount(); !ok {
 		v := paymentorder.DefaultRefundAmount
 		_c.mutation.SetRefundAmount(v)
+	}
+	if _, ok := _c.mutation.RefundBalanceAmount(); !ok {
+		v := paymentorder.DefaultRefundBalanceAmount
+		_c.mutation.SetRefundBalanceAmount(v)
+	}
+	if _, ok := _c.mutation.RefundGatewayAmount(); !ok {
+		v := paymentorder.DefaultRefundGatewayAmount
+		_c.mutation.SetRefundGatewayAmount(v)
+	}
+	if _, ok := _c.mutation.RefundBalanceStatus(); !ok {
+		v := paymentorder.DefaultRefundBalanceStatus
+		_c.mutation.SetRefundBalanceStatus(v)
 	}
 	if _, ok := _c.mutation.ForceRefund(); !ok {
 		v := paymentorder.DefaultForceRefund
@@ -655,6 +907,20 @@ func (_c *PaymentOrderCreate) check() error {
 	if _, ok := _c.mutation.FeeRate(); !ok {
 		return &ValidationError{Name: "fee_rate", err: errors.New(`ent: missing required field "PaymentOrder.fee_rate"`)}
 	}
+	if _, ok := _c.mutation.FundingMode(); !ok {
+		return &ValidationError{Name: "funding_mode", err: errors.New(`ent: missing required field "PaymentOrder.funding_mode"`)}
+	}
+	if v, ok := _c.mutation.FundingMode(); ok {
+		if err := paymentorder.FundingModeValidator(v); err != nil {
+			return &ValidationError{Name: "funding_mode", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.funding_mode": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.BalanceAmount(); !ok {
+		return &ValidationError{Name: "balance_amount", err: errors.New(`ent: missing required field "PaymentOrder.balance_amount"`)}
+	}
+	if _, ok := _c.mutation.GatewayAmount(); !ok {
+		return &ValidationError{Name: "gateway_amount", err: errors.New(`ent: missing required field "PaymentOrder.gateway_amount"`)}
+	}
 	if _, ok := _c.mutation.RechargeCode(); !ok {
 		return &ValidationError{Name: "recharge_code", err: errors.New(`ent: missing required field "PaymentOrder.recharge_code"`)}
 	}
@@ -705,6 +971,14 @@ func (_c *PaymentOrderCreate) check() error {
 			return &ValidationError{Name: "provider_key", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_key": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.ProviderInitStatus(); !ok {
+		return &ValidationError{Name: "provider_init_status", err: errors.New(`ent: missing required field "PaymentOrder.provider_init_status"`)}
+	}
+	if v, ok := _c.mutation.ProviderInitStatus(); ok {
+		if err := paymentorder.ProviderInitStatusValidator(v); err != nil {
+			return &ValidationError{Name: "provider_init_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.provider_init_status": %w`, err)}
+		}
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "PaymentOrder.status"`)}
 	}
@@ -713,8 +987,33 @@ func (_c *PaymentOrderCreate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.status": %w`, err)}
 		}
 	}
+	if _, ok := _c.mutation.PaymentResolutionStatus(); !ok {
+		return &ValidationError{Name: "payment_resolution_status", err: errors.New(`ent: missing required field "PaymentOrder.payment_resolution_status"`)}
+	}
+	if v, ok := _c.mutation.PaymentResolutionStatus(); ok {
+		if err := paymentorder.PaymentResolutionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "payment_resolution_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.payment_resolution_status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.CompensationAmount(); !ok {
+		return &ValidationError{Name: "compensation_amount", err: errors.New(`ent: missing required field "PaymentOrder.compensation_amount"`)}
+	}
 	if _, ok := _c.mutation.RefundAmount(); !ok {
 		return &ValidationError{Name: "refund_amount", err: errors.New(`ent: missing required field "PaymentOrder.refund_amount"`)}
+	}
+	if _, ok := _c.mutation.RefundBalanceAmount(); !ok {
+		return &ValidationError{Name: "refund_balance_amount", err: errors.New(`ent: missing required field "PaymentOrder.refund_balance_amount"`)}
+	}
+	if _, ok := _c.mutation.RefundGatewayAmount(); !ok {
+		return &ValidationError{Name: "refund_gateway_amount", err: errors.New(`ent: missing required field "PaymentOrder.refund_gateway_amount"`)}
+	}
+	if _, ok := _c.mutation.RefundBalanceStatus(); !ok {
+		return &ValidationError{Name: "refund_balance_status", err: errors.New(`ent: missing required field "PaymentOrder.refund_balance_status"`)}
+	}
+	if v, ok := _c.mutation.RefundBalanceStatus(); ok {
+		if err := paymentorder.RefundBalanceStatusValidator(v); err != nil {
+			return &ValidationError{Name: "refund_balance_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_balance_status": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.ForceRefund(); !ok {
 		return &ValidationError{Name: "force_refund", err: errors.New(`ent: missing required field "PaymentOrder.force_refund"`)}
@@ -829,6 +1128,18 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 		_node.FeeRate = value
 	}
+	if value, ok := _c.mutation.FundingMode(); ok {
+		_spec.SetField(paymentorder.FieldFundingMode, field.TypeString, value)
+		_node.FundingMode = value
+	}
+	if value, ok := _c.mutation.BalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldBalanceAmount, field.TypeFloat64, value)
+		_node.BalanceAmount = value
+	}
+	if value, ok := _c.mutation.GatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldGatewayAmount, field.TypeFloat64, value)
+		_node.GatewayAmount = value
+	}
 	if value, ok := _c.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 		_node.RechargeCode = value
@@ -885,6 +1196,18 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldProviderKey, field.TypeString, value)
 		_node.ProviderKey = &value
 	}
+	if value, ok := _c.mutation.ProviderInitStatus(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitStatus, field.TypeString, value)
+		_node.ProviderInitStatus = value
+	}
+	if value, ok := _c.mutation.ProviderInitAttemptedAt(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitAttemptedAt, field.TypeTime, value)
+		_node.ProviderInitAttemptedAt = &value
+	}
+	if value, ok := _c.mutation.ProviderInitLeaseUntil(); ok {
+		_spec.SetField(paymentorder.FieldProviderInitLeaseUntil, field.TypeTime, value)
+		_node.ProviderInitLeaseUntil = &value
+	}
 	if value, ok := _c.mutation.ProviderSnapshot(); ok {
 		_spec.SetField(paymentorder.FieldProviderSnapshot, field.TypeJSON, value)
 		_node.ProviderSnapshot = value
@@ -893,9 +1216,41 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldStatus, field.TypeString, value)
 		_node.Status = value
 	}
+	if value, ok := _c.mutation.PaymentResolutionStatus(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionStatus, field.TypeString, value)
+		_node.PaymentResolutionStatus = value
+	}
+	if value, ok := _c.mutation.PaymentResolutionDeadline(); ok {
+		_spec.SetField(paymentorder.FieldPaymentResolutionDeadline, field.TypeTime, value)
+		_node.PaymentResolutionDeadline = &value
+	}
+	if value, ok := _c.mutation.CancelRequestedAt(); ok {
+		_spec.SetField(paymentorder.FieldCancelRequestedAt, field.TypeTime, value)
+		_node.CancelRequestedAt = &value
+	}
+	if value, ok := _c.mutation.CompensationAmount(); ok {
+		_spec.SetField(paymentorder.FieldCompensationAmount, field.TypeFloat64, value)
+		_node.CompensationAmount = value
+	}
+	if value, ok := _c.mutation.CompensatedAt(); ok {
+		_spec.SetField(paymentorder.FieldCompensatedAt, field.TypeTime, value)
+		_node.CompensatedAt = &value
+	}
 	if value, ok := _c.mutation.RefundAmount(); ok {
 		_spec.SetField(paymentorder.FieldRefundAmount, field.TypeFloat64, value)
 		_node.RefundAmount = value
+	}
+	if value, ok := _c.mutation.RefundBalanceAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceAmount, field.TypeFloat64, value)
+		_node.RefundBalanceAmount = value
+	}
+	if value, ok := _c.mutation.RefundGatewayAmount(); ok {
+		_spec.SetField(paymentorder.FieldRefundGatewayAmount, field.TypeFloat64, value)
+		_node.RefundGatewayAmount = value
+	}
+	if value, ok := _c.mutation.RefundBalanceStatus(); ok {
+		_spec.SetField(paymentorder.FieldRefundBalanceStatus, field.TypeString, value)
+		_node.RefundBalanceStatus = value
 	}
 	if value, ok := _c.mutation.RefundReason(); ok {
 		_spec.SetField(paymentorder.FieldRefundReason, field.TypeString, value)
@@ -992,6 +1347,22 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.UserID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.BalanceHoldIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.BalanceHoldTable,
+			Columns: []string{paymentorder.BalanceHoldColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -1151,6 +1522,54 @@ func (u *PaymentOrderUpsert) UpdateFeeRate() *PaymentOrderUpsert {
 // AddFeeRate adds v to the "fee_rate" field.
 func (u *PaymentOrderUpsert) AddFeeRate(v float64) *PaymentOrderUpsert {
 	u.Add(paymentorder.FieldFeeRate, v)
+	return u
+}
+
+// SetFundingMode sets the "funding_mode" field.
+func (u *PaymentOrderUpsert) SetFundingMode(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldFundingMode, v)
+	return u
+}
+
+// UpdateFundingMode sets the "funding_mode" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateFundingMode() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldFundingMode)
+	return u
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (u *PaymentOrderUpsert) SetBalanceAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalanceAmount, v)
+	return u
+}
+
+// UpdateBalanceAmount sets the "balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalanceAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalanceAmount)
+	return u
+}
+
+// AddBalanceAmount adds v to the "balance_amount" field.
+func (u *PaymentOrderUpsert) AddBalanceAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalanceAmount, v)
+	return u
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (u *PaymentOrderUpsert) SetGatewayAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldGatewayAmount, v)
+	return u
+}
+
+// UpdateGatewayAmount sets the "gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateGatewayAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldGatewayAmount)
+	return u
+}
+
+// AddGatewayAmount adds v to the "gateway_amount" field.
+func (u *PaymentOrderUpsert) AddGatewayAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldGatewayAmount, v)
 	return u
 }
 
@@ -1400,6 +1819,54 @@ func (u *PaymentOrderUpsert) ClearProviderKey() *PaymentOrderUpsert {
 	return u
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (u *PaymentOrderUpsert) SetProviderInitStatus(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldProviderInitStatus, v)
+	return u
+}
+
+// UpdateProviderInitStatus sets the "provider_init_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateProviderInitStatus() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldProviderInitStatus)
+	return u
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsert) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldProviderInitAttemptedAt, v)
+	return u
+}
+
+// UpdateProviderInitAttemptedAt sets the "provider_init_attempted_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateProviderInitAttemptedAt() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldProviderInitAttemptedAt)
+	return u
+}
+
+// ClearProviderInitAttemptedAt clears the value of the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsert) ClearProviderInitAttemptedAt() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldProviderInitAttemptedAt)
+	return u
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsert) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldProviderInitLeaseUntil, v)
+	return u
+}
+
+// UpdateProviderInitLeaseUntil sets the "provider_init_lease_until" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateProviderInitLeaseUntil() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldProviderInitLeaseUntil)
+	return u
+}
+
+// ClearProviderInitLeaseUntil clears the value of the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsert) ClearProviderInitLeaseUntil() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldProviderInitLeaseUntil)
+	return u
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (u *PaymentOrderUpsert) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderUpsert {
 	u.Set(paymentorder.FieldProviderSnapshot, v)
@@ -1430,6 +1897,90 @@ func (u *PaymentOrderUpsert) UpdateStatus() *PaymentOrderUpsert {
 	return u
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (u *PaymentOrderUpsert) SetPaymentResolutionStatus(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldPaymentResolutionStatus, v)
+	return u
+}
+
+// UpdatePaymentResolutionStatus sets the "payment_resolution_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdatePaymentResolutionStatus() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldPaymentResolutionStatus)
+	return u
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsert) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldPaymentResolutionDeadline, v)
+	return u
+}
+
+// UpdatePaymentResolutionDeadline sets the "payment_resolution_deadline" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdatePaymentResolutionDeadline() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldPaymentResolutionDeadline)
+	return u
+}
+
+// ClearPaymentResolutionDeadline clears the value of the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsert) ClearPaymentResolutionDeadline() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldPaymentResolutionDeadline)
+	return u
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (u *PaymentOrderUpsert) SetCancelRequestedAt(v time.Time) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldCancelRequestedAt, v)
+	return u
+}
+
+// UpdateCancelRequestedAt sets the "cancel_requested_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateCancelRequestedAt() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldCancelRequestedAt)
+	return u
+}
+
+// ClearCancelRequestedAt clears the value of the "cancel_requested_at" field.
+func (u *PaymentOrderUpsert) ClearCancelRequestedAt() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldCancelRequestedAt)
+	return u
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (u *PaymentOrderUpsert) SetCompensationAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldCompensationAmount, v)
+	return u
+}
+
+// UpdateCompensationAmount sets the "compensation_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateCompensationAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldCompensationAmount)
+	return u
+}
+
+// AddCompensationAmount adds v to the "compensation_amount" field.
+func (u *PaymentOrderUpsert) AddCompensationAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldCompensationAmount, v)
+	return u
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (u *PaymentOrderUpsert) SetCompensatedAt(v time.Time) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldCompensatedAt, v)
+	return u
+}
+
+// UpdateCompensatedAt sets the "compensated_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateCompensatedAt() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldCompensatedAt)
+	return u
+}
+
+// ClearCompensatedAt clears the value of the "compensated_at" field.
+func (u *PaymentOrderUpsert) ClearCompensatedAt() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldCompensatedAt)
+	return u
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (u *PaymentOrderUpsert) SetRefundAmount(v float64) *PaymentOrderUpsert {
 	u.Set(paymentorder.FieldRefundAmount, v)
@@ -1445,6 +1996,54 @@ func (u *PaymentOrderUpsert) UpdateRefundAmount() *PaymentOrderUpsert {
 // AddRefundAmount adds v to the "refund_amount" field.
 func (u *PaymentOrderUpsert) AddRefundAmount(v float64) *PaymentOrderUpsert {
 	u.Add(paymentorder.FieldRefundAmount, v)
+	return u
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (u *PaymentOrderUpsert) SetRefundBalanceAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundBalanceAmount, v)
+	return u
+}
+
+// UpdateRefundBalanceAmount sets the "refund_balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundBalanceAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundBalanceAmount)
+	return u
+}
+
+// AddRefundBalanceAmount adds v to the "refund_balance_amount" field.
+func (u *PaymentOrderUpsert) AddRefundBalanceAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldRefundBalanceAmount, v)
+	return u
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsert) SetRefundGatewayAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundGatewayAmount, v)
+	return u
+}
+
+// UpdateRefundGatewayAmount sets the "refund_gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundGatewayAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundGatewayAmount)
+	return u
+}
+
+// AddRefundGatewayAmount adds v to the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsert) AddRefundGatewayAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldRefundGatewayAmount, v)
+	return u
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (u *PaymentOrderUpsert) SetRefundBalanceStatus(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundBalanceStatus, v)
+	return u
+}
+
+// UpdateRefundBalanceStatus sets the "refund_balance_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundBalanceStatus() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundBalanceStatus)
 	return u
 }
 
@@ -1919,6 +2518,62 @@ func (u *PaymentOrderUpsertOne) UpdateFeeRate() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetFundingMode sets the "funding_mode" field.
+func (u *PaymentOrderUpsertOne) SetFundingMode(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetFundingMode(v)
+	})
+}
+
+// UpdateFundingMode sets the "funding_mode" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateFundingMode() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateFundingMode()
+	})
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (u *PaymentOrderUpsertOne) SetBalanceAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalanceAmount(v)
+	})
+}
+
+// AddBalanceAmount adds v to the "balance_amount" field.
+func (u *PaymentOrderUpsertOne) AddBalanceAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalanceAmount(v)
+	})
+}
+
+// UpdateBalanceAmount sets the "balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalanceAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalanceAmount()
+	})
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (u *PaymentOrderUpsertOne) SetGatewayAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetGatewayAmount(v)
+	})
+}
+
+// AddGatewayAmount adds v to the "gateway_amount" field.
+func (u *PaymentOrderUpsertOne) AddGatewayAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddGatewayAmount(v)
+	})
+}
+
+// UpdateGatewayAmount sets the "gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateGatewayAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateGatewayAmount()
+	})
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (u *PaymentOrderUpsertOne) SetRechargeCode(v string) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -2206,6 +2861,62 @@ func (u *PaymentOrderUpsertOne) ClearProviderKey() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (u *PaymentOrderUpsertOne) SetProviderInitStatus(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitStatus(v)
+	})
+}
+
+// UpdateProviderInitStatus sets the "provider_init_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateProviderInitStatus() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitStatus()
+	})
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsertOne) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitAttemptedAt(v)
+	})
+}
+
+// UpdateProviderInitAttemptedAt sets the "provider_init_attempted_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateProviderInitAttemptedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitAttemptedAt()
+	})
+}
+
+// ClearProviderInitAttemptedAt clears the value of the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsertOne) ClearProviderInitAttemptedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearProviderInitAttemptedAt()
+	})
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsertOne) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitLeaseUntil(v)
+	})
+}
+
+// UpdateProviderInitLeaseUntil sets the "provider_init_lease_until" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateProviderInitLeaseUntil() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitLeaseUntil()
+	})
+}
+
+// ClearProviderInitLeaseUntil clears the value of the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsertOne) ClearProviderInitLeaseUntil() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearProviderInitLeaseUntil()
+	})
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (u *PaymentOrderUpsertOne) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -2241,6 +2952,104 @@ func (u *PaymentOrderUpsertOne) UpdateStatus() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (u *PaymentOrderUpsertOne) SetPaymentResolutionStatus(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPaymentResolutionStatus(v)
+	})
+}
+
+// UpdatePaymentResolutionStatus sets the "payment_resolution_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdatePaymentResolutionStatus() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePaymentResolutionStatus()
+	})
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsertOne) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPaymentResolutionDeadline(v)
+	})
+}
+
+// UpdatePaymentResolutionDeadline sets the "payment_resolution_deadline" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdatePaymentResolutionDeadline() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePaymentResolutionDeadline()
+	})
+}
+
+// ClearPaymentResolutionDeadline clears the value of the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsertOne) ClearPaymentResolutionDeadline() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearPaymentResolutionDeadline()
+	})
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (u *PaymentOrderUpsertOne) SetCancelRequestedAt(v time.Time) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCancelRequestedAt(v)
+	})
+}
+
+// UpdateCancelRequestedAt sets the "cancel_requested_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateCancelRequestedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCancelRequestedAt()
+	})
+}
+
+// ClearCancelRequestedAt clears the value of the "cancel_requested_at" field.
+func (u *PaymentOrderUpsertOne) ClearCancelRequestedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearCancelRequestedAt()
+	})
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (u *PaymentOrderUpsertOne) SetCompensationAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCompensationAmount(v)
+	})
+}
+
+// AddCompensationAmount adds v to the "compensation_amount" field.
+func (u *PaymentOrderUpsertOne) AddCompensationAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddCompensationAmount(v)
+	})
+}
+
+// UpdateCompensationAmount sets the "compensation_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateCompensationAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCompensationAmount()
+	})
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (u *PaymentOrderUpsertOne) SetCompensatedAt(v time.Time) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCompensatedAt(v)
+	})
+}
+
+// UpdateCompensatedAt sets the "compensated_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateCompensatedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCompensatedAt()
+	})
+}
+
+// ClearCompensatedAt clears the value of the "compensated_at" field.
+func (u *PaymentOrderUpsertOne) ClearCompensatedAt() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearCompensatedAt()
+	})
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (u *PaymentOrderUpsertOne) SetRefundAmount(v float64) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -2259,6 +3068,62 @@ func (u *PaymentOrderUpsertOne) AddRefundAmount(v float64) *PaymentOrderUpsertOn
 func (u *PaymentOrderUpsertOne) UpdateRefundAmount() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdateRefundAmount()
+	})
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (u *PaymentOrderUpsertOne) SetRefundBalanceAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBalanceAmount(v)
+	})
+}
+
+// AddRefundBalanceAmount adds v to the "refund_balance_amount" field.
+func (u *PaymentOrderUpsertOne) AddRefundBalanceAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddRefundBalanceAmount(v)
+	})
+}
+
+// UpdateRefundBalanceAmount sets the "refund_balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundBalanceAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBalanceAmount()
+	})
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsertOne) SetRefundGatewayAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundGatewayAmount(v)
+	})
+}
+
+// AddRefundGatewayAmount adds v to the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsertOne) AddRefundGatewayAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddRefundGatewayAmount(v)
+	})
+}
+
+// UpdateRefundGatewayAmount sets the "refund_gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundGatewayAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundGatewayAmount()
+	})
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (u *PaymentOrderUpsertOne) SetRefundBalanceStatus(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBalanceStatus(v)
+	})
+}
+
+// UpdateRefundBalanceStatus sets the "refund_balance_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundBalanceStatus() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBalanceStatus()
 	})
 }
 
@@ -2949,6 +3814,62 @@ func (u *PaymentOrderUpsertBulk) UpdateFeeRate() *PaymentOrderUpsertBulk {
 	})
 }
 
+// SetFundingMode sets the "funding_mode" field.
+func (u *PaymentOrderUpsertBulk) SetFundingMode(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetFundingMode(v)
+	})
+}
+
+// UpdateFundingMode sets the "funding_mode" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateFundingMode() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateFundingMode()
+	})
+}
+
+// SetBalanceAmount sets the "balance_amount" field.
+func (u *PaymentOrderUpsertBulk) SetBalanceAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalanceAmount(v)
+	})
+}
+
+// AddBalanceAmount adds v to the "balance_amount" field.
+func (u *PaymentOrderUpsertBulk) AddBalanceAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalanceAmount(v)
+	})
+}
+
+// UpdateBalanceAmount sets the "balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalanceAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalanceAmount()
+	})
+}
+
+// SetGatewayAmount sets the "gateway_amount" field.
+func (u *PaymentOrderUpsertBulk) SetGatewayAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetGatewayAmount(v)
+	})
+}
+
+// AddGatewayAmount adds v to the "gateway_amount" field.
+func (u *PaymentOrderUpsertBulk) AddGatewayAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddGatewayAmount(v)
+	})
+}
+
+// UpdateGatewayAmount sets the "gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateGatewayAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateGatewayAmount()
+	})
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (u *PaymentOrderUpsertBulk) SetRechargeCode(v string) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -3236,6 +4157,62 @@ func (u *PaymentOrderUpsertBulk) ClearProviderKey() *PaymentOrderUpsertBulk {
 	})
 }
 
+// SetProviderInitStatus sets the "provider_init_status" field.
+func (u *PaymentOrderUpsertBulk) SetProviderInitStatus(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitStatus(v)
+	})
+}
+
+// UpdateProviderInitStatus sets the "provider_init_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateProviderInitStatus() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitStatus()
+	})
+}
+
+// SetProviderInitAttemptedAt sets the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsertBulk) SetProviderInitAttemptedAt(v time.Time) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitAttemptedAt(v)
+	})
+}
+
+// UpdateProviderInitAttemptedAt sets the "provider_init_attempted_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateProviderInitAttemptedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitAttemptedAt()
+	})
+}
+
+// ClearProviderInitAttemptedAt clears the value of the "provider_init_attempted_at" field.
+func (u *PaymentOrderUpsertBulk) ClearProviderInitAttemptedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearProviderInitAttemptedAt()
+	})
+}
+
+// SetProviderInitLeaseUntil sets the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsertBulk) SetProviderInitLeaseUntil(v time.Time) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetProviderInitLeaseUntil(v)
+	})
+}
+
+// UpdateProviderInitLeaseUntil sets the "provider_init_lease_until" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateProviderInitLeaseUntil() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateProviderInitLeaseUntil()
+	})
+}
+
+// ClearProviderInitLeaseUntil clears the value of the "provider_init_lease_until" field.
+func (u *PaymentOrderUpsertBulk) ClearProviderInitLeaseUntil() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearProviderInitLeaseUntil()
+	})
+}
+
 // SetProviderSnapshot sets the "provider_snapshot" field.
 func (u *PaymentOrderUpsertBulk) SetProviderSnapshot(v map[string]interface{}) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -3271,6 +4248,104 @@ func (u *PaymentOrderUpsertBulk) UpdateStatus() *PaymentOrderUpsertBulk {
 	})
 }
 
+// SetPaymentResolutionStatus sets the "payment_resolution_status" field.
+func (u *PaymentOrderUpsertBulk) SetPaymentResolutionStatus(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPaymentResolutionStatus(v)
+	})
+}
+
+// UpdatePaymentResolutionStatus sets the "payment_resolution_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdatePaymentResolutionStatus() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePaymentResolutionStatus()
+	})
+}
+
+// SetPaymentResolutionDeadline sets the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsertBulk) SetPaymentResolutionDeadline(v time.Time) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetPaymentResolutionDeadline(v)
+	})
+}
+
+// UpdatePaymentResolutionDeadline sets the "payment_resolution_deadline" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdatePaymentResolutionDeadline() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdatePaymentResolutionDeadline()
+	})
+}
+
+// ClearPaymentResolutionDeadline clears the value of the "payment_resolution_deadline" field.
+func (u *PaymentOrderUpsertBulk) ClearPaymentResolutionDeadline() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearPaymentResolutionDeadline()
+	})
+}
+
+// SetCancelRequestedAt sets the "cancel_requested_at" field.
+func (u *PaymentOrderUpsertBulk) SetCancelRequestedAt(v time.Time) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCancelRequestedAt(v)
+	})
+}
+
+// UpdateCancelRequestedAt sets the "cancel_requested_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateCancelRequestedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCancelRequestedAt()
+	})
+}
+
+// ClearCancelRequestedAt clears the value of the "cancel_requested_at" field.
+func (u *PaymentOrderUpsertBulk) ClearCancelRequestedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearCancelRequestedAt()
+	})
+}
+
+// SetCompensationAmount sets the "compensation_amount" field.
+func (u *PaymentOrderUpsertBulk) SetCompensationAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCompensationAmount(v)
+	})
+}
+
+// AddCompensationAmount adds v to the "compensation_amount" field.
+func (u *PaymentOrderUpsertBulk) AddCompensationAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddCompensationAmount(v)
+	})
+}
+
+// UpdateCompensationAmount sets the "compensation_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateCompensationAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCompensationAmount()
+	})
+}
+
+// SetCompensatedAt sets the "compensated_at" field.
+func (u *PaymentOrderUpsertBulk) SetCompensatedAt(v time.Time) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetCompensatedAt(v)
+	})
+}
+
+// UpdateCompensatedAt sets the "compensated_at" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateCompensatedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateCompensatedAt()
+	})
+}
+
+// ClearCompensatedAt clears the value of the "compensated_at" field.
+func (u *PaymentOrderUpsertBulk) ClearCompensatedAt() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearCompensatedAt()
+	})
+}
+
 // SetRefundAmount sets the "refund_amount" field.
 func (u *PaymentOrderUpsertBulk) SetRefundAmount(v float64) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -3289,6 +4364,62 @@ func (u *PaymentOrderUpsertBulk) AddRefundAmount(v float64) *PaymentOrderUpsertB
 func (u *PaymentOrderUpsertBulk) UpdateRefundAmount() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.UpdateRefundAmount()
+	})
+}
+
+// SetRefundBalanceAmount sets the "refund_balance_amount" field.
+func (u *PaymentOrderUpsertBulk) SetRefundBalanceAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBalanceAmount(v)
+	})
+}
+
+// AddRefundBalanceAmount adds v to the "refund_balance_amount" field.
+func (u *PaymentOrderUpsertBulk) AddRefundBalanceAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddRefundBalanceAmount(v)
+	})
+}
+
+// UpdateRefundBalanceAmount sets the "refund_balance_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundBalanceAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBalanceAmount()
+	})
+}
+
+// SetRefundGatewayAmount sets the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsertBulk) SetRefundGatewayAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundGatewayAmount(v)
+	})
+}
+
+// AddRefundGatewayAmount adds v to the "refund_gateway_amount" field.
+func (u *PaymentOrderUpsertBulk) AddRefundGatewayAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddRefundGatewayAmount(v)
+	})
+}
+
+// UpdateRefundGatewayAmount sets the "refund_gateway_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundGatewayAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundGatewayAmount()
+	})
+}
+
+// SetRefundBalanceStatus sets the "refund_balance_status" field.
+func (u *PaymentOrderUpsertBulk) SetRefundBalanceStatus(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBalanceStatus(v)
+	})
+}
+
+// UpdateRefundBalanceStatus sets the "refund_balance_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundBalanceStatus() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBalanceStatus()
 	})
 }
 

@@ -117,6 +117,16 @@
                     <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                     <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(trafficPackFeeAmount) }}</span>
                   </div>
+                  <template v-if="trafficPackHybridSummary">
+                    <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.hybrid.balanceDeduction') }}</span>
+                      <span class="font-medium text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(trafficPackHybridSummary.balanceAmount) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.hybrid.gatewayPay') }}</span>
+                      <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(trafficPackHybridSummary.gatewayAmount) }}</span>
+                    </div>
+                  </template>
                   <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                     <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(trafficPackTotalAmount) }}</span>
@@ -128,7 +138,7 @@
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                   {{ t('common.processing') }}
                 </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(feeRate > 0 ? trafficPackTotalAmount : selectedTrafficPack.price) }}</span>
+                <span v-else>{{ t('payment.createOrder') }} {{ trafficPackSubmitAmountText }}</span>
               </button>
               <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
             </template>
@@ -200,6 +210,16 @@
                     <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                     <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(subFeeAmount) }}</span>
                   </div>
+                  <template v-if="subscriptionHybridSummary">
+                    <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.hybrid.balanceDeduction') }}</span>
+                      <span class="font-medium text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(subscriptionHybridSummary.balanceAmount) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.hybrid.gatewayPay') }}</span>
+                      <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(subscriptionHybridSummary.gatewayAmount) }}</span>
+                    </div>
+                  </template>
                   <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                     <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
@@ -211,7 +231,7 @@
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
                   {{ t('common.processing') }}
                 </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(feeRate > 0 ? subTotalAmount : selectedPlan.price) }}</span>
+                <span v-else>{{ t('payment.createOrder') }} {{ subscriptionSubmitAmountText }}</span>
               </button>
               <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
             </template>
@@ -379,6 +399,13 @@ function emptyPaymentState(): PaymentRecoverySnapshot {
     orderType: '',
     paymentMode: '',
     resumeToken: '',
+    fundingMode: '',
+    balanceAmount: 0,
+    gatewayAmount: 0,
+    paymentResolutionStatus: '',
+    paymentResolutionDeadline: '',
+    compensationAmount: 0,
+    compensatedAt: '',
     createdAt: 0,
   }
 }
@@ -520,8 +547,11 @@ function onPaymentSuccess() {
   }
 }
 
-function onPaymentSettled() {
+function onPaymentSettled(outcome?: string) {
   removeRecoverySnapshot()
+  if (outcome === 'compensated') {
+    authStore.refreshUser()
+  }
 }
 
 // All checkout data from single API call
@@ -568,6 +598,15 @@ function formatSelectedPaymentAmount(value: number): string {
 }
 
 const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
+
+function roundPaymentCent(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+function paymentAmountExpectation(value: number): string {
+  return roundPaymentCent(value).toFixed(2)
+}
 
 type BalanceRechargePurchaseProduct = { id: 'balance-recharge'; type: 'balance_recharge'; product: PurchaseProductCardModel }
 type SubscriptionPurchaseProduct = { id: string; type: 'subscription'; plan: SubscriptionPlan; product: PurchaseProductCardModel }
@@ -709,6 +748,13 @@ const subTotalAmount = computed(() => {
   return Math.round((price + subFeeAmount.value) * 100) / 100
 })
 
+const subscriptionHybridSummary = computed(() => buildHybridPaymentSummary(subTotalAmount.value))
+const subscriptionSubmitAmountText = computed(() => {
+  const hybrid = subscriptionHybridSummary.value
+  if (hybrid) return formatSelectedPaymentAmount(hybrid.gatewayAmount)
+  return formatSelectedPaymentAmount(feeRate.value > 0 ? subTotalAmount.value : (selectedPlan.value?.price ?? 0))
+})
+
 const canSubmitSubscription = computed(() => {
   if (!selectedPlan.value) return false
   return subMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
@@ -731,10 +777,45 @@ const trafficPackTotalAmount = computed(() => {
   return Math.round((price + trafficPackFeeAmount.value) * 100) / 100
 })
 
+const trafficPackHybridSummary = computed(() => buildHybridPaymentSummary(trafficPackTotalAmount.value))
+const trafficPackSubmitAmountText = computed(() => {
+  const hybrid = trafficPackHybridSummary.value
+  if (hybrid) return formatSelectedPaymentAmount(hybrid.gatewayAmount)
+  return formatSelectedPaymentAmount(feeRate.value > 0 ? trafficPackTotalAmount.value : (selectedTrafficPack.value?.price ?? 0))
+})
+
 const canSubmitTrafficPack = computed(() => {
   if (!selectedTrafficPack.value) return false
   return trafficPackMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
 })
+
+function buildHybridPaymentSummary(payAmount: number): { balanceAmount: number; gatewayAmount: number } | null {
+  const visibleMethod = normalizeVisibleMethod(selectedMethod.value) || selectedMethod.value
+  if (visibleMethod !== 'alipay') return null
+  const balance = roundPaymentCent(userBalanceAmount())
+  const total = roundPaymentCent(payAmount)
+  if (balance <= 0 || total <= 0 || balance >= total) return null
+  return {
+    balanceAmount: balance,
+    gatewayAmount: roundPaymentCent(total - balance),
+  }
+}
+
+function hybridSummaryForOrderType(orderType: OrderType): { balanceAmount: number; payAmount: number } | null {
+  if (orderType === 'subscription' && subscriptionHybridSummary.value) {
+    return {
+      balanceAmount: subscriptionHybridSummary.value.balanceAmount,
+      payAmount: subTotalAmount.value,
+    }
+  }
+  if (orderType === 'traffic_pack' && trafficPackHybridSummary.value) {
+    return {
+      balanceAmount: trafficPackHybridSummary.value.balanceAmount,
+      payAmount: trafficPackTotalAmount.value,
+    }
+  }
+  return null
+}
 
 function selectFirstAvailableProductMethod(methods: PaymentMethodOption[]) {
   const current = methods.find(method => method.type === selectedMethod.value && method.available)
@@ -931,6 +1012,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
   errorMessage.value = ''
   errorHintMessage.value = ''
   const requestType = normalizeVisibleMethod(options.paymentType || selectedMethod.value) || options.paymentType || selectedMethod.value
+  const hybridSummary = hybridSummaryForOrderType(orderType)
   try {
     const payload = buildCreateOrderPayload({
       amount: orderAmount,
@@ -942,6 +1024,9 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       isMobile: isMobileDevice(),
       isWechatBrowser: typeof window !== 'undefined' && /MicroMessenger/i.test(window.navigator.userAgent),
       forceQRCode: !!(checkout.value.alipay_force_qrcode && normalizeVisibleMethod(requestType) === 'alipay'),
+      useBalance: !options.isResume && !!hybridSummary && normalizeVisibleMethod(requestType) === 'alipay',
+      expectedPayAmount: hybridSummary ? paymentAmountExpectation(hybridSummary.payAmount) : undefined,
+      expectedBalanceAmount: hybridSummary ? paymentAmountExpectation(hybridSummary.balanceAmount) : undefined,
     })
     if (options.openid) {
       payload.openid = options.openid
@@ -1044,6 +1129,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               planId,
               trafficPackId: options.trafficPackId,
               paymentType: visibleMethod,
+              hybrid: hybridSummary,
               attempted: options.mobileQrFallbackAttempted === true,
             },
           )
@@ -1063,6 +1149,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
           planId,
           trafficPackId: options.trafficPackId,
           paymentType: visibleMethod,
+          hybrid: hybridSummary,
           attempted: options.mobileQrFallbackAttempted === true,
         })
         if (!fallbackApplied) {
@@ -1093,6 +1180,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       planId,
       trafficPackId: options.trafficPackId,
       paymentType: requestType,
+      hybrid: hybridSummary,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
       return
@@ -1121,6 +1209,7 @@ interface MobileQrFallbackContext {
   planId?: number
   trafficPackId?: number
   paymentType: string
+  hybrid?: { balanceAmount: number; payAmount: number } | null
   attempted: boolean
 }
 
@@ -1173,6 +1262,9 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: false,
       isWechatBrowser: false,
+      useBalance: !!context.hybrid,
+      expectedPayAmount: context.hybrid ? paymentAmountExpectation(context.hybrid.payAmount) : undefined,
+      expectedBalanceAmount: context.hybrid ? paymentAmountExpectation(context.hybrid.balanceAmount) : undefined,
     })
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
     const stripeMethod = visibleMethod === 'wxpay' ? 'wechat_pay' : 'alipay'
