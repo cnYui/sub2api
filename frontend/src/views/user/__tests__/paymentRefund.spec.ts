@@ -30,4 +30,13 @@ describe('canRequestOrderRefund', () => {
   it('hides refund for traffic packs', () => {
     expect(canRequestOrderRefund(baseOrder({ order_type: 'traffic_pack', provider_instance_id: '1' }), new Set(['1']))).toBe(false)
   })
+
+  it('shows retry when a failed refund is explicitly retryable', () => {
+    expect(canRequestOrderRefund(baseOrder({ status: 'REFUND_FAILED', refund_retryable: true }), new Set())).toBe(true)
+  })
+
+  it('hides retry for unknown or pending refund results', () => {
+    expect(canRequestOrderRefund(baseOrder({ status: 'REFUND_FAILED', refund_retryable: false }), new Set())).toBe(false)
+    expect(canRequestOrderRefund(baseOrder({ status: 'REFUNDING', refund_retryable: true }), new Set())).toBe(false)
+  })
 })

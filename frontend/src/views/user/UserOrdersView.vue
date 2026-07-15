@@ -24,7 +24,7 @@
             </button>
             <button v-if="canRequestRefund(row)" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
               <Icon name="dollar" size="sm" />
-              <span>{{ t('payment.orders.requestRefund') }}</span>
+              <span>{{ t(refundActionKey(row)) }}</span>
             </button>
           </div>
         </template>
@@ -53,7 +53,7 @@
     </BaseDialog>
 
     <!-- Refund Dialog -->
-    <BaseDialog :show="!!refundTarget" :title="t('payment.orders.requestRefund')" @close="refundTarget = null">
+    <BaseDialog :show="!!refundTarget" :title="t(refundActionKey(refundTarget))" @close="refundTarget = null">
       <div v-if="refundTarget" class="space-y-4">
         <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
           <div class="flex justify-between text-sm">
@@ -73,7 +73,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" @click="refundTarget = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="actionLoading || !refundReason.trim()" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t('payment.orders.requestRefund') }}</button>
+          <button class="btn btn-primary" :disabled="actionLoading || !refundReason.trim()" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -175,6 +175,10 @@ async function confirmRefund() {
 
 function canRequestRefund(order: PaymentOrder): boolean {
   return canRequestOrderRefund(order, refundEligibleProviders.value)
+}
+
+function refundActionKey(order: PaymentOrder | null): string {
+  return order?.status === 'REFUND_FAILED' ? 'payment.orders.retryRefund' : 'payment.orders.requestRefund'
 }
 
 async function loadRefundEligibility() {

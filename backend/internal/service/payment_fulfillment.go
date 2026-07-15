@@ -340,10 +340,14 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 }
 
 func (s *PaymentService) markCompletedWithClient(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder, auditAction string) error {
+	alreadyAudited := s.hasAuditLogWithClient(ctx, client, o.ID, auditAction)
 	now := time.Now()
-	_, err := client.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
+	updated, err := client.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
 	if err != nil {
 		return fmt.Errorf("mark completed: %w", err)
+	}
+	if updated == 0 || alreadyAudited {
+		return nil
 	}
 	s.writeAuditLogWithClient(ctx, client, o.ID, auditAction, "system", map[string]any{
 		"rechargeCode":   o.RechargeCode,
@@ -476,13 +480,26 @@ func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, clien
 	assigned := s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_ASSIGNED") || s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_SUCCESS")
 	if !assigned {
 		orderNote := fmt.Sprintf("payment order %d", o.ID)
-		_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+		sub, err := s.findSubscriptionPreviouslyAssignedForOrder(ctx, o.UserID, gid, orderNote)
 		if err != nil {
-			return fmt.Errorf("assign subscription: %w", err)
+			return err
+		}
+		if sub == nil {
+			sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+			if err != nil {
+				return fmt.Errorf("assign subscription: %w", err)
+			}
+		}
+		if sub == nil {
+			return fmt.Errorf("assign subscription returned nil")
+		}
+		if _, err := client.PaymentOrder.UpdateOneID(o.ID).SetSubscriptionID(sub.ID).Save(ctx); err != nil {
+			return fmt.Errorf("link subscription order: %w", err)
 		}
 		s.writeAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_ASSIGNED", "system", map[string]any{
-			"groupID":      gid,
-			"validityDays": days,
+			"groupID":        gid,
+			"subscriptionID": sub.ID,
+			"validityDays":   days,
 		})
 	} else {
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
@@ -493,6 +510,29 @@ func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, clien
 		}
 	}
 	return s.markCompletedWithClient(ctx, client, o, "SUBSCRIPTION_SUCCESS")
+}
+
+func (s *PaymentService) findSubscriptionPreviouslyAssignedForOrder(ctx context.Context, userID, groupID int64, orderNote string) (*UserSubscription, error) {
+	sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, userID, groupID)
+	if err != nil {
+		if errors.Is(err, ErrSubscriptionNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("find assigned subscription: %w", err)
+	}
+	if sub == nil || !subscriptionNotesContainLine(sub.Notes, orderNote) {
+		return nil, nil
+	}
+	return sub, nil
+}
+
+func subscriptionNotesContainLine(notes, expected string) bool {
+	for _, line := range strings.Split(notes, "\n") {
+		if strings.TrimSpace(line) == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *PaymentService) fulfillTrafficPackOrderInTx(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder) error {

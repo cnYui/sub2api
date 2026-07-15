@@ -156,7 +156,7 @@ const emit = defineEmits<{
 }>()
 
 function canRefund(order: PaymentOrder): boolean {
-  return canRefundStatus(order.status)
+  return canRefundStatus(order.status, order.refund_retryable === true)
 }
 
 function formatDateTime(dateStr: string): string {

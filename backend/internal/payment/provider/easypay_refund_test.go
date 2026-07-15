@@ -87,7 +87,7 @@ func TestEasyPayRefundNormalizesAPIBaseAndSendsOutTradeNoOnly(t *testing.T) {
 	}
 }
 
-func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
+func TestEasyPayRefundDoesNotRetryWithTradeNoWhenOutTradeNoResultIsUncertain(t *testing.T) {
 	t.Parallel()
 
 	var gotForms []url.Values
@@ -103,11 +103,7 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 		}
 		gotForms = append(gotForms, r.PostForm)
 		w.Header().Set("Content-Type", "application/json")
-		if len(gotForms) == 1 {
-			_, _ = w.Write([]byte(`{"code":0,"msg":"订单编号不存在！"}`))
-			return
-		}
-		_, _ = w.Write([]byte(`{"code":1,"msg":"ok"}`))
+		_, _ = w.Write([]byte(`{"code":0,"msg":"订单编号不存在！"}`))
 	}))
 	defer server.Close()
 
@@ -117,26 +113,23 @@ func TestEasyPayRefundRetriesWithTradeNoWhenOutTradeNoNotFound(t *testing.T) {
 		OrderID: "out-456",
 		Amount:  "1.50",
 	})
-	if err != nil {
-		t.Fatalf("Refund returned error: %v", err)
+	if err == nil {
+		t.Fatal("Refund returned nil error")
 	}
-	if resp == nil || resp.Status != payment.ProviderStatusSuccess || resp.RefundID != "trade-123" {
-		t.Fatalf("Refund response = %+v, want success with trade refund id", resp)
+	if resp != nil {
+		t.Fatalf("Refund response = %+v, want nil", resp)
 	}
-	if len(gotForms) != 2 {
-		t.Fatalf("refund attempts = %d, want 2", len(gotForms))
+	if payment.IsRefundRejected(err) {
+		t.Fatalf("Refund error = %v, want uncertain result", err)
+	}
+	if len(gotForms) != 1 {
+		t.Fatalf("refund attempts = %d, want 1", len(gotForms))
 	}
 	if got := gotForms[0].Get("out_trade_no"); got != "out-456" {
 		t.Fatalf("first form[out_trade_no] = %q, want out-456 (form=%v)", got, gotForms[0])
 	}
 	if got := gotForms[0].Get("trade_no"); got != "" {
 		t.Fatalf("first form[trade_no] = %q, want empty (form=%v)", got, gotForms[0])
-	}
-	if got := gotForms[1].Get("trade_no"); got != "trade-123" {
-		t.Fatalf("second form[trade_no] = %q, want trade-123 (form=%v)", got, gotForms[1])
-	}
-	if got := gotForms[1].Get("out_trade_no"); got != "" {
-		t.Fatalf("second form[out_trade_no] = %q, want empty (form=%v)", got, gotForms[1])
 	}
 }
 
@@ -174,6 +167,51 @@ func TestEasyPayRefundResponseErrors(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("Refund error = %q, want substring %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestEasyPayRefundBusinessRejectionIsClassified(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"msg":"卖家余额不足"}`))
+	}))
+	defer server.Close()
+
+	provider := newTestEasyPay(t, server.URL)
+	_, err := provider.Refund(context.Background(), payment.RefundRequest{
+		OrderID: "out-456",
+		Amount:  "1.50",
+	})
+
+	if !payment.IsRefundRejected(err) {
+		t.Fatalf("Refund error = %v, want classified business rejection", err)
+	}
+}
+
+func TestEasyPayRefundAmbiguousBusinessResponsesAreNotRetryable(t *testing.T) {
+	t.Parallel()
+
+	for _, message := range []string{"订单已退款", "退款处理中", "重复退款请求", "订单编号不存在"} {
+		message := message
+		t.Run(message, func(t *testing.T) {
+			t.Parallel()
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"code":0,"msg":"` + message + `"}`))
+			}))
+			defer server.Close()
+
+			provider := newTestEasyPay(t, server.URL)
+			_, err := provider.Refund(context.Background(), payment.RefundRequest{OrderID: "out-456", Amount: "1.50"})
+			if err == nil {
+				t.Fatal("Refund returned nil error")
+			}
+			if payment.IsRefundRejected(err) {
+				t.Fatalf("Refund error = %v, want uncertain result", err)
 			}
 		})
 	}

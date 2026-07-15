@@ -211,6 +211,20 @@ func (_c *PaymentOrderCreate) SetNillableSubscriptionDays(v *int) *PaymentOrderC
 	return _c
 }
 
+// SetSubscriptionID sets the "subscription_id" field.
+func (_c *PaymentOrderCreate) SetSubscriptionID(v int64) *PaymentOrderCreate {
+	_c.mutation.SetSubscriptionID(v)
+	return _c
+}
+
+// SetNillableSubscriptionID sets the "subscription_id" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableSubscriptionID(v *int64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetSubscriptionID(*v)
+	}
+	return _c
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_c *PaymentOrderCreate) SetProviderInstanceID(v string) *PaymentOrderCreate {
 	_c.mutation.SetProviderInstanceID(v)
@@ -353,6 +367,62 @@ func (_c *PaymentOrderCreate) SetRefundRequestedBy(v string) *PaymentOrderCreate
 func (_c *PaymentOrderCreate) SetNillableRefundRequestedBy(v *string) *PaymentOrderCreate {
 	if v != nil {
 		_c.SetRefundRequestedBy(*v)
+	}
+	return _c
+}
+
+// SetRefundRequestID sets the "refund_request_id" field.
+func (_c *PaymentOrderCreate) SetRefundRequestID(v string) *PaymentOrderCreate {
+	_c.mutation.SetRefundRequestID(v)
+	return _c
+}
+
+// SetNillableRefundRequestID sets the "refund_request_id" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundRequestID(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundRequestID(*v)
+	}
+	return _c
+}
+
+// SetRefundGatewayStatus sets the "refund_gateway_status" field.
+func (_c *PaymentOrderCreate) SetRefundGatewayStatus(v string) *PaymentOrderCreate {
+	_c.mutation.SetRefundGatewayStatus(v)
+	return _c
+}
+
+// SetNillableRefundGatewayStatus sets the "refund_gateway_status" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundGatewayStatus(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundGatewayStatus(*v)
+	}
+	return _c
+}
+
+// SetRefundEntitlementStatus sets the "refund_entitlement_status" field.
+func (_c *PaymentOrderCreate) SetRefundEntitlementStatus(v string) *PaymentOrderCreate {
+	_c.mutation.SetRefundEntitlementStatus(v)
+	return _c
+}
+
+// SetNillableRefundEntitlementStatus sets the "refund_entitlement_status" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundEntitlementStatus(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundEntitlementStatus(*v)
+	}
+	return _c
+}
+
+// SetRefundProviderRef sets the "refund_provider_ref" field.
+func (_c *PaymentOrderCreate) SetRefundProviderRef(v string) *PaymentOrderCreate {
+	_c.mutation.SetRefundProviderRef(v)
+	return _c
+}
+
+// SetNillableRefundProviderRef sets the "refund_provider_ref" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableRefundProviderRef(v *string) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetRefundProviderRef(*v)
 	}
 	return _c
 }
@@ -537,6 +607,14 @@ func (_c *PaymentOrderCreate) defaults() {
 		v := paymentorder.DefaultForceRefund
 		_c.mutation.SetForceRefund(v)
 	}
+	if _, ok := _c.mutation.RefundGatewayStatus(); !ok {
+		v := paymentorder.DefaultRefundGatewayStatus
+		_c.mutation.SetRefundGatewayStatus(v)
+	}
+	if _, ok := _c.mutation.RefundEntitlementStatus(); !ok {
+		v := paymentorder.DefaultRefundEntitlementStatus
+		_c.mutation.SetRefundEntitlementStatus(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := paymentorder.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -644,6 +722,32 @@ func (_c *PaymentOrderCreate) check() error {
 	if v, ok := _c.mutation.RefundRequestedBy(); ok {
 		if err := paymentorder.RefundRequestedByValidator(v); err != nil {
 			return &ValidationError{Name: "refund_requested_by", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_requested_by": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.RefundRequestID(); ok {
+		if err := paymentorder.RefundRequestIDValidator(v); err != nil {
+			return &ValidationError{Name: "refund_request_id", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_request_id": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RefundGatewayStatus(); !ok {
+		return &ValidationError{Name: "refund_gateway_status", err: errors.New(`ent: missing required field "PaymentOrder.refund_gateway_status"`)}
+	}
+	if v, ok := _c.mutation.RefundGatewayStatus(); ok {
+		if err := paymentorder.RefundGatewayStatusValidator(v); err != nil {
+			return &ValidationError{Name: "refund_gateway_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_gateway_status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RefundEntitlementStatus(); !ok {
+		return &ValidationError{Name: "refund_entitlement_status", err: errors.New(`ent: missing required field "PaymentOrder.refund_entitlement_status"`)}
+	}
+	if v, ok := _c.mutation.RefundEntitlementStatus(); ok {
+		if err := paymentorder.RefundEntitlementStatusValidator(v); err != nil {
+			return &ValidationError{Name: "refund_entitlement_status", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_entitlement_status": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.RefundProviderRef(); ok {
+		if err := paymentorder.RefundProviderRefValidator(v); err != nil {
+			return &ValidationError{Name: "refund_provider_ref", err: fmt.Errorf(`ent: validator failed for field "PaymentOrder.refund_provider_ref": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.ExpiresAt(); !ok {
@@ -769,6 +873,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldSubscriptionDays, field.TypeInt, value)
 		_node.SubscriptionDays = &value
 	}
+	if value, ok := _c.mutation.SubscriptionID(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionID, field.TypeInt64, value)
+		_node.SubscriptionID = &value
+	}
 	if value, ok := _c.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 		_node.ProviderInstanceID = &value
@@ -812,6 +920,22 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.RefundRequestedBy(); ok {
 		_spec.SetField(paymentorder.FieldRefundRequestedBy, field.TypeString, value)
 		_node.RefundRequestedBy = &value
+	}
+	if value, ok := _c.mutation.RefundRequestID(); ok {
+		_spec.SetField(paymentorder.FieldRefundRequestID, field.TypeString, value)
+		_node.RefundRequestID = &value
+	}
+	if value, ok := _c.mutation.RefundGatewayStatus(); ok {
+		_spec.SetField(paymentorder.FieldRefundGatewayStatus, field.TypeString, value)
+		_node.RefundGatewayStatus = value
+	}
+	if value, ok := _c.mutation.RefundEntitlementStatus(); ok {
+		_spec.SetField(paymentorder.FieldRefundEntitlementStatus, field.TypeString, value)
+		_node.RefundEntitlementStatus = value
+	}
+	if value, ok := _c.mutation.RefundProviderRef(); ok {
+		_spec.SetField(paymentorder.FieldRefundProviderRef, field.TypeString, value)
+		_node.RefundProviderRef = &value
 	}
 	if value, ok := _c.mutation.ExpiresAt(); ok {
 		_spec.SetField(paymentorder.FieldExpiresAt, field.TypeTime, value)
@@ -1216,6 +1340,30 @@ func (u *PaymentOrderUpsert) ClearSubscriptionDays() *PaymentOrderUpsert {
 	return u
 }
 
+// SetSubscriptionID sets the "subscription_id" field.
+func (u *PaymentOrderUpsert) SetSubscriptionID(v int64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldSubscriptionID, v)
+	return u
+}
+
+// UpdateSubscriptionID sets the "subscription_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateSubscriptionID() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldSubscriptionID)
+	return u
+}
+
+// AddSubscriptionID adds v to the "subscription_id" field.
+func (u *PaymentOrderUpsert) AddSubscriptionID(v int64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldSubscriptionID, v)
+	return u
+}
+
+// ClearSubscriptionID clears the value of the "subscription_id" field.
+func (u *PaymentOrderUpsert) ClearSubscriptionID() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldSubscriptionID)
+	return u
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsert) SetProviderInstanceID(v string) *PaymentOrderUpsert {
 	u.Set(paymentorder.FieldProviderInstanceID, v)
@@ -1399,6 +1547,66 @@ func (u *PaymentOrderUpsert) UpdateRefundRequestedBy() *PaymentOrderUpsert {
 // ClearRefundRequestedBy clears the value of the "refund_requested_by" field.
 func (u *PaymentOrderUpsert) ClearRefundRequestedBy() *PaymentOrderUpsert {
 	u.SetNull(paymentorder.FieldRefundRequestedBy)
+	return u
+}
+
+// SetRefundRequestID sets the "refund_request_id" field.
+func (u *PaymentOrderUpsert) SetRefundRequestID(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundRequestID, v)
+	return u
+}
+
+// UpdateRefundRequestID sets the "refund_request_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundRequestID() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundRequestID)
+	return u
+}
+
+// ClearRefundRequestID clears the value of the "refund_request_id" field.
+func (u *PaymentOrderUpsert) ClearRefundRequestID() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldRefundRequestID)
+	return u
+}
+
+// SetRefundGatewayStatus sets the "refund_gateway_status" field.
+func (u *PaymentOrderUpsert) SetRefundGatewayStatus(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundGatewayStatus, v)
+	return u
+}
+
+// UpdateRefundGatewayStatus sets the "refund_gateway_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundGatewayStatus() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundGatewayStatus)
+	return u
+}
+
+// SetRefundEntitlementStatus sets the "refund_entitlement_status" field.
+func (u *PaymentOrderUpsert) SetRefundEntitlementStatus(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundEntitlementStatus, v)
+	return u
+}
+
+// UpdateRefundEntitlementStatus sets the "refund_entitlement_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundEntitlementStatus() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundEntitlementStatus)
+	return u
+}
+
+// SetRefundProviderRef sets the "refund_provider_ref" field.
+func (u *PaymentOrderUpsert) SetRefundProviderRef(v string) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundProviderRef, v)
+	return u
+}
+
+// UpdateRefundProviderRef sets the "refund_provider_ref" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundProviderRef() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundProviderRef)
+	return u
+}
+
+// ClearRefundProviderRef clears the value of the "refund_provider_ref" field.
+func (u *PaymentOrderUpsert) ClearRefundProviderRef() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldRefundProviderRef)
 	return u
 }
 
@@ -1928,6 +2136,34 @@ func (u *PaymentOrderUpsertOne) ClearSubscriptionDays() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetSubscriptionID sets the "subscription_id" field.
+func (u *PaymentOrderUpsertOne) SetSubscriptionID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionID(v)
+	})
+}
+
+// AddSubscriptionID adds v to the "subscription_id" field.
+func (u *PaymentOrderUpsertOne) AddSubscriptionID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddSubscriptionID(v)
+	})
+}
+
+// UpdateSubscriptionID sets the "subscription_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateSubscriptionID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionID()
+	})
+}
+
+// ClearSubscriptionID clears the value of the "subscription_id" field.
+func (u *PaymentOrderUpsertOne) ClearSubscriptionID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearSubscriptionID()
+	})
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsertOne) SetProviderInstanceID(v string) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -2142,6 +2378,76 @@ func (u *PaymentOrderUpsertOne) UpdateRefundRequestedBy() *PaymentOrderUpsertOne
 func (u *PaymentOrderUpsertOne) ClearRefundRequestedBy() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearRefundRequestedBy()
+	})
+}
+
+// SetRefundRequestID sets the "refund_request_id" field.
+func (u *PaymentOrderUpsertOne) SetRefundRequestID(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundRequestID(v)
+	})
+}
+
+// UpdateRefundRequestID sets the "refund_request_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundRequestID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundRequestID()
+	})
+}
+
+// ClearRefundRequestID clears the value of the "refund_request_id" field.
+func (u *PaymentOrderUpsertOne) ClearRefundRequestID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundRequestID()
+	})
+}
+
+// SetRefundGatewayStatus sets the "refund_gateway_status" field.
+func (u *PaymentOrderUpsertOne) SetRefundGatewayStatus(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundGatewayStatus(v)
+	})
+}
+
+// UpdateRefundGatewayStatus sets the "refund_gateway_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundGatewayStatus() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundGatewayStatus()
+	})
+}
+
+// SetRefundEntitlementStatus sets the "refund_entitlement_status" field.
+func (u *PaymentOrderUpsertOne) SetRefundEntitlementStatus(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundEntitlementStatus(v)
+	})
+}
+
+// UpdateRefundEntitlementStatus sets the "refund_entitlement_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundEntitlementStatus() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundEntitlementStatus()
+	})
+}
+
+// SetRefundProviderRef sets the "refund_provider_ref" field.
+func (u *PaymentOrderUpsertOne) SetRefundProviderRef(v string) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundProviderRef(v)
+	})
+}
+
+// UpdateRefundProviderRef sets the "refund_provider_ref" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundProviderRef() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundProviderRef()
+	})
+}
+
+// ClearRefundProviderRef clears the value of the "refund_provider_ref" field.
+func (u *PaymentOrderUpsertOne) ClearRefundProviderRef() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundProviderRef()
 	})
 }
 
@@ -2860,6 +3166,34 @@ func (u *PaymentOrderUpsertBulk) ClearSubscriptionDays() *PaymentOrderUpsertBulk
 	})
 }
 
+// SetSubscriptionID sets the "subscription_id" field.
+func (u *PaymentOrderUpsertBulk) SetSubscriptionID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionID(v)
+	})
+}
+
+// AddSubscriptionID adds v to the "subscription_id" field.
+func (u *PaymentOrderUpsertBulk) AddSubscriptionID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddSubscriptionID(v)
+	})
+}
+
+// UpdateSubscriptionID sets the "subscription_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateSubscriptionID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionID()
+	})
+}
+
+// ClearSubscriptionID clears the value of the "subscription_id" field.
+func (u *PaymentOrderUpsertBulk) ClearSubscriptionID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearSubscriptionID()
+	})
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsertBulk) SetProviderInstanceID(v string) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -3074,6 +3408,76 @@ func (u *PaymentOrderUpsertBulk) UpdateRefundRequestedBy() *PaymentOrderUpsertBu
 func (u *PaymentOrderUpsertBulk) ClearRefundRequestedBy() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearRefundRequestedBy()
+	})
+}
+
+// SetRefundRequestID sets the "refund_request_id" field.
+func (u *PaymentOrderUpsertBulk) SetRefundRequestID(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundRequestID(v)
+	})
+}
+
+// UpdateRefundRequestID sets the "refund_request_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundRequestID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundRequestID()
+	})
+}
+
+// ClearRefundRequestID clears the value of the "refund_request_id" field.
+func (u *PaymentOrderUpsertBulk) ClearRefundRequestID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundRequestID()
+	})
+}
+
+// SetRefundGatewayStatus sets the "refund_gateway_status" field.
+func (u *PaymentOrderUpsertBulk) SetRefundGatewayStatus(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundGatewayStatus(v)
+	})
+}
+
+// UpdateRefundGatewayStatus sets the "refund_gateway_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundGatewayStatus() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundGatewayStatus()
+	})
+}
+
+// SetRefundEntitlementStatus sets the "refund_entitlement_status" field.
+func (u *PaymentOrderUpsertBulk) SetRefundEntitlementStatus(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundEntitlementStatus(v)
+	})
+}
+
+// UpdateRefundEntitlementStatus sets the "refund_entitlement_status" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundEntitlementStatus() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundEntitlementStatus()
+	})
+}
+
+// SetRefundProviderRef sets the "refund_provider_ref" field.
+func (u *PaymentOrderUpsertBulk) SetRefundProviderRef(v string) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundProviderRef(v)
+	})
+}
+
+// UpdateRefundProviderRef sets the "refund_provider_ref" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundProviderRef() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundProviderRef()
+	})
+}
+
+// ClearRefundProviderRef clears the value of the "refund_provider_ref" field.
+func (u *PaymentOrderUpsertBulk) ClearRefundProviderRef() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundProviderRef()
 	})
 }
 

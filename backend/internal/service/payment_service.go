@@ -215,6 +215,7 @@ type PaymentService struct {
 	notificationEmailService *NotificationEmailService
 	trafficPackService       *TrafficPackService
 	billingCacheService      *BillingCacheService
+	refundProvider           payment.Provider
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {

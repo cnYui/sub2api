@@ -50,6 +50,8 @@ const (
 	FieldSubscriptionGroupID = "subscription_group_id"
 	// FieldSubscriptionDays holds the string denoting the subscription_days field in the database.
 	FieldSubscriptionDays = "subscription_days"
+	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
+	FieldSubscriptionID = "subscription_id"
 	// FieldProviderInstanceID holds the string denoting the provider_instance_id field in the database.
 	FieldProviderInstanceID = "provider_instance_id"
 	// FieldProviderKey holds the string denoting the provider_key field in the database.
@@ -72,6 +74,14 @@ const (
 	FieldRefundRequestReason = "refund_request_reason"
 	// FieldRefundRequestedBy holds the string denoting the refund_requested_by field in the database.
 	FieldRefundRequestedBy = "refund_requested_by"
+	// FieldRefundRequestID holds the string denoting the refund_request_id field in the database.
+	FieldRefundRequestID = "refund_request_id"
+	// FieldRefundGatewayStatus holds the string denoting the refund_gateway_status field in the database.
+	FieldRefundGatewayStatus = "refund_gateway_status"
+	// FieldRefundEntitlementStatus holds the string denoting the refund_entitlement_status field in the database.
+	FieldRefundEntitlementStatus = "refund_entitlement_status"
+	// FieldRefundProviderRef holds the string denoting the refund_provider_ref field in the database.
+	FieldRefundProviderRef = "refund_provider_ref"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
 	// FieldPaidAt holds the string denoting the paid_at field in the database.
@@ -126,6 +136,7 @@ var Columns = []string{
 	FieldPlanID,
 	FieldSubscriptionGroupID,
 	FieldSubscriptionDays,
+	FieldSubscriptionID,
 	FieldProviderInstanceID,
 	FieldProviderKey,
 	FieldProviderSnapshot,
@@ -137,6 +148,10 @@ var Columns = []string{
 	FieldRefundRequestedAt,
 	FieldRefundRequestReason,
 	FieldRefundRequestedBy,
+	FieldRefundRequestID,
+	FieldRefundGatewayStatus,
+	FieldRefundEntitlementStatus,
+	FieldRefundProviderRef,
 	FieldExpiresAt,
 	FieldPaidAt,
 	FieldCompletedAt,
@@ -194,6 +209,18 @@ var (
 	DefaultForceRefund bool
 	// RefundRequestedByValidator is a validator for the "refund_requested_by" field. It is called by the builders before save.
 	RefundRequestedByValidator func(string) error
+	// RefundRequestIDValidator is a validator for the "refund_request_id" field. It is called by the builders before save.
+	RefundRequestIDValidator func(string) error
+	// DefaultRefundGatewayStatus holds the default value on creation for the "refund_gateway_status" field.
+	DefaultRefundGatewayStatus string
+	// RefundGatewayStatusValidator is a validator for the "refund_gateway_status" field. It is called by the builders before save.
+	RefundGatewayStatusValidator func(string) error
+	// DefaultRefundEntitlementStatus holds the default value on creation for the "refund_entitlement_status" field.
+	DefaultRefundEntitlementStatus string
+	// RefundEntitlementStatusValidator is a validator for the "refund_entitlement_status" field. It is called by the builders before save.
+	RefundEntitlementStatusValidator func(string) error
+	// RefundProviderRefValidator is a validator for the "refund_provider_ref" field. It is called by the builders before save.
+	RefundProviderRefValidator func(string) error
 	// ClientIPValidator is a validator for the "client_ip" field. It is called by the builders before save.
 	ClientIPValidator func(string) error
 	// SrcHostValidator is a validator for the "src_host" field. It is called by the builders before save.
@@ -304,6 +331,11 @@ func BySubscriptionDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionDays, opts...).ToFunc()
 }
 
+// BySubscriptionID orders the results by the subscription_id field.
+func BySubscriptionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubscriptionID, opts...).ToFunc()
+}
+
 // ByProviderInstanceID orders the results by the provider_instance_id field.
 func ByProviderInstanceID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProviderInstanceID, opts...).ToFunc()
@@ -352,6 +384,26 @@ func ByRefundRequestReason(opts ...sql.OrderTermOption) OrderOption {
 // ByRefundRequestedBy orders the results by the refund_requested_by field.
 func ByRefundRequestedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRefundRequestedBy, opts...).ToFunc()
+}
+
+// ByRefundRequestID orders the results by the refund_request_id field.
+func ByRefundRequestID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundRequestID, opts...).ToFunc()
+}
+
+// ByRefundGatewayStatus orders the results by the refund_gateway_status field.
+func ByRefundGatewayStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundGatewayStatus, opts...).ToFunc()
+}
+
+// ByRefundEntitlementStatus orders the results by the refund_entitlement_status field.
+func ByRefundEntitlementStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundEntitlementStatus, opts...).ToFunc()
+}
+
+// ByRefundProviderRef orders the results by the refund_provider_ref field.
+func ByRefundProviderRef(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundProviderRef, opts...).ToFunc()
 }
 
 // ByExpiresAt orders the results by the expires_at field.

@@ -525,6 +525,7 @@ type PublicOrderResult struct {
 	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
+	RefundRetryable     bool       `json:"refund_retryable"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
 }
 
@@ -548,6 +549,7 @@ func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 		RefundRequestedAt:   order.RefundRequestedAt,
 		RefundRequestedBy:   order.RefundRequestedBy,
 		RefundRequestReason: order.RefundRequestReason,
+		RefundRetryable:     service.PaymentOrderRefundRetryable(order),
 		PlanID:              order.PlanID,
 	}
 }
@@ -629,6 +631,7 @@ type PaymentOrderResult struct {
 	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
+	RefundRetryable     bool       `json:"refund_retryable"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
 	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
 }
@@ -667,6 +670,7 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		RefundRequestedAt:   order.RefundRequestedAt,
 		RefundRequestedBy:   order.RefundRequestedBy,
 		RefundRequestReason: order.RefundRequestReason,
+		RefundRetryable:     service.PaymentOrderRefundRetryable(order),
 		PlanID:              order.PlanID,
 		ProviderInstanceID:  order.ProviderInstanceID,
 	}

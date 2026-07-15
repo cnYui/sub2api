@@ -150,6 +150,13 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 	requireIndex(t, tx, "payment_orders", "paymentorder_out_trade_no")
 	requirePartialUniqueIndexDefinition(t, tx, "payment_orders", "paymentorder_out_trade_no", "out_trade_no", "WHERE")
 	requireIndexAbsent(t, tx, "payment_orders", "paymentorder_out_trade_no_unique")
+	requireColumn(t, tx, "payment_orders", "subscription_id", "bigint", 0, true)
+	requireColumn(t, tx, "payment_orders", "refund_request_id", "character varying", 128, true)
+	requireColumn(t, tx, "payment_orders", "refund_gateway_status", "character varying", 20, false)
+	requireColumn(t, tx, "payment_orders", "refund_entitlement_status", "character varying", 20, false)
+	requireColumn(t, tx, "payment_orders", "refund_provider_ref", "character varying", 128, true)
+	requireForeignKeyOnDelete(t, tx, "payment_orders", "subscription_id", "user_subscriptions", "SET NULL")
+	requireIndex(t, tx, "payment_orders", "idx_payment_orders_subscription_id")
 }
 
 func TestMigrationsRunner_AutoAPIKeyEffectiveGroupSeed(t *testing.T) {

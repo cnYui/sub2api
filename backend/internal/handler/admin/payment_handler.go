@@ -147,6 +147,7 @@ type AdminPaymentOrderResult struct {
 	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
 	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
+	RefundRetryable     bool       `json:"refund_retryable"`
 	ExpiresAt           time.Time  `json:"expires_at"`
 	PaidAt              *time.Time `json:"paid_at,omitempty"`
 	CompletedAt         *time.Time `json:"completed_at,omitempty"`
@@ -204,6 +205,7 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		RefundRequestedAt:   order.RefundRequestedAt,
 		RefundRequestReason: order.RefundRequestReason,
 		RefundRequestedBy:   order.RefundRequestedBy,
+		RefundRetryable:     service.PaymentOrderRefundRetryable(order),
 		ExpiresAt:           order.ExpiresAt,
 		PaidAt:              order.PaidAt,
 		CompletedAt:         order.CompletedAt,

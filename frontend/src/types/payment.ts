@@ -117,6 +117,7 @@ export interface PaymentOrder {
   refund_requested_at?: string
   refund_requested_by?: number
   refund_request_reason?: string
+  refund_retryable?: boolean
   plan_id?: number
   provider_instance_id?: string
 }

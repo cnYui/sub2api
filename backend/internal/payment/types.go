@@ -4,6 +4,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -194,10 +195,34 @@ type PaymentNotification struct {
 
 // RefundRequest contains the parameters for requesting a refund.
 type RefundRequest struct {
-	TradeNo string
-	OrderID string
-	Amount  string // Refund amount formatted to 2 decimal places
-	Reason  string
+	TradeNo   string
+	OrderID   string
+	Amount    string // Refund amount formatted to 2 decimal places
+	Reason    string
+	RequestID string
+}
+
+type RefundRejectedError struct {
+	Err error
+}
+
+func (e *RefundRejectedError) Error() string {
+	if e == nil || e.Err == nil {
+		return "refund rejected"
+	}
+	return e.Err.Error()
+}
+
+func (e *RefundRejectedError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+func IsRefundRejected(err error) bool {
+	var target *RefundRejectedError
+	return errors.As(err, &target)
 }
 
 // RefundResponse is returned after a refund request.

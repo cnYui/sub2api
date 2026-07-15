@@ -10,6 +10,8 @@ import (
 
 const defaultBalanceRechargeMultiplier = 1.0
 
+var refundBusinessLocation = time.FixedZone("UTC+8", 8*60*60)
+
 func normalizeBalanceRechargeMultiplier(multiplier float64) float64 {
 	if math.IsNaN(multiplier) || math.IsInf(multiplier, 0) || multiplier <= 0 {
 		return defaultBalanceRechargeMultiplier
@@ -38,25 +40,27 @@ func calculateGatewayRefundAmount(orderAmount, payAmount, refundAmount float64, 
 		InexactFloat64()
 }
 
-func calculateSubscriptionRefundAmount(orderAmount, payAmount float64, subscriptionDays int, expiresAt, now time.Time, includeFee bool) float64 {
-	if subscriptionDays <= 0 || !expiresAt.After(now) {
+func refundCalendarDayIndex(startsAt, now time.Time) int {
+	start := startsAt.In(refundBusinessLocation)
+	current := now.In(refundBusinessLocation)
+	startDate := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
+	currentDate := time.Date(current.Year(), current.Month(), current.Day(), 0, 0, 0, 0, time.UTC)
+	return int(currentDate.Sub(startDate)/(24*time.Hour)) + 1
+}
+
+func calculateSubscriptionRefundAmount(orderAmount float64, subscriptionDays int, startsAt, now time.Time) float64 {
+	if orderAmount <= 0 || subscriptionDays <= 0 {
 		return 0
 	}
-	base := orderAmount
-	if includeFee {
-		base = payAmount
+	usedDays := refundCalendarDayIndex(startsAt, now)
+	if usedDays < 1 {
+		usedDays = 1
 	}
-	if base <= 0 {
+	if usedDays >= subscriptionDays {
 		return 0
 	}
-	remainingDays := int(expiresAt.Sub(now).Hours() / 24)
-	if remainingDays <= 0 {
-		return 0
-	}
-	if remainingDays > subscriptionDays {
-		remainingDays = subscriptionDays
-	}
-	return decimal.NewFromFloat(base).
+	remainingDays := subscriptionDays - usedDays
+	return decimal.NewFromFloat(orderAmount).
 		Mul(decimal.NewFromInt(int64(remainingDays))).
 		Div(decimal.NewFromInt(int64(subscriptionDays))).
 		Round(1).

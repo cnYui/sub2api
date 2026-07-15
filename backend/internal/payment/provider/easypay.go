@@ -310,51 +310,25 @@ func (e *EasyPay) VerifyNotification(_ context.Context, rawBody string, _ map[st
 }
 
 func (e *EasyPay) Refund(ctx context.Context, req payment.RefundRequest) (*payment.RefundResponse, error) {
-	attempts := e.refundAttempts(req)
-	if len(attempts) == 0 {
-		return nil, fmt.Errorf("easypay refund missing order identifier")
-	}
-	var firstErr error
-	for i, attempt := range attempts {
-		body, status, err := e.postRaw(ctx, e.apiBase()+"/api.php?act=refund", attempt.params)
-		if err != nil {
-			return nil, fmt.Errorf("easypay refund request: %w", err)
-		}
-		if err := parseEasyPayRefundResponse(status, body); err != nil {
-			if firstErr == nil {
-				firstErr = err
-			}
-			if i+1 < len(attempts) && isEasyPayRefundOrderNotFound(err) {
-				continue
-			}
-			return nil, err
-		}
-		return &payment.RefundResponse{RefundID: attempt.refundID, Status: payment.ProviderStatusSuccess}, nil
-	}
-	return nil, firstErr
-}
-
-type easyPayRefundAttempt struct {
-	params   map[string]string
-	refundID string
-}
-
-func (e *EasyPay) refundAttempts(req payment.RefundRequest) []easyPayRefundAttempt {
-	base := map[string]string{
+	params := map[string]string{
 		"pid": e.config["pid"], "key": e.config["pkey"], "money": req.Amount,
 	}
-	var attempts []easyPayRefundAttempt
-	if orderID := strings.TrimSpace(req.OrderID); orderID != "" {
-		params := cloneStringMap(base)
-		params["out_trade_no"] = orderID
-		attempts = append(attempts, easyPayRefundAttempt{params: params, refundID: orderID})
+	refundID := strings.TrimSpace(req.OrderID)
+	if refundID != "" {
+		params["out_trade_no"] = refundID
+	} else if refundID = strings.TrimSpace(req.TradeNo); refundID != "" {
+		params["trade_no"] = refundID
+	} else {
+		return nil, fmt.Errorf("easypay refund missing order identifier")
 	}
-	if tradeNo := strings.TrimSpace(req.TradeNo); tradeNo != "" {
-		params := cloneStringMap(base)
-		params["trade_no"] = tradeNo
-		attempts = append(attempts, easyPayRefundAttempt{params: params, refundID: tradeNo})
+	body, status, err := e.postRaw(ctx, e.apiBase()+"/api.php?act=refund", params)
+	if err != nil {
+		return nil, fmt.Errorf("easypay refund request: %w", err)
 	}
-	return attempts
+	if err := parseEasyPayRefundResponse(status, body); err != nil {
+		return nil, err
+	}
+	return &payment.RefundResponse{RefundID: refundID, Status: payment.ProviderStatusSuccess}, nil
 }
 
 func cloneStringMap(in map[string]string) map[string]string {
@@ -363,18 +337,6 @@ func cloneStringMap(in map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
-}
-
-func isEasyPayRefundOrderNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	lower := strings.ToLower(msg)
-	return strings.Contains(msg, "订单编号不存在") ||
-		strings.Contains(msg, "订单不存在") ||
-		strings.Contains(lower, "order not found") ||
-		strings.Contains(lower, "not exist")
 }
 
 func parseEasyPayRefundResponse(status int, body []byte) error {
@@ -406,9 +368,18 @@ func parseEasyPayRefundResponse(status int, body []byte) error {
 		if msg == "" {
 			msg = summary
 		}
-		return fmt.Errorf("easypay refund failed (HTTP %d): %s", status, msg)
+		err := fmt.Errorf("easypay refund failed (HTTP %d): %s", status, msg)
+		if easyPayRefundExplicitlyNotExecuted(msg) {
+			return &payment.RefundRejectedError{Err: err}
+		}
+		return err
 	}
 	return nil
+}
+
+func easyPayRefundExplicitlyNotExecuted(message string) bool {
+	message = strings.TrimSpace(message)
+	return strings.Contains(message, "卖家余额不足") || strings.Contains(message, "商户余额不足")
 }
 
 func easyPayResponseCodeIsSuccess(code any) bool {

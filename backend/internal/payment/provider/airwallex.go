@@ -274,7 +274,7 @@ func (a *Airwallex) Refund(ctx context.Context, req payment.RefundRequest) (*pay
 	}
 
 	payload := airwallexCreateRefundRequest{
-		RequestID:       airwallexDeterministicRequestID("refund", intentID, req.Amount),
+		RequestID:       airwallexDeterministicRequestID("refund", refundRequestIdentifier(req)),
 		PaymentIntentID: intentID,
 		Amount:          newAirwallexRequestAmount(amount),
 		Reason:          strings.TrimSpace(req.Reason),
@@ -294,8 +294,8 @@ func (a *Airwallex) Refund(ctx context.Context, req payment.RefundRequest) (*pay
 		RefundID: resp.ID,
 		Status:   airwallexRefundProviderStatus(resp.Status),
 	}
-	if refundResp.Status != payment.ProviderStatusSuccess {
-		return refundResp, fmt.Errorf("airwallex refund not settled: status %s", strings.ToUpper(strings.TrimSpace(resp.Status)))
+	if refundResp.Status == payment.ProviderStatusFailed {
+		return refundResp, &payment.RefundRejectedError{Err: fmt.Errorf("airwallex refund failed: status %s", strings.ToUpper(strings.TrimSpace(resp.Status)))}
 	}
 	return refundResp, nil
 }

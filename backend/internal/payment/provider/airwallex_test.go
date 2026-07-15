@@ -222,17 +222,20 @@ func TestAirwallexRefundRejectsUnsettledStatus(t *testing.T) {
 
 			prov := mustTestAirwallexProvider(t, server)
 			resp, err := prov.Refund(context.Background(), payment.RefundRequest{
-				TradeNo: "int_123",
-				Amount:  "12.34",
-				Reason:  "test refund",
+				TradeNo:   "int_123",
+				Amount:    "12.34",
+				Reason:    "test refund",
+				RequestID: "refund-order-7",
 			})
 
-			require.ErrorContains(t, err, "airwallex refund not settled")
 			require.NotNil(t, resp)
 			require.Equal(t, "ref_123", resp.RefundID)
 			if status == airwallexRefundStatusFailed {
+				require.ErrorContains(t, err, "airwallex refund failed")
+				require.True(t, payment.IsRefundRejected(err))
 				require.Equal(t, payment.ProviderStatusFailed, resp.Status)
 			} else {
+				require.NoError(t, err)
 				require.Equal(t, payment.ProviderStatusPending, resp.Status)
 			}
 		})

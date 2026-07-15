@@ -18,13 +18,14 @@ const STATUS_BADGE_MAP: Record<string, string> = {
   REFUND_FAILED: 'badge-danger',
 }
 
-const REFUNDABLE_STATUSES = ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUND_REQUESTED', 'REFUND_FAILED']
+const REFUNDABLE_STATUSES = ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUND_REQUESTED']
 
 export function statusBadgeClass(status: string): string {
   return STATUS_BADGE_MAP[status] || 'badge-secondary'
 }
 
-export function canRefund(status: string): boolean {
+export function canRefund(status: string, refundRetryable = false): boolean {
+  if (status === 'REFUND_FAILED') return refundRetryable
   return REFUNDABLE_STATUSES.includes(status)
 }
 

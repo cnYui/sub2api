@@ -155,11 +155,39 @@ func (s *PaymentService) writeAuditLog(ctx context.Context, oid int64, action, o
 }
 
 func (s *PaymentService) writeAuditLogWithClient(ctx context.Context, client *dbent.Client, oid int64, action, op string, detail map[string]any) {
-	dj, _ := json.Marshal(detail)
-	_, err := client.PaymentAuditLog.Create().SetOrderID(strconv.FormatInt(oid, 10)).SetAction(action).SetDetail(string(dj)).SetOperator(op).Save(ctx)
-	if err != nil {
+	if err := s.createAuditLogWithClient(ctx, client, oid, action, op, detail); err != nil {
 		slog.Error("audit log failed", "orderID", oid, "action", action, "error", err)
 	}
+}
+
+func (s *PaymentService) createAuditLogWithClient(ctx context.Context, client *dbent.Client, oid int64, action, op string, detail map[string]any) error {
+	dj, err := json.Marshal(detail)
+	if err != nil {
+		return err
+	}
+	_, err = client.PaymentAuditLog.Create().
+		SetOrderID(strconv.FormatInt(oid, 10)).
+		SetAction(action).
+		SetDetail(string(dj)).
+		SetOperator(op).
+		Save(ctx)
+	return err
+}
+
+func (s *PaymentService) createAuditLogIfAbsentWithClient(ctx context.Context, client *dbent.Client, oid int64, action, op string, detail map[string]any) error {
+	exists, err := client.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderIDEQ(strconv.FormatInt(oid, 10)),
+			paymentauditlog.ActionEQ(action),
+		).
+		Exist(ctx)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return s.createAuditLogWithClient(ctx, client, oid, action, op, detail)
 }
 
 func (s *PaymentService) GetOrderAuditLogs(ctx context.Context, oid int64) ([]*dbent.PaymentAuditLog, error) {

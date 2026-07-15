@@ -55,6 +55,8 @@ type PaymentOrder struct {
 	SubscriptionGroupID *int64 `json:"subscription_group_id,omitempty"`
 	// SubscriptionDays holds the value of the "subscription_days" field.
 	SubscriptionDays *int `json:"subscription_days,omitempty"`
+	// SubscriptionID holds the value of the "subscription_id" field.
+	SubscriptionID *int64 `json:"subscription_id,omitempty"`
 	// ProviderInstanceID holds the value of the "provider_instance_id" field.
 	ProviderInstanceID *string `json:"provider_instance_id,omitempty"`
 	// ProviderKey holds the value of the "provider_key" field.
@@ -77,6 +79,14 @@ type PaymentOrder struct {
 	RefundRequestReason *string `json:"refund_request_reason,omitempty"`
 	// RefundRequestedBy holds the value of the "refund_requested_by" field.
 	RefundRequestedBy *string `json:"refund_requested_by,omitempty"`
+	// RefundRequestID holds the value of the "refund_request_id" field.
+	RefundRequestID *string `json:"refund_request_id,omitempty"`
+	// RefundGatewayStatus holds the value of the "refund_gateway_status" field.
+	RefundGatewayStatus string `json:"refund_gateway_status,omitempty"`
+	// RefundEntitlementStatus holds the value of the "refund_entitlement_status" field.
+	RefundEntitlementStatus string `json:"refund_entitlement_status,omitempty"`
+	// RefundProviderRef holds the value of the "refund_provider_ref" field.
+	RefundProviderRef *string `json:"refund_provider_ref,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	// PaidAt holds the value of the "paid_at" field.
@@ -134,9 +144,9 @@ func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldRefundAmount:
 			values[i] = new(sql.NullFloat64)
-		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays:
+		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays, paymentorder.FieldSubscriptionID:
 			values[i] = new(sql.NullInt64)
-		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
+		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldRefundRequestID, paymentorder.FieldRefundGatewayStatus, paymentorder.FieldRefundEntitlementStatus, paymentorder.FieldRefundProviderRef, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
 			values[i] = new(sql.NullString)
 		case paymentorder.FieldRefundAt, paymentorder.FieldRefundRequestedAt, paymentorder.FieldExpiresAt, paymentorder.FieldPaidAt, paymentorder.FieldCompletedAt, paymentorder.FieldFailedAt, paymentorder.FieldCreatedAt, paymentorder.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -276,6 +286,13 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 				_m.SubscriptionDays = new(int)
 				*_m.SubscriptionDays = int(value.Int64)
 			}
+		case paymentorder.FieldSubscriptionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field subscription_id", values[i])
+			} else if value.Valid {
+				_m.SubscriptionID = new(int64)
+				*_m.SubscriptionID = value.Int64
+			}
 		case paymentorder.FieldProviderInstanceID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field provider_instance_id", values[i])
@@ -350,6 +367,32 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RefundRequestedBy = new(string)
 				*_m.RefundRequestedBy = value.String
+			}
+		case paymentorder.FieldRefundRequestID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_request_id", values[i])
+			} else if value.Valid {
+				_m.RefundRequestID = new(string)
+				*_m.RefundRequestID = value.String
+			}
+		case paymentorder.FieldRefundGatewayStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_gateway_status", values[i])
+			} else if value.Valid {
+				_m.RefundGatewayStatus = value.String
+			}
+		case paymentorder.FieldRefundEntitlementStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_entitlement_status", values[i])
+			} else if value.Valid {
+				_m.RefundEntitlementStatus = value.String
+			}
+		case paymentorder.FieldRefundProviderRef:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_provider_ref", values[i])
+			} else if value.Valid {
+				_m.RefundProviderRef = new(string)
+				*_m.RefundProviderRef = value.String
 			}
 		case paymentorder.FieldExpiresAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -525,6 +568,11 @@ func (_m *PaymentOrder) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
+	if v := _m.SubscriptionID; v != nil {
+		builder.WriteString("subscription_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
 	if v := _m.ProviderInstanceID; v != nil {
 		builder.WriteString("provider_instance_id=")
 		builder.WriteString(*v)
@@ -569,6 +617,22 @@ func (_m *PaymentOrder) String() string {
 	builder.WriteString(", ")
 	if v := _m.RefundRequestedBy; v != nil {
 		builder.WriteString("refund_requested_by=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RefundRequestID; v != nil {
+		builder.WriteString("refund_request_id=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	builder.WriteString("refund_gateway_status=")
+	builder.WriteString(_m.RefundGatewayStatus)
+	builder.WriteString(", ")
+	builder.WriteString("refund_entitlement_status=")
+	builder.WriteString(_m.RefundEntitlementStatus)
+	builder.WriteString(", ")
+	if v := _m.RefundProviderRef; v != nil {
+		builder.WriteString("refund_provider_ref=")
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")

@@ -87,6 +87,9 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Int("subscription_days").
 			Optional().
 			Nillable(),
+		field.Int64("subscription_id").
+			Optional().
+			Nillable(),
 		field.String("provider_instance_id").
 			Optional().
 			Nillable().
@@ -130,6 +133,20 @@ func (PaymentOrder) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			MaxLen(20),
+		field.String("refund_request_id").
+			Optional().
+			Nillable().
+			MaxLen(128),
+		field.String("refund_gateway_status").
+			MaxLen(20).
+			Default("NOT_STARTED"),
+		field.String("refund_entitlement_status").
+			MaxLen(20).
+			Default("NOT_STARTED"),
+		field.String("refund_provider_ref").
+			Optional().
+			Nillable().
+			MaxLen(128),
 
 		// 时间节点
 		field.Time("expires_at").
@@ -195,5 +212,6 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("paid_at"),
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
+		index.Fields("subscription_id"),
 	}
 }

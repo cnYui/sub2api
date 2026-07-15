@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -953,6 +954,8 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
 	require.NoError(t, err)
 	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.NotNil(t, reloaded.SubscriptionID)
+	require.Equal(t, int64(1), *reloaded.SubscriptionID)
 	require.Len(t, affiliateRepo.accrueCalls, 1)
 	require.Equal(t, inviterID, affiliateRepo.accrueCalls[0].inviterID)
 	require.Equal(t, user.ID, affiliateRepo.accrueCalls[0].inviteeUserID)
@@ -967,6 +970,70 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, applied.Detail, `"baseAmount":120`)
 	require.Contains(t, applied.Detail, `"rebateAmount":24`)
+}
+
+func TestExecuteSubscriptionFulfillmentRecoversExistingOrderSubscriptionLink(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+
+	user, err := client.User.Create().
+		SetEmail("subscription-link-recovery@example.com").
+		SetPasswordHash("hash").
+		SetUsername("subscription-link-recovery-user").
+		Save(ctx)
+	require.NoError(t, err)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(29).
+		SetPayAmount(29.29).
+		SetFeeRate(1).
+		SetRechargeCode("PAY-SUB-LINK-RECOVERY").
+		SetOutTradeNo("sub2_subscription_link_recovery").
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo("trade-sub-link-recovery").
+		SetOrderType(payment.OrderTypeSubscription).
+		SetPlanID(101).
+		SetSubscriptionGroupID(7).
+		SetSubscriptionDays(30).
+		SetStatus(OrderStatusPaid).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	startsAt := time.Now().AddDate(0, 0, -1)
+	expiresAt := startsAt.AddDate(0, 0, 30)
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        55,
+		UserID:    user.ID,
+		GroupID:   7,
+		StartsAt:  startsAt,
+		ExpiresAt: expiresAt,
+		Status:    SubscriptionStatusActive,
+		Notes:     fmt.Sprintf("payment order %d", order.ID),
+	})
+	svc := &PaymentService{
+		entClient: client,
+		groupRepo: &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
+		subscriptionSvc: NewSubscriptionService(&subscriptionGroupRepoStub{
+			group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+		}, subRepo, nil, nil, nil),
+	}
+
+	err = svc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+	require.NoError(t, err)
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.NotNil(t, reloaded.SubscriptionID)
+	require.Equal(t, int64(55), *reloaded.SubscriptionID)
+	recoveredSub, err := subRepo.GetByID(ctx, 55)
+	require.NoError(t, err)
+	require.Equal(t, expiresAt, recoveredSub.ExpiresAt)
 }
 
 func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAudit(t *testing.T) {
