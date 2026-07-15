@@ -344,7 +344,7 @@ const purchaseProductCardStub = {
   props: ['product'],
   template: `
     <button data-testid="purchase-product-card" @click="$emit('select', product)">
-      {{ product.title }} {{ product.priceText }}
+      {{ product.title }} {{ product.priceText }} {{ product.buttonText }}
       <span v-for="row in product.detailRows" :key="row.label">{{ row.label }}{{ row.value }}</span>
     </button>
   `,
@@ -525,7 +525,7 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.methods.airwallex')
   })
 
-  it('blocks subscription purchase when the user already has an active subscription', async () => {
+  it('allows selecting the current subscription group for renewal', async () => {
     getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
     activeSubscriptionsState.items = [
       {
@@ -552,16 +552,54 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
     await flushPromises()
 
-    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+    const currentPlanCard = wrapper.findAll('[data-testid="purchase-product-card"]')[1]
+    expect(currentPlanCard.text()).toContain('payment.renewNow')
 
-    expect(showError).toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS')
+    await currentPlanCard.trigger('click')
+    await flushPromises()
+
+    expect(showError).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('payment.methods.alipay')
+    expect(wrapper.text()).toContain('payment.methods.balance')
+  })
+
+  it('blocks selecting another subscription group until refund', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+    activeSubscriptionsState.items = [
+      {
+        id: 42,
+        group_id: 2,
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00Z',
+      },
+    ]
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[2].trigger('click')
+
+    expect(showError).toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND')
     expect(wrapper.text()).not.toContain('payment.methods.alipay')
     expect(wrapper.text()).not.toContain('payment.methods.balance')
     expect(createOrder).not.toHaveBeenCalled()
     expect(balancePayOrder).not.toHaveBeenCalled()
   })
 
-  it('refreshes stale active subscription cache before blocking subscription purchase', async () => {
+  it('refreshes stale active subscription cache before checking subscription switch', async () => {
     getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
     activeSubscriptionsState.items = [
       {
@@ -598,7 +636,7 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     expect(fetchActiveSubscriptions).toHaveBeenCalledWith(true)
-    expect(showError).not.toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS')
+    expect(showError).not.toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND')
     expect(wrapper.text()).toContain('payment.methods.alipay')
   })
 

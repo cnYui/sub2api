@@ -592,18 +592,17 @@ const planTitleSuffix = (index: number) => {
 const isPlanActive = (plan: SubscriptionPlan) =>
   activeSubscriptions.value.some(s => s.group_id === plan.group_id && s.status === 'active')
 
-const hasActiveSubscriptionForPurchase = computed(() =>
-  activeSubscriptions.value.some(subscription => subscription.status === 'active')
-)
-
-async function refreshAndShowActiveSubscriptionPurchaseBlocked(): Promise<boolean> {
+async function refreshAndBlockDifferentActiveSubscription(plan: SubscriptionPlan): Promise<boolean> {
   try {
     await subscriptionStore.fetchActiveSubscriptions(true)
   } catch {
     // 刷新失败时保留当前缓存判断，最终仍由后端购买保护兜底。
   }
-  if (!hasActiveSubscriptionForPurchase.value) return false
-  appStore.showError(t('payment.errors.ACTIVE_SUBSCRIPTION_EXISTS'))
+  const hasDifferentActiveSubscription = activeSubscriptions.value.some(
+    subscription => subscription.status === 'active' && subscription.group_id !== plan.group_id,
+  )
+  if (!hasDifferentActiveSubscription) return false
+  appStore.showError(t('payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND'))
   return true
 }
 
@@ -782,7 +781,7 @@ const planValiditySuffix = computed(() => {
 })
 
 async function selectPlan(plan: SubscriptionPlan) {
-  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
+  if (await refreshAndBlockDifferentActiveSubscription(plan)) return
   selectedPlan.value = plan
   selectedTrafficPack.value = null
   errorMessage.value = ''
@@ -825,7 +824,7 @@ function openRechargeConfirm(defaultAmount = 1) {
 }
 
 async function selectPlanFromModal(plan: SubscriptionPlan) {
-  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
+  if (await refreshAndBlockDifferentActiveSubscription(plan)) return
   showRenewalModal.value = false
   renewGroupId.value = null
   selectedPlan.value = plan
@@ -840,7 +839,7 @@ function closeRenewalModal() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  if (await refreshAndShowActiveSubscriptionPurchaseBlocked()) return
+  if (await refreshAndBlockDifferentActiveSubscription(selectedPlan.value)) return
   if (!canSubmitSubscription.value) {
     appStore.showError(t('payment.notAvailable'))
     return
