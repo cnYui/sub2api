@@ -1312,11 +1312,13 @@ onMounted(async () => {
     if (route.query.group) {
       const groupId = Number(route.query.group)
       const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
-      if (groupPlans.length === 1) {
-        selectedPlan.value = groupPlans[0]
-      } else if (groupPlans.length > 1) {
-        renewGroupId.value = groupId
-        showRenewalModal.value = true
+      if (groupPlans.length > 0 && !(await refreshAndBlockDifferentActiveSubscription(groupPlans[0]))) {
+        if (groupPlans.length === 1) {
+          selectedPlan.value = groupPlans[0]
+        } else {
+          renewGroupId.value = groupId
+          showRenewalModal.value = true
+        }
       }
     }
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }

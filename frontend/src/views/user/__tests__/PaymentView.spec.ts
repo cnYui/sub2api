@@ -640,6 +640,40 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).toContain('payment.methods.alipay')
   })
 
+  it('blocks subscription group route preselect when it would switch plans', async () => {
+    routeState.query = { tab: 'subscription', group: '3' }
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
+    activeSubscriptionsState.items = [
+      {
+        id: 42,
+        group_id: 2,
+        status: 'active',
+        expires_at: '2099-01-01T00:00:00Z',
+      },
+    ]
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(fetchActiveSubscriptions).toHaveBeenCalledWith(true)
+    expect(showError).toHaveBeenCalledWith('payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND')
+    expect(wrapper.text()).not.toContain('payment.methods.alipay')
+    expect(wrapper.text()).not.toContain('payment.methods.balance')
+  })
+
   it('opens recharge confirm with rounded shortage when balance is insufficient', async () => {
     getCheckoutInfo.mockResolvedValueOnce({
       data: {
