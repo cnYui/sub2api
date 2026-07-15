@@ -5,7 +5,7 @@
     width="normal"
     @close="$emit('close')"
   >
-    <form id="create-user-form" @submit.prevent="submit" class="space-y-5">
+    <form id="create-user-form" @submit.prevent="handleSubmit" class="space-y-5">
       <div>
         <label class="input-label">{{ t('admin.users.email') }}</label>
         <input v-model="form.email" type="email" required class="input" :placeholder="t('admin.users.enterEmail')" />
@@ -32,7 +32,14 @@
         </div>
         <div>
           <label class="input-label">{{ t('admin.users.columns.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" class="input" />
+          <input
+            v-model.number="form.concurrency"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+          />
+          <p class="input-hint">{{ t('admin.users.form.concurrencyHint') }}</p>
         </div>
       </div>
       <div>
@@ -63,11 +70,14 @@
 import { reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'; import { adminAPI } from '@/api/admin'
 import { useForm } from '@/composables/useForm'
+import { useAppStore } from '@/stores/app'
+import { isValidUserConcurrency } from '@/utils/userConcurrency'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
+const appStore = useAppStore()
 
 const form = reactive({ email: '', password: '', username: '', notes: '', balance: '', concurrency: 1, rpm_limit: 0 })
 
@@ -85,6 +95,14 @@ const { loading, submit } = useForm({
   },
   successMsg: t('admin.users.userCreated')
 })
+
+const handleSubmit = async () => {
+  if (!isValidUserConcurrency(form.concurrency)) {
+    appStore.showError(t('admin.users.concurrencyInvalid'))
+    return
+  }
+  await submit()
+}
 
 watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', balance: '', concurrency: 1, rpm_limit: 0 }) })
 
