@@ -39,6 +39,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -87,6 +88,7 @@ const (
 	TypeRedeemCode                    = "RedeemCode"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
+	TypeSubscriptionEntitlementPeriod = "SubscriptionEntitlementPeriod"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
 	TypeTLSFingerprintProfile         = "TLSFingerprintProfile"
 	TypeUsageCleanupTask              = "UsageCleanupTask"
@@ -15110,6 +15112,9 @@ type GroupMutation struct {
 	subscriptions                           map[int64]struct{}
 	removedsubscriptions                    map[int64]struct{}
 	clearedsubscriptions                    bool
+	subscription_entitlement_periods        map[int64]struct{}
+	removedsubscription_entitlement_periods map[int64]struct{}
+	clearedsubscription_entitlement_periods bool
 	usage_logs                              map[int64]struct{}
 	removedusage_logs                       map[int64]struct{}
 	clearedusage_logs                       bool
@@ -17070,6 +17075,60 @@ func (m *GroupMutation) ResetSubscriptions() {
 	m.removedsubscriptions = nil
 }
 
+// AddSubscriptionEntitlementPeriodIDs adds the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by ids.
+func (m *GroupMutation) AddSubscriptionEntitlementPeriodIDs(ids ...int64) {
+	if m.subscription_entitlement_periods == nil {
+		m.subscription_entitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.subscription_entitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSubscriptionEntitlementPeriods clears the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *GroupMutation) ClearSubscriptionEntitlementPeriods() {
+	m.clearedsubscription_entitlement_periods = true
+}
+
+// SubscriptionEntitlementPeriodsCleared reports if the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity was cleared.
+func (m *GroupMutation) SubscriptionEntitlementPeriodsCleared() bool {
+	return m.clearedsubscription_entitlement_periods
+}
+
+// RemoveSubscriptionEntitlementPeriodIDs removes the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (m *GroupMutation) RemoveSubscriptionEntitlementPeriodIDs(ids ...int64) {
+	if m.removedsubscription_entitlement_periods == nil {
+		m.removedsubscription_entitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.subscription_entitlement_periods, ids[i])
+		m.removedsubscription_entitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSubscriptionEntitlementPeriods returns the removed IDs of the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *GroupMutation) RemovedSubscriptionEntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.removedsubscription_entitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SubscriptionEntitlementPeriodsIDs returns the "subscription_entitlement_periods" edge IDs in the mutation.
+func (m *GroupMutation) SubscriptionEntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.subscription_entitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSubscriptionEntitlementPeriods resets all changes to the "subscription_entitlement_periods" edge.
+func (m *GroupMutation) ResetSubscriptionEntitlementPeriods() {
+	m.subscription_entitlement_periods = nil
+	m.clearedsubscription_entitlement_periods = false
+	m.removedsubscription_entitlement_periods = nil
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by ids.
 func (m *GroupMutation) AddUsageLogIDs(ids ...int64) {
 	if m.usage_logs == nil {
@@ -18171,7 +18230,7 @@ func (m *GroupMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.api_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -18180,6 +18239,9 @@ func (m *GroupMutation) AddedEdges() []string {
 	}
 	if m.subscriptions != nil {
 		edges = append(edges, group.EdgeSubscriptions)
+	}
+	if m.subscription_entitlement_periods != nil {
+		edges = append(edges, group.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.usage_logs != nil {
 		edges = append(edges, group.EdgeUsageLogs)
@@ -18215,6 +18277,12 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case group.EdgeSubscriptionEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.subscription_entitlement_periods))
+		for id := range m.subscription_entitlement_periods {
+			ids = append(ids, id)
+		}
+		return ids
 	case group.EdgeUsageLogs:
 		ids := make([]ent.Value, 0, len(m.usage_logs))
 		for id := range m.usage_logs {
@@ -18239,7 +18307,7 @@ func (m *GroupMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedapi_keys != nil {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -18248,6 +18316,9 @@ func (m *GroupMutation) RemovedEdges() []string {
 	}
 	if m.removedsubscriptions != nil {
 		edges = append(edges, group.EdgeSubscriptions)
+	}
+	if m.removedsubscription_entitlement_periods != nil {
+		edges = append(edges, group.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.removedusage_logs != nil {
 		edges = append(edges, group.EdgeUsageLogs)
@@ -18283,6 +18354,12 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case group.EdgeSubscriptionEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.removedsubscription_entitlement_periods))
+		for id := range m.removedsubscription_entitlement_periods {
+			ids = append(ids, id)
+		}
+		return ids
 	case group.EdgeUsageLogs:
 		ids := make([]ent.Value, 0, len(m.removedusage_logs))
 		for id := range m.removedusage_logs {
@@ -18307,7 +18384,7 @@ func (m *GroupMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.clearedapi_keys {
 		edges = append(edges, group.EdgeAPIKeys)
 	}
@@ -18316,6 +18393,9 @@ func (m *GroupMutation) ClearedEdges() []string {
 	}
 	if m.clearedsubscriptions {
 		edges = append(edges, group.EdgeSubscriptions)
+	}
+	if m.clearedsubscription_entitlement_periods {
+		edges = append(edges, group.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.clearedusage_logs {
 		edges = append(edges, group.EdgeUsageLogs)
@@ -18339,6 +18419,8 @@ func (m *GroupMutation) EdgeCleared(name string) bool {
 		return m.clearedredeem_codes
 	case group.EdgeSubscriptions:
 		return m.clearedsubscriptions
+	case group.EdgeSubscriptionEntitlementPeriods:
+		return m.clearedsubscription_entitlement_periods
 	case group.EdgeUsageLogs:
 		return m.clearedusage_logs
 	case group.EdgeAccounts:
@@ -18369,6 +18451,9 @@ func (m *GroupMutation) ResetEdge(name string) error {
 		return nil
 	case group.EdgeSubscriptions:
 		m.ResetSubscriptions()
+		return nil
+	case group.EdgeSubscriptionEntitlementPeriods:
+		m.ResetSubscriptionEntitlementPeriods()
 		return nil
 	case group.EdgeUsageLogs:
 		m.ResetUsageLogs()
@@ -33793,6 +33878,1291 @@ func (m *SettingMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown Setting edge %s", name)
 }
 
+// SubscriptionEntitlementPeriodMutation represents an operation that mutates the SubscriptionEntitlementPeriod nodes in the graph.
+type SubscriptionEntitlementPeriodMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *int64
+	created_at          *time.Time
+	updated_at          *time.Time
+	source_type         *string
+	source_id           *string
+	starts_at           *time.Time
+	expires_at          *time.Time
+	period_days         *int
+	addperiod_days      *int
+	daily_limit_usd     *float64
+	adddaily_limit_usd  *float64
+	status              *string
+	revoked_at          *time.Time
+	revoked_reason      *string
+	clearedFields       map[string]struct{}
+	user                *int64
+	cleareduser         bool
+	subscription        *int64
+	clearedsubscription bool
+	group               *int64
+	clearedgroup        bool
+	done                bool
+	oldValue            func(context.Context) (*SubscriptionEntitlementPeriod, error)
+	predicates          []predicate.SubscriptionEntitlementPeriod
+}
+
+var _ ent.Mutation = (*SubscriptionEntitlementPeriodMutation)(nil)
+
+// subscriptionentitlementperiodOption allows management of the mutation configuration using functional options.
+type subscriptionentitlementperiodOption func(*SubscriptionEntitlementPeriodMutation)
+
+// newSubscriptionEntitlementPeriodMutation creates new mutation for the SubscriptionEntitlementPeriod entity.
+func newSubscriptionEntitlementPeriodMutation(c config, op Op, opts ...subscriptionentitlementperiodOption) *SubscriptionEntitlementPeriodMutation {
+	m := &SubscriptionEntitlementPeriodMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeSubscriptionEntitlementPeriod,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withSubscriptionEntitlementPeriodID sets the ID field of the mutation.
+func withSubscriptionEntitlementPeriodID(id int64) subscriptionentitlementperiodOption {
+	return func(m *SubscriptionEntitlementPeriodMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *SubscriptionEntitlementPeriod
+		)
+		m.oldValue = func(ctx context.Context) (*SubscriptionEntitlementPeriod, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().SubscriptionEntitlementPeriod.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withSubscriptionEntitlementPeriod sets the old SubscriptionEntitlementPeriod of the mutation.
+func withSubscriptionEntitlementPeriod(node *SubscriptionEntitlementPeriod) subscriptionentitlementperiodOption {
+	return func(m *SubscriptionEntitlementPeriodMutation) {
+		m.oldValue = func(context.Context) (*SubscriptionEntitlementPeriod, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m SubscriptionEntitlementPeriodMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m SubscriptionEntitlementPeriodMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *SubscriptionEntitlementPeriodMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().SubscriptionEntitlementPeriod.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetSubscriptionID sets the "subscription_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetSubscriptionID(i int64) {
+	m.subscription = &i
+}
+
+// SubscriptionID returns the value of the "subscription_id" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) SubscriptionID() (r int64, exists bool) {
+	v := m.subscription
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubscriptionID returns the old "subscription_id" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldSubscriptionID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubscriptionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubscriptionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubscriptionID: %w", err)
+	}
+	return oldValue.SubscriptionID, nil
+}
+
+// ResetSubscriptionID resets all changes to the "subscription_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetSubscriptionID() {
+	m.subscription = nil
+}
+
+// SetGroupID sets the "group_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetGroupID(i int64) {
+	m.group = &i
+}
+
+// GroupID returns the value of the "group_id" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) GroupID() (r int64, exists bool) {
+	v := m.group
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupID returns the old "group_id" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldGroupID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupID: %w", err)
+	}
+	return oldValue.GroupID, nil
+}
+
+// ResetGroupID resets all changes to the "group_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetGroupID() {
+	m.group = nil
+}
+
+// SetSourceType sets the "source_type" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetSourceType(s string) {
+	m.source_type = &s
+}
+
+// SourceType returns the value of the "source_type" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) SourceType() (r string, exists bool) {
+	v := m.source_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceType returns the old "source_type" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldSourceType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceType: %w", err)
+	}
+	return oldValue.SourceType, nil
+}
+
+// ResetSourceType resets all changes to the "source_type" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetSourceType() {
+	m.source_type = nil
+}
+
+// SetSourceID sets the "source_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetSourceID(s string) {
+	m.source_id = &s
+}
+
+// SourceID returns the value of the "source_id" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) SourceID() (r string, exists bool) {
+	v := m.source_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceID returns the old "source_id" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldSourceID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceID: %w", err)
+	}
+	return oldValue.SourceID, nil
+}
+
+// ResetSourceID resets all changes to the "source_id" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetSourceID() {
+	m.source_id = nil
+}
+
+// SetStartsAt sets the "starts_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetStartsAt(t time.Time) {
+	m.starts_at = &t
+}
+
+// StartsAt returns the value of the "starts_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) StartsAt() (r time.Time, exists bool) {
+	v := m.starts_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartsAt returns the old "starts_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldStartsAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartsAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartsAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartsAt: %w", err)
+	}
+	return oldValue.StartsAt, nil
+}
+
+// ResetStartsAt resets all changes to the "starts_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetStartsAt() {
+	m.starts_at = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetPeriodDays sets the "period_days" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetPeriodDays(i int) {
+	m.period_days = &i
+	m.addperiod_days = nil
+}
+
+// PeriodDays returns the value of the "period_days" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) PeriodDays() (r int, exists bool) {
+	v := m.period_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPeriodDays returns the old "period_days" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldPeriodDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPeriodDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPeriodDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPeriodDays: %w", err)
+	}
+	return oldValue.PeriodDays, nil
+}
+
+// AddPeriodDays adds i to the "period_days" field.
+func (m *SubscriptionEntitlementPeriodMutation) AddPeriodDays(i int) {
+	if m.addperiod_days != nil {
+		*m.addperiod_days += i
+	} else {
+		m.addperiod_days = &i
+	}
+}
+
+// AddedPeriodDays returns the value that was added to the "period_days" field in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) AddedPeriodDays() (r int, exists bool) {
+	v := m.addperiod_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPeriodDays resets all changes to the "period_days" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetPeriodDays() {
+	m.period_days = nil
+	m.addperiod_days = nil
+}
+
+// SetDailyLimitUsd sets the "daily_limit_usd" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetDailyLimitUsd(f float64) {
+	m.daily_limit_usd = &f
+	m.adddaily_limit_usd = nil
+}
+
+// DailyLimitUsd returns the value of the "daily_limit_usd" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) DailyLimitUsd() (r float64, exists bool) {
+	v := m.daily_limit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDailyLimitUsd returns the old "daily_limit_usd" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldDailyLimitUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDailyLimitUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDailyLimitUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDailyLimitUsd: %w", err)
+	}
+	return oldValue.DailyLimitUsd, nil
+}
+
+// AddDailyLimitUsd adds f to the "daily_limit_usd" field.
+func (m *SubscriptionEntitlementPeriodMutation) AddDailyLimitUsd(f float64) {
+	if m.adddaily_limit_usd != nil {
+		*m.adddaily_limit_usd += f
+	} else {
+		m.adddaily_limit_usd = &f
+	}
+}
+
+// AddedDailyLimitUsd returns the value that was added to the "daily_limit_usd" field in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) AddedDailyLimitUsd() (r float64, exists bool) {
+	v := m.adddaily_limit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearDailyLimitUsd clears the value of the "daily_limit_usd" field.
+func (m *SubscriptionEntitlementPeriodMutation) ClearDailyLimitUsd() {
+	m.daily_limit_usd = nil
+	m.adddaily_limit_usd = nil
+	m.clearedFields[subscriptionentitlementperiod.FieldDailyLimitUsd] = struct{}{}
+}
+
+// DailyLimitUsdCleared returns if the "daily_limit_usd" field was cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) DailyLimitUsdCleared() bool {
+	_, ok := m.clearedFields[subscriptionentitlementperiod.FieldDailyLimitUsd]
+	return ok
+}
+
+// ResetDailyLimitUsd resets all changes to the "daily_limit_usd" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetDailyLimitUsd() {
+	m.daily_limit_usd = nil
+	m.adddaily_limit_usd = nil
+	delete(m.clearedFields, subscriptionentitlementperiod.FieldDailyLimitUsd)
+}
+
+// SetStatus sets the "status" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetRevokedAt(t time.Time) {
+	m.revoked_at = &t
+}
+
+// RevokedAt returns the value of the "revoked_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) RevokedAt() (r time.Time, exists bool) {
+	v := m.revoked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedAt returns the old "revoked_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldRevokedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
+	}
+	return oldValue.RevokedAt, nil
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ClearRevokedAt() {
+	m.revoked_at = nil
+	m.clearedFields[subscriptionentitlementperiod.FieldRevokedAt] = struct{}{}
+}
+
+// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) RevokedAtCleared() bool {
+	_, ok := m.clearedFields[subscriptionentitlementperiod.FieldRevokedAt]
+	return ok
+}
+
+// ResetRevokedAt resets all changes to the "revoked_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetRevokedAt() {
+	m.revoked_at = nil
+	delete(m.clearedFields, subscriptionentitlementperiod.FieldRevokedAt)
+}
+
+// SetRevokedReason sets the "revoked_reason" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetRevokedReason(s string) {
+	m.revoked_reason = &s
+}
+
+// RevokedReason returns the value of the "revoked_reason" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) RevokedReason() (r string, exists bool) {
+	v := m.revoked_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedReason returns the old "revoked_reason" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldRevokedReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedReason: %w", err)
+	}
+	return oldValue.RevokedReason, nil
+}
+
+// ResetRevokedReason resets all changes to the "revoked_reason" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetRevokedReason() {
+	m.revoked_reason = nil
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *SubscriptionEntitlementPeriodMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[subscriptionentitlementperiod.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *SubscriptionEntitlementPeriodMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *SubscriptionEntitlementPeriodMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *SubscriptionEntitlementPeriodMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// ClearSubscription clears the "subscription" edge to the UserSubscription entity.
+func (m *SubscriptionEntitlementPeriodMutation) ClearSubscription() {
+	m.clearedsubscription = true
+	m.clearedFields[subscriptionentitlementperiod.FieldSubscriptionID] = struct{}{}
+}
+
+// SubscriptionCleared reports if the "subscription" edge to the UserSubscription entity was cleared.
+func (m *SubscriptionEntitlementPeriodMutation) SubscriptionCleared() bool {
+	return m.clearedsubscription
+}
+
+// SubscriptionIDs returns the "subscription" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SubscriptionID instead. It exists only for internal usage by the builders.
+func (m *SubscriptionEntitlementPeriodMutation) SubscriptionIDs() (ids []int64) {
+	if id := m.subscription; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSubscription resets all changes to the "subscription" edge.
+func (m *SubscriptionEntitlementPeriodMutation) ResetSubscription() {
+	m.subscription = nil
+	m.clearedsubscription = false
+}
+
+// ClearGroup clears the "group" edge to the Group entity.
+func (m *SubscriptionEntitlementPeriodMutation) ClearGroup() {
+	m.clearedgroup = true
+	m.clearedFields[subscriptionentitlementperiod.FieldGroupID] = struct{}{}
+}
+
+// GroupCleared reports if the "group" edge to the Group entity was cleared.
+func (m *SubscriptionEntitlementPeriodMutation) GroupCleared() bool {
+	return m.clearedgroup
+}
+
+// GroupIDs returns the "group" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// GroupID instead. It exists only for internal usage by the builders.
+func (m *SubscriptionEntitlementPeriodMutation) GroupIDs() (ids []int64) {
+	if id := m.group; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetGroup resets all changes to the "group" edge.
+func (m *SubscriptionEntitlementPeriodMutation) ResetGroup() {
+	m.group = nil
+	m.clearedgroup = false
+}
+
+// Where appends a list predicates to the SubscriptionEntitlementPeriodMutation builder.
+func (m *SubscriptionEntitlementPeriodMutation) Where(ps ...predicate.SubscriptionEntitlementPeriod) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the SubscriptionEntitlementPeriodMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *SubscriptionEntitlementPeriodMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.SubscriptionEntitlementPeriod, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *SubscriptionEntitlementPeriodMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *SubscriptionEntitlementPeriodMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (SubscriptionEntitlementPeriod).
+func (m *SubscriptionEntitlementPeriodMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *SubscriptionEntitlementPeriodMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.created_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldUpdatedAt)
+	}
+	if m.user != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldUserID)
+	}
+	if m.subscription != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldSubscriptionID)
+	}
+	if m.group != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldGroupID)
+	}
+	if m.source_type != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldSourceType)
+	}
+	if m.source_id != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldSourceID)
+	}
+	if m.starts_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldStartsAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldExpiresAt)
+	}
+	if m.period_days != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldPeriodDays)
+	}
+	if m.daily_limit_usd != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldDailyLimitUsd)
+	}
+	if m.status != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldStatus)
+	}
+	if m.revoked_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldRevokedAt)
+	}
+	if m.revoked_reason != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldRevokedReason)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *SubscriptionEntitlementPeriodMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case subscriptionentitlementperiod.FieldCreatedAt:
+		return m.CreatedAt()
+	case subscriptionentitlementperiod.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case subscriptionentitlementperiod.FieldUserID:
+		return m.UserID()
+	case subscriptionentitlementperiod.FieldSubscriptionID:
+		return m.SubscriptionID()
+	case subscriptionentitlementperiod.FieldGroupID:
+		return m.GroupID()
+	case subscriptionentitlementperiod.FieldSourceType:
+		return m.SourceType()
+	case subscriptionentitlementperiod.FieldSourceID:
+		return m.SourceID()
+	case subscriptionentitlementperiod.FieldStartsAt:
+		return m.StartsAt()
+	case subscriptionentitlementperiod.FieldExpiresAt:
+		return m.ExpiresAt()
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		return m.PeriodDays()
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		return m.DailyLimitUsd()
+	case subscriptionentitlementperiod.FieldStatus:
+		return m.Status()
+	case subscriptionentitlementperiod.FieldRevokedAt:
+		return m.RevokedAt()
+	case subscriptionentitlementperiod.FieldRevokedReason:
+		return m.RevokedReason()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *SubscriptionEntitlementPeriodMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case subscriptionentitlementperiod.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case subscriptionentitlementperiod.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case subscriptionentitlementperiod.FieldUserID:
+		return m.OldUserID(ctx)
+	case subscriptionentitlementperiod.FieldSubscriptionID:
+		return m.OldSubscriptionID(ctx)
+	case subscriptionentitlementperiod.FieldGroupID:
+		return m.OldGroupID(ctx)
+	case subscriptionentitlementperiod.FieldSourceType:
+		return m.OldSourceType(ctx)
+	case subscriptionentitlementperiod.FieldSourceID:
+		return m.OldSourceID(ctx)
+	case subscriptionentitlementperiod.FieldStartsAt:
+		return m.OldStartsAt(ctx)
+	case subscriptionentitlementperiod.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		return m.OldPeriodDays(ctx)
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		return m.OldDailyLimitUsd(ctx)
+	case subscriptionentitlementperiod.FieldStatus:
+		return m.OldStatus(ctx)
+	case subscriptionentitlementperiod.FieldRevokedAt:
+		return m.OldRevokedAt(ctx)
+	case subscriptionentitlementperiod.FieldRevokedReason:
+		return m.OldRevokedReason(ctx)
+	}
+	return nil, fmt.Errorf("unknown SubscriptionEntitlementPeriod field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SubscriptionEntitlementPeriodMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case subscriptionentitlementperiod.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case subscriptionentitlementperiod.FieldSubscriptionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubscriptionID(v)
+		return nil
+	case subscriptionentitlementperiod.FieldGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupID(v)
+		return nil
+	case subscriptionentitlementperiod.FieldSourceType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceType(v)
+		return nil
+	case subscriptionentitlementperiod.FieldSourceID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceID(v)
+		return nil
+	case subscriptionentitlementperiod.FieldStartsAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartsAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPeriodDays(v)
+		return nil
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDailyLimitUsd(v)
+		return nil
+	case subscriptionentitlementperiod.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case subscriptionentitlementperiod.FieldRevokedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldRevokedReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedReason(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) AddedFields() []string {
+	var fields []string
+	if m.addperiod_days != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldPeriodDays)
+	}
+	if m.adddaily_limit_usd != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldDailyLimitUsd)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *SubscriptionEntitlementPeriodMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		return m.AddedPeriodDays()
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		return m.AddedDailyLimitUsd()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *SubscriptionEntitlementPeriodMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPeriodDays(v)
+		return nil
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDailyLimitUsd(v)
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *SubscriptionEntitlementPeriodMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(subscriptionentitlementperiod.FieldDailyLimitUsd) {
+		fields = append(fields, subscriptionentitlementperiod.FieldDailyLimitUsd)
+	}
+	if m.FieldCleared(subscriptionentitlementperiod.FieldRevokedAt) {
+		fields = append(fields, subscriptionentitlementperiod.FieldRevokedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *SubscriptionEntitlementPeriodMutation) ClearField(name string) error {
+	switch name {
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		m.ClearDailyLimitUsd()
+		return nil
+	case subscriptionentitlementperiod.FieldRevokedAt:
+		m.ClearRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *SubscriptionEntitlementPeriodMutation) ResetField(name string) error {
+	switch name {
+	case subscriptionentitlementperiod.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case subscriptionentitlementperiod.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case subscriptionentitlementperiod.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case subscriptionentitlementperiod.FieldSubscriptionID:
+		m.ResetSubscriptionID()
+		return nil
+	case subscriptionentitlementperiod.FieldGroupID:
+		m.ResetGroupID()
+		return nil
+	case subscriptionentitlementperiod.FieldSourceType:
+		m.ResetSourceType()
+		return nil
+	case subscriptionentitlementperiod.FieldSourceID:
+		m.ResetSourceID()
+		return nil
+	case subscriptionentitlementperiod.FieldStartsAt:
+		m.ResetStartsAt()
+		return nil
+	case subscriptionentitlementperiod.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case subscriptionentitlementperiod.FieldPeriodDays:
+		m.ResetPeriodDays()
+		return nil
+	case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		m.ResetDailyLimitUsd()
+		return nil
+	case subscriptionentitlementperiod.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case subscriptionentitlementperiod.FieldRevokedAt:
+		m.ResetRevokedAt()
+		return nil
+	case subscriptionentitlementperiod.FieldRevokedReason:
+		m.ResetRevokedReason()
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.user != nil {
+		edges = append(edges, subscriptionentitlementperiod.EdgeUser)
+	}
+	if m.subscription != nil {
+		edges = append(edges, subscriptionentitlementperiod.EdgeSubscription)
+	}
+	if m.group != nil {
+		edges = append(edges, subscriptionentitlementperiod.EdgeGroup)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case subscriptionentitlementperiod.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case subscriptionentitlementperiod.EdgeSubscription:
+		if id := m.subscription; id != nil {
+			return []ent.Value{*id}
+		}
+	case subscriptionentitlementperiod.EdgeGroup:
+		if id := m.group; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.cleareduser {
+		edges = append(edges, subscriptionentitlementperiod.EdgeUser)
+	}
+	if m.clearedsubscription {
+		edges = append(edges, subscriptionentitlementperiod.EdgeSubscription)
+	}
+	if m.clearedgroup {
+		edges = append(edges, subscriptionentitlementperiod.EdgeGroup)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) EdgeCleared(name string) bool {
+	switch name {
+	case subscriptionentitlementperiod.EdgeUser:
+		return m.cleareduser
+	case subscriptionentitlementperiod.EdgeSubscription:
+		return m.clearedsubscription
+	case subscriptionentitlementperiod.EdgeGroup:
+		return m.clearedgroup
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *SubscriptionEntitlementPeriodMutation) ClearEdge(name string) error {
+	switch name {
+	case subscriptionentitlementperiod.EdgeUser:
+		m.ClearUser()
+		return nil
+	case subscriptionentitlementperiod.EdgeSubscription:
+		m.ClearSubscription()
+		return nil
+	case subscriptionentitlementperiod.EdgeGroup:
+		m.ClearGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *SubscriptionEntitlementPeriodMutation) ResetEdge(name string) error {
+	switch name {
+	case subscriptionentitlementperiod.EdgeUser:
+		m.ResetUser()
+		return nil
+	case subscriptionentitlementperiod.EdgeSubscription:
+		m.ResetSubscription()
+		return nil
+	case subscriptionentitlementperiod.EdgeGroup:
+		m.ResetGroup()
+		return nil
+	}
+	return fmt.Errorf("unknown SubscriptionEntitlementPeriod edge %s", name)
+}
+
 // SubscriptionPlanMutation represents an operation that mutates the SubscriptionPlan nodes in the graph.
 type SubscriptionPlanMutation struct {
 	config
@@ -41121,83 +42491,86 @@ func (m *UsageLogMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	email                         *string
-	password_hash                 *string
-	role                          *string
-	balance                       *float64
-	addbalance                    *float64
-	concurrency                   *int
-	addconcurrency                *int
-	status                        *string
-	username                      *string
-	notes                         *string
-	totp_secret_encrypted         *string
-	totp_enabled                  *bool
-	totp_enabled_at               *time.Time
-	signup_source                 *string
-	last_login_at                 *time.Time
-	last_active_at                *time.Time
-	balance_notify_enabled        *bool
-	balance_notify_threshold_type *string
-	balance_notify_threshold      *float64
-	addbalance_notify_threshold   *float64
-	balance_notify_extra_emails   *string
-	total_recharged               *float64
-	addtotal_recharged            *float64
-	rpm_limit                     *int
-	addrpm_limit                  *int
-	clearedFields                 map[string]struct{}
-	api_keys                      map[int64]struct{}
-	removedapi_keys               map[int64]struct{}
-	clearedapi_keys               bool
-	redeem_codes                  map[int64]struct{}
-	removedredeem_codes           map[int64]struct{}
-	clearedredeem_codes           bool
-	subscriptions                 map[int64]struct{}
-	removedsubscriptions          map[int64]struct{}
-	clearedsubscriptions          bool
-	assigned_subscriptions        map[int64]struct{}
-	removedassigned_subscriptions map[int64]struct{}
-	clearedassigned_subscriptions bool
-	announcement_reads            map[int64]struct{}
-	removedannouncement_reads     map[int64]struct{}
-	clearedannouncement_reads     bool
-	allowed_groups                map[int64]struct{}
-	removedallowed_groups         map[int64]struct{}
-	clearedallowed_groups         bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	attribute_values              map[int64]struct{}
-	removedattribute_values       map[int64]struct{}
-	clearedattribute_values       bool
-	promo_code_usages             map[int64]struct{}
-	removedpromo_code_usages      map[int64]struct{}
-	clearedpromo_code_usages      bool
-	payment_orders                map[int64]struct{}
-	removedpayment_orders         map[int64]struct{}
-	clearedpayment_orders         bool
-	payment_balance_holds         map[int64]struct{}
-	removedpayment_balance_holds  map[int64]struct{}
-	clearedpayment_balance_holds  bool
-	auth_identities               map[int64]struct{}
-	removedauth_identities        map[int64]struct{}
-	clearedauth_identities        bool
-	pending_auth_sessions         map[int64]struct{}
-	removedpending_auth_sessions  map[int64]struct{}
-	clearedpending_auth_sessions  bool
-	platform_quotas               map[int64]struct{}
-	removedplatform_quotas        map[int64]struct{}
-	clearedplatform_quotas        bool
-	done                          bool
-	oldValue                      func(context.Context) (*User, error)
-	predicates                    []predicate.User
+	op                                      Op
+	typ                                     string
+	id                                      *int64
+	created_at                              *time.Time
+	updated_at                              *time.Time
+	deleted_at                              *time.Time
+	email                                   *string
+	password_hash                           *string
+	role                                    *string
+	balance                                 *float64
+	addbalance                              *float64
+	concurrency                             *int
+	addconcurrency                          *int
+	status                                  *string
+	username                                *string
+	notes                                   *string
+	totp_secret_encrypted                   *string
+	totp_enabled                            *bool
+	totp_enabled_at                         *time.Time
+	signup_source                           *string
+	last_login_at                           *time.Time
+	last_active_at                          *time.Time
+	balance_notify_enabled                  *bool
+	balance_notify_threshold_type           *string
+	balance_notify_threshold                *float64
+	addbalance_notify_threshold             *float64
+	balance_notify_extra_emails             *string
+	total_recharged                         *float64
+	addtotal_recharged                      *float64
+	rpm_limit                               *int
+	addrpm_limit                            *int
+	clearedFields                           map[string]struct{}
+	api_keys                                map[int64]struct{}
+	removedapi_keys                         map[int64]struct{}
+	clearedapi_keys                         bool
+	redeem_codes                            map[int64]struct{}
+	removedredeem_codes                     map[int64]struct{}
+	clearedredeem_codes                     bool
+	subscriptions                           map[int64]struct{}
+	removedsubscriptions                    map[int64]struct{}
+	clearedsubscriptions                    bool
+	subscription_entitlement_periods        map[int64]struct{}
+	removedsubscription_entitlement_periods map[int64]struct{}
+	clearedsubscription_entitlement_periods bool
+	assigned_subscriptions                  map[int64]struct{}
+	removedassigned_subscriptions           map[int64]struct{}
+	clearedassigned_subscriptions           bool
+	announcement_reads                      map[int64]struct{}
+	removedannouncement_reads               map[int64]struct{}
+	clearedannouncement_reads               bool
+	allowed_groups                          map[int64]struct{}
+	removedallowed_groups                   map[int64]struct{}
+	clearedallowed_groups                   bool
+	usage_logs                              map[int64]struct{}
+	removedusage_logs                       map[int64]struct{}
+	clearedusage_logs                       bool
+	attribute_values                        map[int64]struct{}
+	removedattribute_values                 map[int64]struct{}
+	clearedattribute_values                 bool
+	promo_code_usages                       map[int64]struct{}
+	removedpromo_code_usages                map[int64]struct{}
+	clearedpromo_code_usages                bool
+	payment_orders                          map[int64]struct{}
+	removedpayment_orders                   map[int64]struct{}
+	clearedpayment_orders                   bool
+	payment_balance_holds                   map[int64]struct{}
+	removedpayment_balance_holds            map[int64]struct{}
+	clearedpayment_balance_holds            bool
+	auth_identities                         map[int64]struct{}
+	removedauth_identities                  map[int64]struct{}
+	clearedauth_identities                  bool
+	pending_auth_sessions                   map[int64]struct{}
+	removedpending_auth_sessions            map[int64]struct{}
+	clearedpending_auth_sessions            bool
+	platform_quotas                         map[int64]struct{}
+	removedplatform_quotas                  map[int64]struct{}
+	clearedplatform_quotas                  bool
+	done                                    bool
+	oldValue                                func(context.Context) (*User, error)
+	predicates                              []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -42467,6 +43840,60 @@ func (m *UserMutation) ResetSubscriptions() {
 	m.removedsubscriptions = nil
 }
 
+// AddSubscriptionEntitlementPeriodIDs adds the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by ids.
+func (m *UserMutation) AddSubscriptionEntitlementPeriodIDs(ids ...int64) {
+	if m.subscription_entitlement_periods == nil {
+		m.subscription_entitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.subscription_entitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// ClearSubscriptionEntitlementPeriods clears the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *UserMutation) ClearSubscriptionEntitlementPeriods() {
+	m.clearedsubscription_entitlement_periods = true
+}
+
+// SubscriptionEntitlementPeriodsCleared reports if the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity was cleared.
+func (m *UserMutation) SubscriptionEntitlementPeriodsCleared() bool {
+	return m.clearedsubscription_entitlement_periods
+}
+
+// RemoveSubscriptionEntitlementPeriodIDs removes the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (m *UserMutation) RemoveSubscriptionEntitlementPeriodIDs(ids ...int64) {
+	if m.removedsubscription_entitlement_periods == nil {
+		m.removedsubscription_entitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.subscription_entitlement_periods, ids[i])
+		m.removedsubscription_entitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedSubscriptionEntitlementPeriods returns the removed IDs of the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *UserMutation) RemovedSubscriptionEntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.removedsubscription_entitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// SubscriptionEntitlementPeriodsIDs returns the "subscription_entitlement_periods" edge IDs in the mutation.
+func (m *UserMutation) SubscriptionEntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.subscription_entitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetSubscriptionEntitlementPeriods resets all changes to the "subscription_entitlement_periods" edge.
+func (m *UserMutation) ResetSubscriptionEntitlementPeriods() {
+	m.subscription_entitlement_periods = nil
+	m.clearedsubscription_entitlement_periods = false
+	m.removedsubscription_entitlement_periods = nil
+}
+
 // AddAssignedSubscriptionIDs adds the "assigned_subscriptions" edge to the UserSubscription entity by ids.
 func (m *UserMutation) AddAssignedSubscriptionIDs(ids ...int64) {
 	if m.assigned_subscriptions == nil {
@@ -43670,7 +45097,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -43679,6 +45106,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.subscriptions != nil {
 		edges = append(edges, user.EdgeSubscriptions)
+	}
+	if m.subscription_entitlement_periods != nil {
+		edges = append(edges, user.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.assigned_subscriptions != nil {
 		edges = append(edges, user.EdgeAssignedSubscriptions)
@@ -43735,6 +45165,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 	case user.EdgeSubscriptions:
 		ids := make([]ent.Value, 0, len(m.subscriptions))
 		for id := range m.subscriptions {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeSubscriptionEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.subscription_entitlement_periods))
+		for id := range m.subscription_entitlement_periods {
 			ids = append(ids, id)
 		}
 		return ids
@@ -43810,7 +45246,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -43819,6 +45255,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedsubscriptions != nil {
 		edges = append(edges, user.EdgeSubscriptions)
+	}
+	if m.removedsubscription_entitlement_periods != nil {
+		edges = append(edges, user.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.removedassigned_subscriptions != nil {
 		edges = append(edges, user.EdgeAssignedSubscriptions)
@@ -43875,6 +45314,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 	case user.EdgeSubscriptions:
 		ids := make([]ent.Value, 0, len(m.removedsubscriptions))
 		for id := range m.removedsubscriptions {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeSubscriptionEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.removedsubscription_entitlement_periods))
+		for id := range m.removedsubscription_entitlement_periods {
 			ids = append(ids, id)
 		}
 		return ids
@@ -43950,7 +45395,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -43959,6 +45404,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedsubscriptions {
 		edges = append(edges, user.EdgeSubscriptions)
+	}
+	if m.clearedsubscription_entitlement_periods {
+		edges = append(edges, user.EdgeSubscriptionEntitlementPeriods)
 	}
 	if m.clearedassigned_subscriptions {
 		edges = append(edges, user.EdgeAssignedSubscriptions)
@@ -44006,6 +45454,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedredeem_codes
 	case user.EdgeSubscriptions:
 		return m.clearedsubscriptions
+	case user.EdgeSubscriptionEntitlementPeriods:
+		return m.clearedsubscription_entitlement_periods
 	case user.EdgeAssignedSubscriptions:
 		return m.clearedassigned_subscriptions
 	case user.EdgeAnnouncementReads:
@@ -44052,6 +45502,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeSubscriptions:
 		m.ResetSubscriptions()
+		return nil
+	case user.EdgeSubscriptionEntitlementPeriods:
+		m.ResetSubscriptionEntitlementPeriods()
 		return nil
 	case user.EdgeAssignedSubscriptions:
 		m.ResetAssignedSubscriptions()
@@ -47731,39 +49184,42 @@ func (m *UserPlatformQuotaMutation) ResetEdge(name string) error {
 // UserSubscriptionMutation represents an operation that mutates the UserSubscription nodes in the graph.
 type UserSubscriptionMutation struct {
 	config
-	op                      Op
-	typ                     string
-	id                      *int64
-	created_at              *time.Time
-	updated_at              *time.Time
-	deleted_at              *time.Time
-	starts_at               *time.Time
-	expires_at              *time.Time
-	status                  *string
-	daily_window_start      *time.Time
-	weekly_window_start     *time.Time
-	monthly_window_start    *time.Time
-	daily_usage_usd         *float64
-	adddaily_usage_usd      *float64
-	weekly_usage_usd        *float64
-	addweekly_usage_usd     *float64
-	monthly_usage_usd       *float64
-	addmonthly_usage_usd    *float64
-	assigned_at             *time.Time
-	notes                   *string
-	clearedFields           map[string]struct{}
-	user                    *int64
-	cleareduser             bool
-	group                   *int64
-	clearedgroup            bool
-	assigned_by_user        *int64
-	clearedassigned_by_user bool
-	usage_logs              map[int64]struct{}
-	removedusage_logs       map[int64]struct{}
-	clearedusage_logs       bool
-	done                    bool
-	oldValue                func(context.Context) (*UserSubscription, error)
-	predicates              []predicate.UserSubscription
+	op                         Op
+	typ                        string
+	id                         *int64
+	created_at                 *time.Time
+	updated_at                 *time.Time
+	deleted_at                 *time.Time
+	starts_at                  *time.Time
+	expires_at                 *time.Time
+	status                     *string
+	daily_window_start         *time.Time
+	weekly_window_start        *time.Time
+	monthly_window_start       *time.Time
+	daily_usage_usd            *float64
+	adddaily_usage_usd         *float64
+	weekly_usage_usd           *float64
+	addweekly_usage_usd        *float64
+	monthly_usage_usd          *float64
+	addmonthly_usage_usd       *float64
+	assigned_at                *time.Time
+	notes                      *string
+	clearedFields              map[string]struct{}
+	user                       *int64
+	cleareduser                bool
+	group                      *int64
+	clearedgroup               bool
+	assigned_by_user           *int64
+	clearedassigned_by_user    bool
+	usage_logs                 map[int64]struct{}
+	removedusage_logs          map[int64]struct{}
+	clearedusage_logs          bool
+	entitlement_periods        map[int64]struct{}
+	removedentitlement_periods map[int64]struct{}
+	clearedentitlement_periods bool
+	done                       bool
+	oldValue                   func(context.Context) (*UserSubscription, error)
+	predicates                 []predicate.UserSubscription
 }
 
 var _ ent.Mutation = (*UserSubscriptionMutation)(nil)
@@ -48762,6 +50218,60 @@ func (m *UserSubscriptionMutation) ResetUsageLogs() {
 	m.removedusage_logs = nil
 }
 
+// AddEntitlementPeriodIDs adds the "entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by ids.
+func (m *UserSubscriptionMutation) AddEntitlementPeriodIDs(ids ...int64) {
+	if m.entitlement_periods == nil {
+		m.entitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.entitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// ClearEntitlementPeriods clears the "entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *UserSubscriptionMutation) ClearEntitlementPeriods() {
+	m.clearedentitlement_periods = true
+}
+
+// EntitlementPeriodsCleared reports if the "entitlement_periods" edge to the SubscriptionEntitlementPeriod entity was cleared.
+func (m *UserSubscriptionMutation) EntitlementPeriodsCleared() bool {
+	return m.clearedentitlement_periods
+}
+
+// RemoveEntitlementPeriodIDs removes the "entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (m *UserSubscriptionMutation) RemoveEntitlementPeriodIDs(ids ...int64) {
+	if m.removedentitlement_periods == nil {
+		m.removedentitlement_periods = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.entitlement_periods, ids[i])
+		m.removedentitlement_periods[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedEntitlementPeriods returns the removed IDs of the "entitlement_periods" edge to the SubscriptionEntitlementPeriod entity.
+func (m *UserSubscriptionMutation) RemovedEntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.removedentitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// EntitlementPeriodsIDs returns the "entitlement_periods" edge IDs in the mutation.
+func (m *UserSubscriptionMutation) EntitlementPeriodsIDs() (ids []int64) {
+	for id := range m.entitlement_periods {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetEntitlementPeriods resets all changes to the "entitlement_periods" edge.
+func (m *UserSubscriptionMutation) ResetEntitlementPeriods() {
+	m.entitlement_periods = nil
+	m.clearedentitlement_periods = false
+	m.removedentitlement_periods = nil
+}
+
 // Where appends a list predicates to the UserSubscriptionMutation builder.
 func (m *UserSubscriptionMutation) Where(ps ...predicate.UserSubscription) {
 	m.predicates = append(m.predicates, ps...)
@@ -49245,7 +50755,7 @@ func (m *UserSubscriptionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserSubscriptionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.user != nil {
 		edges = append(edges, usersubscription.EdgeUser)
 	}
@@ -49257,6 +50767,9 @@ func (m *UserSubscriptionMutation) AddedEdges() []string {
 	}
 	if m.usage_logs != nil {
 		edges = append(edges, usersubscription.EdgeUsageLogs)
+	}
+	if m.entitlement_periods != nil {
+		edges = append(edges, usersubscription.EdgeEntitlementPeriods)
 	}
 	return edges
 }
@@ -49283,15 +50796,24 @@ func (m *UserSubscriptionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case usersubscription.EdgeEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.entitlement_periods))
+		for id := range m.entitlement_periods {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserSubscriptionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.removedusage_logs != nil {
 		edges = append(edges, usersubscription.EdgeUsageLogs)
+	}
+	if m.removedentitlement_periods != nil {
+		edges = append(edges, usersubscription.EdgeEntitlementPeriods)
 	}
 	return edges
 }
@@ -49306,13 +50828,19 @@ func (m *UserSubscriptionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case usersubscription.EdgeEntitlementPeriods:
+		ids := make([]ent.Value, 0, len(m.removedentitlement_periods))
+		for id := range m.removedentitlement_periods {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserSubscriptionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.cleareduser {
 		edges = append(edges, usersubscription.EdgeUser)
 	}
@@ -49324,6 +50852,9 @@ func (m *UserSubscriptionMutation) ClearedEdges() []string {
 	}
 	if m.clearedusage_logs {
 		edges = append(edges, usersubscription.EdgeUsageLogs)
+	}
+	if m.clearedentitlement_periods {
+		edges = append(edges, usersubscription.EdgeEntitlementPeriods)
 	}
 	return edges
 }
@@ -49340,6 +50871,8 @@ func (m *UserSubscriptionMutation) EdgeCleared(name string) bool {
 		return m.clearedassigned_by_user
 	case usersubscription.EdgeUsageLogs:
 		return m.clearedusage_logs
+	case usersubscription.EdgeEntitlementPeriods:
+		return m.clearedentitlement_periods
 	}
 	return false
 }
@@ -49376,6 +50909,9 @@ func (m *UserSubscriptionMutation) ResetEdge(name string) error {
 		return nil
 	case usersubscription.EdgeUsageLogs:
 		m.ResetUsageLogs()
+		return nil
+	case usersubscription.EdgeEntitlementPeriods:
+		m.ResetEntitlementPeriods()
 		return nil
 	}
 	return fmt.Errorf("unknown UserSubscription edge %s", name)

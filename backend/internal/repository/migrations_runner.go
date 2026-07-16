@@ -55,6 +55,8 @@ const paymentOrdersOutTradeNoUniqueMigration = "120_enforce_payment_orders_out_t
 const paymentOrdersOutTradeNoUniqueIndex = "paymentorder_out_trade_no_unique"
 const schedulerOutboxPendingDedupKeyMigration = "153_scheduler_outbox_pending_dedup_key_index_notx.sql"
 const schedulerOutboxPendingDedupKeyIndex = "idx_scheduler_outbox_pending_dedup_key"
+const dashboardQuotaUsageFactsIndexMigration = "167_dashboard_quota_usage_facts_index_notx.sql"
+const dashboardQuotaUsageFactsIndex = "idx_usage_facts_dashboard_user_completed"
 
 type migrationChecksumCompatibilityRule struct {
 	fileChecksum       string
@@ -264,6 +266,8 @@ func prepareNonTransactionalMigration(ctx context.Context, db *sql.DB, name stri
 		return preparePaymentOrdersOutTradeNoUniqueMigration(ctx, db)
 	case schedulerOutboxPendingDedupKeyMigration:
 		return dropInvalidIndexIfPresent(ctx, db, schedulerOutboxPendingDedupKeyIndex)
+	case dashboardQuotaUsageFactsIndexMigration:
+		return dropInvalidIndexIfPresent(ctx, db, dashboardQuotaUsageFactsIndex)
 	default:
 		return nil
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
@@ -1568,6 +1569,67 @@ func init() {
 	setting.DefaultUpdatedAt = settingDescUpdatedAt.Default.(func() time.Time)
 	// setting.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
 	setting.UpdateDefaultUpdatedAt = settingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	subscriptionentitlementperiodMixin := schema.SubscriptionEntitlementPeriod{}.Mixin()
+	subscriptionentitlementperiodMixinFields0 := subscriptionentitlementperiodMixin[0].Fields()
+	_ = subscriptionentitlementperiodMixinFields0
+	subscriptionentitlementperiodFields := schema.SubscriptionEntitlementPeriod{}.Fields()
+	_ = subscriptionentitlementperiodFields
+	// subscriptionentitlementperiodDescCreatedAt is the schema descriptor for created_at field.
+	subscriptionentitlementperiodDescCreatedAt := subscriptionentitlementperiodMixinFields0[0].Descriptor()
+	// subscriptionentitlementperiod.DefaultCreatedAt holds the default value on creation for the created_at field.
+	subscriptionentitlementperiod.DefaultCreatedAt = subscriptionentitlementperiodDescCreatedAt.Default.(func() time.Time)
+	// subscriptionentitlementperiodDescUpdatedAt is the schema descriptor for updated_at field.
+	subscriptionentitlementperiodDescUpdatedAt := subscriptionentitlementperiodMixinFields0[1].Descriptor()
+	// subscriptionentitlementperiod.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	subscriptionentitlementperiod.DefaultUpdatedAt = subscriptionentitlementperiodDescUpdatedAt.Default.(func() time.Time)
+	// subscriptionentitlementperiod.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	subscriptionentitlementperiod.UpdateDefaultUpdatedAt = subscriptionentitlementperiodDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// subscriptionentitlementperiodDescSourceType is the schema descriptor for source_type field.
+	subscriptionentitlementperiodDescSourceType := subscriptionentitlementperiodFields[3].Descriptor()
+	// subscriptionentitlementperiod.SourceTypeValidator is a validator for the "source_type" field. It is called by the builders before save.
+	subscriptionentitlementperiod.SourceTypeValidator = func() func(string) error {
+		validators := subscriptionentitlementperiodDescSourceType.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(source_type string) error {
+			for _, fn := range fns {
+				if err := fn(source_type); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// subscriptionentitlementperiodDescSourceID is the schema descriptor for source_id field.
+	subscriptionentitlementperiodDescSourceID := subscriptionentitlementperiodFields[4].Descriptor()
+	// subscriptionentitlementperiod.SourceIDValidator is a validator for the "source_id" field. It is called by the builders before save.
+	subscriptionentitlementperiod.SourceIDValidator = func() func(string) error {
+		validators := subscriptionentitlementperiodDescSourceID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(source_id string) error {
+			for _, fn := range fns {
+				if err := fn(source_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// subscriptionentitlementperiodDescStatus is the schema descriptor for status field.
+	subscriptionentitlementperiodDescStatus := subscriptionentitlementperiodFields[9].Descriptor()
+	// subscriptionentitlementperiod.DefaultStatus holds the default value on creation for the status field.
+	subscriptionentitlementperiod.DefaultStatus = subscriptionentitlementperiodDescStatus.Default.(string)
+	// subscriptionentitlementperiod.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	subscriptionentitlementperiod.StatusValidator = subscriptionentitlementperiodDescStatus.Validators[0].(func(string) error)
+	// subscriptionentitlementperiodDescRevokedReason is the schema descriptor for revoked_reason field.
+	subscriptionentitlementperiodDescRevokedReason := subscriptionentitlementperiodFields[11].Descriptor()
+	// subscriptionentitlementperiod.DefaultRevokedReason holds the default value on creation for the revoked_reason field.
+	subscriptionentitlementperiod.DefaultRevokedReason = subscriptionentitlementperiodDescRevokedReason.Default.(string)
 	subscriptionplanFields := schema.SubscriptionPlan{}.Fields()
 	_ = subscriptionplanFields
 	// subscriptionplanDescName is the schema descriptor for name field.

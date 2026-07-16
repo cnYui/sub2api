@@ -1326,6 +1326,68 @@ var (
 		Columns:    SettingsColumns,
 		PrimaryKey: []*schema.Column{SettingsColumns[0]},
 	}
+	// SubscriptionEntitlementPeriodsColumns holds the columns for the "subscription_entitlement_periods" table.
+	SubscriptionEntitlementPeriodsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "source_type", Type: field.TypeString, Size: 40},
+		{Name: "source_id", Type: field.TypeString, Size: 128},
+		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "period_days", Type: field.TypeInt},
+		{Name: "daily_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "revoked_reason", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "subscription_id", Type: field.TypeInt64},
+	}
+	// SubscriptionEntitlementPeriodsTable holds the schema information for the "subscription_entitlement_periods" table.
+	SubscriptionEntitlementPeriodsTable = &schema.Table{
+		Name:       "subscription_entitlement_periods",
+		Columns:    SubscriptionEntitlementPeriodsColumns,
+		PrimaryKey: []*schema.Column{SubscriptionEntitlementPeriodsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "subscription_entitlement_periods_group_id_fkey",
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[12]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "subscription_entitlement_periods_user_id_fkey",
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[13]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "subscription_entitlement_periods_subscription_id_fkey",
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[14]},
+				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_subscription_entitlement_periods_source",
+				Unique:  true,
+				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[3], SubscriptionEntitlementPeriodsColumns[4]},
+			},
+			{
+				Name:    "idx_subscription_entitlement_periods_active_user_expiry",
+				Unique:  false,
+				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[13], SubscriptionEntitlementPeriodsColumns[6], SubscriptionEntitlementPeriodsColumns[5]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						SubscriptionEntitlementPeriodsColumns[5].Name: true,
+					},
+					Where: "status = 'active'",
+				},
+			},
+		},
+	}
 	// SubscriptionPlansColumns holds the columns for the "subscription_plans" table.
 	SubscriptionPlansColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1896,6 +1958,7 @@ var (
 		RedeemCodesTable,
 		SecuritySecretsTable,
 		SettingsTable,
+		SubscriptionEntitlementPeriodsTable,
 		SubscriptionPlansTable,
 		TLSFingerprintProfilesTable,
 		UsageCleanupTasksTable,
@@ -2010,6 +2073,18 @@ func init() {
 	}
 	SettingsTable.Annotation = &entsql.Annotation{
 		Table: "settings",
+	}
+	SubscriptionEntitlementPeriodsTable.ForeignKeys[0].RefTable = GroupsTable
+	SubscriptionEntitlementPeriodsTable.ForeignKeys[1].RefTable = UsersTable
+	SubscriptionEntitlementPeriodsTable.ForeignKeys[2].RefTable = UserSubscriptionsTable
+	SubscriptionEntitlementPeriodsTable.Annotation = &entsql.Annotation{
+		Table: "subscription_entitlement_periods",
+	}
+	SubscriptionEntitlementPeriodsTable.Annotation.Checks = map[string]string{
+		"subscription_entitlement_periods_days_check":   "period_days > 0",
+		"subscription_entitlement_periods_limit_check":  "daily_limit_usd IS NULL OR daily_limit_usd >= 0",
+		"subscription_entitlement_periods_range_check":  "expires_at > starts_at",
+		"subscription_entitlement_periods_status_check": "status IN ('active', 'revoked')",
 	}
 	SubscriptionPlansTable.Annotation = &entsql.Annotation{
 		Table: "subscription_plans",

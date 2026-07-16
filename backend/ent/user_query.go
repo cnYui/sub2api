@@ -23,6 +23,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
@@ -34,26 +35,27 @@ import (
 // UserQuery is the builder for querying User entities.
 type UserQuery struct {
 	config
-	ctx                       *QueryContext
-	order                     []user.OrderOption
-	inters                    []Interceptor
-	predicates                []predicate.User
-	withAPIKeys               *APIKeyQuery
-	withRedeemCodes           *RedeemCodeQuery
-	withSubscriptions         *UserSubscriptionQuery
-	withAssignedSubscriptions *UserSubscriptionQuery
-	withAnnouncementReads     *AnnouncementReadQuery
-	withAllowedGroups         *GroupQuery
-	withUsageLogs             *UsageLogQuery
-	withAttributeValues       *UserAttributeValueQuery
-	withPromoCodeUsages       *PromoCodeUsageQuery
-	withPaymentOrders         *PaymentOrderQuery
-	withPaymentBalanceHolds   *PaymentBalanceHoldQuery
-	withAuthIdentities        *AuthIdentityQuery
-	withPendingAuthSessions   *PendingAuthSessionQuery
-	withPlatformQuotas        *UserPlatformQuotaQuery
-	withUserAllowedGroups     *UserAllowedGroupQuery
-	modifiers                 []func(*sql.Selector)
+	ctx                                *QueryContext
+	order                              []user.OrderOption
+	inters                             []Interceptor
+	predicates                         []predicate.User
+	withAPIKeys                        *APIKeyQuery
+	withRedeemCodes                    *RedeemCodeQuery
+	withSubscriptions                  *UserSubscriptionQuery
+	withSubscriptionEntitlementPeriods *SubscriptionEntitlementPeriodQuery
+	withAssignedSubscriptions          *UserSubscriptionQuery
+	withAnnouncementReads              *AnnouncementReadQuery
+	withAllowedGroups                  *GroupQuery
+	withUsageLogs                      *UsageLogQuery
+	withAttributeValues                *UserAttributeValueQuery
+	withPromoCodeUsages                *PromoCodeUsageQuery
+	withPaymentOrders                  *PaymentOrderQuery
+	withPaymentBalanceHolds            *PaymentBalanceHoldQuery
+	withAuthIdentities                 *AuthIdentityQuery
+	withPendingAuthSessions            *PendingAuthSessionQuery
+	withPlatformQuotas                 *UserPlatformQuotaQuery
+	withUserAllowedGroups              *UserAllowedGroupQuery
+	modifiers                          []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +151,28 @@ func (_q *UserQuery) QuerySubscriptions() *UserSubscriptionQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.SubscriptionsTable, user.SubscriptionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubscriptionEntitlementPeriods chains the current query on the "subscription_entitlement_periods" edge.
+func (_q *UserQuery) QuerySubscriptionEntitlementPeriods() *SubscriptionEntitlementPeriodQuery {
+	query := (&SubscriptionEntitlementPeriodClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(subscriptionentitlementperiod.Table, subscriptionentitlementperiod.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SubscriptionEntitlementPeriodsTable, user.SubscriptionEntitlementPeriodsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -607,26 +631,27 @@ func (_q *UserQuery) Clone() *UserQuery {
 		return nil
 	}
 	return &UserQuery{
-		config:                    _q.config,
-		ctx:                       _q.ctx.Clone(),
-		order:                     append([]user.OrderOption{}, _q.order...),
-		inters:                    append([]Interceptor{}, _q.inters...),
-		predicates:                append([]predicate.User{}, _q.predicates...),
-		withAPIKeys:               _q.withAPIKeys.Clone(),
-		withRedeemCodes:           _q.withRedeemCodes.Clone(),
-		withSubscriptions:         _q.withSubscriptions.Clone(),
-		withAssignedSubscriptions: _q.withAssignedSubscriptions.Clone(),
-		withAnnouncementReads:     _q.withAnnouncementReads.Clone(),
-		withAllowedGroups:         _q.withAllowedGroups.Clone(),
-		withUsageLogs:             _q.withUsageLogs.Clone(),
-		withAttributeValues:       _q.withAttributeValues.Clone(),
-		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
-		withPaymentOrders:         _q.withPaymentOrders.Clone(),
-		withPaymentBalanceHolds:   _q.withPaymentBalanceHolds.Clone(),
-		withAuthIdentities:        _q.withAuthIdentities.Clone(),
-		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
-		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
-		withUserAllowedGroups:     _q.withUserAllowedGroups.Clone(),
+		config:                             _q.config,
+		ctx:                                _q.ctx.Clone(),
+		order:                              append([]user.OrderOption{}, _q.order...),
+		inters:                             append([]Interceptor{}, _q.inters...),
+		predicates:                         append([]predicate.User{}, _q.predicates...),
+		withAPIKeys:                        _q.withAPIKeys.Clone(),
+		withRedeemCodes:                    _q.withRedeemCodes.Clone(),
+		withSubscriptions:                  _q.withSubscriptions.Clone(),
+		withSubscriptionEntitlementPeriods: _q.withSubscriptionEntitlementPeriods.Clone(),
+		withAssignedSubscriptions:          _q.withAssignedSubscriptions.Clone(),
+		withAnnouncementReads:              _q.withAnnouncementReads.Clone(),
+		withAllowedGroups:                  _q.withAllowedGroups.Clone(),
+		withUsageLogs:                      _q.withUsageLogs.Clone(),
+		withAttributeValues:                _q.withAttributeValues.Clone(),
+		withPromoCodeUsages:                _q.withPromoCodeUsages.Clone(),
+		withPaymentOrders:                  _q.withPaymentOrders.Clone(),
+		withPaymentBalanceHolds:            _q.withPaymentBalanceHolds.Clone(),
+		withAuthIdentities:                 _q.withAuthIdentities.Clone(),
+		withPendingAuthSessions:            _q.withPendingAuthSessions.Clone(),
+		withPlatformQuotas:                 _q.withPlatformQuotas.Clone(),
+		withUserAllowedGroups:              _q.withUserAllowedGroups.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -663,6 +688,17 @@ func (_q *UserQuery) WithSubscriptions(opts ...func(*UserSubscriptionQuery)) *Us
 		opt(query)
 	}
 	_q.withSubscriptions = query
+	return _q
+}
+
+// WithSubscriptionEntitlementPeriods tells the query-builder to eager-load the nodes that are connected to
+// the "subscription_entitlement_periods" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithSubscriptionEntitlementPeriods(opts ...func(*SubscriptionEntitlementPeriodQuery)) *UserQuery {
+	query := (&SubscriptionEntitlementPeriodClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSubscriptionEntitlementPeriods = query
 	return _q
 }
 
@@ -876,10 +912,11 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
+			_q.withSubscriptionEntitlementPeriods != nil,
 			_q.withAssignedSubscriptions != nil,
 			_q.withAnnouncementReads != nil,
 			_q.withAllowedGroups != nil,
@@ -933,6 +970,15 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadSubscriptions(ctx, query, nodes,
 			func(n *User) { n.Edges.Subscriptions = []*UserSubscription{} },
 			func(n *User, e *UserSubscription) { n.Edges.Subscriptions = append(n.Edges.Subscriptions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSubscriptionEntitlementPeriods; query != nil {
+		if err := _q.loadSubscriptionEntitlementPeriods(ctx, query, nodes,
+			func(n *User) { n.Edges.SubscriptionEntitlementPeriods = []*SubscriptionEntitlementPeriod{} },
+			func(n *User, e *SubscriptionEntitlementPeriod) {
+				n.Edges.SubscriptionEntitlementPeriods = append(n.Edges.SubscriptionEntitlementPeriods, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1107,6 +1153,36 @@ func (_q *UserQuery) loadSubscriptions(ctx context.Context, query *UserSubscript
 	}
 	query.Where(predicate.UserSubscription(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.SubscriptionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadSubscriptionEntitlementPeriods(ctx context.Context, query *SubscriptionEntitlementPeriodQuery, nodes []*User, init func(*User), assign func(*User, *SubscriptionEntitlementPeriod)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(subscriptionentitlementperiod.FieldUserID)
+	}
+	query.Where(predicate.SubscriptionEntitlementPeriod(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.SubscriptionEntitlementPeriodsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -457,6 +458,21 @@ func (_u *UserUpdate) AddSubscriptions(v ...*UserSubscription) *UserUpdate {
 	return _u.AddSubscriptionIDs(ids...)
 }
 
+// AddSubscriptionEntitlementPeriodIDs adds the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (_u *UserUpdate) AddSubscriptionEntitlementPeriodIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddSubscriptionEntitlementPeriodIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionEntitlementPeriods adds the "subscription_entitlement_periods" edges to the SubscriptionEntitlementPeriod entity.
+func (_u *UserUpdate) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEntitlementPeriod) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionEntitlementPeriodIDs(ids...)
+}
+
 // AddAssignedSubscriptionIDs adds the "assigned_subscriptions" edge to the UserSubscription entity by IDs.
 func (_u *UserUpdate) AddAssignedSubscriptionIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAssignedSubscriptionIDs(ids...)
@@ -688,6 +704,27 @@ func (_u *UserUpdate) RemoveSubscriptions(v ...*UserSubscription) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubscriptionIDs(ids...)
+}
+
+// ClearSubscriptionEntitlementPeriods clears all "subscription_entitlement_periods" edges to the SubscriptionEntitlementPeriod entity.
+func (_u *UserUpdate) ClearSubscriptionEntitlementPeriods() *UserUpdate {
+	_u.mutation.ClearSubscriptionEntitlementPeriods()
+	return _u
+}
+
+// RemoveSubscriptionEntitlementPeriodIDs removes the "subscription_entitlement_periods" edge to SubscriptionEntitlementPeriod entities by IDs.
+func (_u *UserUpdate) RemoveSubscriptionEntitlementPeriodIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveSubscriptionEntitlementPeriodIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionEntitlementPeriods removes "subscription_entitlement_periods" edges to SubscriptionEntitlementPeriod entities.
+func (_u *UserUpdate) RemoveSubscriptionEntitlementPeriods(v ...*SubscriptionEntitlementPeriod) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionEntitlementPeriodIDs(ids...)
 }
 
 // ClearAssignedSubscriptions clears all "assigned_subscriptions" edges to the UserSubscription entity.
@@ -1237,6 +1274,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionEntitlementPeriodsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionEntitlementPeriodsIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionEntitlementPeriodsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionEntitlementPeriodsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -2187,6 +2269,21 @@ func (_u *UserUpdateOne) AddSubscriptions(v ...*UserSubscription) *UserUpdateOne
 	return _u.AddSubscriptionIDs(ids...)
 }
 
+// AddSubscriptionEntitlementPeriodIDs adds the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (_u *UserUpdateOne) AddSubscriptionEntitlementPeriodIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddSubscriptionEntitlementPeriodIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionEntitlementPeriods adds the "subscription_entitlement_periods" edges to the SubscriptionEntitlementPeriod entity.
+func (_u *UserUpdateOne) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEntitlementPeriod) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionEntitlementPeriodIDs(ids...)
+}
+
 // AddAssignedSubscriptionIDs adds the "assigned_subscriptions" edge to the UserSubscription entity by IDs.
 func (_u *UserUpdateOne) AddAssignedSubscriptionIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAssignedSubscriptionIDs(ids...)
@@ -2418,6 +2515,27 @@ func (_u *UserUpdateOne) RemoveSubscriptions(v ...*UserSubscription) *UserUpdate
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubscriptionIDs(ids...)
+}
+
+// ClearSubscriptionEntitlementPeriods clears all "subscription_entitlement_periods" edges to the SubscriptionEntitlementPeriod entity.
+func (_u *UserUpdateOne) ClearSubscriptionEntitlementPeriods() *UserUpdateOne {
+	_u.mutation.ClearSubscriptionEntitlementPeriods()
+	return _u
+}
+
+// RemoveSubscriptionEntitlementPeriodIDs removes the "subscription_entitlement_periods" edge to SubscriptionEntitlementPeriod entities by IDs.
+func (_u *UserUpdateOne) RemoveSubscriptionEntitlementPeriodIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveSubscriptionEntitlementPeriodIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionEntitlementPeriods removes "subscription_entitlement_periods" edges to SubscriptionEntitlementPeriod entities.
+func (_u *UserUpdateOne) RemoveSubscriptionEntitlementPeriods(v ...*SubscriptionEntitlementPeriod) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionEntitlementPeriodIDs(ids...)
 }
 
 // ClearAssignedSubscriptions clears all "assigned_subscriptions" edges to the UserSubscription entity.
@@ -2997,6 +3115,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionEntitlementPeriodsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionEntitlementPeriodsIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionEntitlementPeriodsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionEntitlementPeriodsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{user.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

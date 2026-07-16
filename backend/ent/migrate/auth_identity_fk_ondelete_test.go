@@ -46,6 +46,45 @@ func TestPaymentOrdersOutTradeNoPartialUniqueIndex(t *testing.T) {
 	require.Equal(t, (&entsql.IndexAnnotation{Where: "out_trade_no <> ''"}).Where, idx.Annotation.Where)
 }
 
+func TestSubscriptionEntitlementPeriodsSchemaMatchesSQLMigration(t *testing.T) {
+	sourceIndex := findIndexByName(t, SubscriptionEntitlementPeriodsTable, "idx_subscription_entitlement_periods_source")
+	require.True(t, sourceIndex.Unique)
+	require.Len(t, sourceIndex.Columns, 2)
+	require.Equal(t, "source_type", sourceIndex.Columns[0].Name)
+	require.Equal(t, "source_id", sourceIndex.Columns[1].Name)
+
+	activeIndex := findIndexByName(t, SubscriptionEntitlementPeriodsTable, "idx_subscription_entitlement_periods_active_user_expiry")
+	require.Len(t, activeIndex.Columns, 3)
+	require.Equal(t, "user_id", activeIndex.Columns[0].Name)
+	require.Equal(t, "expires_at", activeIndex.Columns[1].Name)
+	require.Equal(t, "starts_at", activeIndex.Columns[2].Name)
+	require.NotNil(t, activeIndex.Annotation)
+	require.Equal(t, "status = 'active'", activeIndex.Annotation.Where)
+	require.True(t, activeIndex.Annotation.DescColumns["starts_at"])
+
+	require.Equal(
+		t,
+		entschema.Restrict,
+		findForeignKeyBySymbol(t, SubscriptionEntitlementPeriodsTable, "subscription_entitlement_periods_group_id_fkey").OnDelete,
+	)
+	require.Equal(
+		t,
+		entschema.Restrict,
+		findForeignKeyBySymbol(t, SubscriptionEntitlementPeriodsTable, "subscription_entitlement_periods_user_id_fkey").OnDelete,
+	)
+	require.Equal(
+		t,
+		entschema.Restrict,
+		findForeignKeyBySymbol(t, SubscriptionEntitlementPeriodsTable, "subscription_entitlement_periods_subscription_id_fkey").OnDelete,
+	)
+
+	require.NotNil(t, SubscriptionEntitlementPeriodsTable.Annotation)
+	require.Equal(t, "period_days > 0", SubscriptionEntitlementPeriodsTable.Annotation.Checks["subscription_entitlement_periods_days_check"])
+	require.Equal(t, "expires_at > starts_at", SubscriptionEntitlementPeriodsTable.Annotation.Checks["subscription_entitlement_periods_range_check"])
+	require.Equal(t, "daily_limit_usd IS NULL OR daily_limit_usd >= 0", SubscriptionEntitlementPeriodsTable.Annotation.Checks["subscription_entitlement_periods_limit_check"])
+	require.Equal(t, "status IN ('active', 'revoked')", SubscriptionEntitlementPeriodsTable.Annotation.Checks["subscription_entitlement_periods_status_check"])
+}
+
 func findForeignKeyBySymbol(t *testing.T, table *entschema.Table, symbol string) *entschema.ForeignKey {
 	t.Helper()
 
