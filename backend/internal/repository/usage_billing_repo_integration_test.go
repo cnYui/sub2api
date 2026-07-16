@@ -359,6 +359,30 @@ func TestUsageBillingRepository_ReplayDoesNotDoubleSettleReservation(t *testing.
 	assertTrafficCreditLedgerTotal(t, fixture.requestID, 0.40, 1)
 }
 
+func TestUsageBillingRepository_TrafficPackThresholdResidualIsInsufficient(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB, service.TrafficCreditPolicy{MinimumReserveUSD: 0.01})
+	userID, creditID := createTrafficCreditReservationFixture(t, 0.01)
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: userID,
+		Key:    "sk-usage-billing-threshold-" + uuid.NewString(),
+		Name:   "billing-threshold",
+	})
+
+	_, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:       "usage-billing-threshold-" + uuid.NewString(),
+		APIKeyID:        apiKey.ID,
+		UserID:          userID,
+		TrafficPackCost: 0.001,
+	})
+
+	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+	var remainingUSD float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT remaining_usd FROM user_traffic_credits WHERE id = $1", creditID).Scan(&remainingUSD))
+	require.InDelta(t, 0.01, remainingUSD, 1e-10)
+}
+
 func TestUsageBillingRepositoryApply_UpdatesAccountQuota(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

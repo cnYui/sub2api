@@ -14,11 +14,12 @@ import (
 )
 
 type usageBillingRepository struct {
-	db *sql.DB
+	db     *sql.DB
+	policy service.TrafficCreditPolicy
 }
 
-func NewUsageBillingRepository(_ *dbent.Client, sqlDB *sql.DB) service.UsageBillingRepository {
-	return &usageBillingRepository{db: sqlDB}
+func NewUsageBillingRepository(_ *dbent.Client, sqlDB *sql.DB, policies ...service.TrafficCreditPolicy) service.UsageBillingRepository {
+	return &usageBillingRepository{db: sqlDB, policy: firstTrafficCreditPolicy(policies)}
 }
 
 func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBillingCommand) (_ *service.UsageBillingApplyResult, err error) {
@@ -125,13 +126,13 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 
 	if cmd.TrafficPackCost > 0 {
 		if cmd.TrafficCreditReservationID != nil {
-			debtUSD, err := settleUsageBillingTrafficCreditReservation(ctx, tx, cmd)
+			debtUSD, err := settleUsageBillingTrafficCreditReservation(ctx, tx, cmd, r.policy)
 			if err != nil {
 				return err
 			}
 			result.TrafficCreditDebtUSD = debtUSD
 		} else {
-			covered, err := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.TrafficPackCost, cmd.RequestID)
+			covered, err := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.TrafficPackCost, cmd.RequestID, r.policy)
 			if err != nil {
 				return err
 			}
@@ -184,7 +185,7 @@ type usageBillingTrafficCreditReservationItem struct {
 	SettledUSD  float64
 }
 
-func settleUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand) (float64, error) {
+func settleUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, policy service.TrafficCreditPolicy) (float64, error) {
 	if cmd == nil || cmd.TrafficCreditReservationID == nil || *cmd.TrafficCreditReservationID <= 0 {
 		return 0, service.ErrInvalidInput
 	}
@@ -229,7 +230,7 @@ func settleUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx,
 		}
 	}
 	if remaining > 0 {
-		extra, err := deductUsageBillingTrafficPackPartial(ctx, tx, cmd.UserID, remaining, cmd.RequestID)
+		extra, err := deductUsageBillingTrafficPackPartial(ctx, tx, cmd.UserID, remaining, cmd.RequestID, policy)
 		if err != nil {
 			return 0, err
 		}
@@ -371,12 +372,12 @@ func settleUsageBillingTrafficCreditReservationItem(
 	return err
 }
 
-func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string) (bool, error) {
-	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID)
+func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (bool, error) {
+	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID, policy)
 	if err != nil {
 		return false, err
 	}
-	deductions, covered := service.PlanTrafficCreditDeductions(batches, amountUSD)
+	deductions, covered := service.PlanTrafficCreditDeductions(batches, amountUSD, policy)
 	if !covered {
 		return false, nil
 	}
@@ -387,9 +388,11 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 			UPDATE user_traffic_credits
 			SET remaining_usd = remaining_usd - $1,
 				updated_at = `+nowExpr+`
-			WHERE id = $2 AND remaining_usd + 0.0000000001 >= $1
+			WHERE id = $2
+				AND remaining_usd > $3
+				AND remaining_usd + 0.0000000001 >= $1
 			RETURNING remaining_usd
-		`, deduction.AmountUSD, deduction.CreditID).Scan(&balanceAfter)
+		`, deduction.AmountUSD, deduction.CreditID, policy.MinimumReserveUSD).Scan(&balanceAfter)
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, service.ErrInvalidInput
 		}
@@ -408,12 +411,12 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 	return true, nil
 }
 
-func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string) (float64, error) {
-	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID)
+func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (float64, error) {
+	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID, policy)
 	if err != nil {
 		return 0, err
 	}
-	deductions, _ := service.PlanTrafficCreditDeductions(batches, amountUSD)
+	deductions, _ := service.PlanTrafficCreditDeductions(batches, amountUSD, policy)
 	deducted := 0.0
 	for _, deduction := range deductions {
 		var balanceAfter float64
@@ -424,9 +427,11 @@ func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userI
 					ELSE remaining_usd - $1
 				END,
 				updated_at = NOW()
-			WHERE id = $2 AND remaining_usd - reserved_usd + 0.0000000001 >= $1
+			WHERE id = $2
+				AND remaining_usd > $3
+				AND remaining_usd - reserved_usd + 0.0000000001 >= $1
 			RETURNING remaining_usd
-		`, deduction.AmountUSD, deduction.CreditID).Scan(&balanceAfter)
+		`, deduction.AmountUSD, deduction.CreditID, policy.MinimumReserveUSD).Scan(&balanceAfter)
 		if errors.Is(err, sql.ErrNoRows) {
 			return deducted, service.ErrInvalidInput
 		}
@@ -446,14 +451,17 @@ func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userI
 	return deducted, nil
 }
 
-func listUsageBillingTrafficCredits(ctx context.Context, tx *sql.Tx, userID int64) ([]service.TrafficCreditBatch, error) {
+func listUsageBillingTrafficCredits(ctx context.Context, tx *sql.Tx, userID int64, policy service.TrafficCreditPolicy) ([]service.TrafficCreditBatch, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, reserved_usd, credited_at, expires_at
 		FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND remaining_usd - reserved_usd > 0 AND expires_at > NOW()
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $3
+			AND remaining_usd - reserved_usd > 0
+			AND expires_at > NOW()
 		ORDER BY expires_at ASC, credited_at ASC, id ASC
 		FOR UPDATE
-	`, userID, service.TrafficPackPlatformOpenAI)
+	`, userID, service.TrafficPackPlatformOpenAI, policy.MinimumReserveUSD)
 	if err != nil {
 		return nil, err
 	}

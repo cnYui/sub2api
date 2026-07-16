@@ -112,6 +112,32 @@ func TestTrafficCreditReservationRepository_ReleaseRestoresAvailableAmount(t *te
 	require.Equal(t, string(service.TrafficCreditReservationReleased), status)
 }
 
+func TestTrafficCreditReservationRepository_ThresholdResidualAvailability(t *testing.T) {
+	ctx := context.Background()
+	policy := service.TrafficCreditPolicy{MinimumReserveUSD: 0.01}
+	repo := NewTrafficCreditReservationRepository(integrationDB, policy)
+
+	depletedUserID, _ := createTrafficCreditReservationFixture(t, 0.01)
+	availableUSD, err := repo.GetAvailableUSD(ctx, depletedUserID, service.TrafficPackPlatformOpenAI, time.Now().UTC())
+	require.NoError(t, err)
+	require.Zero(t, availableUSD)
+	_, _, err = repo.Reserve(ctx, newTrafficCreditReservationInput(depletedUserID, "req-"+uuid.NewString(), "threshold-depleted", 0.001))
+	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+
+	availableUserID, availableCreditID := createTrafficCreditReservationFixture(t, 0.0100000001)
+	availableUSD, err = repo.GetAvailableUSD(ctx, availableUserID, service.TrafficPackPlatformOpenAI, time.Now().UTC())
+	require.NoError(t, err)
+	require.InDelta(t, 0.0100000001, availableUSD, 1e-10)
+	reservation, created, err := repo.Reserve(ctx, newTrafficCreditReservationInput(availableUserID, "req-"+uuid.NewString(), "threshold-available", 0.0100000001))
+	require.NoError(t, err)
+	require.True(t, created)
+	require.NotNil(t, reservation)
+
+	var reservedUSD float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT reserved_usd FROM user_traffic_credits WHERE id = $1", availableCreditID).Scan(&reservedUSD))
+	require.InDelta(t, 0.0100000001, reservedUSD, 1e-10)
+}
+
 func TestTrafficCreditReservationRepository_ReleasesUndispatchedExpiredReservation(t *testing.T) {
 	ctx := context.Background()
 	userID, creditID := createTrafficCreditReservationFixture(t, 1)

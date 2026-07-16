@@ -129,10 +129,11 @@ func (s *TrafficPackService) Deduct(ctx context.Context, userID int64, amountUSD
 	return s.repo.Deduct(ctx, userID, amountUSD, requestID, now)
 }
 
-func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64) ([]TrafficCreditDeduction, bool) {
+func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64, policies ...TrafficCreditPolicy) ([]TrafficCreditDeduction, bool) {
 	if amountUSD <= 0 {
 		return nil, true
 	}
+	policy := resolveTrafficCreditPolicy(policies)
 	ordered := orderedTrafficCreditBatches(batches)
 	remaining := amountUSD
 	plan := make([]TrafficCreditDeduction, 0, len(ordered))
@@ -140,7 +141,7 @@ func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64
 		if remaining <= 0 {
 			break
 		}
-		if batch.RemainingUSD <= 0 {
+		if policy.IsDepleted(batch.RemainingUSD) {
 			continue
 		}
 		amount := roundTrafficCreditAmount(math.Min(batch.RemainingUSD, remaining))

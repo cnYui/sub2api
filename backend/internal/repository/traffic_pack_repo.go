@@ -14,10 +14,11 @@ import (
 type trafficPackRepository struct {
 	db         *sql.DB
 	isPostgres bool
+	policy     service.TrafficCreditPolicy
 }
 
-func NewTrafficPackRepository(db *sql.DB) service.TrafficPackRepository {
-	return &trafficPackRepository{db: db, isPostgres: isPostgresDriver(db)}
+func NewTrafficPackRepository(db *sql.DB, policies ...service.TrafficCreditPolicy) service.TrafficPackRepository {
+	return &trafficPackRepository{db: db, isPostgres: isPostgresDriver(db), policy: firstTrafficCreditPolicy(policies)}
 }
 
 func (r *trafficPackRepository) ListForSale(ctx context.Context) ([]service.TrafficPack, error) {
@@ -63,19 +64,25 @@ func (r *trafficPackRepository) GetSummary(ctx context.Context, userID int64, no
 	if err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(initial_usd), 0), COALESCE(SUM(remaining_usd - reserved_usd), 0)
 		FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND remaining_usd - reserved_usd > 0 AND expires_at > $3
-	`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&summary.TotalInitialUSD, &summary.TotalRemainingUSD); err != nil {
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
+			AND remaining_usd - reserved_usd > 0
+			AND expires_at > $3
+	`, userID, service.TrafficPackPlatformOpenAI, now, r.policy.MinimumReserveUSD).Scan(&summary.TotalInitialUSD, &summary.TotalRemainingUSD); err != nil {
 		return nil, err
 	}
 	var nextExpiresAt time.Time
 	err := r.db.QueryRowContext(ctx, `
 		SELECT expires_at, COALESCE(SUM(remaining_usd - reserved_usd), 0)
 		FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND remaining_usd - reserved_usd > 0 AND expires_at > $3
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
+			AND remaining_usd - reserved_usd > 0
+			AND expires_at > $3
 		GROUP BY expires_at
 		ORDER BY expires_at ASC
 		LIMIT 1
-	`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&nextExpiresAt, &summary.NextExpiringUSD)
+	`, userID, service.TrafficPackPlatformOpenAI, now, r.policy.MinimumReserveUSD).Scan(&nextExpiresAt, &summary.NextExpiringUSD)
 	if errors.Is(err, sql.ErrNoRows) {
 		return summary, nil
 	}
@@ -90,10 +97,13 @@ func (r *trafficPackRepository) HasAvailableCredit(ctx context.Context, userID i
 	var id int64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND remaining_usd - reserved_usd > 0 AND expires_at > $3
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
+			AND remaining_usd - reserved_usd > 0
+			AND expires_at > $3
 		ORDER BY expires_at ASC, credited_at ASC, id ASC
 		LIMIT 1
-	`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&id)
+	`, userID, service.TrafficPackPlatformOpenAI, now, r.policy.MinimumReserveUSD).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -160,12 +170,12 @@ func (r *trafficPackRepository) Deduct(ctx context.Context, userID int64, amount
 	if err != nil {
 		return false, nil, err
 	}
-	deductions, covered := service.PlanTrafficCreditDeductions(batches, roundTrafficPackUSD(amountUSD))
+	deductions, covered := service.PlanTrafficCreditDeductions(batches, roundTrafficPackUSD(amountUSD), r.policy)
 	if !covered {
 		return false, nil, nil
 	}
 	for _, deduction := range deductions {
-		balanceAfter, err := decrementTrafficCredit(ctx, tx, deduction.CreditID, deduction.AmountUSD, now)
+		balanceAfter, err := decrementTrafficCredit(ctx, tx, deduction.CreditID, deduction.AmountUSD, now, r.policy)
 		if err != nil {
 			return false, nil, err
 		}
@@ -190,9 +200,12 @@ func (r *trafficPackRepository) listDeductibleCredits(ctx context.Context, tx *s
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd - reserved_usd, credited_at, expires_at
 		FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND remaining_usd - reserved_usd > 0 AND expires_at > $3
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
+			AND remaining_usd - reserved_usd > 0
+			AND expires_at > $3
 		ORDER BY expires_at ASC, credited_at ASC, id ASC
-	`+lockClause, userID, service.TrafficPackPlatformOpenAI, now)
+	`+lockClause, userID, service.TrafficPackPlatformOpenAI, now, r.policy.MinimumReserveUSD)
 	if err != nil {
 		return nil, err
 	}
@@ -216,13 +229,15 @@ func (r *trafficPackRepository) listDeductibleCredits(ctx context.Context, tx *s
 	return batches, rows.Err()
 }
 
-func decrementTrafficCredit(ctx context.Context, tx *sql.Tx, creditID int64, amountUSD float64, now time.Time) (float64, error) {
+func decrementTrafficCredit(ctx context.Context, tx *sql.Tx, creditID int64, amountUSD float64, now time.Time, policy service.TrafficCreditPolicy) (float64, error) {
 	var balanceAfter float64
 	err := tx.QueryRowContext(ctx, `
 		UPDATE user_traffic_credits SET remaining_usd = remaining_usd - $1, updated_at = $2
-		WHERE id = $3 AND remaining_usd - reserved_usd + 0.0000000001 >= $1
+		WHERE id = $3
+			AND remaining_usd > $4
+			AND remaining_usd - reserved_usd + 0.0000000001 >= $1
 		RETURNING remaining_usd
-	`, amountUSD, now, creditID).Scan(&balanceAfter)
+	`, amountUSD, now, creditID, policy.MinimumReserveUSD).Scan(&balanceAfter)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, service.ErrInvalidInput
 	}

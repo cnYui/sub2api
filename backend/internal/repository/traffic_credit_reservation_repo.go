@@ -12,11 +12,12 @@ import (
 )
 
 type trafficCreditReservationRepository struct {
-	db *sql.DB
+	db     *sql.DB
+	policy service.TrafficCreditPolicy
 }
 
-func NewTrafficCreditReservationRepository(db *sql.DB) service.TrafficCreditReservationRepository {
-	return &trafficCreditReservationRepository{db: db}
+func NewTrafficCreditReservationRepository(db *sql.DB, policies ...service.TrafficCreditPolicy) service.TrafficCreditReservationRepository {
+	return &trafficCreditReservationRepository{db: db, policy: firstTrafficCreditPolicy(policies)}
 }
 
 func (r *trafficCreditReservationRepository) GetAvailableUSD(ctx context.Context, userID int64, platform string, now time.Time) (float64, error) {
@@ -24,8 +25,8 @@ func (r *trafficCreditReservationRepository) GetAvailableUSD(ctx context.Context
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(GREATEST(remaining_usd - reserved_usd, 0)), 0)
 		FROM user_traffic_credits
-		WHERE user_id = $1 AND platform = $2 AND expires_at > $3
-	`, userID, platform, now).Scan(&available)
+		WHERE user_id = $1 AND platform = $2 AND remaining_usd > $4 AND expires_at > $3
+	`, userID, platform, now, r.policy.MinimumReserveUSD).Scan(&available)
 	return roundTrafficPackUSD(available), err
 }
 
@@ -76,11 +77,11 @@ func (r *trafficCreditReservationRepository) Reserve(ctx context.Context, input 
 		return nil, false, err
 	}
 
-	batches, err := lockAvailableTrafficCredits(ctx, tx, input.UserID, input.Platform, time.Now())
+	batches, err := lockAvailableTrafficCredits(ctx, tx, input.UserID, input.Platform, time.Now(), r.policy)
 	if err != nil {
 		return nil, false, err
 	}
-	items, covered := service.PlanTrafficCreditReservations(batches, input.ReserveUSD)
+	items, covered := service.PlanTrafficCreditReservations(batches, input.ReserveUSD, r.policy)
 	if !covered {
 		return nil, false, service.ErrInsufficientBalance
 	}
@@ -90,9 +91,10 @@ func (r *trafficCreditReservationRepository) Reserve(ctx context.Context, input 
 			UPDATE user_traffic_credits
 			SET reserved_usd = reserved_usd + $1, updated_at = NOW()
 			WHERE id = $2
+				AND remaining_usd > $3
 				AND remaining_usd - reserved_usd + 0.0000000001 >= $1
 			RETURNING reserved_usd
-		`, item.ReservedUSD, item.CreditID).Scan(&reservedAfter)
+		`, item.ReservedUSD, item.CreditID, r.policy.MinimumReserveUSD).Scan(&reservedAfter)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, false, service.ErrInsufficientBalance
 		}
@@ -342,16 +344,17 @@ func releaseTrafficCreditReservationLocked(ctx context.Context, tx *sql.Tx, rese
 	return nil
 }
 
-func lockAvailableTrafficCredits(ctx context.Context, tx *sql.Tx, userID int64, platform string, now time.Time) ([]service.TrafficCreditBatch, error) {
+func lockAvailableTrafficCredits(ctx context.Context, tx *sql.Tx, userID int64, platform string, now time.Time, policy service.TrafficCreditPolicy) ([]service.TrafficCreditBatch, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, reserved_usd, credited_at, expires_at
 		FROM user_traffic_credits
 		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
 			AND remaining_usd - reserved_usd > 0
 			AND expires_at > $3
 		ORDER BY expires_at, credited_at, id
 		FOR UPDATE
-	`, userID, platform, now)
+	`, userID, platform, now, policy.MinimumReserveUSD)
 	if err != nil {
 		return nil, err
 	}
