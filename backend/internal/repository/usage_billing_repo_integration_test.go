@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -279,6 +280,85 @@ func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrUsageBillingRequestConflict)
 }
 
+func TestUsageBillingRepository_SettlesReservationAndReleasesRemainder(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+	fixture := createUsageBillingReservationFixture(t, 1.00, 1.00)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            0.25,
+		TrafficCreditReservationID: &fixture.reservationID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.Zero(t, result.TrafficCreditDebtUSD)
+	assertTrafficCreditReservationState(t, fixture.creditID, fixture.reservationID, 0.75, 0, 0.25, 0, service.TrafficCreditReservationSettled)
+	assertTrafficCreditLedgerTotal(t, fixture.requestID, 0.25, 1)
+}
+
+func TestUsageBillingRepository_ReservationDebtDoesNotRollbackUsageFact(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+	fixture := createUsageBillingReservationFixture(t, 1.00, 1.00)
+	insertUsageBillingFactFixture(t, fixture)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            1.25,
+		TrafficCreditReservationID: &fixture.reservationID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.InDelta(t, 0.25, result.TrafficCreditDebtUSD, 1e-10)
+	assertTrafficCreditReservationState(t, fixture.creditID, fixture.reservationID, 0, 0, 1.00, 0.25, service.TrafficCreditReservationDebt)
+	assertTrafficCreditLedgerTotal(t, fixture.requestID, 1.00, 1)
+
+	var factCount int
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM usage_facts
+		WHERE request_id = $1 AND api_key_id = $2 AND reservation_id = $3
+	`, fixture.requestID, fixture.apiKeyID, fixture.reservationID).Scan(&factCount))
+	require.Equal(t, 1, factCount)
+}
+
+func TestUsageBillingRepository_ReplayDoesNotDoubleSettleReservation(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+	fixture := createUsageBillingReservationFixture(t, 1.00, 1.00)
+	cmd := &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            0.40,
+		TrafficCreditReservationID: &fixture.reservationID,
+	}
+
+	first, err := repo.Apply(ctx, cmd)
+	require.NoError(t, err)
+	require.True(t, first.Applied)
+
+	second, err := repo.Apply(ctx, cmd)
+	require.NoError(t, err)
+	require.False(t, second.Applied)
+
+	assertTrafficCreditReservationState(t, fixture.creditID, fixture.reservationID, 0.60, 0, 0.40, 0, service.TrafficCreditReservationSettled)
+	assertTrafficCreditLedgerTotal(t, fixture.requestID, 0.40, 1)
+}
+
 func TestUsageBillingRepositoryApply_UpdatesAccountQuota(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
@@ -314,6 +394,110 @@ func TestUsageBillingRepositoryApply_UpdatesAccountQuota(t *testing.T) {
 	var quotaUsed float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COALESCE((extra->>'quota_used')::numeric, 0) FROM accounts WHERE id = $1", account.ID).Scan(&quotaUsed))
 	require.InDelta(t, 3.5, quotaUsed, 0.000001)
+}
+
+type usageBillingReservationFixture struct {
+	userID        int64
+	apiKeyID      int64
+	creditID      int64
+	reservationID int64
+	requestID     string
+	fingerprint   string
+}
+
+func createUsageBillingReservationFixture(t *testing.T, remainingUSD, reserveUSD float64) usageBillingReservationFixture {
+	t.Helper()
+	ctx := context.Background()
+	client := testEntClient(t)
+	userID, creditID := createTrafficCreditReservationFixture(t, remainingUSD)
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: userID,
+		Key:    "sk-usage-billing-reservation-" + uuid.NewString(),
+		Name:   "billing-reservation",
+	})
+	requestID := "usage-billing-reservation-" + uuid.NewString()
+	fingerprint := service.HashUsageRequestPayload([]byte(requestID))
+	reservation, _, err := NewTrafficCreditReservationRepository(integrationDB).Reserve(ctx, service.TrafficCreditReservationInput{
+		RequestID:          requestID,
+		APIKeyID:           apiKey.ID,
+		UserID:             userID,
+		Platform:           service.TrafficPackPlatformOpenAI,
+		Model:              "gpt-5.1",
+		RequestFingerprint: fingerprint,
+		PricingSnapshot:    json.RawMessage(`{"model":"gpt-5.1","reserve":"test"}`),
+		ReserveUSD:         reserveUSD,
+		ExpiresAt:          time.Now().UTC().Add(5 * time.Minute),
+	})
+	require.NoError(t, err)
+	require.NoError(t, NewTrafficCreditReservationRepository(integrationDB).MarkDispatched(ctx, reservation.ID))
+	return usageBillingReservationFixture{
+		userID:        userID,
+		apiKeyID:      apiKey.ID,
+		creditID:      creditID,
+		reservationID: reservation.ID,
+		requestID:     requestID,
+		fingerprint:   fingerprint,
+	}
+}
+
+func insertUsageBillingFactFixture(t *testing.T, fixture usageBillingReservationFixture) {
+	t.Helper()
+	ctx := context.Background()
+	_, err := integrationDB.ExecContext(ctx, `
+		INSERT INTO usage_facts (
+			request_id, api_key_id, user_id, account_id, request_fingerprint,
+			payload_version, payload, billing_status, completed_at, reservation_id
+		)
+		VALUES ($1, $2, $3, 0, $4, 1, '{}'::jsonb, 'pending', NOW(), $5)
+	`, fixture.requestID, fixture.apiKeyID, fixture.userID, fixture.fingerprint, fixture.reservationID)
+	require.NoError(t, err)
+}
+
+func assertTrafficCreditReservationState(
+	t *testing.T,
+	creditID int64,
+	reservationID int64,
+	wantRemainingUSD float64,
+	wantReservedUSD float64,
+	wantSettledUSD float64,
+	wantDebtUSD float64,
+	wantStatus service.TrafficCreditReservationStatus,
+) {
+	t.Helper()
+	ctx := context.Background()
+	var remainingUSD, reservedUSD float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT remaining_usd, reserved_usd
+		FROM user_traffic_credits
+		WHERE id = $1
+	`, creditID).Scan(&remainingUSD, &reservedUSD))
+	require.InDelta(t, wantRemainingUSD, remainingUSD, 1e-10)
+	require.InDelta(t, wantReservedUSD, reservedUSD, 1e-10)
+
+	var settledUSD, debtUSD float64
+	var status string
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT settled_usd, debt_usd, status
+		FROM traffic_credit_reservations
+		WHERE id = $1
+	`, reservationID).Scan(&settledUSD, &debtUSD, &status))
+	require.InDelta(t, wantSettledUSD, settledUSD, 1e-10)
+	require.InDelta(t, wantDebtUSD, debtUSD, 1e-10)
+	require.Equal(t, string(wantStatus), status)
+}
+
+func assertTrafficCreditLedgerTotal(t *testing.T, requestID string, wantAmountUSD float64, wantCount int) {
+	t.Helper()
+	ctx := context.Background()
+	var amountUSD float64
+	var count int
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(amount_usd), 0), COUNT(*)
+		FROM traffic_credit_ledger
+		WHERE request_id = $1 AND entry_type = $2
+	`, requestID, service.TrafficCreditLedgerTypeDeduction).Scan(&amountUSD, &count))
+	require.InDelta(t, wantAmountUSD, amountUSD, 1e-10)
+	require.Equal(t, wantCount, count)
 }
 
 func TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing(t *testing.T) {

@@ -1225,6 +1225,24 @@ func (s *openAIWSUsageHandlerUsageLogRepoStub) Create(ctx context.Context, log *
 	return true, nil
 }
 
+type openAIWSUsageHandlerUsageFactRepoStub struct {
+	service.UsageFactRepository
+	usageRepo service.UsageLogRepository
+}
+
+func (s *openAIWSUsageHandlerUsageFactRepoStub) CreatePending(ctx context.Context, fact *service.UsageFact) (*service.UsageFact, bool, error) {
+	payload, err := service.DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+	if err != nil {
+		return nil, false, err
+	}
+	if _, err := s.usageRepo.Create(ctx, &payload.UsageLog); err != nil {
+		return nil, false, err
+	}
+	persisted := *fact
+	persisted.ID = 1
+	return &persisted, true, nil
+}
+
 type openAIWSUsageHandlerChannelRepoStub struct {
 	service.ChannelRepository
 	channels       []service.Channel
@@ -1349,6 +1367,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	accountRepo := &openAIWSFailoverHandlerAccountRepoStub{accounts: accounts}
 	rateLimitSvc := service.NewRateLimitService(accountRepo, nil, cfg, nil, nil)
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	usageFactRepo := &openAIWSUsageHandlerUsageFactRepoStub{usageRepo: &openAIWSUsageHandlerUsageLogRepoStub{}}
 	gatewaySvc := service.NewOpenAIGatewayService(
 		accountRepo,
 		nil,
@@ -1370,6 +1389,8 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		nil,
 		nil,
 		nil,
+		nil,
+		usageFactRepo,
 		nil,
 	)
 
@@ -1535,6 +1556,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	}
 
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	usageFactRepo := &openAIWSUsageHandlerUsageFactRepoStub{usageRepo: usageRepo}
 	gatewaySvc := service.NewOpenAIGatewayService(
 		accountRepo,
 		usageRepo,
@@ -1557,6 +1579,8 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		nil,
 		nil,
 		nil, // userPlatformQuotaRepo
+		usageFactRepo,
+		nil,
 	)
 
 	cache := &concurrencyCacheMock{

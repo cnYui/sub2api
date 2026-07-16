@@ -36,12 +36,14 @@ type UsageBillingCommand struct {
 	ImageCount          int
 	MediaType           string
 
-	BalanceCost         float64
-	SubscriptionCost    float64
-	TrafficPackCost     float64
-	APIKeyQuotaCost     float64
-	APIKeyRateLimitCost float64
-	AccountQuotaCost    float64
+	BalanceCost      float64
+	SubscriptionCost float64
+	TrafficPackCost  float64
+	// TrafficCreditReservationID 固定请求前预授权的流量卡预留，避免响应后重新判断计费来源。
+	TrafficCreditReservationID *int64
+	APIKeyQuotaCost            float64
+	APIKeyRateLimitCost        float64
+	AccountQuotaCost           float64
 }
 
 func (c *UsageBillingCommand) Normalize() {
@@ -124,6 +126,7 @@ type UsageBillingApplyResult struct {
 	NewBalance           *float64           // post-deduction balance (nil = no balance deduction)
 	BalanceOverdrafted   bool               // true when the sufficient-balance guard missed and debt was still recorded
 	QuotaState           *AccountQuotaState // post-increment quota state (nil = no quota increment)
+	TrafficCreditDebtUSD float64            // >0 means actual traffic credit cost exceeded collectible credit
 }
 
 type UsageBillingRepository interface {

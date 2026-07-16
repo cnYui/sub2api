@@ -722,6 +722,82 @@ func TestLoadDefaultUsageCleanupConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultUsageFactWorkerConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if !cfg.UsageFactWorker.Enabled {
+		t.Fatalf("UsageFactWorker.Enabled = false, want true")
+	}
+	if cfg.UsageFactWorker.PollIntervalMS != 250 {
+		t.Fatalf("UsageFactWorker.PollIntervalMS = %d, want 250", cfg.UsageFactWorker.PollIntervalMS)
+	}
+	if cfg.UsageFactWorker.BatchSize != 100 {
+		t.Fatalf("UsageFactWorker.BatchSize = %d, want 100", cfg.UsageFactWorker.BatchSize)
+	}
+	if cfg.UsageFactWorker.TaskTimeoutSeconds != 10 {
+		t.Fatalf("UsageFactWorker.TaskTimeoutSeconds = %d, want 10", cfg.UsageFactWorker.TaskTimeoutSeconds)
+	}
+}
+
+func TestLoadDefaultTrafficCreditReservationConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.Billing.TrafficCreditReservationEnabled {
+		t.Fatal("TrafficCreditReservationEnabled = true, want false")
+	}
+	if !cfg.Billing.TrafficCreditReservationShadow {
+		t.Fatal("TrafficCreditReservationShadow = false, want true")
+	}
+	if cfg.Billing.TrafficCreditMinimumReserveUSD != 0.01 {
+		t.Fatalf("TrafficCreditMinimumReserveUSD = %v, want 0.01", cfg.Billing.TrafficCreditMinimumReserveUSD)
+	}
+	if cfg.Billing.TrafficCreditMinimumOutputTokens != 256 {
+		t.Fatalf("TrafficCreditMinimumOutputTokens = %d, want 256", cfg.Billing.TrafficCreditMinimumOutputTokens)
+	}
+	if cfg.Billing.TrafficCreditDefaultMaxOutputTokens != 8192 {
+		t.Fatalf("TrafficCreditDefaultMaxOutputTokens = %d, want 8192", cfg.Billing.TrafficCreditDefaultMaxOutputTokens)
+	}
+	if cfg.Billing.TrafficCreditReservationTimeoutSeconds != 900 {
+		t.Fatalf("TrafficCreditReservationTimeoutSeconds = %d, want 900", cfg.Billing.TrafficCreditReservationTimeoutSeconds)
+	}
+}
+
+func TestValidateTrafficCreditReservationConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	cfg.Billing.TrafficCreditMinimumOutputTokens = 0
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "billing.traffic_credit_minimum_output_tokens") {
+		t.Fatalf("Validate() expected traffic credit output token error, got: %v", err)
+	}
+}
+
+func TestValidateUsageFactWorkerConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	cfg.UsageFactWorker.BatchSize = 0
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "usage_fact_worker.batch_size") {
+		t.Fatalf("Validate() expected usage_fact_worker.batch_size error, got: %v", err)
+	}
+}
+
 func TestValidateUsageCleanupConfigEnabled(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

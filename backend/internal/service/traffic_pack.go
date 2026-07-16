@@ -40,6 +40,7 @@ type TrafficCreditBatch struct {
 	PackID       *int64
 	InitialUSD   float64
 	RemainingUSD float64
+	ReservedUSD  float64
 	CreditedAt   time.Time
 	ExpiresAt    time.Time
 }
@@ -132,16 +133,7 @@ func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64
 	if amountUSD <= 0 {
 		return nil, true
 	}
-	ordered := append([]TrafficCreditBatch(nil), batches...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		if !ordered[i].ExpiresAt.Equal(ordered[j].ExpiresAt) {
-			return ordered[i].ExpiresAt.Before(ordered[j].ExpiresAt)
-		}
-		if !ordered[i].CreditedAt.Equal(ordered[j].CreditedAt) {
-			return ordered[i].CreditedAt.Before(ordered[j].CreditedAt)
-		}
-		return ordered[i].ID < ordered[j].ID
-	})
+	ordered := orderedTrafficCreditBatches(batches)
 	remaining := amountUSD
 	plan := make([]TrafficCreditDeduction, 0, len(ordered))
 	for _, batch := range ordered {
@@ -159,6 +151,20 @@ func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64
 		remaining = roundTrafficCreditAmount(remaining - amount)
 	}
 	return plan, remaining <= 0
+}
+
+func orderedTrafficCreditBatches(batches []TrafficCreditBatch) []TrafficCreditBatch {
+	ordered := append([]TrafficCreditBatch(nil), batches...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		if !ordered[i].ExpiresAt.Equal(ordered[j].ExpiresAt) {
+			return ordered[i].ExpiresAt.Before(ordered[j].ExpiresAt)
+		}
+		if !ordered[i].CreditedAt.Equal(ordered[j].CreditedAt) {
+			return ordered[i].CreditedAt.Before(ordered[j].CreditedAt)
+		}
+		return ordered[i].ID < ordered[j].ID
+	})
+	return ordered
 }
 
 func roundTrafficCreditAmount(value float64) float64 {

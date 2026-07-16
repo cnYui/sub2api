@@ -169,6 +169,64 @@ func ProvideUsageCleanupService(repo UsageCleanupRepository, timingWheel *Timing
 	return svc
 }
 
+func ProvideUsageFactSettlementService(
+	factRepo UsageFactRepository,
+	billingRepo UsageBillingRepository,
+	usageLogRepo UsageLogRepository,
+	effects *OpenAIUsageSettlementEffects,
+) *UsageFactSettlementService {
+	return NewUsageFactSettlementService(factRepo, billingRepo, usageLogRepo, effects)
+}
+
+func ProvideOpenAIUsageSettlementEffects(
+	userRepo UserRepository,
+	apiKeyRepo APIKeyRepository,
+	accountRepo AccountRepository,
+	userSubRepo UserSubscriptionRepository,
+	authInvalidator APIKeyAuthCacheInvalidator,
+	billingCacheService *BillingCacheService,
+	deferredService *DeferredService,
+	balanceNotifyService *BalanceNotifyService,
+	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	cfg *config.Config,
+) *OpenAIUsageSettlementEffects {
+	return &OpenAIUsageSettlementEffects{
+		userRepo:        userRepo,
+		apiKeyRepo:      apiKeyRepo,
+		accountRepo:     accountRepo,
+		authInvalidator: authInvalidator,
+		deps: &billingDeps{
+			accountRepo:           accountRepo,
+			userRepo:              userRepo,
+			userSubRepo:           userSubRepo,
+			billingCacheService:   billingCacheService,
+			deferredService:       deferredService,
+			balanceNotifyService:  balanceNotifyService,
+			userPlatformQuotaRepo: userPlatformQuotaRepo,
+			trafficPackService:    trafficPackServiceFromBillingCache(billingCacheService),
+			cfg:                   cfg,
+		},
+	}
+}
+
+func ProvideUsageFactWorker(
+	cfg *config.Config,
+	factRepo UsageFactRepository,
+	settlement *UsageFactSettlementService,
+	reservationRepo TrafficCreditReservationRepository,
+) *UsageFactWorker {
+	worker := NewUsageFactWorker(factRepo, settlement, UsageFactWorkerConfig{
+		BatchSize:                    cfg.UsageFactWorker.BatchSize,
+		PollInterval:                 time.Duration(cfg.UsageFactWorker.PollIntervalMS) * time.Millisecond,
+		TaskTimeout:                  time.Duration(cfg.UsageFactWorker.TaskTimeoutSeconds) * time.Second,
+		TrafficCreditReservationRepo: reservationRepo,
+	})
+	if cfg.UsageFactWorker.Enabled {
+		worker.Start()
+	}
+	return worker
+}
+
 // ProvideAccountExpiryService creates and starts AccountExpiryService.
 func ProvideAccountExpiryService(accountRepo AccountRepository) *AccountExpiryService {
 	svc := NewAccountExpiryService(accountRepo, time.Minute)
@@ -525,6 +583,29 @@ func ProvideEffectiveGroupResolver(subRepo UserSubscriptionRepository, groupRepo
 	return NewEffectiveGroupResolver(subRepo, groupRepo, trafficPackService)
 }
 
+func ProvideOpenAITrafficCreditBudgetEstimator(cfg *config.Config, billingService *BillingService) *OpenAITrafficCreditBudgetEstimator {
+	return NewOpenAITrafficCreditBudgetEstimator(
+		billingService,
+		cfg.Billing.TrafficCreditMinimumReserveUSD,
+		cfg.Billing.TrafficCreditMinimumOutputTokens,
+		cfg.Billing.TrafficCreditDefaultMaxOutputTokens,
+	)
+}
+
+func ProvideOpenAIBillingAuthorizationService(
+	cfg *config.Config,
+	reservationRepo TrafficCreditReservationRepository,
+	estimator *OpenAITrafficCreditBudgetEstimator,
+) *OpenAIBillingAuthorizationService {
+	return NewOpenAIBillingAuthorizationService(
+		reservationRepo,
+		estimator,
+		time.Duration(cfg.Billing.TrafficCreditReservationTimeoutSeconds)*time.Second,
+		cfg.Billing.TrafficCreditReservationEnabled,
+		cfg.Billing.TrafficCreditReservationShadow,
+	)
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -533,6 +614,9 @@ var ProviderSet = wire.NewSet(
 	ProvideAPIKeyService,
 	ProvideAPIKeyAuthCacheInvalidator,
 	ProvideEffectiveGroupResolver,
+	ProvideOpenAITrafficCreditBudgetEstimator,
+	ProvideOpenAIBillingAuthorizationService,
+	wire.Bind(new(OpenAIBillingAuthorizer), new(*OpenAIBillingAuthorizationService)),
 	NewGroupService,
 	NewAccountService,
 	NewProxyService,
@@ -598,6 +682,9 @@ var ProviderSet = wire.NewSet(
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,
+	ProvideOpenAIUsageSettlementEffects,
+	ProvideUsageFactSettlementService,
+	ProvideUsageFactWorker,
 	ProvideDeferredService,
 	NewAntigravityQuotaFetcher,
 	NewUserAttributeService,

@@ -42,6 +42,7 @@ func newTrafficPackTestDB(t *testing.T) *sql.DB {
 			platform TEXT NOT NULL,
 			initial_usd REAL NOT NULL,
 			remaining_usd REAL NOT NULL,
+			reserved_usd REAL NOT NULL DEFAULT 0,
 			credited_at TIMESTAMP NOT NULL,
 			expires_at TIMESTAMP NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -63,6 +64,31 @@ func newTrafficPackTestDB(t *testing.T) *sql.DB {
 		require.NoError(t, err)
 	}
 	return db
+}
+
+func TestTrafficPackRepository_FullyReservedCreditIsUnavailable(t *testing.T) {
+	ctx := context.Background()
+	db := newTrafficPackTestDB(t)
+	repo := NewTrafficPackRepository(db)
+	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, repo.CreditPurchase(ctx, service.CreditTrafficPackInput{
+		UserID: 7, OrderID: 7001, PackID: 1, CreditUSD: 1, ValidityDays: 365, CreditedAt: now,
+	}))
+	_, err := db.ExecContext(ctx, "UPDATE user_traffic_credits SET reserved_usd = remaining_usd WHERE user_id = 7")
+	require.NoError(t, err)
+
+	available, err := repo.HasAvailableCredit(ctx, 7, now)
+	require.NoError(t, err)
+	require.False(t, available)
+
+	summary, err := repo.GetSummary(ctx, 7, now)
+	require.NoError(t, err)
+	require.Zero(t, summary.TotalRemainingUSD)
+
+	covered, deductions, err := repo.Deduct(ctx, 7, 0.1, "req-reserved", now)
+	require.NoError(t, err)
+	require.False(t, covered)
+	require.Empty(t, deductions)
 }
 
 func TestTrafficPackRepository_CreditPurchaseIsIdempotentAndSummarizes(t *testing.T) {
