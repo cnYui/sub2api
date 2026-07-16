@@ -29,6 +29,10 @@ export function canRefund(status: string, refundRetryable = false): boolean {
   return REFUNDABLE_STATUSES.includes(status)
 }
 
+export function isAutomaticRefundAllowed(paymentType: string): boolean {
+  return paymentType !== 'offline'
+}
+
 export function formatOrderDateTime(dateStr: string): string {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleString()

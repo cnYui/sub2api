@@ -7119,6 +7119,8 @@ export default {
       stripe: 'Stripe',
       airwallex: 'Airwallex',
       balance: '余额',
+      offline: '私下付款',
+      manual_grant: '赠送金额',
       card: '银行卡',
       link: 'Link',
       alipay_direct: '支付宝（直连）',

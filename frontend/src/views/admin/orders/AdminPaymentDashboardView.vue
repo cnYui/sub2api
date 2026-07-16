@@ -93,6 +93,7 @@ function methodColor(type: string): string {
     alipay: 'bg-blue-500', wxpay: 'bg-green-500',
     alipay_direct: 'bg-blue-400', wxpay_direct: 'bg-green-400',
     stripe: 'bg-purple-500',
+    offline: 'bg-slate-500',
   }
   return c[type] || 'bg-gray-400'
 }

@@ -142,7 +142,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { statusBadgeClass, canRefund, isAutomaticRefundAllowed, formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
@@ -223,6 +223,7 @@ const paymentTypeFilterOptions = computed(() => [
   { value: 'wxpay', label: t('payment.methods.wxpay') },
   { value: 'stripe', label: t('payment.methods.stripe') },
   { value: 'airwallex', label: t('payment.methods.airwallex') },
+  { value: 'offline', label: t('payment.methods.offline') },
 ])
 
 const orderTypeFilterOptions = computed(() => [
@@ -233,7 +234,7 @@ const orderTypeFilterOptions = computed(() => [
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {
-  return canRefund(order.status, order.refund_retryable === true)
+  return isAutomaticRefundAllowed(order.payment_type) && canRefund(order.status, order.refund_retryable === true)
 }
 
 function formatDateTime(dateStr: string): string {

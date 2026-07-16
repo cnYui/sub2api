@@ -5,6 +5,7 @@ import {
   decidePaymentLaunch,
   getUserExternalPaymentMethods,
   getVisibleMethods,
+  normalizeVisibleMethod,
   readPaymentRecoverySnapshot,
   type PaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
@@ -70,6 +71,11 @@ describe('getVisibleMethods', () => {
     })
 
     expect(Object.keys(methods)).toEqual(['alipay'])
+  })
+
+  it('keeps offline outside user checkout visible methods', () => {
+    expect(normalizeVisibleMethod('offline')).toBe('')
+    expect(getVisibleMethods({ offline: methodLimit() })).toEqual({})
   })
 })
 

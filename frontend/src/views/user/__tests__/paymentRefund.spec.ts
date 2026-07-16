@@ -39,4 +39,9 @@ describe('canRequestOrderRefund', () => {
     expect(canRequestOrderRefund(baseOrder({ status: 'REFUND_FAILED', refund_retryable: false }), new Set())).toBe(false)
     expect(canRequestOrderRefund(baseOrder({ status: 'REFUNDING', refund_retryable: true }), new Set())).toBe(false)
   })
+
+  it('hides offline refunds even when status is otherwise refundable', () => {
+    expect(canRequestOrderRefund(baseOrder({ payment_type: 'offline', status: 'COMPLETED' }), new Set())).toBe(false)
+    expect(canRequestOrderRefund(baseOrder({ payment_type: 'offline', status: 'REFUND_FAILED', refund_retryable: true }), new Set())).toBe(false)
+  })
 })

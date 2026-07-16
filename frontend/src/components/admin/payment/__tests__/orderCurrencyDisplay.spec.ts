@@ -10,6 +10,9 @@ vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   const translations: Record<string, string> = {
     'payment.methods.balance': '余额',
+    'payment.methods.offline': '私下付款',
+    'payment.methods.manual_grant': '赠送金额',
+    'payment.admin.refund': '退款',
     'payment.admin.traffic_packOrder': '流量包',
   }
   return {
@@ -33,6 +36,7 @@ const DataTableStub = {
         <slot name="cell-pay_amount" :value="row.pay_amount" :row="row" />
         <slot name="cell-payment_type" :value="row.payment_type" :row="row" />
         <slot name="cell-order_type" :value="row.order_type" :row="row" />
+        <slot name="cell-actions" :value="row" :row="row" />
       </div>
     </div>
   `,
@@ -193,5 +197,81 @@ describe('admin order currency display', () => {
     expect(text).toContain('¥79.00')
     expect(text).toContain('余额')
     expect(text).toContain('流量包')
+  })
+
+  it('renders offline and manual grant payment labels in order tables', () => {
+    const wrapper = mount(OrderTable, {
+      props: {
+        orders: [
+          orderFactory({ id: 1, payment_type: 'offline', currency: 'CNY', amount: 29, pay_amount: 29, refund_amount: 0 }),
+          orderFactory({ id: 2, payment_type: 'manual_grant', currency: 'CNY', amount: 0, pay_amount: 0, refund_amount: 0 }),
+        ],
+        loading: false,
+        showUser: true,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          OrderStatusBadge: true,
+        },
+      },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('私下付款')
+    expect(text).toContain('赠送金额')
+  })
+
+  it('hides admin refund actions for offline orders', () => {
+    const wrapper = mount(AdminOrderTable, {
+      props: {
+        orders: [
+          orderFactory({
+            id: 1,
+            currency: 'CNY',
+            payment_type: 'offline',
+            status: 'COMPLETED',
+            refund_amount: 0,
+          }),
+        ],
+        loading: false,
+        page: 1,
+        pageSize: 20,
+        total: 1,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          Icon: true,
+          Pagination: true,
+          Select: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('私下付款')
+    expect(wrapper.text()).not.toContain('退款')
+  })
+
+  it('hides detail refund actions for offline orders', () => {
+    const wrapper = mount(AdminOrderDetail, {
+      props: {
+        show: true,
+        order: orderFactory({
+          currency: 'CNY',
+          payment_type: 'offline',
+          status: 'COMPLETED',
+          refund_amount: 0,
+        }),
+      },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('私下付款')
+    expect(wrapper.text()).not.toContain('退款')
   })
 })

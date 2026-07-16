@@ -6939,6 +6939,8 @@ export default {
       stripe: 'Stripe',
       airwallex: 'Airwallex',
       balance: 'Balance',
+      offline: 'Offline payment',
+      manual_grant: 'Gift amount',
       card: 'Card',
       link: 'Link',
       alipay_direct: 'Alipay (Direct)',
