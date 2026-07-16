@@ -156,6 +156,13 @@ func (s *PaymentService) RequestRefund(ctx context.Context, oid, uid int64, reas
 	return s.executeUserAutoRefund(ctx, o, uid, reason)
 }
 
+func rejectAutomaticOfflineRefund(o *dbent.PaymentOrder) error {
+	if o != nil && o.PaymentType == payment.TypeOffline {
+		return infraerrors.Forbidden("OFFLINE_PAYMENT_MANUAL_REFUND_ONLY", "offline payment refunds require manual financial handling")
+	}
+	return nil
+}
+
 func (s *PaymentService) validateUserAutoRefundRequest(ctx context.Context, oid, uid int64) (*dbent.PaymentOrder, error) {
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
@@ -163,6 +170,9 @@ func (s *PaymentService) validateUserAutoRefundRequest(ctx context.Context, oid,
 	}
 	if o.UserID != uid {
 		return nil, infraerrors.Forbidden("FORBIDDEN", "no permission")
+	}
+	if err := rejectAutomaticOfflineRefund(o); err != nil {
+		return nil, err
 	}
 	if o.Status != OrderStatusCompleted && !paymentOrderRefundContinuable(o) {
 		return nil, infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
@@ -457,6 +467,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	if err != nil {
 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
+	if err := rejectAutomaticOfflineRefund(o); err != nil {
+		return nil, nil, err
+	}
 	isRetry := o.Status == OrderStatusRefundFailed
 	isContinuation := o.Status == OrderStatusRefunding && o.RefundGatewayStatus == RefundGatewaySucceeded
 	isExistingRefund := isRetry || isContinuation
@@ -570,6 +583,9 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 	o, err := s.entClient.PaymentOrder.Get(ctx, p.OrderID)
 	if err != nil {
 		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if err := rejectAutomaticOfflineRefund(o); err != nil {
+		return nil, err
 	}
 	isRetry := o.Status == OrderStatusRefundFailed
 	isContinuation := o.Status == OrderStatusRefunding && o.RefundGatewayStatus == RefundGatewaySucceeded

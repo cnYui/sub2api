@@ -176,6 +176,18 @@ func TestValidateUserExternalPaymentTypeAllowsOnlyAlipay(t *testing.T) {
 	}
 }
 
+func TestValidateUserExternalPaymentTypeRejectsOffline(t *testing.T) {
+	t.Parallel()
+
+	err := validateUserExternalPaymentType(payment.TypeOffline)
+	if err == nil {
+		t.Fatal("offline should be rejected from user checkout")
+	}
+	if got := infraerrors.Reason(err); got != "PAYMENT_METHOD_NOT_AVAILABLE" {
+		t.Fatalf("reason = %q, want PAYMENT_METHOD_NOT_AVAILABLE", got)
+	}
+}
+
 func TestCalculateCreateOrderPayAmountRejectsFractionalZeroDecimal(t *testing.T) {
 	t.Parallel()
 

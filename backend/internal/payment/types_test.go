@@ -30,3 +30,12 @@ func TestNormalizeOrderTypeRejectsUnknownNonEmpty(t *testing.T) {
 		t.Fatalf("NormalizeOrderType(evil) = (%q,%v), want empty false", got, ok)
 	}
 }
+
+func TestTypeOfflineKeepsItsInternalIdentifier(t *testing.T) {
+	if TypeOffline != "offline" {
+		t.Fatalf("TypeOffline = %q, want offline", TypeOffline)
+	}
+	if got := GetBasePaymentType(TypeOffline); got != TypeOffline {
+		t.Fatalf("GetBasePaymentType(TypeOffline) = %q, want %q", got, TypeOffline)
+	}
+}

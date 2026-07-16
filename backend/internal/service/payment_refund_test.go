@@ -202,6 +202,72 @@ func newAutoGatewayRefundScenario(t *testing.T, provider payment.Provider, repo 
 	return autoGatewayRefundScenario{ctx: ctx, client: client, userID: userEntity.ID, orderID: order.ID, subID: subID, subRepo: repo, svc: svc}
 }
 
+func newOfflinePaymentRefundScenario(t *testing.T) (autoGatewayRefundScenario, *refundProviderStub, time.Time, float64) {
+	t.Helper()
+	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "unexpected", Status: payment.ProviderStatusSuccess}}}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	originalBalance := 17.5
+	_, err := scenario.client.User.UpdateOneID(scenario.userID).SetBalance(originalBalance).Save(scenario.ctx)
+	require.NoError(t, err)
+	_, err = scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
+		SetPaymentType(payment.TypeOffline).
+		Save(scenario.ctx)
+	require.NoError(t, err)
+	subscription, err := scenario.subRepo.GetByID(scenario.ctx, scenario.subID)
+	require.NoError(t, err)
+	return scenario, provider, subscription.ExpiresAt, originalBalance
+}
+
+func requireOfflinePaymentRefundRemainsUnchanged(t *testing.T, scenario autoGatewayRefundScenario, provider *refundProviderStub, originalExpiry time.Time, originalBalance float64, err error) {
+	t.Helper()
+	require.Error(t, err)
+	require.Equal(t, "OFFLINE_PAYMENT_MANUAL_REFUND_ONLY", infraerrors.Reason(err))
+	reloadedOrder, loadErr := scenario.client.PaymentOrder.Get(scenario.ctx, scenario.orderID)
+	require.NoError(t, loadErr)
+	require.Equal(t, OrderStatusCompleted, reloadedOrder.Status)
+	reloadedSubscription, loadErr := scenario.subRepo.GetByID(scenario.ctx, scenario.subID)
+	require.NoError(t, loadErr)
+	require.Equal(t, originalExpiry, reloadedSubscription.ExpiresAt)
+	reloadedUser, loadErr := scenario.client.User.Get(scenario.ctx, scenario.userID)
+	require.NoError(t, loadErr)
+	require.Equal(t, originalBalance, reloadedUser.Balance)
+	require.Empty(t, provider.requests)
+}
+
+func TestOfflinePaymentRequestRefundRequiresManualHandling(t *testing.T) {
+	scenario, provider, originalExpiry, originalBalance := newOfflinePaymentRefundScenario(t)
+
+	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "offline refund")
+
+	requireOfflinePaymentRefundRemainsUnchanged(t, scenario, provider, originalExpiry, originalBalance, err)
+}
+
+func TestOfflinePaymentPrepareRefundRequiresManualHandling(t *testing.T) {
+	scenario, provider, originalExpiry, originalBalance := newOfflinePaymentRefundScenario(t)
+
+	plan, result, err := scenario.svc.PrepareRefund(scenario.ctx, scenario.orderID, 29, "offline refund", false, true)
+
+	require.Nil(t, plan)
+	require.Nil(t, result)
+	requireOfflinePaymentRefundRemainsUnchanged(t, scenario, provider, originalExpiry, originalBalance, err)
+}
+
+func TestOfflinePaymentExecuteRefundRequiresManualHandling(t *testing.T) {
+	scenario, provider, originalExpiry, originalBalance := newOfflinePaymentRefundScenario(t)
+
+	result, err := scenario.svc.ExecuteRefund(scenario.ctx, &RefundPlan{
+		OrderID:        scenario.orderID,
+		RefundAmount:   29,
+		GatewayAmount:  29,
+		Reason:         "offline refund",
+		DeductionType:  payment.DeductionTypeSubscription,
+		SubscriptionID: scenario.subID,
+	})
+
+	require.Nil(t, result)
+	requireOfflinePaymentRefundRemainsUnchanged(t, scenario, provider, originalExpiry, originalBalance, err)
+}
+
 func TestCalculateSubscriptionRefundAmountUsesBeijingCalendarDays(t *testing.T) {
 	location := time.FixedZone("UTC+8", 8*60*60)
 	startsAt := time.Date(2026, 7, 1, 23, 0, 0, 0, location)
