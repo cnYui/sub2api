@@ -251,11 +251,19 @@ export interface AuthResponse {
   refresh_token?: string  // New: Refresh Token for token renewal
   expires_in?: number     // New: Access Token expiry time in seconds
   token_type: string
-  user: User & { run_mode?: 'standard' | 'simple' }
+  user: User & {
+    run_mode?: 'standard' | 'simple'
+    traffic_credit_exhaustion_notice?: TrafficCreditExhaustionNotice
+  }
+}
+
+export interface TrafficCreditExhaustionNotice {
+  event_ids: number[]
 }
 
 export interface CurrentUserResponse extends User {
   run_mode?: 'standard' | 'simple'
+  traffic_credit_exhaustion_notice?: TrafficCreditExhaustionNotice
 }
 
 // ==================== Subscription Types ====================
