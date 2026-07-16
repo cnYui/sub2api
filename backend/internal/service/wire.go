@@ -169,6 +169,30 @@ func ProvideUsageCleanupService(repo UsageCleanupRepository, timingWheel *Timing
 	return svc
 }
 
+func ProvideUsageFactSettlementService(
+	factRepo UsageFactRepository,
+	billingRepo UsageBillingRepository,
+	usageLogRepo UsageLogRepository,
+) *UsageFactSettlementService {
+	return NewUsageFactSettlementService(factRepo, billingRepo, usageLogRepo, nil)
+}
+
+func ProvideUsageFactWorker(
+	cfg *config.Config,
+	factRepo UsageFactRepository,
+	settlement *UsageFactSettlementService,
+) *UsageFactWorker {
+	worker := NewUsageFactWorker(factRepo, settlement, UsageFactWorkerConfig{
+		BatchSize:    cfg.UsageFactWorker.BatchSize,
+		PollInterval: time.Duration(cfg.UsageFactWorker.PollIntervalMS) * time.Millisecond,
+		TaskTimeout:  time.Duration(cfg.UsageFactWorker.TaskTimeoutSeconds) * time.Second,
+	})
+	if cfg.UsageFactWorker.Enabled {
+		worker.Start()
+	}
+	return worker
+}
+
 // ProvideAccountExpiryService creates and starts AccountExpiryService.
 func ProvideAccountExpiryService(accountRepo AccountRepository) *AccountExpiryService {
 	svc := NewAccountExpiryService(accountRepo, time.Minute)
@@ -598,6 +622,8 @@ var ProviderSet = wire.NewSet(
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,
+	ProvideUsageFactSettlementService,
+	ProvideUsageFactWorker,
 	ProvideDeferredService,
 	NewAntigravityQuotaFetcher,
 	NewUserAttributeService,

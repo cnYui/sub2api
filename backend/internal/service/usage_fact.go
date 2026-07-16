@@ -58,7 +58,7 @@ type UsageFact struct {
 
 type UsageFactRepository interface {
 	CreatePending(ctx context.Context, fact *UsageFact) (*UsageFact, bool, error)
-	ClaimPending(ctx context.Context, limit int, now time.Time) ([]UsageFact, error)
+	ClaimPending(ctx context.Context, limit int, now, leaseUntil time.Time) ([]UsageFact, error)
 	MarkSettled(ctx context.Context, id int64, settledAt time.Time) error
 	MarkDebt(ctx context.Context, id int64, reason string, settledAt time.Time) error
 	MarkRetry(ctx context.Context, id int64, reason string, nextAttemptAt time.Time) error

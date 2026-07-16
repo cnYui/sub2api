@@ -86,6 +86,7 @@ type Config struct {
 	Dashboard               DashboardCacheConfig          `mapstructure:"dashboard_cache"`
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
+	UsageFactWorker         UsageFactWorkerConfig         `mapstructure:"usage_fact_worker"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -1351,6 +1352,13 @@ type UsageCleanupConfig struct {
 	TaskTimeoutSeconds int `mapstructure:"task_timeout_seconds"`
 }
 
+type UsageFactWorkerConfig struct {
+	Enabled            bool `mapstructure:"enabled"`
+	PollIntervalMS     int  `mapstructure:"poll_interval_ms"`
+	BatchSize          int  `mapstructure:"batch_size"`
+	TaskTimeoutSeconds int  `mapstructure:"task_timeout_seconds"`
+}
+
 func NormalizeRunMode(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -1811,6 +1819,11 @@ func setDefaults() {
 	viper.SetDefault("usage_cleanup.batch_size", 5000)
 	viper.SetDefault("usage_cleanup.worker_interval_seconds", 10)
 	viper.SetDefault("usage_cleanup.task_timeout_seconds", 1800)
+
+	viper.SetDefault("usage_fact_worker.enabled", true)
+	viper.SetDefault("usage_fact_worker.poll_interval_ms", 250)
+	viper.SetDefault("usage_fact_worker.batch_size", 100)
+	viper.SetDefault("usage_fact_worker.task_timeout_seconds", 10)
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
@@ -2430,6 +2443,15 @@ func (c *Config) Validate() error {
 		if c.UsageCleanup.TaskTimeoutSeconds < 0 {
 			return fmt.Errorf("usage_cleanup.task_timeout_seconds must be non-negative")
 		}
+	}
+	if c.UsageFactWorker.PollIntervalMS <= 0 {
+		return fmt.Errorf("usage_fact_worker.poll_interval_ms must be positive")
+	}
+	if c.UsageFactWorker.BatchSize <= 0 {
+		return fmt.Errorf("usage_fact_worker.batch_size must be positive")
+	}
+	if c.UsageFactWorker.TaskTimeoutSeconds <= 0 {
+		return fmt.Errorf("usage_fact_worker.task_timeout_seconds must be positive")
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")

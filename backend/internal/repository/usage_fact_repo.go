@@ -11,8 +11,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
-const usageFactClaimLease = 30 * time.Second
-
 type usageFactRepository struct {
 	db *sql.DB
 }
@@ -92,14 +90,16 @@ func (r *usageFactRepository) CreatePending(ctx context.Context, fact *service.U
 	return existing, false, nil
 }
 
-func (r *usageFactRepository) ClaimPending(ctx context.Context, limit int, now time.Time) ([]service.UsageFact, error) {
+func (r *usageFactRepository) ClaimPending(ctx context.Context, limit int, now, leaseUntil time.Time) ([]service.UsageFact, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("usage fact repository db is nil")
 	}
 	if limit <= 0 {
 		return []service.UsageFact{}, nil
 	}
-	leaseUntil := now.Add(usageFactClaimLease)
+	if !leaseUntil.After(now) {
+		leaseUntil = now.Add(30 * time.Second)
+	}
 	rows, err := r.db.QueryContext(ctx, `
 		WITH candidates AS (
 			SELECT id

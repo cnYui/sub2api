@@ -722,6 +722,43 @@ func TestLoadDefaultUsageCleanupConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultUsageFactWorkerConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if !cfg.UsageFactWorker.Enabled {
+		t.Fatalf("UsageFactWorker.Enabled = false, want true")
+	}
+	if cfg.UsageFactWorker.PollIntervalMS != 250 {
+		t.Fatalf("UsageFactWorker.PollIntervalMS = %d, want 250", cfg.UsageFactWorker.PollIntervalMS)
+	}
+	if cfg.UsageFactWorker.BatchSize != 100 {
+		t.Fatalf("UsageFactWorker.BatchSize = %d, want 100", cfg.UsageFactWorker.BatchSize)
+	}
+	if cfg.UsageFactWorker.TaskTimeoutSeconds != 10 {
+		t.Fatalf("UsageFactWorker.TaskTimeoutSeconds = %d, want 10", cfg.UsageFactWorker.TaskTimeoutSeconds)
+	}
+}
+
+func TestValidateUsageFactWorkerConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	cfg.UsageFactWorker.BatchSize = 0
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "usage_fact_worker.batch_size") {
+		t.Fatalf("Validate() expected usage_fact_worker.batch_size error, got: %v", err)
+	}
+}
+
 func TestValidateUsageCleanupConfigEnabled(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

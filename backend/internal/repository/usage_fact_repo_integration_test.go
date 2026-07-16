@@ -58,7 +58,8 @@ func TestUsageFactRepository_ClaimPendingSkipsLockedRows(t *testing.T) {
 	var lockedID int64
 	require.NoError(t, tx.QueryRowContext(ctx, "SELECT id FROM usage_facts WHERE id = $1 FOR UPDATE", first.ID).Scan(&lockedID))
 
-	claimed, err := repo.ClaimPending(ctx, 1, time.Now().Add(time.Minute))
+	claimAt := time.Now().Add(time.Minute)
+	claimed, err := repo.ClaimPending(ctx, 1, claimAt, claimAt.Add(time.Minute))
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 	require.Equal(t, second.ID, claimed[0].ID)
@@ -74,15 +75,19 @@ func TestUsageFactRepository_ClaimPendingLeasesSettlingRows(t *testing.T) {
 	_, _, err := repo.CreatePending(ctx, newUsageFactRepositoryTestFact("lease"))
 	require.NoError(t, err)
 
-	claimed, err := repo.ClaimPending(ctx, 1, now.Add(time.Minute))
+	claimAt := now.Add(time.Minute)
+	leaseUntil := claimAt.Add(30 * time.Second)
+	claimed, err := repo.ClaimPending(ctx, 1, claimAt, leaseUntil)
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 
-	claimedAgain, err := repo.ClaimPending(ctx, 1, now.Add(time.Minute+time.Second))
+	secondClaimAt := now.Add(time.Minute + time.Second)
+	claimedAgain, err := repo.ClaimPending(ctx, 1, secondClaimAt, secondClaimAt.Add(30*time.Second))
 	require.NoError(t, err)
 	require.Empty(t, claimedAgain)
 
-	reclaimed, err := repo.ClaimPending(ctx, 1, now.Add(2*time.Minute))
+	reclaimAt := now.Add(2 * time.Minute)
+	reclaimed, err := repo.ClaimPending(ctx, 1, reclaimAt, reclaimAt.Add(30*time.Second))
 	require.NoError(t, err)
 	require.Len(t, reclaimed, 1)
 	require.Equal(t, claimed[0].ID, reclaimed[0].ID)
