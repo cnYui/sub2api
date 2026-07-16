@@ -100,6 +100,7 @@ var ProviderSet = wire.NewSet(
 	NewUsageFactRepository,
 	ProvideTrafficPackRepository,
 	ProvideTrafficCreditReservationRepository,
+	NewTrafficCreditExhaustionRepository,
 	NewIdempotencyRepository,
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,

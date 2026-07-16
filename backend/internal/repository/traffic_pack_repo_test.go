@@ -59,6 +59,17 @@ func newTrafficPackTestDB(t *testing.T) *sql.DB {
 			balance_after_usd REAL NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE traffic_credit_exhaustion_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			credit_id INTEGER NOT NULL,
+			request_id TEXT NOT NULL,
+			batch_key TEXT NOT NULL,
+			reason TEXT NOT NULL DEFAULT 'depleted',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			acknowledged_at TIMESTAMP NULL,
+			UNIQUE(user_id, credit_id)
+		)`,
 	} {
 		_, err := db.Exec(stmt)
 		require.NoError(t, err)

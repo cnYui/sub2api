@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -359,6 +360,86 @@ func TestUsageBillingRepository_ReplayDoesNotDoubleSettleReservation(t *testing.
 	assertTrafficCreditLedgerTotal(t, fixture.requestID, 0.40, 1)
 }
 
+func TestUsageBillingRepository_ReservationSettlementCreatesTrafficCreditExhaustionEvent(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	policy := service.TrafficCreditPolicy{MinimumReserveUSD: 0.01}
+	repo := NewUsageBillingRepository(client, integrationDB, policy)
+	fixture := createUsageBillingReservationFixtureWithPolicy(t, 0.02, 0.02, policy)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            0.01,
+		TrafficCreditReservationID: &fixture.reservationID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	assertTrafficCreditExhaustionEvent(t, fixture.userID, fixture.creditID, fixture.requestID, fmt.Sprintf("%s:%d", fixture.requestID, fixture.apiKeyID), false)
+
+	replay, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            0.01,
+		TrafficCreditReservationID: &fixture.reservationID,
+	})
+	require.NoError(t, err)
+	require.False(t, replay.Applied)
+	assertTrafficCreditExhaustionEventCount(t, fixture.userID, fixture.creditID, 1)
+}
+
+func TestUsageBillingRepository_TrafficPackDirectDeductCreatesTrafficCreditExhaustionEvent(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	policy := service.TrafficCreditPolicy{MinimumReserveUSD: 0.01}
+	repo := NewUsageBillingRepository(client, integrationDB, policy)
+	userID, creditID := createTrafficCreditReservationFixture(t, 0.02)
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: userID,
+		Key:    "sk-usage-billing-direct-exhaustion-" + uuid.NewString(),
+		Name:   "billing-direct-exhaustion",
+	})
+	requestID := "usage-billing-direct-exhaustion-" + uuid.NewString()
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:       requestID,
+		APIKeyID:        apiKey.ID,
+		UserID:          userID,
+		TrafficPackCost: 0.01,
+	})
+
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	assertTrafficCreditExhaustionEvent(t, userID, creditID, requestID, fmt.Sprintf("%s:%d", requestID, apiKey.ID), false)
+}
+
+func TestUsageBillingRepository_ReservationExtraDeductCreatesTrafficCreditExhaustionEvent(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	policy := service.TrafficCreditPolicy{MinimumReserveUSD: 0.01}
+	repo := NewUsageBillingRepository(client, integrationDB, policy)
+	fixture := createUsageBillingReservationFixtureWithPolicy(t, 0.02, 0.005, policy)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:                  fixture.requestID,
+		APIKeyID:                   fixture.apiKeyID,
+		UserID:                     fixture.userID,
+		RequestFingerprint:         fixture.fingerprint,
+		TrafficPackCost:            0.01,
+		TrafficCreditReservationID: &fixture.reservationID,
+	})
+
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.Zero(t, result.TrafficCreditDebtUSD)
+	assertTrafficCreditExhaustionEvent(t, fixture.userID, fixture.creditID, fixture.requestID, fmt.Sprintf("%s:%d", fixture.requestID, fixture.apiKeyID), false)
+}
+
 func TestUsageBillingRepository_TrafficPackThresholdResidualIsInsufficient(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
@@ -430,6 +511,10 @@ type usageBillingReservationFixture struct {
 }
 
 func createUsageBillingReservationFixture(t *testing.T, remainingUSD, reserveUSD float64) usageBillingReservationFixture {
+	return createUsageBillingReservationFixtureWithPolicy(t, remainingUSD, reserveUSD, service.TrafficCreditPolicy{})
+}
+
+func createUsageBillingReservationFixtureWithPolicy(t *testing.T, remainingUSD, reserveUSD float64, policy service.TrafficCreditPolicy) usageBillingReservationFixture {
 	t.Helper()
 	ctx := context.Background()
 	client := testEntClient(t)
@@ -441,7 +526,7 @@ func createUsageBillingReservationFixture(t *testing.T, remainingUSD, reserveUSD
 	})
 	requestID := "usage-billing-reservation-" + uuid.NewString()
 	fingerprint := service.HashUsageRequestPayload([]byte(requestID))
-	reservation, _, err := NewTrafficCreditReservationRepository(integrationDB).Reserve(ctx, service.TrafficCreditReservationInput{
+	reservation, _, err := NewTrafficCreditReservationRepository(integrationDB, policy).Reserve(ctx, service.TrafficCreditReservationInput{
 		RequestID:          requestID,
 		APIKeyID:           apiKey.ID,
 		UserID:             userID,
@@ -453,7 +538,7 @@ func createUsageBillingReservationFixture(t *testing.T, remainingUSD, reserveUSD
 		ExpiresAt:          time.Now().UTC().Add(5 * time.Minute),
 	})
 	require.NoError(t, err)
-	require.NoError(t, NewTrafficCreditReservationRepository(integrationDB).MarkDispatched(ctx, reservation.ID))
+	require.NoError(t, NewTrafficCreditReservationRepository(integrationDB, policy).MarkDispatched(ctx, reservation.ID))
 	return usageBillingReservationFixture{
 		userID:        userID,
 		apiKeyID:      apiKey.ID,
@@ -462,6 +547,32 @@ func createUsageBillingReservationFixture(t *testing.T, remainingUSD, reserveUSD
 		requestID:     requestID,
 		fingerprint:   fingerprint,
 	}
+}
+
+func assertTrafficCreditExhaustionEvent(t *testing.T, userID, creditID int64, wantRequestID, wantBatchKey string, wantAcknowledged bool) {
+	t.Helper()
+	var requestID string
+	var batchKey string
+	var acknowledgedAt sql.NullTime
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+		SELECT request_id, batch_key, acknowledged_at
+		FROM traffic_credit_exhaustion_events
+		WHERE user_id = $1 AND credit_id = $2
+	`, userID, creditID).Scan(&requestID, &batchKey, &acknowledgedAt))
+	require.Equal(t, wantRequestID, requestID)
+	require.Equal(t, wantBatchKey, batchKey)
+	require.Equal(t, wantAcknowledged, acknowledgedAt.Valid)
+}
+
+func assertTrafficCreditExhaustionEventCount(t *testing.T, userID, creditID int64, wantCount int) {
+	t.Helper()
+	var count int
+	require.NoError(t, integrationDB.QueryRowContext(context.Background(), `
+		SELECT COUNT(*)
+		FROM traffic_credit_exhaustion_events
+		WHERE user_id = $1 AND credit_id = $2
+	`, userID, creditID).Scan(&count))
+	require.Equal(t, wantCount, count)
 }
 
 func insertUsageBillingFactFixture(t *testing.T, fixture usageBillingReservationFixture) {

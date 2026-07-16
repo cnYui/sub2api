@@ -132,7 +132,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 			}
 			result.TrafficCreditDebtUSD = debtUSD
 		} else {
-			covered, err := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.TrafficPackCost, cmd.RequestID, r.policy)
+			covered, err := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.APIKeyID, cmd.TrafficPackCost, cmd.RequestID, r.policy)
 			if err != nil {
 				return err
 			}
@@ -225,12 +225,12 @@ func settleUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx,
 		settleUSD := roundTrafficPackUSD(minFloat64(remaining, reservedAvailable))
 		remaining = roundTrafficPackUSD(remaining - settleUSD)
 		covered = roundTrafficPackUSD(covered + settleUSD)
-		if err := settleUsageBillingTrafficCreditReservationItem(ctx, tx, cmd.UserID, cmd.RequestID, item.CreditID, reservation.ID, reservedAvailable, settleUSD); err != nil {
+		if err := settleUsageBillingTrafficCreditReservationItem(ctx, tx, policy, cmd.UserID, cmd.APIKeyID, cmd.RequestID, item.CreditID, reservation.ID, reservedAvailable, settleUSD); err != nil {
 			return 0, err
 		}
 	}
 	if remaining > 0 {
-		extra, err := deductUsageBillingTrafficPackPartial(ctx, tx, cmd.UserID, remaining, cmd.RequestID, policy)
+		extra, err := deductUsageBillingTrafficPackPartial(ctx, tx, cmd.UserID, cmd.APIKeyID, remaining, cmd.RequestID, policy)
 		if err != nil {
 			return 0, err
 		}
@@ -323,13 +323,23 @@ func listUsageBillingTrafficCreditReservationItems(ctx context.Context, tx *sql.
 func settleUsageBillingTrafficCreditReservationItem(
 	ctx context.Context,
 	tx *sql.Tx,
+	policy service.TrafficCreditPolicy,
 	userID int64,
+	apiKeyID int64,
 	requestID string,
 	creditID int64,
 	reservationID int64,
 	releaseUSD float64,
 	settleUSD float64,
 ) error {
+	var balanceBefore float64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT remaining_usd
+		FROM user_traffic_credits
+		WHERE id = $1
+	`, creditID).Scan(&balanceBefore); err != nil {
+		return err
+	}
 	var balanceAfter float64
 	err := tx.QueryRowContext(ctx, `
 		UPDATE user_traffic_credits
@@ -353,6 +363,9 @@ func settleUsageBillingTrafficCreditReservationItem(
 	if err != nil {
 		return err
 	}
+	if err := recordTrafficCreditExhaustion(ctx, tx, policy, userID, creditID, requestID, trafficCreditExhaustionBatchKey(requestID, apiKeyID), balanceBefore, balanceAfter); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE traffic_credit_reservation_items
 		SET settled_usd = settled_usd + $3
@@ -372,7 +385,7 @@ func settleUsageBillingTrafficCreditReservationItem(
 	return err
 }
 
-func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (bool, error) {
+func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, apiKeyID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (bool, error) {
 	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID, policy)
 	if err != nil {
 		return false, err
@@ -383,6 +396,14 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 	}
 	nowExpr := "NOW()"
 	for _, deduction := range deductions {
+		var balanceBefore float64
+		if err := tx.QueryRowContext(ctx, `
+			SELECT remaining_usd
+			FROM user_traffic_credits
+			WHERE id = $1
+		`, deduction.CreditID).Scan(&balanceBefore); err != nil {
+			return false, err
+		}
 		var balanceAfter float64
 		err := tx.QueryRowContext(ctx, `
 			UPDATE user_traffic_credits
@@ -399,6 +420,9 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 		if err != nil {
 			return false, err
 		}
+		if err := recordTrafficCreditExhaustion(ctx, tx, policy, userID, deduction.CreditID, requestID, trafficCreditExhaustionBatchKey(requestID, apiKeyID), balanceBefore, balanceAfter); err != nil {
+			return false, err
+		}
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO traffic_credit_ledger (
 				user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at
@@ -411,7 +435,7 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 	return true, nil
 }
 
-func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (float64, error) {
+func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userID int64, apiKeyID int64, amountUSD float64, requestID string, policy service.TrafficCreditPolicy) (float64, error) {
 	batches, err := listUsageBillingTrafficCredits(ctx, tx, userID, policy)
 	if err != nil {
 		return 0, err
@@ -419,6 +443,14 @@ func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userI
 	deductions, _ := service.PlanTrafficCreditDeductions(batches, amountUSD, policy)
 	deducted := 0.0
 	for _, deduction := range deductions {
+		var balanceBefore float64
+		if err := tx.QueryRowContext(ctx, `
+			SELECT remaining_usd
+			FROM user_traffic_credits
+			WHERE id = $1
+		`, deduction.CreditID).Scan(&balanceBefore); err != nil {
+			return deducted, err
+		}
 		var balanceAfter float64
 		err := tx.QueryRowContext(ctx, `
 			UPDATE user_traffic_credits
@@ -436,6 +468,9 @@ func deductUsageBillingTrafficPackPartial(ctx context.Context, tx *sql.Tx, userI
 			return deducted, service.ErrInvalidInput
 		}
 		if err != nil {
+			return deducted, err
+		}
+		if err := recordTrafficCreditExhaustion(ctx, tx, policy, userID, deduction.CreditID, requestID, trafficCreditExhaustionBatchKey(requestID, apiKeyID), balanceBefore, balanceAfter); err != nil {
 			return deducted, err
 		}
 		if _, err := tx.ExecContext(ctx, `

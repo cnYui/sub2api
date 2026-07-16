@@ -138,7 +138,10 @@ func (r *trafficPackRepository) CreditPurchase(ctx context.Context, input servic
 			INSERT INTO traffic_credit_ledger (user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at)
 			VALUES ($1, $2, $3, '', $4, $5, $5, $6)
 		`, input.UserID, creditID, input.OrderID, service.TrafficCreditLedgerTypePurchase, creditUSD, input.CreditedAt)
-		return err
+		if err != nil {
+			return err
+		}
+		return acknowledgeAllTrafficCreditExhaustionEvents(txCtx, exec, input.UserID, input.CreditedAt)
 	})
 }
 
@@ -175,8 +178,11 @@ func (r *trafficPackRepository) Deduct(ctx context.Context, userID int64, amount
 		return false, nil, nil
 	}
 	for _, deduction := range deductions {
-		balanceAfter, err := decrementTrafficCredit(ctx, tx, deduction.CreditID, deduction.AmountUSD, now, r.policy)
+		balanceBefore, balanceAfter, err := decrementTrafficCredit(ctx, tx, deduction.CreditID, deduction.AmountUSD, now, r.policy)
 		if err != nil {
+			return false, nil, err
+		}
+		if err := recordTrafficCreditExhaustion(ctx, tx, r.policy, userID, deduction.CreditID, requestID, trafficCreditExhaustionBatchKey(requestID, 0), balanceBefore, balanceAfter); err != nil {
 			return false, nil, err
 		}
 		if _, err := tx.ExecContext(ctx, `
@@ -229,7 +235,15 @@ func (r *trafficPackRepository) listDeductibleCredits(ctx context.Context, tx *s
 	return batches, rows.Err()
 }
 
-func decrementTrafficCredit(ctx context.Context, tx *sql.Tx, creditID int64, amountUSD float64, now time.Time, policy service.TrafficCreditPolicy) (float64, error) {
+func decrementTrafficCredit(ctx context.Context, tx *sql.Tx, creditID int64, amountUSD float64, now time.Time, policy service.TrafficCreditPolicy) (float64, float64, error) {
+	var balanceBefore float64
+	if err := tx.QueryRowContext(ctx, `
+		SELECT remaining_usd
+		FROM user_traffic_credits
+		WHERE id = $1
+	`, creditID).Scan(&balanceBefore); err != nil {
+		return 0, 0, err
+	}
 	var balanceAfter float64
 	err := tx.QueryRowContext(ctx, `
 		UPDATE user_traffic_credits SET remaining_usd = remaining_usd - $1, updated_at = $2
@@ -239,12 +253,12 @@ func decrementTrafficCredit(ctx context.Context, tx *sql.Tx, creditID int64, amo
 		RETURNING remaining_usd
 	`, amountUSD, now, creditID, policy.MinimumReserveUSD).Scan(&balanceAfter)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, service.ErrInvalidInput
+		return 0, 0, service.ErrInvalidInput
 	}
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	return roundTrafficPackUSD(balanceAfter), nil
+	return roundTrafficPackUSD(balanceBefore), roundTrafficPackUSD(balanceAfter), nil
 }
 
 func roundTrafficPackUSD(value float64) float64 {
