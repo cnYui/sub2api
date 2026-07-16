@@ -89,6 +89,28 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_billing_dedup_archive", "request_fingerprint", "character varying", 64, false)
 	requireIndex(t, tx, "usage_billing_dedup_archive", "usage_billing_dedup_archive_pkey")
 
+	// usage_facts: 成功响应的不可变用量事实与 durable outbox
+	var usageFactsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.usage_facts')").Scan(&usageFactsRegclass))
+	require.True(t, usageFactsRegclass.Valid, "expected usage_facts table to exist")
+	requireColumn(t, tx, "usage_facts", "request_id", "character varying", 255, false)
+	requireColumn(t, tx, "usage_facts", "request_fingerprint", "character varying", 64, false)
+	requireColumn(t, tx, "usage_facts", "payload", "jsonb", 0, false)
+	requireColumn(t, tx, "usage_facts", "billing_status", "character varying", 20, false)
+	requireIndex(t, tx, "usage_facts", "idx_usage_facts_request_api_key")
+	requireIndex(t, tx, "usage_facts", "idx_usage_facts_pending_claim")
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"usage_facts",
+		"usage_facts_billing_status_check",
+		"pending",
+		"settling",
+		"settled",
+		"debt",
+		"failed",
+	)
+
 	// settings table should exist
 	var settingsRegclass sql.NullString
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.settings')").Scan(&settingsRegclass))
