@@ -6,6 +6,7 @@
 .git
 .gitignore
 .gitattributes
+.worktrees/
 
 # Documentation
 *.md
