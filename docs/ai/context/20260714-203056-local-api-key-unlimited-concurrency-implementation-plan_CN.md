@@ -1,12 +1,12 @@
 # LOCAL API Key 无上限并发实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **面向执行型智能体：** 必须使用 `superpowers:executing-plans` 按任务逐项实施本计划，并使用复选框（`- [ ]`）跟踪进度。
 
-**Goal:** 将 `api_keys.id=32` 所属用户 `users.id=13` 的并发从 5 调整为 0，使该用户当前唯一 API Key 在 Sub2API 入口层不限并发。
+**目标：** 将 `api_keys.id=32` 所属用户 `users.id=13` 的并发从 5 调整为 0，使该用户当前唯一 API Key 在 Sub2API 入口层不限并发。
 
-**Architecture:** 不改代码或 schema。先备份 PostgreSQL，再使用 Chrome 中现有管理员 JWT 会话通过 `/admin/users` 正式管理界面提交单字段并发更新；后端 `AdminService.UpdateUser()` 负责写库、生成 `admin_concurrency` 审计记录并按用户失效 API Key 鉴权缓存。
+**架构：** 不改代码或 schema。先备份 PostgreSQL，再使用 Chrome 中现有管理员 JWT 会话通过 `/admin/users` 正式管理界面提交单字段并发更新；后端 `AdminService.UpdateUser()` 负责写库、生成 `admin_concurrency` 审计记录并按用户失效 API Key 鉴权缓存。
 
-**Tech Stack:** Sub2API 管理后台、Gin 管理 API、PostgreSQL 18、Redis 8、Docker、Chrome 管理员会话。
+**技术栈：** Sub2API 管理后台、Gin 管理 API、PostgreSQL 18、Redis 8、Docker、Chrome 管理员会话。
 
 ---
 
