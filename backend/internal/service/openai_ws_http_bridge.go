@@ -236,17 +236,19 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	resultWithUsage := func() *OpenAIForwardResult {
 		imageCount := imageCounter.Count()
 		result := &OpenAIForwardResult{
-			RequestID:       responseID,
-			Usage:           usage,
-			Model:           originalModel,
-			UpstreamModel:   mappedModel,
-			ServiceTier:     extractOpenAIServiceTierFromBody(body),
-			ReasoningEffort: ApplyThinkingEnabledFallback(extractOpenAIReasoningEffortFromBody(body, originalModel), body, mappedModel),
-			Stream:          reqStream,
-			OpenAIWSMode:    true,
-			ResponseHeaders: cloneHeader(resp.Header),
-			Duration:        time.Since(turnStart),
-			FirstTokenMs:    firstTokenMs,
+			RequestID:         responseID,
+			Usage:             usage,
+			Model:             originalModel,
+			MainBillingModel:  forwardResultBillingModel(originalModel, mappedModel),
+			ImageBillingModel: imageBillingModel,
+			UpstreamModel:     mappedModel,
+			ServiceTier:       extractOpenAIServiceTierFromBody(body),
+			ReasoningEffort:   ApplyThinkingEnabledFallback(extractOpenAIReasoningEffortFromBody(body, originalModel), body, mappedModel),
+			Stream:            reqStream,
+			OpenAIWSMode:      true,
+			ResponseHeaders:   cloneHeader(resp.Header),
+			Duration:          time.Since(turnStart),
+			FirstTokenMs:      firstTokenMs,
 		}
 		if replayInput := replayCollector.Items(); len(replayInput) > 0 {
 			result.wsReplayInput = replayInput
@@ -259,6 +261,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			result.ImageOutputSizes = imageCounter.Sizes()
 			result.BillingModel = imageBillingModel
 		}
+		setOpenAIForwardResultBillingModels(result, result.MainBillingModel, result.ImageBillingModel)
 		return result
 	}
 

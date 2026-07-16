@@ -371,6 +371,8 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, "1K", result.ImageSize)
 	require.Equal(t, "gpt-image-2", result.BillingModel)
+	require.Equal(t, "gpt-5.4", result.MainBillingModel)
+	require.Equal(t, "gpt-image-2", result.ImageBillingModel)
 	require.Equal(t, 9, result.Usage.InputTokens)
 	require.Equal(t, 4, result.Usage.OutputTokens)
 	require.True(t, result.OpenAIWSMode)

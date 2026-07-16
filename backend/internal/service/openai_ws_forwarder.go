@@ -2418,6 +2418,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		RequestID:        responseID,
 		Usage:            *usage,
 		Model:            originalModel,
+		MainBillingModel: forwardResultBillingModel(originalModel, mappedModel),
 		UpstreamModel:    mappedModel,
 		ImageCount:       imageCounter.Count(),
 		ImageOutputSizes: imageCounter.Sizes(),
@@ -3324,17 +3325,18 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				}
 				imageCount := imageCounter.Count()
 				result := &OpenAIForwardResult{
-					RequestID:       responseID,
-					Usage:           usage,
-					Model:           originalModel,
-					UpstreamModel:   mappedModel,
-					ServiceTier:     extractOpenAIServiceTierFromBody(payload),
-					ReasoningEffort: ApplyThinkingEnabledFallback(extractOpenAIReasoningEffortFromBody(payload, originalModel), payload, mappedModel),
-					Stream:          reqStream,
-					OpenAIWSMode:    true,
-					ResponseHeaders: lease.HandshakeHeaders(),
-					Duration:        time.Since(turnStart),
-					FirstTokenMs:    firstTokenMs,
+					RequestID:        responseID,
+					Usage:            usage,
+					Model:            originalModel,
+					MainBillingModel: forwardResultBillingModel(originalModel, mappedModel),
+					UpstreamModel:    mappedModel,
+					ServiceTier:      extractOpenAIServiceTierFromBody(payload),
+					ReasoningEffort:  ApplyThinkingEnabledFallback(extractOpenAIReasoningEffortFromBody(payload, originalModel), payload, mappedModel),
+					Stream:           reqStream,
+					OpenAIWSMode:     true,
+					ResponseHeaders:  lease.HandshakeHeaders(),
+					Duration:         time.Since(turnStart),
+					FirstTokenMs:     firstTokenMs,
 				}
 				if replayInput := replayCollector.Items(); len(replayInput) > 0 {
 					result.wsReplayInput = replayInput
@@ -3347,6 +3349,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					result.ImageOutputSizes = imageCounter.Sizes()
 					result.BillingModel = imageBillingModel
 				}
+				setOpenAIForwardResultBillingModels(result, result.MainBillingModel, imageBillingModel)
 				return result, nil
 			}
 		}

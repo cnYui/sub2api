@@ -657,18 +657,20 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		if err != nil {
 			if streamCount > 0 {
 				return &OpenAIForwardResult{
-					RequestID:        resp.Header.Get("x-request-id"),
-					Usage:            streamUsage,
-					Model:            requestModel,
-					UpstreamModel:    upstreamModel,
-					Stream:           parsed.Stream,
-					ResponseHeaders:  resp.Header.Clone(),
-					Duration:         time.Since(startTime),
-					FirstTokenMs:     ttft,
-					ImageCount:       streamCount,
-					ImageSize:        parsed.SizeTier,
-					ImageInputSize:   parsed.Size,
-					ImageOutputSizes: streamSizes,
+					RequestID:         resp.Header.Get("x-request-id"),
+					Usage:             streamUsage,
+					Model:             requestModel,
+					MainBillingModel:  requestModel,
+					ImageBillingModel: requestModel,
+					UpstreamModel:     upstreamModel,
+					Stream:            parsed.Stream,
+					ResponseHeaders:   resp.Header.Clone(),
+					Duration:          time.Since(startTime),
+					FirstTokenMs:      ttft,
+					ImageCount:        streamCount,
+					ImageSize:         parsed.SizeTier,
+					ImageInputSize:    parsed.Size,
+					ImageOutputSizes:  streamSizes,
 				}, err
 			}
 			return nil, err
@@ -678,18 +680,20 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		imageOutputSizes := streamSizes
 		firstTokenMs = ttft
 		return &OpenAIForwardResult{
-			RequestID:        resp.Header.Get("x-request-id"),
-			Usage:            usage,
-			Model:            requestModel,
-			UpstreamModel:    upstreamModel,
-			Stream:           parsed.Stream,
-			ResponseHeaders:  resp.Header.Clone(),
-			Duration:         time.Since(startTime),
-			FirstTokenMs:     firstTokenMs,
-			ImageCount:       imageCount,
-			ImageSize:        parsed.SizeTier,
-			ImageInputSize:   parsed.Size,
-			ImageOutputSizes: imageOutputSizes,
+			RequestID:         resp.Header.Get("x-request-id"),
+			Usage:             usage,
+			Model:             requestModel,
+			MainBillingModel:  requestModel,
+			ImageBillingModel: requestModel,
+			UpstreamModel:     upstreamModel,
+			Stream:            parsed.Stream,
+			ResponseHeaders:   resp.Header.Clone(),
+			Duration:          time.Since(startTime),
+			FirstTokenMs:      firstTokenMs,
+			ImageCount:        imageCount,
+			ImageSize:         parsed.SizeTier,
+			ImageInputSize:    parsed.Size,
+			ImageOutputSizes:  imageOutputSizes,
 		}, nil
 	} else {
 		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c)
@@ -701,18 +705,20 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			imageCount = nonStreamCount
 		}
 		return &OpenAIForwardResult{
-			RequestID:        resp.Header.Get("x-request-id"),
-			Usage:            usage,
-			Model:            requestModel,
-			UpstreamModel:    upstreamModel,
-			Stream:           parsed.Stream,
-			ResponseHeaders:  resp.Header.Clone(),
-			Duration:         time.Since(startTime),
-			FirstTokenMs:     firstTokenMs,
-			ImageCount:       imageCount,
-			ImageSize:        parsed.SizeTier,
-			ImageInputSize:   parsed.Size,
-			ImageOutputSizes: nonStreamSizes,
+			RequestID:         resp.Header.Get("x-request-id"),
+			Usage:             usage,
+			Model:             requestModel,
+			MainBillingModel:  requestModel,
+			ImageBillingModel: requestModel,
+			UpstreamModel:     upstreamModel,
+			Stream:            parsed.Stream,
+			ResponseHeaders:   resp.Header.Clone(),
+			Duration:          time.Since(startTime),
+			FirstTokenMs:      firstTokenMs,
+			ImageCount:        imageCount,
+			ImageSize:         parsed.SizeTier,
+			ImageInputSize:    parsed.Size,
+			ImageOutputSizes:  nonStreamSizes,
 		}, nil
 	}
 }
@@ -1117,17 +1123,23 @@ func mergeOpenAIUsage(dst *OpenAIUsage, body []byte) {
 	if dst == nil {
 		return
 	}
-	if parsed, ok := extractOpenAIUsageFromJSONBytes(body); ok {
-		if parsed.InputTokens > 0 {
+	if parsed, presence, ok := extractOpenAIUsageWithPresenceFromJSONBytes(body); ok {
+		if presence.Input {
 			dst.InputTokens = parsed.InputTokens
 		}
-		if parsed.OutputTokens > 0 {
+		if presence.Output {
 			dst.OutputTokens = parsed.OutputTokens
 		}
-		if parsed.CacheReadInputTokens > 0 {
+		if presence.CacheCreation {
+			dst.CacheCreationInputTokens = parsed.CacheCreationInputTokens
+		}
+		if presence.CacheRead {
 			dst.CacheReadInputTokens = parsed.CacheReadInputTokens
 		}
-		if parsed.ImageOutputTokens > 0 {
+		if presence.ImageInput {
+			dst.ImageInputTokens = parsed.ImageInputTokens
+		}
+		if presence.ImageOutput {
 			dst.ImageOutputTokens = parsed.ImageOutputTokens
 		}
 	}

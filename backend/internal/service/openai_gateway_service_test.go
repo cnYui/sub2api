@@ -2630,6 +2630,72 @@ func TestExtractOpenAIUsageFromJSONBytes_AcceptsResponseAndChatUsageShapes(t *te
 	require.Equal(t, 4, usage.CacheReadInputTokens)
 }
 
+func TestOpenAIUsageFromGJSONParsesImageTokensAndPresence(t *testing.T) {
+	usage, presence, ok := openAIUsageFromGJSON(gjson.Parse(`{
+		"input_tokens": 120,
+		"output_tokens": 80,
+		"cache_creation_input_tokens": 7,
+		"input_tokens_details": {"cached_tokens": 10, "image_tokens": 20},
+		"output_tokens_details": {"image_tokens": 50}
+	}`))
+
+	require.True(t, ok)
+	require.Equal(t, 120, usage.InputTokens)
+	require.Equal(t, 80, usage.OutputTokens)
+	require.Equal(t, 7, usage.CacheCreationInputTokens)
+	require.Equal(t, 10, usage.CacheReadInputTokens)
+	require.Equal(t, 20, usage.ImageInputTokens)
+	require.Equal(t, 50, usage.ImageOutputTokens)
+	require.True(t, presence.Input)
+	require.True(t, presence.Output)
+	require.True(t, presence.CacheCreation)
+	require.True(t, presence.CacheRead)
+	require.True(t, presence.ImageInput)
+	require.True(t, presence.ImageOutput)
+}
+
+func TestOpenAIUsageFromGJSONTreatsExplicitZeroAsPresent(t *testing.T) {
+	usage, presence, ok := openAIUsageFromGJSON(gjson.Parse(`{
+		"prompt_tokens": 0,
+		"completion_tokens": 0,
+		"cache_creation_input_tokens": 0,
+		"prompt_tokens_details": {"cached_tokens": 0, "image_tokens": 0},
+		"completion_tokens_details": {"image_tokens": 0}
+	}`))
+
+	require.True(t, ok)
+	require.Zero(t, usage.InputTokens)
+	require.Zero(t, usage.OutputTokens)
+	require.Zero(t, usage.CacheCreationInputTokens)
+	require.Zero(t, usage.CacheReadInputTokens)
+	require.Zero(t, usage.ImageInputTokens)
+	require.Zero(t, usage.ImageOutputTokens)
+	require.True(t, presence.Input)
+	require.True(t, presence.Output)
+	require.True(t, presence.CacheCreation)
+	require.True(t, presence.CacheRead)
+	require.True(t, presence.ImageInput)
+	require.True(t, presence.ImageOutput)
+}
+
+func TestMergeOpenAIUsageIncludesImageInputTokens(t *testing.T) {
+	usage := OpenAIUsage{}
+	mergeOpenAIUsage(&usage, []byte(`{
+		"usage": {
+			"input_tokens": 120,
+			"output_tokens": 80,
+			"input_tokens_details": {"cached_tokens": 10, "image_tokens": 20},
+			"output_tokens_details": {"image_tokens": 50}
+		}
+	}`))
+
+	require.Equal(t, 120, usage.InputTokens)
+	require.Equal(t, 80, usage.OutputTokens)
+	require.Equal(t, 10, usage.CacheReadInputTokens)
+	require.Equal(t, 20, usage.ImageInputTokens)
+	require.Equal(t, 50, usage.ImageOutputTokens)
+}
+
 func TestExtractOpenAIUsageFromJSONBytes_ReasoningTokensRemainInsideOutputTokens(t *testing.T) {
 	usage, ok := extractOpenAIUsageFromJSONBytes([]byte(`{
 		"id": "resp_reasoning",

@@ -232,9 +232,17 @@ type OpenAIForwardResult struct {
 	// This is set by the Anthropic Messages conversion path where
 	// the mapped upstream model differs from the client-facing model.
 	BillingModel string
+	// MainBillingModel is the text/model component used for token billing.
+	MainBillingModel string
+	// ImageBillingModel is the image tool/model component used for image token billing.
+	ImageBillingModel string
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Empty when no mapping was applied (requested model was used as-is).
-	UpstreamModel string
+	UpstreamModel    string
+	UsagePresence    OpenAIUsagePresence
+	UsageExpectation OpenAIUsageExpectation
+	TerminalStatus   string
+	BillingSnapshot  *OpenAIUsageBillingSnapshot
 	// ServiceTier records the OpenAI Responses API service tier, e.g. "priority" / "flex".
 	// Nil means the request did not specify a recognized tier.
 	ServiceTier *string
@@ -258,6 +266,23 @@ type OpenAIForwardResult struct {
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool
+}
+
+func setOpenAIForwardResultBillingModels(result *OpenAIForwardResult, mainModel, imageModel string) {
+	if result == nil {
+		return
+	}
+	mainModel = strings.TrimSpace(mainModel)
+	if mainModel == "" {
+		mainModel = forwardResultBillingModel(result.Model, result.UpstreamModel)
+	}
+	result.MainBillingModel = mainModel
+
+	imageModel = strings.TrimSpace(imageModel)
+	if imageModel == "" && result.ImageCount > 0 {
+		imageModel = strings.TrimSpace(result.BillingModel)
+	}
+	result.ImageBillingModel = imageModel
 }
 
 type OpenAIWSRetryMetricsSnapshot struct {
@@ -3259,6 +3284,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				wsResult.ImageInputSize = imageInputSize
 				wsResult.BillingModel = imageBillingModel
 			}
+			setOpenAIForwardResultBillingModels(wsResult, wsResult.MainBillingModel, imageBillingModel)
 			return wsResult, nil
 		}
 		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, wsErr.Error())
@@ -3413,6 +3439,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			ResponseID:           responseID,
 			Usage:                *usage,
 			Model:                originalModel,
+			MainBillingModel:     forwardResultBillingModel(originalModel, upstreamModel),
+			ImageBillingModel:    imageBillingModel,
 			UpstreamModel:        upstreamModel,
 			ServiceTier:          serviceTier,
 			ReasoningEffort:      reasoningEffort,
@@ -3429,6 +3457,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			forwardResult.ImageOutputSizes = imageOutputSizes
 			forwardResult.BillingModel = imageBillingModel
 		}
+		setOpenAIForwardResultBillingModels(forwardResult, forwardResult.MainBillingModel, forwardResult.ImageBillingModel)
 		return forwardResult, nil
 	}
 }
@@ -3644,17 +3673,19 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 
 	forwardResult := &OpenAIForwardResult{
-		RequestID:       resp.Header.Get("x-request-id"),
-		ResponseID:      responseID,
-		Usage:           *usage,
-		Model:           reqModel,
-		UpstreamModel:   upstreamPassthroughModel,
-		ServiceTier:     serviceTier,
-		ReasoningEffort: reasoningEffort,
-		Stream:          reqStream,
-		OpenAIWSMode:    false,
-		Duration:        time.Since(startTime),
-		FirstTokenMs:    firstTokenMs,
+		RequestID:         resp.Header.Get("x-request-id"),
+		ResponseID:        responseID,
+		Usage:             *usage,
+		Model:             reqModel,
+		MainBillingModel:  forwardResultBillingModel(reqModel, upstreamPassthroughModel),
+		ImageBillingModel: imageBillingModel,
+		UpstreamModel:     upstreamPassthroughModel,
+		ServiceTier:       serviceTier,
+		ReasoningEffort:   reasoningEffort,
+		Stream:            reqStream,
+		OpenAIWSMode:      false,
+		Duration:          time.Since(startTime),
+		FirstTokenMs:      firstTokenMs,
 	}
 	if imageCount > 0 {
 		forwardResult.ImageCount = imageCount
@@ -3663,6 +3694,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		forwardResult.ImageOutputSizes = imageOutputSizes
 		forwardResult.BillingModel = imageBillingModel
 	}
+	setOpenAIForwardResultBillingModels(forwardResult, forwardResult.MainBillingModel, forwardResult.ImageBillingModel)
 	return forwardResult, nil
 }
 
@@ -5585,11 +5617,16 @@ func (s *OpenAIGatewayService) parseSSEUsageBytes(data []byte, usage *OpenAIUsag
 }
 
 func extractOpenAIUsageFromJSONBytes(body []byte) (OpenAIUsage, bool) {
+	usage, _, ok := extractOpenAIUsageWithPresenceFromJSONBytes(body)
+	return usage, ok
+}
+
+func extractOpenAIUsageWithPresenceFromJSONBytes(body []byte) (OpenAIUsage, OpenAIUsagePresence, bool) {
 	if len(body) == 0 || !gjson.ValidBytes(body) {
-		return OpenAIUsage{}, false
+		return OpenAIUsage{}, OpenAIUsagePresence{}, false
 	}
-	if usage, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "usage")); ok {
-		return usage, true
+	if usage, presence, ok := openAIUsageFromGJSON(gjson.GetBytes(body, "usage")); ok {
+		return usage, presence, true
 	}
 	return openAIUsageFromGJSON(gjson.GetBytes(body, "response.usage"))
 }
@@ -5621,33 +5658,53 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 	logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
 }
 
-func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
+func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, OpenAIUsagePresence, bool) {
 	if !value.Exists() || !value.IsObject() {
-		return OpenAIUsage{}, false
+		return OpenAIUsage{}, OpenAIUsagePresence{}, false
 	}
-	inputTokens := value.Get("input_tokens").Int()
-	if inputTokens == 0 {
-		inputTokens = value.Get("prompt_tokens").Int()
+	presence := OpenAIUsagePresence{}
+
+	inputValue := value.Get("input_tokens")
+	if !inputValue.Exists() {
+		inputValue = value.Get("prompt_tokens")
 	}
-	outputTokens := value.Get("output_tokens").Int()
-	if outputTokens == 0 {
-		outputTokens = value.Get("completion_tokens").Int()
+	presence.Input = inputValue.Exists()
+
+	outputValue := value.Get("output_tokens")
+	if !outputValue.Exists() {
+		outputValue = value.Get("completion_tokens")
 	}
-	cacheReadTokens := value.Get("input_tokens_details.cached_tokens").Int()
-	if cacheReadTokens == 0 {
-		cacheReadTokens = value.Get("prompt_tokens_details.cached_tokens").Int()
+	presence.Output = outputValue.Exists()
+
+	cacheCreationValue := value.Get("cache_creation_input_tokens")
+	presence.CacheCreation = cacheCreationValue.Exists()
+
+	cacheReadValue := value.Get("input_tokens_details.cached_tokens")
+	if !cacheReadValue.Exists() {
+		cacheReadValue = value.Get("prompt_tokens_details.cached_tokens")
 	}
-	imageOutputTokens := value.Get("output_tokens_details.image_tokens").Int()
-	if imageOutputTokens == 0 {
-		imageOutputTokens = value.Get("completion_tokens_details.image_tokens").Int()
+	presence.CacheRead = cacheReadValue.Exists()
+
+	imageInputValue := value.Get("input_tokens_details.image_tokens")
+	if !imageInputValue.Exists() {
+		imageInputValue = value.Get("prompt_tokens_details.image_tokens")
 	}
+	presence.ImageInput = imageInputValue.Exists()
+
+	imageOutputValue := value.Get("output_tokens_details.image_tokens")
+	if !imageOutputValue.Exists() {
+		imageOutputValue = value.Get("completion_tokens_details.image_tokens")
+	}
+	presence.ImageOutput = imageOutputValue.Exists()
+
 	return OpenAIUsage{
-		InputTokens:              int(inputTokens),
-		OutputTokens:             int(outputTokens),
-		CacheCreationInputTokens: int(value.Get("cache_creation_input_tokens").Int()),
-		CacheReadInputTokens:     int(cacheReadTokens),
-		ImageOutputTokens:        int(imageOutputTokens),
-	}, true
+		InputTokens:              int(inputValue.Int()),
+		OutputTokens:             int(outputValue.Int()),
+		CacheCreationInputTokens: int(cacheCreationValue.Int()),
+		CacheReadInputTokens:     int(cacheReadValue.Int()),
+		ImageInputTokens:         int(imageInputValue.Int()),
+		ImageOutputTokens:        int(imageOutputValue.Int()),
+	}, presence, true
 }
 
 func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, resp *http.Response, c *gin.Context, account *Account, originalModel, mappedModel string) (*openaiNonStreamingResult, error) {
