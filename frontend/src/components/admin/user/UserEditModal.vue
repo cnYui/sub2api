@@ -41,6 +41,7 @@
           min="0"
           step="1"
           class="input"
+          @invalid.prevent="showConcurrencyInvalid"
         />
         <p class="input-hint">{{ t('admin.users.form.concurrencyHint') }}</p>
       </div>
@@ -105,6 +106,9 @@ const copyPassword = async () => {
     passwordCopied.value = true; setTimeout(() => passwordCopied.value = false, 2000)
   }
 }
+const showConcurrencyInvalid = () => {
+  appStore.showError(t('admin.users.concurrencyInvalid'))
+}
 const handleUpdateUser = async () => {
   if (!props.user) return
   if (!form.email.trim()) {
@@ -112,7 +116,7 @@ const handleUpdateUser = async () => {
     return
   }
   if (!isValidUserConcurrency(form.concurrency)) {
-    appStore.showError(t('admin.users.concurrencyInvalid'))
+    showConcurrencyInvalid()
     return
   }
   submitting.value = true

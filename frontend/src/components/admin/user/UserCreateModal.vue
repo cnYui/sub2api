@@ -38,6 +38,7 @@
             min="0"
             step="1"
             class="input"
+            @invalid.prevent="showConcurrencyInvalid"
           />
           <p class="input-hint">{{ t('admin.users.form.concurrencyHint') }}</p>
         </div>
@@ -96,9 +97,13 @@ const { loading, submit } = useForm({
   successMsg: t('admin.users.userCreated')
 })
 
+const showConcurrencyInvalid = () => {
+  appStore.showError(t('admin.users.concurrencyInvalid'))
+}
+
 const handleSubmit = async () => {
   if (!isValidUserConcurrency(form.concurrency)) {
-    appStore.showError(t('admin.users.concurrencyInvalid'))
+    showConcurrencyInvalid()
     return
   }
   await submit()

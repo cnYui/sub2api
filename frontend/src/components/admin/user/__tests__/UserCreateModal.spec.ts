@@ -90,7 +90,8 @@ describe('UserCreateModal', () => {
     await fillRequiredFields(wrapper)
     await getConcurrencyInput(wrapper).setValue(value)
 
-    await wrapper.get('form').trigger('submit')
+    const form = wrapper.get('form').element as HTMLFormElement
+    form.requestSubmit()
     await flushPromises()
 
     expect(mocks.showError).toHaveBeenCalledWith('admin.users.concurrencyInvalid')
