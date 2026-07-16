@@ -194,10 +194,10 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
-	imagePrice2K := 0.19
 	groupID := int64(901)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc.resolver = newOpenAIImageChannelPricingResolverForTest(t, groupID, "gemini-image", 0.19)
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 		Result: &ForwardResult{
@@ -213,7 +213,6 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			Group: &Group{
 				ID:             groupID,
 				RateMultiplier: 1.0,
-				ImagePrice2K:   &imagePrice2K,
 			},
 		},
 		User:    &User{ID: 601},

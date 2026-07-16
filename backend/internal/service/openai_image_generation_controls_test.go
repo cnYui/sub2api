@@ -384,7 +384,6 @@ func newOpenAIImageGenerationControlTestContext(allowImages bool, userAgent stri
 			ID:                   groupID,
 			AllowImageGeneration: allowImages,
 			RateMultiplier:       1,
-			ImageRateMultiplier:  1,
 		},
 	})
 	return c, recorder

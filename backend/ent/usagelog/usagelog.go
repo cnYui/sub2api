@@ -52,6 +52,10 @@ const (
 	FieldCacheCreation5mTokens = "cache_creation_5m_tokens"
 	// FieldCacheCreation1hTokens holds the string denoting the cache_creation_1h_tokens field in the database.
 	FieldCacheCreation1hTokens = "cache_creation_1h_tokens"
+	// FieldImageInputTokens holds the string denoting the image_input_tokens field in the database.
+	FieldImageInputTokens = "image_input_tokens"
+	// FieldImageOutputTokens holds the string denoting the image_output_tokens field in the database.
+	FieldImageOutputTokens = "image_output_tokens"
 	// FieldInputCost holds the string denoting the input_cost field in the database.
 	FieldInputCost = "input_cost"
 	// FieldOutputCost holds the string denoting the output_cost field in the database.
@@ -60,6 +64,10 @@ const (
 	FieldCacheCreationCost = "cache_creation_cost"
 	// FieldCacheReadCost holds the string denoting the cache_read_cost field in the database.
 	FieldCacheReadCost = "cache_read_cost"
+	// FieldImageInputCost holds the string denoting the image_input_cost field in the database.
+	FieldImageInputCost = "image_input_cost"
+	// FieldImageOutputCost holds the string denoting the image_output_cost field in the database.
+	FieldImageOutputCost = "image_output_cost"
 	// FieldTotalCost holds the string denoting the total_cost field in the database.
 	FieldTotalCost = "total_cost"
 	// FieldActualCost holds the string denoting the actual_cost field in the database.
@@ -94,6 +102,8 @@ const (
 	FieldImageSizeBreakdown = "image_size_breakdown"
 	// FieldCacheTTLOverridden holds the string denoting the cache_ttl_overridden field in the database.
 	FieldCacheTTLOverridden = "cache_ttl_overridden"
+	// FieldBillingIncomplete holds the string denoting the billing_incomplete field in the database.
+	FieldBillingIncomplete = "billing_incomplete"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeUser holds the string denoting the user edge name in mutations.
@@ -167,10 +177,14 @@ var Columns = []string{
 	FieldCacheReadTokens,
 	FieldCacheCreation5mTokens,
 	FieldCacheCreation1hTokens,
+	FieldImageInputTokens,
+	FieldImageOutputTokens,
 	FieldInputCost,
 	FieldOutputCost,
 	FieldCacheCreationCost,
 	FieldCacheReadCost,
+	FieldImageInputCost,
+	FieldImageOutputCost,
 	FieldTotalCost,
 	FieldActualCost,
 	FieldRateMultiplier,
@@ -188,6 +202,7 @@ var Columns = []string{
 	FieldImageSizeSource,
 	FieldImageSizeBreakdown,
 	FieldCacheTTLOverridden,
+	FieldBillingIncomplete,
 	FieldCreatedAt,
 }
 
@@ -228,6 +243,10 @@ var (
 	DefaultCacheCreation5mTokens int
 	// DefaultCacheCreation1hTokens holds the default value on creation for the "cache_creation_1h_tokens" field.
 	DefaultCacheCreation1hTokens int
+	// DefaultImageInputTokens holds the default value on creation for the "image_input_tokens" field.
+	DefaultImageInputTokens int
+	// DefaultImageOutputTokens holds the default value on creation for the "image_output_tokens" field.
+	DefaultImageOutputTokens int
 	// DefaultInputCost holds the default value on creation for the "input_cost" field.
 	DefaultInputCost float64
 	// DefaultOutputCost holds the default value on creation for the "output_cost" field.
@@ -236,6 +255,10 @@ var (
 	DefaultCacheCreationCost float64
 	// DefaultCacheReadCost holds the default value on creation for the "cache_read_cost" field.
 	DefaultCacheReadCost float64
+	// DefaultImageInputCost holds the default value on creation for the "image_input_cost" field.
+	DefaultImageInputCost float64
+	// DefaultImageOutputCost holds the default value on creation for the "image_output_cost" field.
+	DefaultImageOutputCost float64
 	// DefaultTotalCost holds the default value on creation for the "total_cost" field.
 	DefaultTotalCost float64
 	// DefaultActualCost holds the default value on creation for the "actual_cost" field.
@@ -262,6 +285,8 @@ var (
 	ImageSizeSourceValidator func(string) error
 	// DefaultCacheTTLOverridden holds the default value on creation for the "cache_ttl_overridden" field.
 	DefaultCacheTTLOverridden bool
+	// DefaultBillingIncomplete holds the default value on creation for the "billing_incomplete" field.
+	DefaultBillingIncomplete bool
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 )
@@ -369,6 +394,16 @@ func ByCacheCreation1hTokens(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheCreation1hTokens, opts...).ToFunc()
 }
 
+// ByImageInputTokens orders the results by the image_input_tokens field.
+func ByImageInputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageInputTokens, opts...).ToFunc()
+}
+
+// ByImageOutputTokens orders the results by the image_output_tokens field.
+func ByImageOutputTokens(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageOutputTokens, opts...).ToFunc()
+}
+
 // ByInputCost orders the results by the input_cost field.
 func ByInputCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldInputCost, opts...).ToFunc()
@@ -387,6 +422,16 @@ func ByCacheCreationCost(opts ...sql.OrderTermOption) OrderOption {
 // ByCacheReadCost orders the results by the cache_read_cost field.
 func ByCacheReadCost(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheReadCost, opts...).ToFunc()
+}
+
+// ByImageInputCost orders the results by the image_input_cost field.
+func ByImageInputCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageInputCost, opts...).ToFunc()
+}
+
+// ByImageOutputCost orders the results by the image_output_cost field.
+func ByImageOutputCost(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageOutputCost, opts...).ToFunc()
 }
 
 // ByTotalCost orders the results by the total_cost field.
@@ -467,6 +512,11 @@ func ByImageSizeSource(opts ...sql.OrderTermOption) OrderOption {
 // ByCacheTTLOverridden orders the results by the cache_ttl_overridden field.
 func ByCacheTTLOverridden(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCacheTTLOverridden, opts...).ToFunc()
+}
+
+// ByBillingIncomplete orders the results by the billing_incomplete field.
+func ByBillingIncomplete(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBillingIncomplete, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

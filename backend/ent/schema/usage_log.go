@@ -77,6 +77,10 @@ func (UsageLog) Fields() []ent.Field {
 			Default(0),
 		field.Int("cache_creation_1h_tokens").
 			Default(0),
+		field.Int("image_input_tokens").
+			Default(0),
+		field.Int("image_output_tokens").
+			Default(0),
 
 		// 成本字段
 		field.Float("input_cost").
@@ -89,6 +93,12 @@ func (UsageLog) Fields() []ent.Field {
 			Default(0).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 		field.Float("cache_read_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Float("image_input_cost").
+			Default(0).
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Float("image_output_cost").
 			Default(0).
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 		field.Float("total_cost").
@@ -151,6 +161,8 @@ func (UsageLog) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 		field.Bool("cache_ttl_overridden").
+			Default(false),
+		field.Bool("billing_incomplete").
 			Default(false),
 
 		// 时间戳（只有 created_at，日志不可修改）
