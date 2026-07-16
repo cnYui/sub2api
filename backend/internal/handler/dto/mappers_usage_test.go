@@ -162,8 +162,11 @@ func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *test
 		ImageSize:          &imageSize,
 		ImageInputSize:     &inputSize,
 		ImageOutputSize:    &outputSize,
+		ImageInputTokens:   7,
+		ImageInputCost:     0.07,
 		ImageSizeSource:    &source,
 		ImageSizeBreakdown: map[string]int{"4K": 2},
+		BillingIncomplete:  true,
 	}
 
 	userDTO := UsageLogFromService(log)
@@ -177,9 +180,12 @@ func TestUsageLogFromService_IncludesImageBillingMetadataForUserAndAdmin(t *test
 		require.Equal(t, inputSize, *got.ImageInputSize)
 		require.NotNil(t, got.ImageOutputSize)
 		require.Equal(t, outputSize, *got.ImageOutputSize)
+		require.Equal(t, 7, got.ImageInputTokens)
+		require.InDelta(t, 0.07, got.ImageInputCost, 1e-12)
 		require.NotNil(t, got.ImageSizeSource)
 		require.Equal(t, source, *got.ImageSizeSource)
 		require.Equal(t, map[string]int{"4K": 2}, got.ImageSizeBreakdown)
+		require.True(t, got.BillingIncomplete)
 	}
 }
 

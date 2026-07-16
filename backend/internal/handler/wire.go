@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -95,6 +96,18 @@ func ProvideAdminSettingHandler(settingService *service.SettingService, emailSer
 	return h
 }
 
+func ProvideAuthHandler(cfg *config.Config, authService *service.AuthService, userService *service.UserService, settingService *service.SettingService, promoService *service.PromoService, redeemService *service.RedeemService, totpService *service.TotpService, userAttributeService *service.UserAttributeService, trafficCreditExhaustionRepo service.TrafficCreditExhaustionRepository) *AuthHandler {
+	h := NewAuthHandler(cfg, authService, userService, settingService, promoService, redeemService, totpService, userAttributeService)
+	h.SetTrafficCreditExhaustionRepository(trafficCreditExhaustionRepo)
+	return h
+}
+
+func ProvideUserHandler(userService *service.UserService, authService *service.AuthService, emailService *service.EmailService, emailCache service.EmailCache, affiliateService *service.AffiliateService, userPlatformQuotaRepo service.UserPlatformQuotaRepository, trafficCreditExhaustionRepo service.TrafficCreditExhaustionRepository) *UserHandler {
+	h := NewUserHandler(userService, authService, emailService, emailCache, affiliateService, userPlatformQuotaRepo)
+	h.SetTrafficCreditExhaustionRepository(trafficCreditExhaustionRepo)
+	return h
+}
+
 // ProvideHandlers creates the Handlers struct
 func ProvideHandlers(
 	authHandler *AuthHandler,
@@ -139,8 +152,8 @@ func ProvideHandlers(
 // ProviderSet is the Wire provider set for all handlers
 var ProviderSet = wire.NewSet(
 	// Top-level handlers
-	NewAuthHandler,
-	NewUserHandler,
+	ProvideAuthHandler,
+	ProvideUserHandler,
 	NewAPIKeyHandler,
 	NewUsageHandler,
 	NewRedeemHandler,

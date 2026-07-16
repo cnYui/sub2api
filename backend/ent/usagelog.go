@@ -61,6 +61,10 @@ type UsageLog struct {
 	CacheCreation5mTokens int `json:"cache_creation_5m_tokens,omitempty"`
 	// CacheCreation1hTokens holds the value of the "cache_creation_1h_tokens" field.
 	CacheCreation1hTokens int `json:"cache_creation_1h_tokens,omitempty"`
+	// ImageInputTokens holds the value of the "image_input_tokens" field.
+	ImageInputTokens int `json:"image_input_tokens,omitempty"`
+	// ImageOutputTokens holds the value of the "image_output_tokens" field.
+	ImageOutputTokens int `json:"image_output_tokens,omitempty"`
 	// InputCost holds the value of the "input_cost" field.
 	InputCost float64 `json:"input_cost,omitempty"`
 	// OutputCost holds the value of the "output_cost" field.
@@ -69,6 +73,10 @@ type UsageLog struct {
 	CacheCreationCost float64 `json:"cache_creation_cost,omitempty"`
 	// CacheReadCost holds the value of the "cache_read_cost" field.
 	CacheReadCost float64 `json:"cache_read_cost,omitempty"`
+	// ImageInputCost holds the value of the "image_input_cost" field.
+	ImageInputCost float64 `json:"image_input_cost,omitempty"`
+	// ImageOutputCost holds the value of the "image_output_cost" field.
+	ImageOutputCost float64 `json:"image_output_cost,omitempty"`
 	// TotalCost holds the value of the "total_cost" field.
 	TotalCost float64 `json:"total_cost,omitempty"`
 	// ActualCost holds the value of the "actual_cost" field.
@@ -103,6 +111,8 @@ type UsageLog struct {
 	ImageSizeBreakdown map[string]int `json:"image_size_breakdown,omitempty"`
 	// CacheTTLOverridden holds the value of the "cache_ttl_overridden" field.
 	CacheTTLOverridden bool `json:"cache_ttl_overridden,omitempty"`
+	// BillingIncomplete holds the value of the "billing_incomplete" field.
+	BillingIncomplete bool `json:"billing_incomplete,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -190,11 +200,11 @@ func (*UsageLog) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case usagelog.FieldImageSizeBreakdown:
 			values[i] = new([]byte)
-		case usagelog.FieldStream, usagelog.FieldCacheTTLOverridden:
+		case usagelog.FieldStream, usagelog.FieldCacheTTLOverridden, usagelog.FieldBillingIncomplete:
 			values[i] = new(sql.NullBool)
-		case usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
+		case usagelog.FieldInputCost, usagelog.FieldOutputCost, usagelog.FieldCacheCreationCost, usagelog.FieldCacheReadCost, usagelog.FieldImageInputCost, usagelog.FieldImageOutputCost, usagelog.FieldTotalCost, usagelog.FieldActualCost, usagelog.FieldRateMultiplier, usagelog.FieldAccountRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount:
+		case usagelog.FieldID, usagelog.FieldUserID, usagelog.FieldAPIKeyID, usagelog.FieldAccountID, usagelog.FieldChannelID, usagelog.FieldGroupID, usagelog.FieldSubscriptionID, usagelog.FieldInputTokens, usagelog.FieldOutputTokens, usagelog.FieldCacheCreationTokens, usagelog.FieldCacheReadTokens, usagelog.FieldCacheCreation5mTokens, usagelog.FieldCacheCreation1hTokens, usagelog.FieldImageInputTokens, usagelog.FieldImageOutputTokens, usagelog.FieldBillingType, usagelog.FieldDurationMs, usagelog.FieldFirstTokenMs, usagelog.FieldImageCount:
 			values[i] = new(sql.NullInt64)
 		case usagelog.FieldRequestID, usagelog.FieldModel, usagelog.FieldRequestedModel, usagelog.FieldUpstreamModel, usagelog.FieldModelMappingChain, usagelog.FieldBillingTier, usagelog.FieldBillingMode, usagelog.FieldUserAgent, usagelog.FieldIPAddress, usagelog.FieldImageSize, usagelog.FieldImageInputSize, usagelog.FieldImageOutputSize, usagelog.FieldImageSizeSource:
 			values[i] = new(sql.NullString)
@@ -343,6 +353,18 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.CacheCreation1hTokens = int(value.Int64)
 			}
+		case usagelog.FieldImageInputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field image_input_tokens", values[i])
+			} else if value.Valid {
+				_m.ImageInputTokens = int(value.Int64)
+			}
+		case usagelog.FieldImageOutputTokens:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field image_output_tokens", values[i])
+			} else if value.Valid {
+				_m.ImageOutputTokens = int(value.Int64)
+			}
 		case usagelog.FieldInputCost:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
 				return fmt.Errorf("unexpected type %T for field input_cost", values[i])
@@ -366,6 +388,18 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field cache_read_cost", values[i])
 			} else if value.Valid {
 				_m.CacheReadCost = value.Float64
+			}
+		case usagelog.FieldImageInputCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field image_input_cost", values[i])
+			} else if value.Valid {
+				_m.ImageInputCost = value.Float64
+			}
+		case usagelog.FieldImageOutputCost:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field image_output_cost", values[i])
+			} else if value.Valid {
+				_m.ImageOutputCost = value.Float64
 			}
 		case usagelog.FieldTotalCost:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -479,6 +513,12 @@ func (_m *UsageLog) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field cache_ttl_overridden", values[i])
 			} else if value.Valid {
 				_m.CacheTTLOverridden = value.Bool
+			}
+		case usagelog.FieldBillingIncomplete:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field billing_incomplete", values[i])
+			} else if value.Valid {
+				_m.BillingIncomplete = value.Bool
 			}
 		case usagelog.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -620,6 +660,12 @@ func (_m *UsageLog) String() string {
 	builder.WriteString("cache_creation_1h_tokens=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CacheCreation1hTokens))
 	builder.WriteString(", ")
+	builder.WriteString("image_input_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ImageInputTokens))
+	builder.WriteString(", ")
+	builder.WriteString("image_output_tokens=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ImageOutputTokens))
+	builder.WriteString(", ")
 	builder.WriteString("input_cost=")
 	builder.WriteString(fmt.Sprintf("%v", _m.InputCost))
 	builder.WriteString(", ")
@@ -631,6 +677,12 @@ func (_m *UsageLog) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cache_read_cost=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CacheReadCost))
+	builder.WriteString(", ")
+	builder.WriteString("image_input_cost=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ImageInputCost))
+	builder.WriteString(", ")
+	builder.WriteString("image_output_cost=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ImageOutputCost))
 	builder.WriteString(", ")
 	builder.WriteString("total_cost=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TotalCost))
@@ -700,6 +752,9 @@ func (_m *UsageLog) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("cache_ttl_overridden=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CacheTTLOverridden))
+	builder.WriteString(", ")
+	builder.WriteString("billing_incomplete=")
+	builder.WriteString(fmt.Sprintf("%v", _m.BillingIncomplete))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

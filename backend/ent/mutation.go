@@ -15071,15 +15071,6 @@ type GroupMutation struct {
 	default_validity_days                   *int
 	adddefault_validity_days                *int
 	allow_image_generation                  *bool
-	image_rate_independent                  *bool
-	image_rate_multiplier                   *float64
-	addimage_rate_multiplier                *float64
-	image_price_1k                          *float64
-	addimage_price_1k                       *float64
-	image_price_2k                          *float64
-	addimage_price_2k                       *float64
-	image_price_4k                          *float64
-	addimage_price_4k                       *float64
 	claude_code_only                        *bool
 	fallback_group_id                       *int64
 	addfallback_group_id                    *int64
@@ -15928,308 +15919,6 @@ func (m *GroupMutation) OldAllowImageGeneration(ctx context.Context) (v bool, er
 // ResetAllowImageGeneration resets all changes to the "allow_image_generation" field.
 func (m *GroupMutation) ResetAllowImageGeneration() {
 	m.allow_image_generation = nil
-}
-
-// SetImageRateIndependent sets the "image_rate_independent" field.
-func (m *GroupMutation) SetImageRateIndependent(b bool) {
-	m.image_rate_independent = &b
-}
-
-// ImageRateIndependent returns the value of the "image_rate_independent" field in the mutation.
-func (m *GroupMutation) ImageRateIndependent() (r bool, exists bool) {
-	v := m.image_rate_independent
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImageRateIndependent returns the old "image_rate_independent" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldImageRateIndependent(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImageRateIndependent is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImageRateIndependent requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImageRateIndependent: %w", err)
-	}
-	return oldValue.ImageRateIndependent, nil
-}
-
-// ResetImageRateIndependent resets all changes to the "image_rate_independent" field.
-func (m *GroupMutation) ResetImageRateIndependent() {
-	m.image_rate_independent = nil
-}
-
-// SetImageRateMultiplier sets the "image_rate_multiplier" field.
-func (m *GroupMutation) SetImageRateMultiplier(f float64) {
-	m.image_rate_multiplier = &f
-	m.addimage_rate_multiplier = nil
-}
-
-// ImageRateMultiplier returns the value of the "image_rate_multiplier" field in the mutation.
-func (m *GroupMutation) ImageRateMultiplier() (r float64, exists bool) {
-	v := m.image_rate_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImageRateMultiplier returns the old "image_rate_multiplier" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldImageRateMultiplier(ctx context.Context) (v float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImageRateMultiplier is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImageRateMultiplier requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImageRateMultiplier: %w", err)
-	}
-	return oldValue.ImageRateMultiplier, nil
-}
-
-// AddImageRateMultiplier adds f to the "image_rate_multiplier" field.
-func (m *GroupMutation) AddImageRateMultiplier(f float64) {
-	if m.addimage_rate_multiplier != nil {
-		*m.addimage_rate_multiplier += f
-	} else {
-		m.addimage_rate_multiplier = &f
-	}
-}
-
-// AddedImageRateMultiplier returns the value that was added to the "image_rate_multiplier" field in this mutation.
-func (m *GroupMutation) AddedImageRateMultiplier() (r float64, exists bool) {
-	v := m.addimage_rate_multiplier
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetImageRateMultiplier resets all changes to the "image_rate_multiplier" field.
-func (m *GroupMutation) ResetImageRateMultiplier() {
-	m.image_rate_multiplier = nil
-	m.addimage_rate_multiplier = nil
-}
-
-// SetImagePrice1k sets the "image_price_1k" field.
-func (m *GroupMutation) SetImagePrice1k(f float64) {
-	m.image_price_1k = &f
-	m.addimage_price_1k = nil
-}
-
-// ImagePrice1k returns the value of the "image_price_1k" field in the mutation.
-func (m *GroupMutation) ImagePrice1k() (r float64, exists bool) {
-	v := m.image_price_1k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImagePrice1k returns the old "image_price_1k" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldImagePrice1k(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImagePrice1k is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImagePrice1k requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImagePrice1k: %w", err)
-	}
-	return oldValue.ImagePrice1k, nil
-}
-
-// AddImagePrice1k adds f to the "image_price_1k" field.
-func (m *GroupMutation) AddImagePrice1k(f float64) {
-	if m.addimage_price_1k != nil {
-		*m.addimage_price_1k += f
-	} else {
-		m.addimage_price_1k = &f
-	}
-}
-
-// AddedImagePrice1k returns the value that was added to the "image_price_1k" field in this mutation.
-func (m *GroupMutation) AddedImagePrice1k() (r float64, exists bool) {
-	v := m.addimage_price_1k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearImagePrice1k clears the value of the "image_price_1k" field.
-func (m *GroupMutation) ClearImagePrice1k() {
-	m.image_price_1k = nil
-	m.addimage_price_1k = nil
-	m.clearedFields[group.FieldImagePrice1k] = struct{}{}
-}
-
-// ImagePrice1kCleared returns if the "image_price_1k" field was cleared in this mutation.
-func (m *GroupMutation) ImagePrice1kCleared() bool {
-	_, ok := m.clearedFields[group.FieldImagePrice1k]
-	return ok
-}
-
-// ResetImagePrice1k resets all changes to the "image_price_1k" field.
-func (m *GroupMutation) ResetImagePrice1k() {
-	m.image_price_1k = nil
-	m.addimage_price_1k = nil
-	delete(m.clearedFields, group.FieldImagePrice1k)
-}
-
-// SetImagePrice2k sets the "image_price_2k" field.
-func (m *GroupMutation) SetImagePrice2k(f float64) {
-	m.image_price_2k = &f
-	m.addimage_price_2k = nil
-}
-
-// ImagePrice2k returns the value of the "image_price_2k" field in the mutation.
-func (m *GroupMutation) ImagePrice2k() (r float64, exists bool) {
-	v := m.image_price_2k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImagePrice2k returns the old "image_price_2k" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldImagePrice2k(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImagePrice2k is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImagePrice2k requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImagePrice2k: %w", err)
-	}
-	return oldValue.ImagePrice2k, nil
-}
-
-// AddImagePrice2k adds f to the "image_price_2k" field.
-func (m *GroupMutation) AddImagePrice2k(f float64) {
-	if m.addimage_price_2k != nil {
-		*m.addimage_price_2k += f
-	} else {
-		m.addimage_price_2k = &f
-	}
-}
-
-// AddedImagePrice2k returns the value that was added to the "image_price_2k" field in this mutation.
-func (m *GroupMutation) AddedImagePrice2k() (r float64, exists bool) {
-	v := m.addimage_price_2k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearImagePrice2k clears the value of the "image_price_2k" field.
-func (m *GroupMutation) ClearImagePrice2k() {
-	m.image_price_2k = nil
-	m.addimage_price_2k = nil
-	m.clearedFields[group.FieldImagePrice2k] = struct{}{}
-}
-
-// ImagePrice2kCleared returns if the "image_price_2k" field was cleared in this mutation.
-func (m *GroupMutation) ImagePrice2kCleared() bool {
-	_, ok := m.clearedFields[group.FieldImagePrice2k]
-	return ok
-}
-
-// ResetImagePrice2k resets all changes to the "image_price_2k" field.
-func (m *GroupMutation) ResetImagePrice2k() {
-	m.image_price_2k = nil
-	m.addimage_price_2k = nil
-	delete(m.clearedFields, group.FieldImagePrice2k)
-}
-
-// SetImagePrice4k sets the "image_price_4k" field.
-func (m *GroupMutation) SetImagePrice4k(f float64) {
-	m.image_price_4k = &f
-	m.addimage_price_4k = nil
-}
-
-// ImagePrice4k returns the value of the "image_price_4k" field in the mutation.
-func (m *GroupMutation) ImagePrice4k() (r float64, exists bool) {
-	v := m.image_price_4k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldImagePrice4k returns the old "image_price_4k" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldImagePrice4k(ctx context.Context) (v *float64, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldImagePrice4k is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldImagePrice4k requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldImagePrice4k: %w", err)
-	}
-	return oldValue.ImagePrice4k, nil
-}
-
-// AddImagePrice4k adds f to the "image_price_4k" field.
-func (m *GroupMutation) AddImagePrice4k(f float64) {
-	if m.addimage_price_4k != nil {
-		*m.addimage_price_4k += f
-	} else {
-		m.addimage_price_4k = &f
-	}
-}
-
-// AddedImagePrice4k returns the value that was added to the "image_price_4k" field in this mutation.
-func (m *GroupMutation) AddedImagePrice4k() (r float64, exists bool) {
-	v := m.addimage_price_4k
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ClearImagePrice4k clears the value of the "image_price_4k" field.
-func (m *GroupMutation) ClearImagePrice4k() {
-	m.image_price_4k = nil
-	m.addimage_price_4k = nil
-	m.clearedFields[group.FieldImagePrice4k] = struct{}{}
-}
-
-// ImagePrice4kCleared returns if the "image_price_4k" field was cleared in this mutation.
-func (m *GroupMutation) ImagePrice4kCleared() bool {
-	_, ok := m.clearedFields[group.FieldImagePrice4k]
-	return ok
-}
-
-// ResetImagePrice4k resets all changes to the "image_price_4k" field.
-func (m *GroupMutation) ResetImagePrice4k() {
-	m.image_price_4k = nil
-	m.addimage_price_4k = nil
-	delete(m.clearedFields, group.FieldImagePrice4k)
 }
 
 // SetClaudeCodeOnly sets the "claude_code_only" field.
@@ -17266,7 +16955,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 35)
+	fields := make([]string, 0, 30)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17311,21 +17000,6 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.allow_image_generation != nil {
 		fields = append(fields, group.FieldAllowImageGeneration)
-	}
-	if m.image_rate_independent != nil {
-		fields = append(fields, group.FieldImageRateIndependent)
-	}
-	if m.image_rate_multiplier != nil {
-		fields = append(fields, group.FieldImageRateMultiplier)
-	}
-	if m.image_price_1k != nil {
-		fields = append(fields, group.FieldImagePrice1k)
-	}
-	if m.image_price_2k != nil {
-		fields = append(fields, group.FieldImagePrice2k)
-	}
-	if m.image_price_4k != nil {
-		fields = append(fields, group.FieldImagePrice4k)
 	}
 	if m.claude_code_only != nil {
 		fields = append(fields, group.FieldClaudeCodeOnly)
@@ -17410,16 +17084,6 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.DefaultValidityDays()
 	case group.FieldAllowImageGeneration:
 		return m.AllowImageGeneration()
-	case group.FieldImageRateIndependent:
-		return m.ImageRateIndependent()
-	case group.FieldImageRateMultiplier:
-		return m.ImageRateMultiplier()
-	case group.FieldImagePrice1k:
-		return m.ImagePrice1k()
-	case group.FieldImagePrice2k:
-		return m.ImagePrice2k()
-	case group.FieldImagePrice4k:
-		return m.ImagePrice4k()
 	case group.FieldClaudeCodeOnly:
 		return m.ClaudeCodeOnly()
 	case group.FieldFallbackGroupID:
@@ -17489,16 +17153,6 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldDefaultValidityDays(ctx)
 	case group.FieldAllowImageGeneration:
 		return m.OldAllowImageGeneration(ctx)
-	case group.FieldImageRateIndependent:
-		return m.OldImageRateIndependent(ctx)
-	case group.FieldImageRateMultiplier:
-		return m.OldImageRateMultiplier(ctx)
-	case group.FieldImagePrice1k:
-		return m.OldImagePrice1k(ctx)
-	case group.FieldImagePrice2k:
-		return m.OldImagePrice2k(ctx)
-	case group.FieldImagePrice4k:
-		return m.OldImagePrice4k(ctx)
 	case group.FieldClaudeCodeOnly:
 		return m.OldClaudeCodeOnly(ctx)
 	case group.FieldFallbackGroupID:
@@ -17643,41 +17297,6 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAllowImageGeneration(v)
 		return nil
-	case group.FieldImageRateIndependent:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImageRateIndependent(v)
-		return nil
-	case group.FieldImageRateMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImageRateMultiplier(v)
-		return nil
-	case group.FieldImagePrice1k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImagePrice1k(v)
-		return nil
-	case group.FieldImagePrice2k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImagePrice2k(v)
-		return nil
-	case group.FieldImagePrice4k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetImagePrice4k(v)
-		return nil
 	case group.FieldClaudeCodeOnly:
 		v, ok := value.(bool)
 		if !ok {
@@ -17806,18 +17425,6 @@ func (m *GroupMutation) AddedFields() []string {
 	if m.adddefault_validity_days != nil {
 		fields = append(fields, group.FieldDefaultValidityDays)
 	}
-	if m.addimage_rate_multiplier != nil {
-		fields = append(fields, group.FieldImageRateMultiplier)
-	}
-	if m.addimage_price_1k != nil {
-		fields = append(fields, group.FieldImagePrice1k)
-	}
-	if m.addimage_price_2k != nil {
-		fields = append(fields, group.FieldImagePrice2k)
-	}
-	if m.addimage_price_4k != nil {
-		fields = append(fields, group.FieldImagePrice4k)
-	}
 	if m.addfallback_group_id != nil {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -17848,14 +17455,6 @@ func (m *GroupMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedMonthlyLimitUsd()
 	case group.FieldDefaultValidityDays:
 		return m.AddedDefaultValidityDays()
-	case group.FieldImageRateMultiplier:
-		return m.AddedImageRateMultiplier()
-	case group.FieldImagePrice1k:
-		return m.AddedImagePrice1k()
-	case group.FieldImagePrice2k:
-		return m.AddedImagePrice2k()
-	case group.FieldImagePrice4k:
-		return m.AddedImagePrice4k()
 	case group.FieldFallbackGroupID:
 		return m.AddedFallbackGroupID()
 	case group.FieldFallbackGroupIDOnInvalidRequest:
@@ -17908,34 +17507,6 @@ func (m *GroupMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddDefaultValidityDays(v)
 		return nil
-	case group.FieldImageRateMultiplier:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddImageRateMultiplier(v)
-		return nil
-	case group.FieldImagePrice1k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddImagePrice1k(v)
-		return nil
-	case group.FieldImagePrice2k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddImagePrice2k(v)
-		return nil
-	case group.FieldImagePrice4k:
-		v, ok := value.(float64)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddImagePrice4k(v)
-		return nil
 	case group.FieldFallbackGroupID:
 		v, ok := value.(int64)
 		if !ok {
@@ -17987,15 +17558,6 @@ func (m *GroupMutation) ClearedFields() []string {
 	if m.FieldCleared(group.FieldMonthlyLimitUsd) {
 		fields = append(fields, group.FieldMonthlyLimitUsd)
 	}
-	if m.FieldCleared(group.FieldImagePrice1k) {
-		fields = append(fields, group.FieldImagePrice1k)
-	}
-	if m.FieldCleared(group.FieldImagePrice2k) {
-		fields = append(fields, group.FieldImagePrice2k)
-	}
-	if m.FieldCleared(group.FieldImagePrice4k) {
-		fields = append(fields, group.FieldImagePrice4k)
-	}
 	if m.FieldCleared(group.FieldFallbackGroupID) {
 		fields = append(fields, group.FieldFallbackGroupID)
 	}
@@ -18033,15 +17595,6 @@ func (m *GroupMutation) ClearField(name string) error {
 		return nil
 	case group.FieldMonthlyLimitUsd:
 		m.ClearMonthlyLimitUsd()
-		return nil
-	case group.FieldImagePrice1k:
-		m.ClearImagePrice1k()
-		return nil
-	case group.FieldImagePrice2k:
-		m.ClearImagePrice2k()
-		return nil
-	case group.FieldImagePrice4k:
-		m.ClearImagePrice4k()
 		return nil
 	case group.FieldFallbackGroupID:
 		m.ClearFallbackGroupID()
@@ -18104,21 +17657,6 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldAllowImageGeneration:
 		m.ResetAllowImageGeneration()
-		return nil
-	case group.FieldImageRateIndependent:
-		m.ResetImageRateIndependent()
-		return nil
-	case group.FieldImageRateMultiplier:
-		m.ResetImageRateMultiplier()
-		return nil
-	case group.FieldImagePrice1k:
-		m.ResetImagePrice1k()
-		return nil
-	case group.FieldImagePrice2k:
-		m.ResetImagePrice2k()
-		return nil
-	case group.FieldImagePrice4k:
-		m.ResetImagePrice4k()
 		return nil
 	case group.FieldClaudeCodeOnly:
 		m.ResetClaudeCodeOnly()
@@ -37442,6 +36980,10 @@ type UsageLogMutation struct {
 	addcache_creation_5m_tokens *int
 	cache_creation_1h_tokens    *int
 	addcache_creation_1h_tokens *int
+	image_input_tokens          *int
+	addimage_input_tokens       *int
+	image_output_tokens         *int
+	addimage_output_tokens      *int
 	input_cost                  *float64
 	addinput_cost               *float64
 	output_cost                 *float64
@@ -37450,6 +36992,10 @@ type UsageLogMutation struct {
 	addcache_creation_cost      *float64
 	cache_read_cost             *float64
 	addcache_read_cost          *float64
+	image_input_cost            *float64
+	addimage_input_cost         *float64
+	image_output_cost           *float64
+	addimage_output_cost        *float64
 	total_cost                  *float64
 	addtotal_cost               *float64
 	actual_cost                 *float64
@@ -37475,6 +37021,7 @@ type UsageLogMutation struct {
 	image_size_source           *string
 	image_size_breakdown        *map[string]int
 	cache_ttl_overridden        *bool
+	billing_incomplete          *bool
 	created_at                  *time.Time
 	clearedFields               map[string]struct{}
 	user                        *int64
@@ -38519,6 +38066,118 @@ func (m *UsageLogMutation) ResetCacheCreation1hTokens() {
 	m.addcache_creation_1h_tokens = nil
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (m *UsageLogMutation) SetImageInputTokens(i int) {
+	m.image_input_tokens = &i
+	m.addimage_input_tokens = nil
+}
+
+// ImageInputTokens returns the value of the "image_input_tokens" field in the mutation.
+func (m *UsageLogMutation) ImageInputTokens() (r int, exists bool) {
+	v := m.image_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageInputTokens returns the old "image_input_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldImageInputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageInputTokens: %w", err)
+	}
+	return oldValue.ImageInputTokens, nil
+}
+
+// AddImageInputTokens adds i to the "image_input_tokens" field.
+func (m *UsageLogMutation) AddImageInputTokens(i int) {
+	if m.addimage_input_tokens != nil {
+		*m.addimage_input_tokens += i
+	} else {
+		m.addimage_input_tokens = &i
+	}
+}
+
+// AddedImageInputTokens returns the value that was added to the "image_input_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedImageInputTokens() (r int, exists bool) {
+	v := m.addimage_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageInputTokens resets all changes to the "image_input_tokens" field.
+func (m *UsageLogMutation) ResetImageInputTokens() {
+	m.image_input_tokens = nil
+	m.addimage_input_tokens = nil
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (m *UsageLogMutation) SetImageOutputTokens(i int) {
+	m.image_output_tokens = &i
+	m.addimage_output_tokens = nil
+}
+
+// ImageOutputTokens returns the value of the "image_output_tokens" field in the mutation.
+func (m *UsageLogMutation) ImageOutputTokens() (r int, exists bool) {
+	v := m.image_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageOutputTokens returns the old "image_output_tokens" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldImageOutputTokens(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageOutputTokens: %w", err)
+	}
+	return oldValue.ImageOutputTokens, nil
+}
+
+// AddImageOutputTokens adds i to the "image_output_tokens" field.
+func (m *UsageLogMutation) AddImageOutputTokens(i int) {
+	if m.addimage_output_tokens != nil {
+		*m.addimage_output_tokens += i
+	} else {
+		m.addimage_output_tokens = &i
+	}
+}
+
+// AddedImageOutputTokens returns the value that was added to the "image_output_tokens" field in this mutation.
+func (m *UsageLogMutation) AddedImageOutputTokens() (r int, exists bool) {
+	v := m.addimage_output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageOutputTokens resets all changes to the "image_output_tokens" field.
+func (m *UsageLogMutation) ResetImageOutputTokens() {
+	m.image_output_tokens = nil
+	m.addimage_output_tokens = nil
+}
+
 // SetInputCost sets the "input_cost" field.
 func (m *UsageLogMutation) SetInputCost(f float64) {
 	m.input_cost = &f
@@ -38741,6 +38400,118 @@ func (m *UsageLogMutation) AddedCacheReadCost() (r float64, exists bool) {
 func (m *UsageLogMutation) ResetCacheReadCost() {
 	m.cache_read_cost = nil
 	m.addcache_read_cost = nil
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (m *UsageLogMutation) SetImageInputCost(f float64) {
+	m.image_input_cost = &f
+	m.addimage_input_cost = nil
+}
+
+// ImageInputCost returns the value of the "image_input_cost" field in the mutation.
+func (m *UsageLogMutation) ImageInputCost() (r float64, exists bool) {
+	v := m.image_input_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageInputCost returns the old "image_input_cost" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldImageInputCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageInputCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageInputCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageInputCost: %w", err)
+	}
+	return oldValue.ImageInputCost, nil
+}
+
+// AddImageInputCost adds f to the "image_input_cost" field.
+func (m *UsageLogMutation) AddImageInputCost(f float64) {
+	if m.addimage_input_cost != nil {
+		*m.addimage_input_cost += f
+	} else {
+		m.addimage_input_cost = &f
+	}
+}
+
+// AddedImageInputCost returns the value that was added to the "image_input_cost" field in this mutation.
+func (m *UsageLogMutation) AddedImageInputCost() (r float64, exists bool) {
+	v := m.addimage_input_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageInputCost resets all changes to the "image_input_cost" field.
+func (m *UsageLogMutation) ResetImageInputCost() {
+	m.image_input_cost = nil
+	m.addimage_input_cost = nil
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (m *UsageLogMutation) SetImageOutputCost(f float64) {
+	m.image_output_cost = &f
+	m.addimage_output_cost = nil
+}
+
+// ImageOutputCost returns the value of the "image_output_cost" field in the mutation.
+func (m *UsageLogMutation) ImageOutputCost() (r float64, exists bool) {
+	v := m.image_output_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageOutputCost returns the old "image_output_cost" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldImageOutputCost(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageOutputCost is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageOutputCost requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageOutputCost: %w", err)
+	}
+	return oldValue.ImageOutputCost, nil
+}
+
+// AddImageOutputCost adds f to the "image_output_cost" field.
+func (m *UsageLogMutation) AddImageOutputCost(f float64) {
+	if m.addimage_output_cost != nil {
+		*m.addimage_output_cost += f
+	} else {
+		m.addimage_output_cost = &f
+	}
+}
+
+// AddedImageOutputCost returns the value that was added to the "image_output_cost" field in this mutation.
+func (m *UsageLogMutation) AddedImageOutputCost() (r float64, exists bool) {
+	v := m.addimage_output_cost
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetImageOutputCost resets all changes to the "image_output_cost" field.
+func (m *UsageLogMutation) ResetImageOutputCost() {
+	m.image_output_cost = nil
+	m.addimage_output_cost = nil
 }
 
 // SetTotalCost sets the "total_cost" field.
@@ -39648,6 +39419,42 @@ func (m *UsageLogMutation) ResetCacheTTLOverridden() {
 	m.cache_ttl_overridden = nil
 }
 
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (m *UsageLogMutation) SetBillingIncomplete(b bool) {
+	m.billing_incomplete = &b
+}
+
+// BillingIncomplete returns the value of the "billing_incomplete" field in the mutation.
+func (m *UsageLogMutation) BillingIncomplete() (r bool, exists bool) {
+	v := m.billing_incomplete
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBillingIncomplete returns the old "billing_incomplete" field's value of the UsageLog entity.
+// If the UsageLog object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UsageLogMutation) OldBillingIncomplete(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBillingIncomplete is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBillingIncomplete requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBillingIncomplete: %w", err)
+	}
+	return oldValue.BillingIncomplete, nil
+}
+
+// ResetBillingIncomplete resets all changes to the "billing_incomplete" field.
+func (m *UsageLogMutation) ResetBillingIncomplete() {
+	m.billing_incomplete = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *UsageLogMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -39853,7 +39660,7 @@ func (m *UsageLogMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UsageLogMutation) Fields() []string {
-	fields := make([]string, 0, 41)
+	fields := make([]string, 0, 46)
 	if m.user != nil {
 		fields = append(fields, usagelog.FieldUserID)
 	}
@@ -39911,6 +39718,12 @@ func (m *UsageLogMutation) Fields() []string {
 	if m.cache_creation_1h_tokens != nil {
 		fields = append(fields, usagelog.FieldCacheCreation1hTokens)
 	}
+	if m.image_input_tokens != nil {
+		fields = append(fields, usagelog.FieldImageInputTokens)
+	}
+	if m.image_output_tokens != nil {
+		fields = append(fields, usagelog.FieldImageOutputTokens)
+	}
 	if m.input_cost != nil {
 		fields = append(fields, usagelog.FieldInputCost)
 	}
@@ -39922,6 +39735,12 @@ func (m *UsageLogMutation) Fields() []string {
 	}
 	if m.cache_read_cost != nil {
 		fields = append(fields, usagelog.FieldCacheReadCost)
+	}
+	if m.image_input_cost != nil {
+		fields = append(fields, usagelog.FieldImageInputCost)
+	}
+	if m.image_output_cost != nil {
+		fields = append(fields, usagelog.FieldImageOutputCost)
 	}
 	if m.total_cost != nil {
 		fields = append(fields, usagelog.FieldTotalCost)
@@ -39974,6 +39793,9 @@ func (m *UsageLogMutation) Fields() []string {
 	if m.cache_ttl_overridden != nil {
 		fields = append(fields, usagelog.FieldCacheTTLOverridden)
 	}
+	if m.billing_incomplete != nil {
+		fields = append(fields, usagelog.FieldBillingIncomplete)
+	}
 	if m.created_at != nil {
 		fields = append(fields, usagelog.FieldCreatedAt)
 	}
@@ -40023,6 +39845,10 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheCreation5mTokens()
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.CacheCreation1hTokens()
+	case usagelog.FieldImageInputTokens:
+		return m.ImageInputTokens()
+	case usagelog.FieldImageOutputTokens:
+		return m.ImageOutputTokens()
 	case usagelog.FieldInputCost:
 		return m.InputCost()
 	case usagelog.FieldOutputCost:
@@ -40031,6 +39857,10 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.CacheCreationCost()
 	case usagelog.FieldCacheReadCost:
 		return m.CacheReadCost()
+	case usagelog.FieldImageInputCost:
+		return m.ImageInputCost()
+	case usagelog.FieldImageOutputCost:
+		return m.ImageOutputCost()
 	case usagelog.FieldTotalCost:
 		return m.TotalCost()
 	case usagelog.FieldActualCost:
@@ -40065,6 +39895,8 @@ func (m *UsageLogMutation) Field(name string) (ent.Value, bool) {
 		return m.ImageSizeBreakdown()
 	case usagelog.FieldCacheTTLOverridden:
 		return m.CacheTTLOverridden()
+	case usagelog.FieldBillingIncomplete:
+		return m.BillingIncomplete()
 	case usagelog.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -40114,6 +39946,10 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldCacheCreation5mTokens(ctx)
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.OldCacheCreation1hTokens(ctx)
+	case usagelog.FieldImageInputTokens:
+		return m.OldImageInputTokens(ctx)
+	case usagelog.FieldImageOutputTokens:
+		return m.OldImageOutputTokens(ctx)
 	case usagelog.FieldInputCost:
 		return m.OldInputCost(ctx)
 	case usagelog.FieldOutputCost:
@@ -40122,6 +39958,10 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldCacheCreationCost(ctx)
 	case usagelog.FieldCacheReadCost:
 		return m.OldCacheReadCost(ctx)
+	case usagelog.FieldImageInputCost:
+		return m.OldImageInputCost(ctx)
+	case usagelog.FieldImageOutputCost:
+		return m.OldImageOutputCost(ctx)
 	case usagelog.FieldTotalCost:
 		return m.OldTotalCost(ctx)
 	case usagelog.FieldActualCost:
@@ -40156,6 +39996,8 @@ func (m *UsageLogMutation) OldField(ctx context.Context, name string) (ent.Value
 		return m.OldImageSizeBreakdown(ctx)
 	case usagelog.FieldCacheTTLOverridden:
 		return m.OldCacheTTLOverridden(ctx)
+	case usagelog.FieldBillingIncomplete:
+		return m.OldBillingIncomplete(ctx)
 	case usagelog.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -40300,6 +40142,20 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCacheCreation1hTokens(v)
 		return nil
+	case usagelog.FieldImageInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageInputTokens(v)
+		return nil
+	case usagelog.FieldImageOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageOutputTokens(v)
+		return nil
 	case usagelog.FieldInputCost:
 		v, ok := value.(float64)
 		if !ok {
@@ -40327,6 +40183,20 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCacheReadCost(v)
+		return nil
+	case usagelog.FieldImageInputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageInputCost(v)
+		return nil
+	case usagelog.FieldImageOutputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageOutputCost(v)
 		return nil
 	case usagelog.FieldTotalCost:
 		v, ok := value.(float64)
@@ -40447,6 +40317,13 @@ func (m *UsageLogMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetCacheTTLOverridden(v)
 		return nil
+	case usagelog.FieldBillingIncomplete:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBillingIncomplete(v)
+		return nil
 	case usagelog.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -40483,6 +40360,12 @@ func (m *UsageLogMutation) AddedFields() []string {
 	if m.addcache_creation_1h_tokens != nil {
 		fields = append(fields, usagelog.FieldCacheCreation1hTokens)
 	}
+	if m.addimage_input_tokens != nil {
+		fields = append(fields, usagelog.FieldImageInputTokens)
+	}
+	if m.addimage_output_tokens != nil {
+		fields = append(fields, usagelog.FieldImageOutputTokens)
+	}
 	if m.addinput_cost != nil {
 		fields = append(fields, usagelog.FieldInputCost)
 	}
@@ -40494,6 +40377,12 @@ func (m *UsageLogMutation) AddedFields() []string {
 	}
 	if m.addcache_read_cost != nil {
 		fields = append(fields, usagelog.FieldCacheReadCost)
+	}
+	if m.addimage_input_cost != nil {
+		fields = append(fields, usagelog.FieldImageInputCost)
+	}
+	if m.addimage_output_cost != nil {
+		fields = append(fields, usagelog.FieldImageOutputCost)
 	}
 	if m.addtotal_cost != nil {
 		fields = append(fields, usagelog.FieldTotalCost)
@@ -40541,6 +40430,10 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedCacheCreation5mTokens()
 	case usagelog.FieldCacheCreation1hTokens:
 		return m.AddedCacheCreation1hTokens()
+	case usagelog.FieldImageInputTokens:
+		return m.AddedImageInputTokens()
+	case usagelog.FieldImageOutputTokens:
+		return m.AddedImageOutputTokens()
 	case usagelog.FieldInputCost:
 		return m.AddedInputCost()
 	case usagelog.FieldOutputCost:
@@ -40549,6 +40442,10 @@ func (m *UsageLogMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedCacheCreationCost()
 	case usagelog.FieldCacheReadCost:
 		return m.AddedCacheReadCost()
+	case usagelog.FieldImageInputCost:
+		return m.AddedImageInputCost()
+	case usagelog.FieldImageOutputCost:
+		return m.AddedImageOutputCost()
 	case usagelog.FieldTotalCost:
 		return m.AddedTotalCost()
 	case usagelog.FieldActualCost:
@@ -40623,6 +40520,20 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddCacheCreation1hTokens(v)
 		return nil
+	case usagelog.FieldImageInputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageInputTokens(v)
+		return nil
+	case usagelog.FieldImageOutputTokens:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageOutputTokens(v)
+		return nil
 	case usagelog.FieldInputCost:
 		v, ok := value.(float64)
 		if !ok {
@@ -40650,6 +40561,20 @@ func (m *UsageLogMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddCacheReadCost(v)
+		return nil
+	case usagelog.FieldImageInputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageInputCost(v)
+		return nil
+	case usagelog.FieldImageOutputCost:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddImageOutputCost(v)
 		return nil
 	case usagelog.FieldTotalCost:
 		v, ok := value.(float64)
@@ -40902,6 +40827,12 @@ func (m *UsageLogMutation) ResetField(name string) error {
 	case usagelog.FieldCacheCreation1hTokens:
 		m.ResetCacheCreation1hTokens()
 		return nil
+	case usagelog.FieldImageInputTokens:
+		m.ResetImageInputTokens()
+		return nil
+	case usagelog.FieldImageOutputTokens:
+		m.ResetImageOutputTokens()
+		return nil
 	case usagelog.FieldInputCost:
 		m.ResetInputCost()
 		return nil
@@ -40913,6 +40844,12 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldCacheReadCost:
 		m.ResetCacheReadCost()
+		return nil
+	case usagelog.FieldImageInputCost:
+		m.ResetImageInputCost()
+		return nil
+	case usagelog.FieldImageOutputCost:
+		m.ResetImageOutputCost()
 		return nil
 	case usagelog.FieldTotalCost:
 		m.ResetTotalCost()
@@ -40964,6 +40901,9 @@ func (m *UsageLogMutation) ResetField(name string) error {
 		return nil
 	case usagelog.FieldCacheTTLOverridden:
 		m.ResetCacheTTLOverridden()
+		return nil
+	case usagelog.FieldBillingIncomplete:
+		m.ResetBillingIncomplete()
 		return nil
 	case usagelog.FieldCreatedAt:
 		m.ResetCreatedAt()

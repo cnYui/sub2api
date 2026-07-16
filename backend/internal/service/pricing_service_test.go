@@ -37,6 +37,23 @@ func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
 	require.True(t, pricing.SupportsServiceTier)
 }
 
+func TestPricingServiceImageTokenPricesIncludeInputAndOutputFromDefaultJSON(t *testing.T) {
+	svc := &PricingService{}
+	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+
+	pricingData, err := svc.parsePricingData(data)
+	require.NoError(t, err)
+
+	pricing := pricingData["gpt-image-2"]
+	require.NotNil(t, pricing)
+	require.InDelta(t, 5e-6, pricing.InputCostPerToken, 1e-12)
+	require.InDelta(t, 8e-6, pricing.InputCostPerImageToken, 1e-12)
+	require.InDelta(t, 1e-5, pricing.OutputCostPerToken, 1e-12)
+	require.InDelta(t, 3e-5, pricing.OutputCostPerImageToken, 1e-12)
+	require.InDelta(t, 1.25e-6, pricing.CacheReadInputTokenCost, 1e-12)
+}
+
 func TestParsePricingData_PreservesLongContextFields(t *testing.T) {
 	svc := &PricingService{}
 	pricingData, err := svc.parsePricingData([]byte(`{

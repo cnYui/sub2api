@@ -220,6 +220,46 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerTokenPriority, 1e-12)
 }
 
+func TestModelPricingResolverForceTokenIgnoresImageChannelMode(t *testing.T) {
+	r := newResolverWithChannel(t, []ChannelModelPricing{{
+		Platform:        "anthropic",
+		Models:          []string{"claude-sonnet-4"},
+		BillingMode:     BillingModeImage,
+		PerRequestPrice: testPtrFloat64(0.25),
+	}})
+
+	resolved := r.ResolveToken(context.Background(), PricingInput{
+		Model:   "claude-sonnet-4",
+		GroupID: groupIDPtr(),
+	})
+
+	require.NotNil(t, resolved)
+	require.Equal(t, BillingModeToken, resolved.Mode)
+	require.Empty(t, resolved.RequestTiers)
+	require.InDelta(t, 3e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
+}
+
+func TestModelPricingResolverForceTokenAppliesTokenChannelOverride(t *testing.T) {
+	r := newResolverWithChannel(t, []ChannelModelPricing{{
+		Platform:    "anthropic",
+		Models:      []string{"claude-sonnet-4"},
+		BillingMode: BillingModeToken,
+		InputPrice:  testPtrFloat64(11e-6),
+		OutputPrice: testPtrFloat64(22e-6),
+	}})
+
+	resolved := r.ResolveToken(context.Background(), PricingInput{
+		Model:   "claude-sonnet-4",
+		GroupID: groupIDPtr(),
+	})
+
+	require.NotNil(t, resolved)
+	require.Equal(t, BillingModeToken, resolved.Mode)
+	require.Equal(t, PricingSourceChannel, resolved.Source)
+	require.InDelta(t, 11e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 22e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
+}
+
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	// Channel only sets InputPrice; OutputPrice should remain from the base (LiteLLM/fallback).
 	r := newResolverWithChannel(t, []ChannelModelPricing{{

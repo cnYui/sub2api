@@ -9045,7 +9045,10 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.OutputTokens = usageLog.OutputTokens
 		cmd.CacheCreationTokens = usageLog.CacheCreationTokens
 		cmd.CacheReadTokens = usageLog.CacheReadTokens
+		cmd.ImageInputTokens = usageLog.ImageInputTokens
+		cmd.ImageOutputTokens = usageLog.ImageOutputTokens
 		cmd.ImageCount = usageLog.ImageCount
+		cmd.BillingIncomplete = usageLog.BillingIncomplete
 		if usageLog.ServiceTier != nil {
 			cmd.ServiceTier = *usageLog.ServiceTier
 		}
@@ -9483,8 +9486,6 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		groupDefault := apiKey.Group.RateMultiplier
 		multiplier = s.getUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, groupDefault)
 	}
-	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
-
 	// 确定计费模型
 	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
 	if input.BillingModelSource == BillingModelSourceChannelMapped && input.ChannelMappedModel != "" {
@@ -9501,7 +9502,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	// 计算费用
-	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts)
+	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, opts)
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -9522,7 +9523,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	// 创建使用日志
 	accountRateMultiplier := account.BillingRateMultiplier()
 	usageLog := s.buildRecordUsageLog(ctx, input, result, apiKey, user, account, subscription,
-		requestedModel, multiplier, imageMultiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
+		requestedModel, multiplier, accountRateMultiplier, billingType, cacheTTLOverridden, cost, opts)
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -9581,18 +9582,15 @@ func (s *GatewayService) calculateRecordUsageCost(
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
-	imageMultiplier float64,
 	opts *recordUsageOpts,
 ) *CostBreakdown {
-	// 图片生成：渠道定价为 token 计费时走 token 路径，否则走图片计费
+	// 非 OpenAI 平台仍可显式使用通用按次渠道定价；没有显式配置时统一按 Token 计费。
 	if result.ImageCount > 0 {
-		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil && resolved.Mode == BillingModeToken {
-			return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
+		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
+			(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
+			return s.calculateImageChannelCost(ctx, result, apiKey, billingModel, multiplier, resolved)
 		}
-		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
 	}
-
-	// Token 计费
 	return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
 }
 
@@ -9610,49 +9608,38 @@ func (s *GatewayService) resolveChannelPricing(ctx context.Context, billingModel
 	return nil
 }
 
-// calculateImageCost 计算图片生成费用：渠道级别定价优先，否则走按次计费。
-func (s *GatewayService) calculateImageCost(
+// calculateImageChannelCost 只处理渠道显式配置的通用按次计费。
+func (s *GatewayService) calculateImageChannelCost(
 	ctx context.Context,
 	result *ForwardResult,
 	apiKey *APIKey,
 	billingModel string,
 	multiplier float64,
+	resolved *ResolvedPricing,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
-	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
-		tokens := UsageTokens{
-			InputTokens:       result.Usage.InputTokens,
-			OutputTokens:      result.Usage.OutputTokens,
-			ImageOutputTokens: result.Usage.ImageOutputTokens,
-		}
-		gid := apiKey.Group.ID
-		cost, err := s.billingService.CalculateCostUnified(CostInput{
-			Ctx:            ctx,
-			Model:          billingModel,
-			GroupID:        &gid,
-			Tokens:         tokens,
-			RequestCount:   result.ImageCount,
-			SizeTier:       sizeTier,
-			RateMultiplier: multiplier,
-			Resolver:       s.resolver,
-			Resolved:       resolved,
-		})
-		if err != nil {
-			logger.LegacyPrintf("service.gateway", "Calculate image token cost failed: %v", err)
-			return &CostBreakdown{ActualCost: 0}
-		}
-		return cost
+	tokens := UsageTokens{
+		InputTokens:       result.Usage.InputTokens,
+		OutputTokens:      result.Usage.OutputTokens,
+		ImageOutputTokens: result.Usage.ImageOutputTokens,
 	}
-
-	var groupConfig *ImagePriceConfig
-	if apiKey.Group != nil {
-		groupConfig = &ImagePriceConfig{
-			Price1K: apiKey.Group.ImagePrice1K,
-			Price2K: apiKey.Group.ImagePrice2K,
-			Price4K: apiKey.Group.ImagePrice4K,
-		}
+	gid := apiKey.Group.ID
+	cost, err := s.billingService.CalculateCostUnified(CostInput{
+		Ctx:            ctx,
+		Model:          billingModel,
+		GroupID:        &gid,
+		Tokens:         tokens,
+		RequestCount:   result.ImageCount,
+		SizeTier:       sizeTier,
+		RateMultiplier: multiplier,
+		Resolver:       s.resolver,
+		Resolved:       resolved,
+	})
+	if err != nil {
+		logger.LegacyPrintf("service.gateway", "Calculate image channel cost failed: %v", err)
+		return &CostBreakdown{ActualCost: 0}
 	}
-	return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
+	return cost
 }
 
 // calculateTokenCost 计算 Token 计费：根据 opts 决定走普通/长上下文/渠道统一计费。
@@ -9717,7 +9704,6 @@ func (s *GatewayService) buildRecordUsageLog(
 	subscription *UserSubscription,
 	requestedModel string,
 	multiplier float64,
-	imageMultiplier float64,
 	accountRateMultiplier float64,
 	billingType int8,
 	cacheTTLOverridden bool,
@@ -9765,9 +9751,6 @@ func (s *GatewayService) buildRecordUsageLog(
 		GroupID:               apiKey.GroupID,
 		SubscriptionID:        optionalSubscriptionID(subscription),
 		CreatedAt:             time.Now(),
-	}
-	if result.ImageCount > 0 && (cost == nil || cost.BillingMode != string(BillingModeToken)) {
-		usageLog.RateMultiplier = imageMultiplier
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost

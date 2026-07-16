@@ -150,6 +150,16 @@ func CacheCreation1hTokens(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldCacheCreation1hTokens, v))
 }
 
+// ImageInputTokens applies equality check predicate on the "image_input_tokens" field. It's identical to ImageInputTokensEQ.
+func ImageInputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageInputTokens, v))
+}
+
+// ImageOutputTokens applies equality check predicate on the "image_output_tokens" field. It's identical to ImageOutputTokensEQ.
+func ImageOutputTokens(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageOutputTokens, v))
+}
+
 // InputCost applies equality check predicate on the "input_cost" field. It's identical to InputCostEQ.
 func InputCost(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldInputCost, v))
@@ -168,6 +178,16 @@ func CacheCreationCost(v float64) predicate.UsageLog {
 // CacheReadCost applies equality check predicate on the "cache_read_cost" field. It's identical to CacheReadCostEQ.
 func CacheReadCost(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldCacheReadCost, v))
+}
+
+// ImageInputCost applies equality check predicate on the "image_input_cost" field. It's identical to ImageInputCostEQ.
+func ImageInputCost(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageInputCost, v))
+}
+
+// ImageOutputCost applies equality check predicate on the "image_output_cost" field. It's identical to ImageOutputCostEQ.
+func ImageOutputCost(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageOutputCost, v))
 }
 
 // TotalCost applies equality check predicate on the "total_cost" field. It's identical to TotalCostEQ.
@@ -248,6 +268,11 @@ func ImageSizeSource(v string) predicate.UsageLog {
 // CacheTTLOverridden applies equality check predicate on the "cache_ttl_overridden" field. It's identical to CacheTTLOverriddenEQ.
 func CacheTTLOverridden(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldCacheTTLOverridden, v))
+}
+
+// BillingIncomplete applies equality check predicate on the "billing_incomplete" field. It's identical to BillingIncompleteEQ.
+func BillingIncomplete(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingIncomplete, v))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
@@ -1170,6 +1195,86 @@ func CacheCreation1hTokensLTE(v int) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldCacheCreation1hTokens, v))
 }
 
+// ImageInputTokensEQ applies the EQ predicate on the "image_input_tokens" field.
+func ImageInputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageInputTokens, v))
+}
+
+// ImageInputTokensNEQ applies the NEQ predicate on the "image_input_tokens" field.
+func ImageInputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldImageInputTokens, v))
+}
+
+// ImageInputTokensIn applies the In predicate on the "image_input_tokens" field.
+func ImageInputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldImageInputTokens, vs...))
+}
+
+// ImageInputTokensNotIn applies the NotIn predicate on the "image_input_tokens" field.
+func ImageInputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldImageInputTokens, vs...))
+}
+
+// ImageInputTokensGT applies the GT predicate on the "image_input_tokens" field.
+func ImageInputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldImageInputTokens, v))
+}
+
+// ImageInputTokensGTE applies the GTE predicate on the "image_input_tokens" field.
+func ImageInputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldImageInputTokens, v))
+}
+
+// ImageInputTokensLT applies the LT predicate on the "image_input_tokens" field.
+func ImageInputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldImageInputTokens, v))
+}
+
+// ImageInputTokensLTE applies the LTE predicate on the "image_input_tokens" field.
+func ImageInputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldImageInputTokens, v))
+}
+
+// ImageOutputTokensEQ applies the EQ predicate on the "image_output_tokens" field.
+func ImageOutputTokensEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageOutputTokens, v))
+}
+
+// ImageOutputTokensNEQ applies the NEQ predicate on the "image_output_tokens" field.
+func ImageOutputTokensNEQ(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldImageOutputTokens, v))
+}
+
+// ImageOutputTokensIn applies the In predicate on the "image_output_tokens" field.
+func ImageOutputTokensIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldImageOutputTokens, vs...))
+}
+
+// ImageOutputTokensNotIn applies the NotIn predicate on the "image_output_tokens" field.
+func ImageOutputTokensNotIn(vs ...int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldImageOutputTokens, vs...))
+}
+
+// ImageOutputTokensGT applies the GT predicate on the "image_output_tokens" field.
+func ImageOutputTokensGT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldImageOutputTokens, v))
+}
+
+// ImageOutputTokensGTE applies the GTE predicate on the "image_output_tokens" field.
+func ImageOutputTokensGTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldImageOutputTokens, v))
+}
+
+// ImageOutputTokensLT applies the LT predicate on the "image_output_tokens" field.
+func ImageOutputTokensLT(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldImageOutputTokens, v))
+}
+
+// ImageOutputTokensLTE applies the LTE predicate on the "image_output_tokens" field.
+func ImageOutputTokensLTE(v int) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldImageOutputTokens, v))
+}
+
 // InputCostEQ applies the EQ predicate on the "input_cost" field.
 func InputCostEQ(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldInputCost, v))
@@ -1328,6 +1433,86 @@ func CacheReadCostLT(v float64) predicate.UsageLog {
 // CacheReadCostLTE applies the LTE predicate on the "cache_read_cost" field.
 func CacheReadCostLTE(v float64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldLTE(FieldCacheReadCost, v))
+}
+
+// ImageInputCostEQ applies the EQ predicate on the "image_input_cost" field.
+func ImageInputCostEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageInputCost, v))
+}
+
+// ImageInputCostNEQ applies the NEQ predicate on the "image_input_cost" field.
+func ImageInputCostNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldImageInputCost, v))
+}
+
+// ImageInputCostIn applies the In predicate on the "image_input_cost" field.
+func ImageInputCostIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldImageInputCost, vs...))
+}
+
+// ImageInputCostNotIn applies the NotIn predicate on the "image_input_cost" field.
+func ImageInputCostNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldImageInputCost, vs...))
+}
+
+// ImageInputCostGT applies the GT predicate on the "image_input_cost" field.
+func ImageInputCostGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldImageInputCost, v))
+}
+
+// ImageInputCostGTE applies the GTE predicate on the "image_input_cost" field.
+func ImageInputCostGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldImageInputCost, v))
+}
+
+// ImageInputCostLT applies the LT predicate on the "image_input_cost" field.
+func ImageInputCostLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldImageInputCost, v))
+}
+
+// ImageInputCostLTE applies the LTE predicate on the "image_input_cost" field.
+func ImageInputCostLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldImageInputCost, v))
+}
+
+// ImageOutputCostEQ applies the EQ predicate on the "image_output_cost" field.
+func ImageOutputCostEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldImageOutputCost, v))
+}
+
+// ImageOutputCostNEQ applies the NEQ predicate on the "image_output_cost" field.
+func ImageOutputCostNEQ(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldImageOutputCost, v))
+}
+
+// ImageOutputCostIn applies the In predicate on the "image_output_cost" field.
+func ImageOutputCostIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldIn(FieldImageOutputCost, vs...))
+}
+
+// ImageOutputCostNotIn applies the NotIn predicate on the "image_output_cost" field.
+func ImageOutputCostNotIn(vs ...float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNotIn(FieldImageOutputCost, vs...))
+}
+
+// ImageOutputCostGT applies the GT predicate on the "image_output_cost" field.
+func ImageOutputCostGT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGT(FieldImageOutputCost, v))
+}
+
+// ImageOutputCostGTE applies the GTE predicate on the "image_output_cost" field.
+func ImageOutputCostGTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldGTE(FieldImageOutputCost, v))
+}
+
+// ImageOutputCostLT applies the LT predicate on the "image_output_cost" field.
+func ImageOutputCostLT(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLT(FieldImageOutputCost, v))
+}
+
+// ImageOutputCostLTE applies the LTE predicate on the "image_output_cost" field.
+func ImageOutputCostLTE(v float64) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldLTE(FieldImageOutputCost, v))
 }
 
 // TotalCostEQ applies the EQ predicate on the "total_cost" field.
@@ -2158,6 +2343,16 @@ func CacheTTLOverriddenEQ(v bool) predicate.UsageLog {
 // CacheTTLOverriddenNEQ applies the NEQ predicate on the "cache_ttl_overridden" field.
 func CacheTTLOverriddenNEQ(v bool) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldNEQ(FieldCacheTTLOverridden, v))
+}
+
+// BillingIncompleteEQ applies the EQ predicate on the "billing_incomplete" field.
+func BillingIncompleteEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldEQ(FieldBillingIncomplete, v))
+}
+
+// BillingIncompleteNEQ applies the NEQ predicate on the "billing_incomplete" field.
+func BillingIncompleteNEQ(v bool) predicate.UsageLog {
+	return predicate.UsageLog(sql.FieldNEQ(FieldBillingIncomplete, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

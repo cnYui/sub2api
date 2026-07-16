@@ -68,11 +68,51 @@ func TestOpenAITrafficCreditBudget_UsesExplicitMaxTokens(t *testing.T) {
 	require.Equal(t, int64(512), gjson.GetBytes(got.Body, "max_tokens").Int())
 }
 
+func TestOpenAITrafficCreditBudget_ImageUsesImageTokenBoundsWithoutOutputClamp(t *testing.T) {
+	estimator := newTestTrafficBudgetEstimatorWithImagePricing(0.01, 256, 8192)
+	got, err := estimator.Estimate(context.Background(), OpenAITrafficBudgetInput{
+		Model:                      "gpt-5.6-sol",
+		ImageModel:                 "gpt-image-2",
+		Body:                       []byte(`{"model":"gpt-image-2","prompt":"draw a cat","n":1}`),
+		AvailableUSD:               1,
+		ImageInputTokenUpperBound:  7,
+		ImageOutputTokenUpperBound: 1756,
+		DoNotClampOutputLimit:      true,
+	})
+
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(got.Body, "max_output_tokens").Exists())
+	require.Equal(t, 7, got.ImageInputTokenUpperBound)
+	require.Equal(t, 1756, got.ImageOutputTokenUpperBound)
+	require.GreaterOrEqual(t, got.ReserveUSD, 7*8e-6+1756*30e-6)
+	require.Equal(t, "gpt-image-2", gjson.GetBytes(got.PricingSnapshot, "image_model").String())
+	require.Equal(t, int64(1756), gjson.GetBytes(got.PricingSnapshot, "image_output_token_upper_bound").Int())
+	require.InDelta(t, 30e-6, gjson.GetBytes(got.PricingSnapshot, "image_output_price_per_token").Float(), 1e-12)
+}
+
 func newTestTrafficBudgetEstimator(minimumReserve float64, minimumOutput, defaultMaxOutput int) *OpenAITrafficCreditBudgetEstimator {
 	cfg := &config.Config{}
 	cfg.Default.RateMultiplier = 1
 	return NewOpenAITrafficCreditBudgetEstimator(
 		NewBillingService(cfg, nil),
+		minimumReserve,
+		minimumOutput,
+		defaultMaxOutput,
+	)
+}
+
+func newTestTrafficBudgetEstimatorWithImagePricing(minimumReserve float64, minimumOutput, defaultMaxOutput int) *OpenAITrafficCreditBudgetEstimator {
+	cfg := &config.Config{}
+	cfg.Default.RateMultiplier = 1
+	return NewOpenAITrafficCreditBudgetEstimator(
+		NewBillingService(cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+			"gpt-image-2": {
+				InputCostPerToken:       5e-6,
+				InputCostPerImageToken:  8e-6,
+				OutputCostPerToken:      10e-6,
+				OutputCostPerImageToken: 30e-6,
+			},
+		}}),
 		minimumReserve,
 		minimumOutput,
 		defaultMaxOutput,

@@ -51,6 +51,14 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_logs", "image_output_size", "character varying", 32, true)
 	requireColumn(t, tx, "usage_logs", "image_size_source", "character varying", 16, true)
 	requireColumn(t, tx, "usage_logs", "image_size_breakdown", "jsonb", 0, true)
+	requireColumn(t, tx, "usage_logs", "image_input_tokens", "integer", 0, false)
+	requireColumn(t, tx, "usage_logs", "image_input_cost", "numeric", 0, false)
+	requireColumn(t, tx, "usage_logs", "billing_incomplete", "boolean", 0, false)
+	requireNoColumn(t, tx, "groups", "image_rate_independent")
+	requireNoColumn(t, tx, "groups", "image_rate_multiplier")
+	requireNoColumn(t, tx, "groups", "image_price_1k")
+	requireNoColumn(t, tx, "groups", "image_price_2k")
+	requireNoColumn(t, tx, "groups", "image_price_4k")
 	requireConstraintDefinitionContains(
 		t,
 		tx,
@@ -126,6 +134,20 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	var reservationItemsRegclass sql.NullString
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_reservation_items')").Scan(&reservationItemsRegclass))
 	require.True(t, reservationItemsRegclass.Valid, "expected traffic_credit_reservation_items table to exist")
+
+	var exhaustionEventsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_exhaustion_events')").Scan(&exhaustionEventsRegclass))
+	require.True(t, exhaustionEventsRegclass.Valid, "expected traffic_credit_exhaustion_events table to exist")
+	requireColumn(t, tx, "traffic_credit_exhaustion_events", "credit_id", "bigint", 0, false)
+	requireColumn(t, tx, "traffic_credit_exhaustion_events", "acknowledged_at", "timestamp with time zone", 0, true)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"traffic_credit_exhaustion_events",
+		"traffic_credit_exhaustion_events_user_credit_unique",
+		"UNIQUE (user_id, credit_id)",
+	)
+	requireIndex(t, tx, "traffic_credit_exhaustion_events", "idx_traffic_credit_exhaustion_events_pending")
 
 	// settings table should exist
 	var settingsRegclass sql.NullString
@@ -234,6 +256,9 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 
 func TestMigrationsRunner_AutoAPIKeyEffectiveGroupSeed(t *testing.T) {
 	ctx := context.Background()
+	if !columnExists(t, integrationDB, "groups", "image_rate_independent") {
+		t.Skip("migration 159 historical replay references image columns removed by migration 168")
+	}
 	suffix := time.Now().UnixNano()
 	email := fmt.Sprintf("auto-key-migration-%d@example.test", suffix)
 	openAIGroupName := fmt.Sprintf("auto-key-openai-%d", suffix)
@@ -536,4 +561,38 @@ WHERE table_schema = 'public'
 	} else {
 		require.Equal(t, "NO", row.Nullable, "nullable mismatch for %s.%s", table, column)
 	}
+}
+
+func requireNoColumn(t *testing.T, tx *sql.Tx, table, column string) {
+	t.Helper()
+
+	var exists bool
+	err := tx.QueryRowContext(context.Background(), `
+SELECT EXISTS (
+  SELECT 1
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = $1
+    AND column_name = $2
+)
+`, table, column).Scan(&exists)
+	require.NoError(t, err, "query information_schema.columns for %s.%s", table, column)
+	require.False(t, exists, "expected column %s.%s to be absent", table, column)
+}
+
+func columnExists(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+
+	var exists bool
+	err := db.QueryRowContext(context.Background(), `
+SELECT EXISTS (
+  SELECT 1
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = $1
+    AND column_name = $2
+)
+`, table, column).Scan(&exists)
+	require.NoError(t, err, "query information_schema.columns for %s.%s", table, column)
+	return exists
 }

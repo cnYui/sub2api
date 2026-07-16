@@ -9,6 +9,8 @@ const mockLogout = vi.fn()
 const mockGetCurrentUser = vi.fn()
 const mockRegister = vi.fn()
 const mockRefreshToken = vi.fn()
+const mockAckTrafficCreditExhaustionEvents = vi.fn()
+const mockShowError = vi.fn()
 
 vi.mock('@/api', () => ({
   authAPI: {
@@ -20,6 +22,16 @@ vi.mock('@/api', () => ({
     refreshToken: (...args: any[]) => mockRefreshToken(...args),
   },
   isTotp2FARequired: (response: any) => response?.requires_2fa === true,
+}))
+
+vi.mock('@/api/user', () => ({
+  ackTrafficCreditExhaustionEvents: (...args: any[]) => mockAckTrafficCreditExhaustionEvents(...args),
+}))
+
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({
+    showError: mockShowError,
+  }),
 }))
 
 const fakeUser = {
@@ -57,6 +69,8 @@ describe('useAuthStore', () => {
     localStorage.clear()
     vi.useFakeTimers()
     vi.clearAllMocks()
+    mockGetCurrentUser.mockResolvedValue({ data: { ...fakeUser } })
+    mockAckTrafficCreditExhaustionEvents.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -74,6 +88,7 @@ describe('useAuthStore', () => {
 
       expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
+      expect(mockGetCurrentUser).toHaveBeenCalledTimes(1)
       expect(store.isAuthenticated).toBe(true)
       expect(localStorage.getItem('auth_token')).toBe('test-token-123')
       expect(localStorage.getItem('auth_user')).toBe(JSON.stringify(fakeUser))
@@ -117,6 +132,7 @@ describe('useAuthStore', () => {
       expect(store.token).toBe('test-token-123')
       expect(store.user).toEqual(fakeUser)
       expect(user).toEqual(fakeUser)
+      expect(mockGetCurrentUser).toHaveBeenCalledTimes(1)
       expect(mockLogin2FA).toHaveBeenCalledWith({
         temp_token: 'temp-123',
         totp_code: '654321',
@@ -320,6 +336,7 @@ describe('useAuthStore', () => {
     it('管理员用户返回 true', async () => {
       const adminResponse = { ...fakeAuthResponse, user: { ...fakeAdminUser } }
       mockLogin.mockResolvedValue(adminResponse)
+      mockGetCurrentUser.mockResolvedValue({ data: { ...fakeAdminUser } })
       const store = useAuthStore()
 
       await store.login({ email: 'admin@example.com', password: '123456' })
@@ -358,6 +375,125 @@ describe('useAuthStore', () => {
       expect(result).toEqual(updatedUser)
       expect(store.user).toEqual(updatedUser)
       expect(JSON.parse(localStorage.getItem('auth_user')!)).toEqual(updatedUser)
+    })
+
+    it('收到单个流量卡耗尽事件时只弹一次并批量确认', async () => {
+      const store = useAuthStore()
+      await store.setToken('oauth-token')
+      mockShowError.mockReset()
+      mockAckTrafficCreditExhaustionEvents.mockReset().mockResolvedValue(undefined)
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7] },
+        },
+      })
+
+      const result = await store.refreshUser()
+
+      expect(result).toEqual(fakeUser)
+      expect(mockShowError).toHaveBeenCalledTimes(1)
+      expect(mockShowError).toHaveBeenCalledWith('流量卡已用完')
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledWith([7])
+      expect(JSON.parse(localStorage.getItem('auth_user')!)).not.toHaveProperty('traffic_credit_exhaustion_notice')
+    })
+
+    it('多个耗尽事件只弹一次 Toast 并一次批量确认', async () => {
+      const store = useAuthStore()
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7, 9] },
+        },
+      })
+
+      await store.setToken('oauth-token')
+
+      expect(mockShowError).toHaveBeenCalledTimes(1)
+      expect(mockShowError).toHaveBeenCalledWith('流量卡已用完')
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledTimes(1)
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledWith([7, 9])
+    })
+
+    it('相同事件再次刷新不重复弹出但会再次确认，旧事件加新事件时再次弹出', async () => {
+      const store = useAuthStore()
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7] },
+        },
+      })
+      await store.setToken('oauth-token')
+      mockShowError.mockReset()
+      mockAckTrafficCreditExhaustionEvents.mockReset().mockResolvedValue(undefined)
+
+      await store.refreshUser()
+
+      expect(mockShowError).not.toHaveBeenCalled()
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledWith([7])
+
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7, 9] },
+        },
+      })
+      mockAckTrafficCreditExhaustionEvents.mockReset().mockResolvedValue(undefined)
+
+      await store.refreshUser()
+
+      expect(mockShowError).toHaveBeenCalledTimes(1)
+      expect(mockShowError).toHaveBeenCalledWith('流量卡已用完')
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledWith([7, 9])
+    })
+
+    it('ack 失败后保留下一次确认机会但不重复弹同一事件', async () => {
+      const store = useAuthStore()
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7] },
+        },
+      })
+      mockAckTrafficCreditExhaustionEvents.mockRejectedValueOnce(new Error('network'))
+
+      await store.setToken('oauth-token')
+      await Promise.resolve()
+      mockShowError.mockReset()
+      mockAckTrafficCreditExhaustionEvents.mockReset().mockResolvedValue(undefined)
+
+      await store.refreshUser()
+
+      expect(mockShowError).not.toHaveBeenCalled()
+      expect(mockAckTrafficCreditExhaustionEvents).toHaveBeenCalledWith([7])
+    })
+
+    it('清除认证状态后相同事件可以在新会话再次提醒', async () => {
+      const store = useAuthStore()
+      mockGetCurrentUser.mockResolvedValue({
+        data: {
+          ...fakeUser,
+          traffic_credit_exhaustion_notice: { event_ids: [7] },
+        },
+      })
+      await store.setToken('oauth-token')
+      await store.logout()
+      mockShowError.mockReset()
+      mockAckTrafficCreditExhaustionEvents.mockReset().mockResolvedValue(undefined)
+
+      await store.setToken('new-oauth-token')
+
+      expect(mockShowError).toHaveBeenCalledTimes(1)
+      expect(mockShowError).toHaveBeenCalledWith('流量卡已用完')
+    })
+
+    it('无 notice 时不弹出也不确认', async () => {
+      const store = useAuthStore()
+
+      await store.setToken('oauth-token')
+
+      expect(mockShowError).not.toHaveBeenCalled()
+      expect(mockAckTrafficCreditExhaustionEvents).not.toHaveBeenCalled()
     })
 
     it('未认证时抛出错误', async () => {

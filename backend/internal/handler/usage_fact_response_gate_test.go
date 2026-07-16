@@ -60,6 +60,37 @@ func TestUsageFactResponseGate_HoldsSplitSSETerminalEvent(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), "response.completed")
 }
 
+func TestUsageFactResponseGate_HoldsAllOpenAITerminalEvents(t *testing.T) {
+	events := []string{
+		"response.failed",
+		"response.incomplete",
+		"response.cancelled",
+		"response.canceled",
+		"image_generation.completed",
+		"image_edit.completed",
+		"error",
+	}
+
+	for _, eventType := range events {
+		t.Run(eventType, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			gate := newUsageFactResponseGate(c.Writer, true)
+
+			_, err := gate.Write([]byte("data: {\"type\":\"response.output_text.delta\"}\n\n"))
+			require.NoError(t, err)
+			_, err = gate.Write([]byte("data: {\"type\":\"" + eventType + "\"}\n\n"))
+			require.NoError(t, err)
+
+			require.Contains(t, recorder.Body.String(), "response.output_text.delta")
+			require.NotContains(t, recorder.Body.String(), eventType)
+
+			require.NoError(t, gate.Release())
+			require.Contains(t, recorder.Body.String(), eventType)
+		})
+	}
+}
+
 func TestUsageFactResponseGate_DiscardDropsBufferedResponse(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

@@ -209,7 +209,15 @@ func nextSSEFrameEnd(data []byte) int {
 
 func isUsageFactTerminalSSEFrame(frame []byte) bool {
 	return bytes.Contains(frame, []byte(`"response.completed"`)) ||
+		bytes.Contains(frame, []byte(`"response.failed"`)) ||
 		bytes.Contains(frame, []byte(`"response.incomplete"`)) ||
+		bytes.Contains(frame, []byte(`"response.cancelled"`)) ||
+		bytes.Contains(frame, []byte(`"response.canceled"`)) ||
+		bytes.Contains(frame, []byte(`"image_generation.completed"`)) ||
+		bytes.Contains(frame, []byte(`"image_edit.completed"`)) ||
+		bytes.Contains(frame, []byte(`"type":"error"`)) ||
+		bytes.Contains(frame, []byte(`"type": "error"`)) ||
+		bytes.Contains(frame, []byte("event: error")) ||
 		bytes.Contains(frame, []byte("[DONE]")) ||
 		bytes.Contains(frame, []byte(`"message_stop"`))
 }

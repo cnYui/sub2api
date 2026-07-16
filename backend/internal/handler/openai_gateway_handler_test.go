@@ -94,6 +94,27 @@ func TestOpenAIHandleStreamingAwareError_JSONEscaping(t *testing.T) {
 	}
 }
 
+func TestShouldContinueOpenAIUsageAfterForwardError(t *testing.T) {
+	tests := []struct {
+		name   string
+		result *service.OpenAIForwardResult
+		want   bool
+	}{
+		{name: "nil result", result: nil, want: false},
+		{name: "empty usage", result: &service.OpenAIForwardResult{}, want: false},
+		{name: "image count without token is not billable", result: &service.OpenAIForwardResult{ImageCount: 1}, want: false},
+		{name: "text token is billable", result: &service.OpenAIForwardResult{Usage: service.OpenAIUsage{InputTokens: 1}}, want: true},
+		{name: "image input token is billable", result: &service.OpenAIForwardResult{Usage: service.OpenAIUsage{ImageInputTokens: 1}}, want: true},
+		{name: "image output token is billable", result: &service.OpenAIForwardResult{Usage: service.OpenAIUsage{ImageOutputTokens: 1}}, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, shouldContinueOpenAIUsageAfterForwardError(tt.result))
+		})
+	}
+}
+
 func TestResolveOpenAIMessagesMetadataSession_DoesNotDerivePromptCacheKey(t *testing.T) {
 	body := []byte(`{"model":"claude-sonnet-4-5","metadata":{"user_id":"claude-code-session"},"messages":[{"role":"user","content":"hello"}]}`)
 

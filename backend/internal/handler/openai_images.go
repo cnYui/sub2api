@@ -128,6 +128,22 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
+	billingAuthorization, effectiveBody, err := h.gatewayService.AuthorizeImagesRequest(c.Request.Context(), c, parsed, body, channelMapping.MappedModel)
+	if err != nil {
+		reqLog.Info("openai.images.billing_preauthorization_failed", zap.Error(err))
+		if !c.Writer.Written() {
+			h.handleStreamingAwareError(c, http.StatusServiceUnavailable, "billing_preauthorization_unavailable", "Billing preauthorization is temporarily unavailable", streamStarted)
+		}
+		return
+	}
+	if len(effectiveBody) > 0 {
+		body = effectiveBody
+	}
+	defer func() {
+		if err := h.gatewayService.ReleaseOpenAIBillingAuthorization(c.Request.Context(), c, billingAuthorization); err != nil {
+			reqLog.Warn("openai.images.billing_preauthorization_release_failed", zap.Error(err))
+		}
+	}()
 	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, parsed.Stream)
 	defer restoreUsageWriter()
 
@@ -201,7 +217,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 					accountReleaseFunc()
 				}
 			}()
-			return h.gatewayService.ForwardImages(requestCtx, c, account, body, parsed, channelMapping.MappedModel)
+			return h.gatewayService.ForwardImages(requestCtx, c, account, body, parsed, channelMapping.MappedModel, billingAuthorization)
 		}()
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()
 		upstreamLatencyMs, _ := getContextInt64(c, service.OpsUpstreamLatencyMsKey)
@@ -214,7 +230,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			service.SetOpsLatencyMs(c, service.OpsTimeToFirstTokenMsKey, int64(*result.FirstTokenMs))
 		}
 		if err != nil {
-			if result != nil && result.ImageCount > 0 {
+			if shouldContinueOpenAIUsageAfterForwardError(result) {
 				reqLog.Warn("openai.images.forward_partial_error_with_image_result",
 					zap.Int64("account_id", account.ID),
 					zap.Int("image_count", result.ImageCount),

@@ -216,6 +216,7 @@ type UsageTokens struct {
 // CostBreakdown 费用明细
 type CostBreakdown struct {
 	InputCost         float64
+	ImageInputCost    float64
 	OutputCost        float64
 	ImageOutputCost   float64
 	CacheCreationCost float64
@@ -767,6 +768,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				LongContextInputThreshold:      litellmPricing.LongContextInputTokenThreshold,
 				LongContextInputMultiplier:     litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:    litellmPricing.LongContextOutputCostMultiplier,
+				ImageInputPricePerToken:        litellmPricing.InputCostPerImageToken,
 				ImageOutputPricePerToken:       litellmPricing.OutputCostPerImageToken,
 			})
 			return withPriorityServiceTierPrices(model, pricing), nil
@@ -937,7 +939,8 @@ func (s *BillingService) computeTokenBreakdown(
 			// 未配置图片输入档时回退到文本 input 价（已含 priority / 长上下文调整）
 			imageInputPrice = inputPrice
 		}
-		bd.InputCost = float64(textInputTokens)*inputPrice + float64(imageInputTokens)*imageInputPrice
+		bd.InputCost = float64(textInputTokens) * inputPrice
+		bd.ImageInputCost = float64(imageInputTokens) * imageInputPrice
 	} else {
 		bd.InputCost = float64(tokens.InputTokens) * inputPrice
 	}
@@ -965,13 +968,14 @@ func (s *BillingService) computeTokenBreakdown(
 
 	if tierMultiplier != 1.0 {
 		bd.InputCost *= tierMultiplier
+		bd.ImageInputCost *= tierMultiplier
 		bd.OutputCost *= tierMultiplier
 		bd.ImageOutputCost *= tierMultiplier
 		bd.CacheCreationCost *= tierMultiplier
 		bd.CacheReadCost *= tierMultiplier
 	}
 
-	bd.TotalCost = bd.InputCost + bd.OutputCost + bd.ImageOutputCost +
+	bd.TotalCost = bd.InputCost + bd.ImageInputCost + bd.OutputCost + bd.ImageOutputCost +
 		bd.CacheCreationCost + bd.CacheReadCost
 	bd.ActualCost = bd.TotalCost * rateMultiplier
 
@@ -1187,6 +1191,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	// 范围内部分：正常计费
 	inRangeTokens := UsageTokens{
 		InputTokens:           inRangeInputTokens,
+		ImageInputTokens:      minInt(tokens.ImageInputTokens, inRangeInputTokens),
 		OutputTokens:          tokens.OutputTokens, // 输出只算一次
 		CacheCreationTokens:   tokens.CacheCreationTokens,
 		CacheReadTokens:       inRangeCacheTokens,
@@ -1201,8 +1206,9 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 
 	// 范围外部分：× extraMultiplier 计费
 	outRangeTokens := UsageTokens{
-		InputTokens:     outRangeInputTokens,
-		CacheReadTokens: outRangeCacheTokens,
+		InputTokens:      outRangeInputTokens,
+		ImageInputTokens: maxInt(tokens.ImageInputTokens-minInt(tokens.ImageInputTokens, inRangeInputTokens), 0),
+		CacheReadTokens:  outRangeCacheTokens,
 	}
 	outRangeCost, err := s.CalculateCost(model, outRangeTokens, rateMultiplier*extraMultiplier)
 	if err != nil {
@@ -1212,6 +1218,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	// 合并成本
 	return &CostBreakdown{
 		InputCost:         inRangeCost.InputCost + outRangeCost.InputCost,
+		ImageInputCost:    inRangeCost.ImageInputCost + outRangeCost.ImageInputCost,
 		OutputCost:        inRangeCost.OutputCost,
 		ImageOutputCost:   inRangeCost.ImageOutputCost,
 		CacheCreationCost: inRangeCost.CacheCreationCost,
@@ -1274,94 +1281,4 @@ func (s *BillingService) ForceUpdatePricing() error {
 		return s.pricingService.ForceUpdate()
 	}
 	return fmt.Errorf("pricing service not initialized")
-}
-
-// ImagePriceConfig 图片计费配置
-type ImagePriceConfig struct {
-	Price1K *float64 // 1K 尺寸价格（nil 表示使用默认值）
-	Price2K *float64 // 2K 尺寸价格（nil 表示使用默认值）
-	Price4K *float64 // 4K 尺寸价格（nil 表示使用默认值）
-}
-
-// CalculateImageCost 计算图片生成费用
-// model: 请求的模型名称（用于获取 LiteLLM 默认价格）
-// imageSize: 图片尺寸 "1K", "2K", "4K"
-// imageCount: 生成的图片数量
-// groupConfig: 分组配置的价格（可能为 nil，表示使用默认值）
-// rateMultiplier: 费率倍数
-func (s *BillingService) CalculateImageCost(model string, imageSize string, imageCount int, groupConfig *ImagePriceConfig, rateMultiplier float64) *CostBreakdown {
-	if imageCount <= 0 {
-		return &CostBreakdown{}
-	}
-	imageSize = NormalizeImageBillingTierOrDefault(imageSize)
-
-	// 获取单价
-	unitPrice := s.getImageUnitPrice(model, imageSize, groupConfig)
-
-	// 计算总费用
-	totalCost := unitPrice * float64(imageCount)
-
-	// 应用倍率（保存时强制 > 0；负数按 0 处理避免按 1x 误扣）
-	if rateMultiplier < 0 {
-		rateMultiplier = 0
-	}
-	actualCost := totalCost * rateMultiplier
-
-	return &CostBreakdown{
-		TotalCost:   totalCost,
-		ActualCost:  actualCost,
-		BillingMode: string(BillingModeImage),
-	}
-}
-
-// getImageUnitPrice 获取图片单价
-func (s *BillingService) getImageUnitPrice(model string, imageSize string, groupConfig *ImagePriceConfig) float64 {
-	// 优先使用分组配置的价格
-	if groupConfig != nil {
-		switch imageSize {
-		case "1K":
-			if groupConfig.Price1K != nil {
-				return *groupConfig.Price1K
-			}
-		case "2K":
-			if groupConfig.Price2K != nil {
-				return *groupConfig.Price2K
-			}
-		case "4K":
-			if groupConfig.Price4K != nil {
-				return *groupConfig.Price4K
-			}
-		}
-	}
-
-	// 回退到 LiteLLM 默认价格
-	return s.getDefaultImagePrice(model, imageSize)
-}
-
-// getDefaultImagePrice 获取 LiteLLM 默认图片价格
-func (s *BillingService) getDefaultImagePrice(model string, imageSize string) float64 {
-	basePrice := 0.0
-
-	// 从 PricingService 获取 output_cost_per_image
-	if s.pricingService != nil {
-		pricing := s.pricingService.GetModelPricing(model)
-		if pricing != nil && pricing.OutputCostPerImage > 0 {
-			basePrice = pricing.OutputCostPerImage
-		}
-	}
-
-	// 如果没有找到价格，使用硬编码默认值（$0.134，来自 gemini-3-pro-image-preview）
-	if basePrice <= 0 {
-		basePrice = 0.134
-	}
-
-	// 2K 尺寸 1.5 倍，4K 尺寸翻倍
-	if imageSize == "2K" {
-		return basePrice * 1.5
-	}
-	if imageSize == "4K" {
-		return basePrice * 2
-	}
-
-	return basePrice
 }

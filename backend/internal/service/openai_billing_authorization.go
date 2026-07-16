@@ -19,19 +19,23 @@ const (
 )
 
 type OpenAIBillingAuthorizationInput struct {
-	RequestID          string
-	RequestFingerprint string
-	APIKeyID           int64
-	UserID             int64
-	Platform           string
-	Model              string
-	Group              *Group
-	Subscription       *UserSubscription
-	BalanceEligible    bool
-	ServiceTier        string
-	RateMultiplier     float64
-	Body               []byte
-	OutputLimitField   string
+	RequestID                  string
+	RequestFingerprint         string
+	APIKeyID                   int64
+	UserID                     int64
+	Platform                   string
+	Model                      string
+	ImageModel                 string
+	Group                      *Group
+	Subscription               *UserSubscription
+	BalanceEligible            bool
+	ServiceTier                string
+	RateMultiplier             float64
+	Body                       []byte
+	OutputLimitField           string
+	ImageInputTokenUpperBound  int
+	ImageOutputTokenUpperBound int
+	DoNotClampOutputLimit      bool
 }
 
 type OpenAIBillingAuthorization struct {
@@ -206,12 +210,18 @@ func (s *OpenAIBillingAuthorizationService) estimate(
 		groupID = &input.Group.ID
 	}
 	return s.estimator.Estimate(ctx, OpenAITrafficBudgetInput{
-		Model:            input.Model,
-		GroupID:          groupID,
-		ServiceTier:      input.ServiceTier,
-		RateMultiplier:   input.RateMultiplier,
-		Body:             input.Body,
-		AvailableUSD:     availableUSD,
-		OutputLimitField: input.OutputLimitField,
+		RequestID:                  input.RequestID,
+		RequestFingerprint:         input.RequestFingerprint,
+		Model:                      input.Model,
+		ImageModel:                 input.ImageModel,
+		GroupID:                    groupID,
+		ServiceTier:                input.ServiceTier,
+		RateMultiplier:             input.RateMultiplier,
+		Body:                       input.Body,
+		AvailableUSD:               availableUSD,
+		OutputLimitField:           input.OutputLimitField,
+		ImageInputTokenUpperBound:  input.ImageInputTokenUpperBound,
+		ImageOutputTokenUpperBound: input.ImageOutputTokenUpperBound,
+		DoNotClampOutputLimit:      input.DoNotClampOutputLimit,
 	})
 }

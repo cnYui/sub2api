@@ -62,6 +62,25 @@ func ProvideSchedulerCache(rdb *redis.Client, cfg *config.Config) service.Schedu
 	return newSchedulerCacheWithChunkSizes(rdb, mgetChunkSize, writeChunkSize)
 }
 
+func ProvideTrafficCreditPolicy(cfg *config.Config) service.TrafficCreditPolicy {
+	if cfg == nil {
+		return service.TrafficCreditPolicy{}
+	}
+	return service.TrafficCreditPolicy{MinimumReserveUSD: cfg.Billing.TrafficCreditMinimumReserveUSD}
+}
+
+func ProvideUsageBillingRepository(client *ent.Client, sqlDB *sql.DB, policy service.TrafficCreditPolicy) service.UsageBillingRepository {
+	return NewUsageBillingRepository(client, sqlDB, policy)
+}
+
+func ProvideTrafficPackRepository(db *sql.DB, policy service.TrafficCreditPolicy) service.TrafficPackRepository {
+	return NewTrafficPackRepository(db, policy)
+}
+
+func ProvideTrafficCreditReservationRepository(db *sql.DB, policy service.TrafficCreditPolicy) service.TrafficCreditReservationRepository {
+	return NewTrafficCreditReservationRepository(db, policy)
+}
+
 // ProviderSet is the Wire provider set for all repositories
 var ProviderSet = wire.NewSet(
 	NewUserRepository,
@@ -76,10 +95,12 @@ var ProviderSet = wire.NewSet(
 	NewAnnouncementRepository,
 	NewAnnouncementReadRepository,
 	NewUsageLogRepository,
-	NewUsageBillingRepository,
+	ProvideTrafficCreditPolicy,
+	ProvideUsageBillingRepository,
 	NewUsageFactRepository,
-	NewTrafficPackRepository,
-	NewTrafficCreditReservationRepository,
+	ProvideTrafficPackRepository,
+	ProvideTrafficCreditReservationRepository,
+	NewTrafficCreditExhaustionRepository,
 	NewIdempotencyRepository,
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,

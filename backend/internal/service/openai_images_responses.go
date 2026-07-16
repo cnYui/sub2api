@@ -1497,6 +1497,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	account *Account,
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
+	billingAuthorization *OpenAIBillingAuthorization,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	requestModel := strings.TrimSpace(parsed.Model)
@@ -1522,16 +1523,16 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 
 	token, _, err := s.GetAccessToken(upstreamCtx, account)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	responsesBody, err := buildOpenAIImagesResponsesRequest(parsed, requestModel)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, true, parsed.StickySessionSeed(), false)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	upstreamReq.Header.Set("Content-Type", "application/json")
 	upstreamReq.Header.Set("Accept", "text/event-stream")
@@ -1540,10 +1541,14 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
+	if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+	}
 	upstreamStart := time.Now()
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 	if err != nil {
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
@@ -1597,18 +1602,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		if err != nil {
 			if imageCount > 0 {
 				return &OpenAIForwardResult{
-					RequestID:        resp.Header.Get("x-request-id"),
-					Usage:            usage,
-					Model:            requestModel,
-					UpstreamModel:    requestModel,
-					Stream:           parsed.Stream,
-					ResponseHeaders:  resp.Header.Clone(),
-					Duration:         time.Since(startTime),
-					FirstTokenMs:     firstTokenMs,
-					ImageCount:       imageCount,
-					ImageSize:        parsed.SizeTier,
-					ImageInputSize:   parsed.Size,
-					ImageOutputSizes: imageOutputSizes,
+					RequestID:            resp.Header.Get("x-request-id"),
+					Usage:                usage,
+					Model:                requestModel,
+					MainBillingModel:     requestModel,
+					ImageBillingModel:    requestModel,
+					UpstreamModel:        requestModel,
+					Stream:               parsed.Stream,
+					ResponseHeaders:      resp.Header.Clone(),
+					Duration:             time.Since(startTime),
+					FirstTokenMs:         firstTokenMs,
+					ImageCount:           imageCount,
+					ImageSize:            parsed.SizeTier,
+					ImageInputSize:       parsed.Size,
+					ImageOutputSizes:     imageOutputSizes,
+					BillingAuthorization: billingAuthorization,
 				}, err
 			}
 			return nil, s.handleOpenAIImagesOAuthResponseError(
@@ -1641,18 +1649,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		imageCount = parsed.N
 	}
 	return &OpenAIForwardResult{
-		RequestID:        resp.Header.Get("x-request-id"),
-		Usage:            usage,
-		Model:            requestModel,
-		UpstreamModel:    requestModel,
-		Stream:           parsed.Stream,
-		ResponseHeaders:  resp.Header.Clone(),
-		Duration:         time.Since(startTime),
-		FirstTokenMs:     firstTokenMs,
-		ImageCount:       imageCount,
-		ImageSize:        parsed.SizeTier,
-		ImageInputSize:   parsed.Size,
-		ImageOutputSizes: imageOutputSizes,
+		RequestID:            resp.Header.Get("x-request-id"),
+		Usage:                usage,
+		Model:                requestModel,
+		MainBillingModel:     requestModel,
+		ImageBillingModel:    requestModel,
+		UpstreamModel:        requestModel,
+		Stream:               parsed.Stream,
+		ResponseHeaders:      resp.Header.Clone(),
+		Duration:             time.Since(startTime),
+		FirstTokenMs:         firstTokenMs,
+		ImageCount:           imageCount,
+		ImageSize:            parsed.SizeTier,
+		ImageInputSize:       parsed.Size,
+		ImageOutputSizes:     imageOutputSizes,
+		BillingAuthorization: billingAuthorization,
 	}, nil
 }
 

@@ -58,17 +58,18 @@ type TrafficCreditReservationRepository interface {
 	HasOutstandingDebt(ctx context.Context, userID int64, platform string) (bool, error)
 }
 
-func PlanTrafficCreditReservations(batches []TrafficCreditBatch, amountUSD float64) ([]TrafficCreditReservationItem, bool) {
+func PlanTrafficCreditReservations(batches []TrafficCreditBatch, amountUSD float64, policies ...TrafficCreditPolicy) ([]TrafficCreditReservationItem, bool) {
 	if amountUSD <= 0 {
 		return nil, true
 	}
+	policy := resolveTrafficCreditPolicy(policies)
 	remaining := roundTrafficCreditAmount(amountUSD)
 	plan := make([]TrafficCreditReservationItem, 0, len(batches))
 	for _, batch := range orderedTrafficCreditBatches(batches) {
 		if remaining <= 0 {
 			break
 		}
-		available := roundTrafficCreditAmount(math.Max(batch.RemainingUSD-batch.ReservedUSD, 0))
+		available := policy.AvailableUSD(batch.RemainingUSD, batch.ReservedUSD)
 		if available <= 0 {
 			continue
 		}

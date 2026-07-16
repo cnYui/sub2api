@@ -141,6 +141,8 @@ type UsageLog struct {
 
 	ImageOutputTokens int
 	ImageOutputCost   float64
+	ImageInputTokens  int
+	ImageInputCost    float64
 
 	InputCost         float64
 	OutputCost        float64
@@ -148,6 +150,7 @@ type UsageLog struct {
 	CacheReadCost     float64
 	TotalCost         float64
 	ActualCost        float64
+	BillingIncomplete bool
 	RateMultiplier    float64
 	// AccountRateMultiplier 账号计费倍率快照（nil 表示历史数据，按 1.0 处理）
 	AccountRateMultiplier *float64

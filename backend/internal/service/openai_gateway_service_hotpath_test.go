@@ -277,6 +277,50 @@ func TestOpenAIGatewayService_RawChatCompletions_AuthorizesBeforeUpstream(t *tes
 	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIKeyAuthorizesBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(96)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-image-2","prompt":"draw a cat","n":1}`),
+		Enforced:      true,
+	}}
+	upstream := &dispatchedOpenAIHTTPUpstream{
+		authorizer: authorizer,
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"img-req"}},
+			Body:       io.NopCloser(strings.NewReader(`{"data":[{"url":"https://example.com/cat.png"}],"usage":{"input_tokens":5,"output_tokens":0,"image_tokens":{"input_tokens":3,"output_tokens":1756}}}`)),
+		},
+	}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	account := newOpenAIBillingAuthorizationTestAccount()
+	c := newOpenAIBillingAuthorizationGinContext()
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","n":1}`)
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	authorization, effectiveBody, err := svc.AuthorizeImagesRequest(c.Request.Context(), c, parsed, body, "")
+	require.NoError(t, err)
+
+	result, err := svc.ForwardImages(c.Request.Context(), c, account, effectiveBody, parsed, "", authorization)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, HashUsageRequestPayload(body), authorizer.input.RequestFingerprint)
+	require.Equal(t, []int64{reservationID}, authorizer.dispatchedIDs)
+	require.JSONEq(t, string(authorizer.authorization.EffectiveBody), string(upstream.lastBody))
+	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+}
+
 func newOpenAIBillingAuthorizationTestAccount() *Account {
 	return &Account{
 		ID:          71,
@@ -565,6 +609,8 @@ func TestOpenAIGatewayService_Forward_ImageToolBillingDoesNotForceFullDecode(t *
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, "2K", result.ImageSize)
 	require.Equal(t, "gpt-image-2", result.BillingModel)
+	require.Equal(t, "gpt-5", result.MainBillingModel)
+	require.Equal(t, "gpt-image-2", result.ImageBillingModel)
 }
 
 func TestOpenAIGatewayService_Forward_ImageToolWithImageOnlyModelIsNormalized(t *testing.T) {
@@ -728,6 +774,8 @@ func TestOpenAIGatewayService_Forward_CodexBridgeInjectionSetsImageBilling(t *te
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, "2K", result.ImageSize)
 	require.Equal(t, "gpt-image-2", result.BillingModel)
+	require.Equal(t, "gpt-5", result.MainBillingModel)
+	require.Equal(t, "gpt-image-2", result.ImageBillingModel)
 }
 
 func TestOpenAIGatewayService_Forward_HTTPDeletesPreviousResponseIDWhenPresent(t *testing.T) {

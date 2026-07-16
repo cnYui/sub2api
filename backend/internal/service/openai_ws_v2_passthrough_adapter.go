@@ -603,14 +603,15 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			CacheReadInputTokens:     relayResult.Usage.CacheReadInputTokens,
 			ImageOutputTokens:        relayResult.Usage.ImageOutputTokens,
 		},
-		Model:           relayResult.RequestModel,
-		ServiceTier:     usageMeta.serviceTier.Load(),
-		ReasoningEffort: usageMeta.reasoningEffort.Load(),
-		Stream:          true,
-		OpenAIWSMode:    true,
-		ResponseHeaders: cloneHeader(handshakeHeaders),
-		Duration:        relayResult.Duration,
-		FirstTokenMs:    relayResult.FirstTokenMs,
+		Model:            relayResult.RequestModel,
+		MainBillingModel: relayResult.RequestModel,
+		ServiceTier:      usageMeta.serviceTier.Load(),
+		ReasoningEffort:  usageMeta.reasoningEffort.Load(),
+		Stream:           true,
+		OpenAIWSMode:     true,
+		ResponseHeaders:  cloneHeader(handshakeHeaders),
+		Duration:         relayResult.Duration,
+		FirstTokenMs:     relayResult.FirstTokenMs,
 	}
 
 	turnCount := int(completedTurns.Load())

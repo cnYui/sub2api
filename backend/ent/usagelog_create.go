@@ -253,6 +253,34 @@ func (_c *UsageLogCreate) SetNillableCacheCreation1hTokens(v *int) *UsageLogCrea
 	return _c
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (_c *UsageLogCreate) SetImageInputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetImageInputTokens(v)
+	return _c
+}
+
+// SetNillableImageInputTokens sets the "image_input_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableImageInputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetImageInputTokens(*v)
+	}
+	return _c
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (_c *UsageLogCreate) SetImageOutputTokens(v int) *UsageLogCreate {
+	_c.mutation.SetImageOutputTokens(v)
+	return _c
+}
+
+// SetNillableImageOutputTokens sets the "image_output_tokens" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableImageOutputTokens(v *int) *UsageLogCreate {
+	if v != nil {
+		_c.SetImageOutputTokens(*v)
+	}
+	return _c
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_c *UsageLogCreate) SetInputCost(v float64) *UsageLogCreate {
 	_c.mutation.SetInputCost(v)
@@ -305,6 +333,34 @@ func (_c *UsageLogCreate) SetCacheReadCost(v float64) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableCacheReadCost(v *float64) *UsageLogCreate {
 	if v != nil {
 		_c.SetCacheReadCost(*v)
+	}
+	return _c
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (_c *UsageLogCreate) SetImageInputCost(v float64) *UsageLogCreate {
+	_c.mutation.SetImageInputCost(v)
+	return _c
+}
+
+// SetNillableImageInputCost sets the "image_input_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableImageInputCost(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetImageInputCost(*v)
+	}
+	return _c
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (_c *UsageLogCreate) SetImageOutputCost(v float64) *UsageLogCreate {
+	_c.mutation.SetImageOutputCost(v)
+	return _c
+}
+
+// SetNillableImageOutputCost sets the "image_output_cost" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableImageOutputCost(v *float64) *UsageLogCreate {
+	if v != nil {
+		_c.SetImageOutputCost(*v)
 	}
 	return _c
 }
@@ -539,6 +595,20 @@ func (_c *UsageLogCreate) SetNillableCacheTTLOverridden(v *bool) *UsageLogCreate
 	return _c
 }
 
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (_c *UsageLogCreate) SetBillingIncomplete(v bool) *UsageLogCreate {
+	_c.mutation.SetBillingIncomplete(v)
+	return _c
+}
+
+// SetNillableBillingIncomplete sets the "billing_incomplete" field if the given value is not nil.
+func (_c *UsageLogCreate) SetNillableBillingIncomplete(v *bool) *UsageLogCreate {
+	if v != nil {
+		_c.SetBillingIncomplete(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *UsageLogCreate) SetCreatedAt(v time.Time) *UsageLogCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -637,6 +707,14 @@ func (_c *UsageLogCreate) defaults() {
 		v := usagelog.DefaultCacheCreation1hTokens
 		_c.mutation.SetCacheCreation1hTokens(v)
 	}
+	if _, ok := _c.mutation.ImageInputTokens(); !ok {
+		v := usagelog.DefaultImageInputTokens
+		_c.mutation.SetImageInputTokens(v)
+	}
+	if _, ok := _c.mutation.ImageOutputTokens(); !ok {
+		v := usagelog.DefaultImageOutputTokens
+		_c.mutation.SetImageOutputTokens(v)
+	}
 	if _, ok := _c.mutation.InputCost(); !ok {
 		v := usagelog.DefaultInputCost
 		_c.mutation.SetInputCost(v)
@@ -652,6 +730,14 @@ func (_c *UsageLogCreate) defaults() {
 	if _, ok := _c.mutation.CacheReadCost(); !ok {
 		v := usagelog.DefaultCacheReadCost
 		_c.mutation.SetCacheReadCost(v)
+	}
+	if _, ok := _c.mutation.ImageInputCost(); !ok {
+		v := usagelog.DefaultImageInputCost
+		_c.mutation.SetImageInputCost(v)
+	}
+	if _, ok := _c.mutation.ImageOutputCost(); !ok {
+		v := usagelog.DefaultImageOutputCost
+		_c.mutation.SetImageOutputCost(v)
 	}
 	if _, ok := _c.mutation.TotalCost(); !ok {
 		v := usagelog.DefaultTotalCost
@@ -680,6 +766,10 @@ func (_c *UsageLogCreate) defaults() {
 	if _, ok := _c.mutation.CacheTTLOverridden(); !ok {
 		v := usagelog.DefaultCacheTTLOverridden
 		_c.mutation.SetCacheTTLOverridden(v)
+	}
+	if _, ok := _c.mutation.BillingIncomplete(); !ok {
+		v := usagelog.DefaultBillingIncomplete
+		_c.mutation.SetBillingIncomplete(v)
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := usagelog.DefaultCreatedAt()
@@ -757,6 +847,12 @@ func (_c *UsageLogCreate) check() error {
 	if _, ok := _c.mutation.CacheCreation1hTokens(); !ok {
 		return &ValidationError{Name: "cache_creation_1h_tokens", err: errors.New(`ent: missing required field "UsageLog.cache_creation_1h_tokens"`)}
 	}
+	if _, ok := _c.mutation.ImageInputTokens(); !ok {
+		return &ValidationError{Name: "image_input_tokens", err: errors.New(`ent: missing required field "UsageLog.image_input_tokens"`)}
+	}
+	if _, ok := _c.mutation.ImageOutputTokens(); !ok {
+		return &ValidationError{Name: "image_output_tokens", err: errors.New(`ent: missing required field "UsageLog.image_output_tokens"`)}
+	}
 	if _, ok := _c.mutation.InputCost(); !ok {
 		return &ValidationError{Name: "input_cost", err: errors.New(`ent: missing required field "UsageLog.input_cost"`)}
 	}
@@ -768,6 +864,12 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.CacheReadCost(); !ok {
 		return &ValidationError{Name: "cache_read_cost", err: errors.New(`ent: missing required field "UsageLog.cache_read_cost"`)}
+	}
+	if _, ok := _c.mutation.ImageInputCost(); !ok {
+		return &ValidationError{Name: "image_input_cost", err: errors.New(`ent: missing required field "UsageLog.image_input_cost"`)}
+	}
+	if _, ok := _c.mutation.ImageOutputCost(); !ok {
+		return &ValidationError{Name: "image_output_cost", err: errors.New(`ent: missing required field "UsageLog.image_output_cost"`)}
 	}
 	if _, ok := _c.mutation.TotalCost(); !ok {
 		return &ValidationError{Name: "total_cost", err: errors.New(`ent: missing required field "UsageLog.total_cost"`)}
@@ -819,6 +921,9 @@ func (_c *UsageLogCreate) check() error {
 	}
 	if _, ok := _c.mutation.CacheTTLOverridden(); !ok {
 		return &ValidationError{Name: "cache_ttl_overridden", err: errors.New(`ent: missing required field "UsageLog.cache_ttl_overridden"`)}
+	}
+	if _, ok := _c.mutation.BillingIncomplete(); !ok {
+		return &ValidationError{Name: "billing_incomplete", err: errors.New(`ent: missing required field "UsageLog.billing_incomplete"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "UsageLog.created_at"`)}
@@ -915,6 +1020,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_spec.SetField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 		_node.CacheCreation1hTokens = value
 	}
+	if value, ok := _c.mutation.ImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageInputTokens, field.TypeInt, value)
+		_node.ImageInputTokens = value
+	}
+	if value, ok := _c.mutation.ImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageOutputTokens, field.TypeInt, value)
+		_node.ImageOutputTokens = value
+	}
 	if value, ok := _c.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
 		_node.InputCost = value
@@ -930,6 +1043,14 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CacheReadCost(); ok {
 		_spec.SetField(usagelog.FieldCacheReadCost, field.TypeFloat64, value)
 		_node.CacheReadCost = value
+	}
+	if value, ok := _c.mutation.ImageInputCost(); ok {
+		_spec.SetField(usagelog.FieldImageInputCost, field.TypeFloat64, value)
+		_node.ImageInputCost = value
+	}
+	if value, ok := _c.mutation.ImageOutputCost(); ok {
+		_spec.SetField(usagelog.FieldImageOutputCost, field.TypeFloat64, value)
+		_node.ImageOutputCost = value
 	}
 	if value, ok := _c.mutation.TotalCost(); ok {
 		_spec.SetField(usagelog.FieldTotalCost, field.TypeFloat64, value)
@@ -998,6 +1119,10 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)
 		_node.CacheTTLOverridden = value
+	}
+	if value, ok := _c.mutation.BillingIncomplete(); ok {
+		_spec.SetField(usagelog.FieldBillingIncomplete, field.TypeBool, value)
+		_node.BillingIncomplete = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(usagelog.FieldCreatedAt, field.TypeTime, value)
@@ -1458,6 +1583,42 @@ func (u *UsageLogUpsert) AddCacheCreation1hTokens(v int) *UsageLogUpsert {
 	return u
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (u *UsageLogUpsert) SetImageInputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldImageInputTokens, v)
+	return u
+}
+
+// UpdateImageInputTokens sets the "image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateImageInputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldImageInputTokens)
+	return u
+}
+
+// AddImageInputTokens adds v to the "image_input_tokens" field.
+func (u *UsageLogUpsert) AddImageInputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldImageInputTokens, v)
+	return u
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (u *UsageLogUpsert) SetImageOutputTokens(v int) *UsageLogUpsert {
+	u.Set(usagelog.FieldImageOutputTokens, v)
+	return u
+}
+
+// UpdateImageOutputTokens sets the "image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateImageOutputTokens() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldImageOutputTokens)
+	return u
+}
+
+// AddImageOutputTokens adds v to the "image_output_tokens" field.
+func (u *UsageLogUpsert) AddImageOutputTokens(v int) *UsageLogUpsert {
+	u.Add(usagelog.FieldImageOutputTokens, v)
+	return u
+}
+
 // SetInputCost sets the "input_cost" field.
 func (u *UsageLogUpsert) SetInputCost(v float64) *UsageLogUpsert {
 	u.Set(usagelog.FieldInputCost, v)
@@ -1527,6 +1688,42 @@ func (u *UsageLogUpsert) UpdateCacheReadCost() *UsageLogUpsert {
 // AddCacheReadCost adds v to the "cache_read_cost" field.
 func (u *UsageLogUpsert) AddCacheReadCost(v float64) *UsageLogUpsert {
 	u.Add(usagelog.FieldCacheReadCost, v)
+	return u
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (u *UsageLogUpsert) SetImageInputCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldImageInputCost, v)
+	return u
+}
+
+// UpdateImageInputCost sets the "image_input_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateImageInputCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldImageInputCost)
+	return u
+}
+
+// AddImageInputCost adds v to the "image_input_cost" field.
+func (u *UsageLogUpsert) AddImageInputCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldImageInputCost, v)
+	return u
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (u *UsageLogUpsert) SetImageOutputCost(v float64) *UsageLogUpsert {
+	u.Set(usagelog.FieldImageOutputCost, v)
+	return u
+}
+
+// UpdateImageOutputCost sets the "image_output_cost" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateImageOutputCost() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldImageOutputCost)
+	return u
+}
+
+// AddImageOutputCost adds v to the "image_output_cost" field.
+func (u *UsageLogUpsert) AddImageOutputCost(v float64) *UsageLogUpsert {
+	u.Add(usagelog.FieldImageOutputCost, v)
 	return u
 }
 
@@ -1839,6 +2036,18 @@ func (u *UsageLogUpsert) SetCacheTTLOverridden(v bool) *UsageLogUpsert {
 // UpdateCacheTTLOverridden sets the "cache_ttl_overridden" field to the value that was provided on create.
 func (u *UsageLogUpsert) UpdateCacheTTLOverridden() *UsageLogUpsert {
 	u.SetExcluded(usagelog.FieldCacheTTLOverridden)
+	return u
+}
+
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (u *UsageLogUpsert) SetBillingIncomplete(v bool) *UsageLogUpsert {
+	u.Set(usagelog.FieldBillingIncomplete, v)
+	return u
+}
+
+// UpdateBillingIncomplete sets the "billing_incomplete" field to the value that was provided on create.
+func (u *UsageLogUpsert) UpdateBillingIncomplete() *UsageLogUpsert {
+	u.SetExcluded(usagelog.FieldBillingIncomplete)
 	return u
 }
 
@@ -2258,6 +2467,48 @@ func (u *UsageLogUpsertOne) UpdateCacheCreation1hTokens() *UsageLogUpsertOne {
 	})
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (u *UsageLogUpsertOne) SetImageInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageInputTokens(v)
+	})
+}
+
+// AddImageInputTokens adds v to the "image_input_tokens" field.
+func (u *UsageLogUpsertOne) AddImageInputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageInputTokens(v)
+	})
+}
+
+// UpdateImageInputTokens sets the "image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateImageInputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageInputTokens()
+	})
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (u *UsageLogUpsertOne) SetImageOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageOutputTokens(v)
+	})
+}
+
+// AddImageOutputTokens adds v to the "image_output_tokens" field.
+func (u *UsageLogUpsertOne) AddImageOutputTokens(v int) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageOutputTokens(v)
+	})
+}
+
+// UpdateImageOutputTokens sets the "image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateImageOutputTokens() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageOutputTokens()
+	})
+}
+
 // SetInputCost sets the "input_cost" field.
 func (u *UsageLogUpsertOne) SetInputCost(v float64) *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -2339,6 +2590,48 @@ func (u *UsageLogUpsertOne) AddCacheReadCost(v float64) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateCacheReadCost() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheReadCost()
+	})
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (u *UsageLogUpsertOne) SetImageInputCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageInputCost(v)
+	})
+}
+
+// AddImageInputCost adds v to the "image_input_cost" field.
+func (u *UsageLogUpsertOne) AddImageInputCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageInputCost(v)
+	})
+}
+
+// UpdateImageInputCost sets the "image_input_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateImageInputCost() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageInputCost()
+	})
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (u *UsageLogUpsertOne) SetImageOutputCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageOutputCost(v)
+	})
+}
+
+// AddImageOutputCost adds v to the "image_output_cost" field.
+func (u *UsageLogUpsertOne) AddImageOutputCost(v float64) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageOutputCost(v)
+	})
+}
+
+// UpdateImageOutputCost sets the "image_output_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateImageOutputCost() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageOutputCost()
 	})
 }
 
@@ -2703,6 +2996,20 @@ func (u *UsageLogUpsertOne) SetCacheTTLOverridden(v bool) *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) UpdateCacheTTLOverridden() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheTTLOverridden()
+	})
+}
+
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (u *UsageLogUpsertOne) SetBillingIncomplete(v bool) *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingIncomplete(v)
+	})
+}
+
+// UpdateBillingIncomplete sets the "billing_incomplete" field to the value that was provided on create.
+func (u *UsageLogUpsertOne) UpdateBillingIncomplete() *UsageLogUpsertOne {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingIncomplete()
 	})
 }
 
@@ -3288,6 +3595,48 @@ func (u *UsageLogUpsertBulk) UpdateCacheCreation1hTokens() *UsageLogUpsertBulk {
 	})
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (u *UsageLogUpsertBulk) SetImageInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageInputTokens(v)
+	})
+}
+
+// AddImageInputTokens adds v to the "image_input_tokens" field.
+func (u *UsageLogUpsertBulk) AddImageInputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageInputTokens(v)
+	})
+}
+
+// UpdateImageInputTokens sets the "image_input_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateImageInputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageInputTokens()
+	})
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (u *UsageLogUpsertBulk) SetImageOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageOutputTokens(v)
+	})
+}
+
+// AddImageOutputTokens adds v to the "image_output_tokens" field.
+func (u *UsageLogUpsertBulk) AddImageOutputTokens(v int) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageOutputTokens(v)
+	})
+}
+
+// UpdateImageOutputTokens sets the "image_output_tokens" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateImageOutputTokens() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageOutputTokens()
+	})
+}
+
 // SetInputCost sets the "input_cost" field.
 func (u *UsageLogUpsertBulk) SetInputCost(v float64) *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
@@ -3369,6 +3718,48 @@ func (u *UsageLogUpsertBulk) AddCacheReadCost(v float64) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateCacheReadCost() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheReadCost()
+	})
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (u *UsageLogUpsertBulk) SetImageInputCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageInputCost(v)
+	})
+}
+
+// AddImageInputCost adds v to the "image_input_cost" field.
+func (u *UsageLogUpsertBulk) AddImageInputCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageInputCost(v)
+	})
+}
+
+// UpdateImageInputCost sets the "image_input_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateImageInputCost() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageInputCost()
+	})
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (u *UsageLogUpsertBulk) SetImageOutputCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetImageOutputCost(v)
+	})
+}
+
+// AddImageOutputCost adds v to the "image_output_cost" field.
+func (u *UsageLogUpsertBulk) AddImageOutputCost(v float64) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.AddImageOutputCost(v)
+	})
+}
+
+// UpdateImageOutputCost sets the "image_output_cost" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateImageOutputCost() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateImageOutputCost()
 	})
 }
 
@@ -3733,6 +4124,20 @@ func (u *UsageLogUpsertBulk) SetCacheTTLOverridden(v bool) *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) UpdateCacheTTLOverridden() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.UpdateCacheTTLOverridden()
+	})
+}
+
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (u *UsageLogUpsertBulk) SetBillingIncomplete(v bool) *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.SetBillingIncomplete(v)
+	})
+}
+
+// UpdateBillingIncomplete sets the "billing_incomplete" field to the value that was provided on create.
+func (u *UsageLogUpsertBulk) UpdateBillingIncomplete() *UsageLogUpsertBulk {
+	return u.Update(func(s *UsageLogUpsert) {
+		s.UpdateBillingIncomplete()
 	})
 }
 

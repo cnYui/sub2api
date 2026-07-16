@@ -59,6 +59,17 @@ func newTrafficPackTestDB(t *testing.T) *sql.DB {
 			balance_after_usd REAL NOT NULL,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE traffic_credit_exhaustion_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			credit_id INTEGER NOT NULL,
+			request_id TEXT NOT NULL,
+			batch_key TEXT NOT NULL,
+			reason TEXT NOT NULL DEFAULT 'depleted',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			acknowledged_at TIMESTAMP NULL,
+			UNIQUE(user_id, credit_id)
+		)`,
 	} {
 		_, err := db.Exec(stmt)
 		require.NoError(t, err)
@@ -89,6 +100,43 @@ func TestTrafficPackRepository_FullyReservedCreditIsUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, covered)
 	require.Empty(t, deductions)
+}
+
+func TestTrafficPackRepository_ThresholdResidualIsUnavailable(t *testing.T) {
+	ctx := context.Background()
+	db := newTrafficPackTestDB(t)
+	repo := NewTrafficPackRepository(db, service.TrafficCreditPolicy{MinimumReserveUSD: 0.01})
+	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
+	for _, input := range []service.CreditTrafficPackInput{
+		{UserID: 11, OrderID: 1101, PackID: 1, CreditUSD: 1, ValidityDays: 365, CreditedAt: now},
+		{UserID: 11, OrderID: 1102, PackID: 1, CreditUSD: 1, ValidityDays: 365, CreditedAt: now.Add(time.Hour)},
+	} {
+		require.NoError(t, repo.CreditPurchase(ctx, input))
+	}
+	var firstCreditID int64
+	var secondCreditID int64
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT id FROM user_traffic_credits WHERE order_id = 1101").Scan(&firstCreditID))
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT id FROM user_traffic_credits WHERE order_id = 1102").Scan(&secondCreditID))
+	_, err := db.ExecContext(ctx, "UPDATE user_traffic_credits SET remaining_usd = CASE order_id WHEN 1101 THEN 0.01 ELSE 0.50 END WHERE user_id = 11")
+	require.NoError(t, err)
+
+	covered, deductions, err := repo.Deduct(ctx, 11, 0.02, "req-threshold", now)
+	require.NoError(t, err)
+	require.True(t, covered)
+	require.Equal(t, []service.TrafficCreditDeduction{{CreditID: secondCreditID, AmountUSD: 0.02}}, deductions)
+
+	var firstRemaining float64
+	require.NoError(t, db.QueryRowContext(ctx, "SELECT remaining_usd FROM user_traffic_credits WHERE id = ?", firstCreditID).Scan(&firstRemaining))
+	require.InDelta(t, 0.01, firstRemaining, 1e-10)
+
+	_, err = db.ExecContext(ctx, "UPDATE user_traffic_credits SET remaining_usd = 0.01, reserved_usd = 0 WHERE user_id = 11")
+	require.NoError(t, err)
+	available, err := repo.HasAvailableCredit(ctx, 11, now)
+	require.NoError(t, err)
+	require.False(t, available)
+	summary, err := repo.GetSummary(ctx, 11, now)
+	require.NoError(t, err)
+	require.Zero(t, summary.TotalRemainingUSD)
 }
 
 func TestTrafficPackRepository_CreditPurchaseIsIdempotentAndSummarizes(t *testing.T) {

@@ -194,6 +194,10 @@ export async function getMyPlatformQuotas(): Promise<PlatformQuotasResponse> {
   return data
 }
 
+export async function ackTrafficCreditExhaustionEvents(eventIds: number[]): Promise<void> {
+  await apiClient.post('/user/traffic-credit-exhaustion-events/ack', { event_ids: eventIds })
+}
+
 export const userAPI = {
   getProfile,
   updateProfile,
@@ -210,6 +214,7 @@ export const userAPI = {
   getAffiliateDetail,
   transferAffiliateQuota,
   getMyPlatformQuotas,
+  ackTrafficCreditExhaustionEvents,
 }
 
 export default userAPI

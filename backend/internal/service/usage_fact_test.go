@@ -22,6 +22,17 @@ func TestUsageFactPayloadRoundTripPreservesBillingAndLog(t *testing.T) {
 			UserID:     7,
 			ActualCost: 0.25,
 		},
+		OpenAIBilling: &OpenAIUsageBillingSnapshot{
+			RateMultiplier:         1.5,
+			MissingUsageComponents: []string{"image_input_tokens"},
+			BillingIncomplete:      true,
+			Components: []OpenAIBillingComponentSnapshot{{
+				Component: OpenAIBillingComponent{
+					Kind:  "image",
+					Model: "gpt-image-2",
+				},
+			}},
+		},
 	}
 
 	raw, err := EncodeUsageFactPayload(payload)
@@ -31,6 +42,10 @@ func TestUsageFactPayloadRoundTripPreservesBillingAndLog(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, payload.BillingCommand.RequestID, got.BillingCommand.RequestID)
 	require.Equal(t, payload.UsageLog.ActualCost, got.UsageLog.ActualCost)
+	require.NotNil(t, got.OpenAIBilling)
+	require.True(t, got.OpenAIBilling.BillingIncomplete)
+	require.Equal(t, []string{"image_input_tokens"}, got.OpenAIBilling.MissingUsageComponents)
+	require.Equal(t, "gpt-image-2", got.OpenAIBilling.Components[0].Component.Model)
 }
 
 func TestNewUsageFactRejectsMissingRequestID(t *testing.T) {

@@ -56,7 +56,7 @@ describe('SubscriptionsView traffic packs', () => {
     routerPush.mockReset()
   })
 
-  it('无订阅但有 GPT 流量包余额时只展示用量而不是购买卡片', async () => {
+  it('按 API 顺序逐张展示 GPT 流量卡', async () => {
     getMySubscriptions.mockResolvedValue([])
     getCheckoutInfo.mockResolvedValue({
       data: {
@@ -78,12 +78,31 @@ describe('SubscriptionsView traffic packs', () => {
             sort_order: 2,
           },
         ],
-        traffic_credit_summary: {
-          total_initial_usd: 10,
-          total_remaining_usd: 10,
-          next_expiring_usd: 10,
-          next_expires_at: '2027-06-26T08:57:24+08:00',
-        },
+        traffic_credit_summary: null,
+        traffic_credits: [
+          {
+            id: 20,
+            order_id: 101,
+            pack_id: 2,
+            initial_usd: 5,
+            remaining_usd: 3,
+            reserved_usd: 0.5,
+            available_usd: 2.5,
+            credited_at: '2026-07-16T08:57:24+08:00',
+            expires_at: '2027-06-26T08:57:24+08:00',
+          },
+          {
+            id: 10,
+            order_id: 99,
+            pack_id: 1,
+            initial_usd: 3,
+            remaining_usd: 2,
+            reserved_usd: 2,
+            available_usd: 0,
+            credited_at: '2026-07-15T08:57:24+08:00',
+            expires_at: '2027-07-26T08:57:24+08:00',
+          },
+        ],
         balance_disabled: false,
         balance_recharge_multiplier: 1,
         recharge_fee_rate: 0,
@@ -103,12 +122,16 @@ describe('SubscriptionsView traffic packs', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('GPT 流量包')
-    expect(wrapper.text()).toContain('10.00')
-    expect(wrapper.text()).toContain('剩余 365 天')
-    expect(wrapper.text()).toContain('总计')
-    expect(wrapper.text()).toContain('$0.00 / $10.00')
-    expect(wrapper.find('[data-testid="traffic-credit-progress"]').attributes('style')).toContain('width: 0%')
+    const pageText = wrapper.text()
+    expect(pageText.indexOf('GPT 流量卡 #20')).toBeGreaterThanOrEqual(0)
+    expect(pageText.indexOf('GPT 流量卡 #10')).toBeGreaterThan(pageText.indexOf('GPT 流量卡 #20'))
+    expect(pageText).toContain('已结算用量')
+    expect(pageText).toContain('$2.00 / $5.00')
+    expect(pageText).toContain('$1.00 / $3.00')
+    expect(pageText).toContain('当前可用 $2.50')
+    expect(pageText).toContain('当前可用 $0.00')
+    expect(pageText).toContain('2027')
+    expect(wrapper.find('[data-testid="traffic-credit-progress-20"]').attributes('style')).toContain('width: 40%')
     expect(wrapper.text()).not.toContain('2027/6/26')
     expect(wrapper.text()).not.toContain('GPT 流量包 10 刀')
     expect(wrapper.text()).not.toContain('¥3')
@@ -117,7 +140,7 @@ describe('SubscriptionsView traffic packs', () => {
     expect(wrapper.text()).not.toContain('userSubscriptions.noActiveSubscriptions')
   })
 
-  it('按初始总额展示流量包已用额度和正向进度', async () => {
+  it('后端只返回剩余流量卡时页面只展示该卡', async () => {
     getMySubscriptions.mockResolvedValue([])
     getCheckoutInfo.mockResolvedValue({
       data: {
@@ -126,12 +149,20 @@ describe('SubscriptionsView traffic packs', () => {
         global_max: 0,
         plans: [],
         traffic_packs: [],
-        traffic_credit_summary: {
-          total_initial_usd: 10,
-          total_remaining_usd: 7,
-          next_expiring_usd: 7,
-          next_expires_at: '2027-06-26T08:57:24+08:00',
-        },
+        traffic_credit_summary: null,
+        traffic_credits: [
+          {
+            id: 10,
+            order_id: 99,
+            pack_id: 1,
+            initial_usd: 3,
+            remaining_usd: 2,
+            reserved_usd: 0,
+            available_usd: 2,
+            credited_at: '2026-07-15T08:57:24+08:00',
+            expires_at: '2027-07-26T08:57:24+08:00',
+          },
+        ],
         balance_disabled: false,
         balance_recharge_multiplier: 1,
         recharge_fee_rate: 0,
@@ -151,8 +182,10 @@ describe('SubscriptionsView traffic packs', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('$3.00 / $10.00')
-    expect(wrapper.find('[data-testid="traffic-credit-progress"]').attributes('style')).toContain('width: 30%')
+    expect(wrapper.text()).toContain('GPT 流量卡 #10')
+    expect(wrapper.text()).not.toContain('GPT 流量卡 #20')
+    expect(wrapper.text()).toContain('$1.00 / $3.00')
+    expect(wrapper.text()).toContain('当前可用 $2.00')
   })
 
   it('所有流量卡用满后隐藏流量包卡片', async () => {
@@ -164,11 +197,8 @@ describe('SubscriptionsView traffic packs', () => {
         global_max: 0,
         plans: [],
         traffic_packs: [],
-        traffic_credit_summary: {
-          total_initial_usd: 0,
-          total_remaining_usd: 0,
-          next_expiring_usd: 0,
-        },
+        traffic_credit_summary: null,
+        traffic_credits: [],
         balance_disabled: false,
         balance_recharge_multiplier: 1,
         recharge_fee_rate: 0,
@@ -226,6 +256,7 @@ describe('SubscriptionsView traffic packs', () => {
         plans: [],
         traffic_packs: [],
         traffic_credit_summary: null,
+        traffic_credits: [],
         balance_disabled: false,
         balance_recharge_multiplier: 1,
         recharge_fee_rate: 0,

@@ -66,6 +66,10 @@ func (s *effectiveGroupTrafficRepoStub) GetSummary(ctx context.Context, userID i
 	return &TrafficCreditSummary{}, nil
 }
 
+func (s *effectiveGroupTrafficRepoStub) ListUserCredits(ctx context.Context, userID int64, now time.Time) ([]TrafficCredit, error) {
+	return []TrafficCredit{}, nil
+}
+
 func (s *effectiveGroupTrafficRepoStub) CreditPurchase(ctx context.Context, input CreditTrafficPackInput) error {
 	return nil
 }

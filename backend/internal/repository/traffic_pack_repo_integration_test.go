@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -95,4 +96,81 @@ func TestTrafficPackRepository_CreditPurchase_ReusesOuterTransaction(t *testing.
 	require.Zero(t, orderCountAfterRollback)
 	require.Zero(t, creditCountAfterRollback)
 	require.Zero(t, ledgerCountAfterRollback)
+}
+
+func TestTrafficPackRepository_CreditPurchaseAcknowledgesPendingExhaustionEvents(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+	uniqueID := time.Now().UnixNano()
+
+	user, err := integrationEntClient.User.Create().
+		SetEmail(fmt.Sprintf("traffic-pack-ack-%d@example.com", uniqueID)).
+		SetPasswordHash("test-password-hash").
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, cleanupErr := integrationDB.ExecContext(context.Background(), `DELETE FROM users WHERE id = $1`, user.ID)
+		require.NoError(t, cleanupErr)
+	})
+
+	repo := NewTrafficPackRepository(integrationDB, service.TrafficCreditPolicy{MinimumReserveUSD: 0.01})
+	oldOrder := createTrafficPackPaymentOrderForTest(t, user.ID, user.Email, fmt.Sprintf("old-%d", uniqueID), now)
+	require.NoError(t, repo.CreditPurchase(ctx, service.CreditTrafficPackInput{
+		UserID:       user.ID,
+		OrderID:      oldOrder.ID,
+		PackID:       2,
+		CreditUSD:    1,
+		ValidityDays: 365,
+		CreditedAt:   now,
+	}))
+	var oldCreditID int64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT id FROM user_traffic_credits WHERE order_id = $1", oldOrder.ID).Scan(&oldCreditID))
+	_, err = integrationDB.ExecContext(ctx, `
+		INSERT INTO traffic_credit_exhaustion_events (user_id, credit_id, request_id, batch_key)
+		VALUES ($1, $2, $3, $4)
+	`, user.ID, oldCreditID, "req-old", "batch-old")
+	require.NoError(t, err)
+
+	newOrder := createTrafficPackPaymentOrderForTest(t, user.ID, user.Email, fmt.Sprintf("new-%d", uniqueID), now.Add(time.Minute))
+	require.NoError(t, repo.CreditPurchase(ctx, service.CreditTrafficPackInput{
+		UserID:       user.ID,
+		OrderID:      newOrder.ID,
+		PackID:       2,
+		CreditUSD:    1,
+		ValidityDays: 365,
+		CreditedAt:   now.Add(time.Minute),
+	}))
+
+	var acknowledgedAt sql.NullTime
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT acknowledged_at
+		FROM traffic_credit_exhaustion_events
+		WHERE user_id = $1 AND credit_id = $2
+	`, user.ID, oldCreditID).Scan(&acknowledgedAt))
+	require.True(t, acknowledgedAt.Valid)
+}
+
+func createTrafficPackPaymentOrderForTest(t *testing.T, userID int64, email, suffix string, now time.Time) *dbent.PaymentOrder {
+	t.Helper()
+	order, err := integrationEntClient.PaymentOrder.Create().
+		SetUserID(userID).
+		SetUserEmail(email).
+		SetUserName("traffic-pack-ack-user").
+		SetAmount(3).
+		SetPayAmount(3).
+		SetFeeRate(0).
+		SetRechargeCode("TRAFFIC-PACK-ACK-" + suffix).
+		SetOutTradeNo("traffic_pack_ack_" + suffix).
+		SetPaymentType(payment.TypeBalance).
+		SetPaymentTradeNo("balance").
+		SetOrderType(payment.OrderTypeTrafficPack).
+		SetStatus(payment.OrderStatusCompleted).
+		SetExpiresAt(now.Add(time.Hour)).
+		SetPaidAt(now).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("integration.test").
+		Save(context.Background())
+	require.NoError(t, err)
+	return order
 }

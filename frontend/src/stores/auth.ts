@@ -6,7 +6,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed, readonly } from 'vue'
 import { authAPI, isTotp2FARequired, type LoginResponse } from '@/api'
-import type { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
+import { ackTrafficCreditExhaustionEvents } from '@/api/user'
+import { useAppStore } from '@/stores/app'
+import type { User, LoginRequest, RegisterRequest, AuthResponse, TrafficCreditExhaustionNotice } from '@/types'
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
@@ -79,6 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
   const pendingAuthSession = ref<PendingAuthSessionSummary | null>(null)
   let refreshIntervalId: ReturnType<typeof setInterval> | null = null
   let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null
+  const notifiedTrafficCreditExhaustionEventIDs = new Set<number>()
 
   // ==================== Computed ====================
 
@@ -248,6 +251,9 @@ export const useAuthStore = defineStore('auth', () => {
 
       // Set auth state from the response
       setAuthFromResponse(response)
+      refreshUser().catch((error) => {
+        console.error('Failed to refresh user after login:', error)
+      })
 
       return response
     } catch (error) {
@@ -268,6 +274,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authAPI.login2FA({ temp_token: tempToken, totp_code: totpCode })
       setAuthFromResponse(response)
+      refreshUser().catch((error) => {
+        console.error('Failed to refresh user after 2FA login:', error)
+      })
       return user.value!
     } catch (error) {
       clearAuth({ preservePendingAuthSession: pendingAuthSession.value !== null })
@@ -293,7 +302,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (response.user.run_mode) {
       runMode.value = response.user.run_mode
     }
-    const { run_mode: _run_mode, ...userData } = response.user
+    const {
+      run_mode: _run_mode,
+      traffic_credit_exhaustion_notice: _trafficCreditExhaustionNotice,
+      ...userData
+    } = response.user
     user.value = userData
 
     // Persist to localStorage
@@ -420,7 +433,12 @@ export const useAuthStore = defineStore('auth', () => {
       if (response.data.run_mode) {
         runMode.value = response.data.run_mode
       }
-      const { run_mode: _run_mode, ...userData } = response.data
+      const {
+        run_mode: _run_mode,
+        traffic_credit_exhaustion_notice: trafficCreditExhaustionNotice,
+        ...userData
+      } = response.data
+      await handleTrafficCreditExhaustionNotice(trafficCreditExhaustionNotice)
       user.value = userData
 
       // Update localStorage
@@ -450,6 +468,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshTokenValue.value = null
     tokenExpiresAt.value = null
     user.value = null
+    notifiedTrafficCreditExhaustionEventIDs.clear()
     localStorage.removeItem(AUTH_TOKEN_KEY)
     localStorage.removeItem(AUTH_USER_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
@@ -462,6 +481,41 @@ export const useAuthStore = defineStore('auth', () => {
 
     pendingAuthSession.value = null
     clearPendingAuthSessionStorage()
+  }
+
+  function normalizeTrafficCreditExhaustionEventIDs(notice?: TrafficCreditExhaustionNotice): number[] {
+    const rawIDs = Array.isArray(notice?.event_ids) ? notice.event_ids : []
+    const seen = new Set<number>()
+    const ids: number[] = []
+    for (const id of rawIDs) {
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) {
+        continue
+      }
+      seen.add(id)
+      ids.push(id)
+    }
+    return ids
+  }
+
+  async function handleTrafficCreditExhaustionNotice(notice?: TrafficCreditExhaustionNotice): Promise<void> {
+    const eventIDs = normalizeTrafficCreditExhaustionEventIDs(notice)
+    if (eventIDs.length === 0) {
+      return
+    }
+
+    const hasNewEvent = eventIDs.some(id => !notifiedTrafficCreditExhaustionEventIDs.has(id))
+    if (hasNewEvent) {
+      for (const id of eventIDs) {
+        notifiedTrafficCreditExhaustionEventIDs.add(id)
+      }
+      useAppStore().showError('流量卡已用完')
+    }
+
+    try {
+      await ackTrafficCreditExhaustionEvents(eventIDs)
+    } catch (error) {
+      console.error('Failed to acknowledge traffic credit exhaustion events:', error)
+    }
   }
 
   // ==================== Return Store API ====================

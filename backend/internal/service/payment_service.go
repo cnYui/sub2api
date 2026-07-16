@@ -265,6 +265,13 @@ func (s *PaymentService) GetTrafficCreditSummary(ctx context.Context, userID int
 	return s.trafficPackService.GetSummary(ctx, userID, time.Now())
 }
 
+func (s *PaymentService) ListUserTrafficCredits(ctx context.Context, userID int64) ([]TrafficCredit, error) {
+	if s == nil || s.trafficPackService == nil {
+		return []TrafficCredit{}, nil
+	}
+	return s.trafficPackService.ListUserCredits(ctx, userID, time.Now())
+}
+
 // --- Provider Registry ---
 
 // EnsureProviders lazily initializes the provider registry on first call.

@@ -395,6 +395,48 @@ func (_u *UsageLogUpdate) AddCacheCreation1hTokens(v int) *UsageLogUpdate {
 	return _u
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (_u *UsageLogUpdate) SetImageInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetImageInputTokens()
+	_u.mutation.SetImageInputTokens(v)
+	return _u
+}
+
+// SetNillableImageInputTokens sets the "image_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableImageInputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetImageInputTokens(*v)
+	}
+	return _u
+}
+
+// AddImageInputTokens adds value to the "image_input_tokens" field.
+func (_u *UsageLogUpdate) AddImageInputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddImageInputTokens(v)
+	return _u
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (_u *UsageLogUpdate) SetImageOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.ResetImageOutputTokens()
+	_u.mutation.SetImageOutputTokens(v)
+	return _u
+}
+
+// SetNillableImageOutputTokens sets the "image_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableImageOutputTokens(v *int) *UsageLogUpdate {
+	if v != nil {
+		_u.SetImageOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddImageOutputTokens adds value to the "image_output_tokens" field.
+func (_u *UsageLogUpdate) AddImageOutputTokens(v int) *UsageLogUpdate {
+	_u.mutation.AddImageOutputTokens(v)
+	return _u
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_u *UsageLogUpdate) SetInputCost(v float64) *UsageLogUpdate {
 	_u.mutation.ResetInputCost()
@@ -476,6 +518,48 @@ func (_u *UsageLogUpdate) SetNillableCacheReadCost(v *float64) *UsageLogUpdate {
 // AddCacheReadCost adds value to the "cache_read_cost" field.
 func (_u *UsageLogUpdate) AddCacheReadCost(v float64) *UsageLogUpdate {
 	_u.mutation.AddCacheReadCost(v)
+	return _u
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (_u *UsageLogUpdate) SetImageInputCost(v float64) *UsageLogUpdate {
+	_u.mutation.ResetImageInputCost()
+	_u.mutation.SetImageInputCost(v)
+	return _u
+}
+
+// SetNillableImageInputCost sets the "image_input_cost" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableImageInputCost(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetImageInputCost(*v)
+	}
+	return _u
+}
+
+// AddImageInputCost adds value to the "image_input_cost" field.
+func (_u *UsageLogUpdate) AddImageInputCost(v float64) *UsageLogUpdate {
+	_u.mutation.AddImageInputCost(v)
+	return _u
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (_u *UsageLogUpdate) SetImageOutputCost(v float64) *UsageLogUpdate {
+	_u.mutation.ResetImageOutputCost()
+	_u.mutation.SetImageOutputCost(v)
+	return _u
+}
+
+// SetNillableImageOutputCost sets the "image_output_cost" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableImageOutputCost(v *float64) *UsageLogUpdate {
+	if v != nil {
+		_u.SetImageOutputCost(*v)
+	}
+	return _u
+}
+
+// AddImageOutputCost adds value to the "image_output_cost" field.
+func (_u *UsageLogUpdate) AddImageOutputCost(v float64) *UsageLogUpdate {
+	_u.mutation.AddImageOutputCost(v)
 	return _u
 }
 
@@ -825,6 +909,20 @@ func (_u *UsageLogUpdate) SetNillableCacheTTLOverridden(v *bool) *UsageLogUpdate
 	return _u
 }
 
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (_u *UsageLogUpdate) SetBillingIncomplete(v bool) *UsageLogUpdate {
+	_u.mutation.SetBillingIncomplete(v)
+	return _u
+}
+
+// SetNillableBillingIncomplete sets the "billing_incomplete" field if the given value is not nil.
+func (_u *UsageLogUpdate) SetNillableBillingIncomplete(v *bool) *UsageLogUpdate {
+	if v != nil {
+		_u.SetBillingIncomplete(*v)
+	}
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *UsageLogUpdate) SetUser(v *User) *UsageLogUpdate {
 	return _u.SetUserID(v.ID)
@@ -1084,6 +1182,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedCacheCreation1hTokens(); ok {
 		_spec.AddField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedImageInputTokens(); ok {
+		_spec.AddField(usagelog.FieldImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedImageOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldImageOutputTokens, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
 	}
@@ -1107,6 +1217,18 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedCacheReadCost(); ok {
 		_spec.AddField(usagelog.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ImageInputCost(); ok {
+		_spec.SetField(usagelog.FieldImageInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedImageInputCost(); ok {
+		_spec.AddField(usagelog.FieldImageInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ImageOutputCost(); ok {
+		_spec.SetField(usagelog.FieldImageOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedImageOutputCost(); ok {
+		_spec.AddField(usagelog.FieldImageOutputCost, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.TotalCost(); ok {
 		_spec.SetField(usagelog.FieldTotalCost, field.TypeFloat64, value)
@@ -1212,6 +1334,9 @@ func (_u *UsageLogUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.BillingIncomplete(); ok {
+		_spec.SetField(usagelog.FieldBillingIncomplete, field.TypeBool, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1741,6 +1866,48 @@ func (_u *UsageLogUpdateOne) AddCacheCreation1hTokens(v int) *UsageLogUpdateOne 
 	return _u
 }
 
+// SetImageInputTokens sets the "image_input_tokens" field.
+func (_u *UsageLogUpdateOne) SetImageInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetImageInputTokens()
+	_u.mutation.SetImageInputTokens(v)
+	return _u
+}
+
+// SetNillableImageInputTokens sets the "image_input_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableImageInputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetImageInputTokens(*v)
+	}
+	return _u
+}
+
+// AddImageInputTokens adds value to the "image_input_tokens" field.
+func (_u *UsageLogUpdateOne) AddImageInputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddImageInputTokens(v)
+	return _u
+}
+
+// SetImageOutputTokens sets the "image_output_tokens" field.
+func (_u *UsageLogUpdateOne) SetImageOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.ResetImageOutputTokens()
+	_u.mutation.SetImageOutputTokens(v)
+	return _u
+}
+
+// SetNillableImageOutputTokens sets the "image_output_tokens" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableImageOutputTokens(v *int) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetImageOutputTokens(*v)
+	}
+	return _u
+}
+
+// AddImageOutputTokens adds value to the "image_output_tokens" field.
+func (_u *UsageLogUpdateOne) AddImageOutputTokens(v int) *UsageLogUpdateOne {
+	_u.mutation.AddImageOutputTokens(v)
+	return _u
+}
+
 // SetInputCost sets the "input_cost" field.
 func (_u *UsageLogUpdateOne) SetInputCost(v float64) *UsageLogUpdateOne {
 	_u.mutation.ResetInputCost()
@@ -1822,6 +1989,48 @@ func (_u *UsageLogUpdateOne) SetNillableCacheReadCost(v *float64) *UsageLogUpdat
 // AddCacheReadCost adds value to the "cache_read_cost" field.
 func (_u *UsageLogUpdateOne) AddCacheReadCost(v float64) *UsageLogUpdateOne {
 	_u.mutation.AddCacheReadCost(v)
+	return _u
+}
+
+// SetImageInputCost sets the "image_input_cost" field.
+func (_u *UsageLogUpdateOne) SetImageInputCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetImageInputCost()
+	_u.mutation.SetImageInputCost(v)
+	return _u
+}
+
+// SetNillableImageInputCost sets the "image_input_cost" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableImageInputCost(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetImageInputCost(*v)
+	}
+	return _u
+}
+
+// AddImageInputCost adds value to the "image_input_cost" field.
+func (_u *UsageLogUpdateOne) AddImageInputCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddImageInputCost(v)
+	return _u
+}
+
+// SetImageOutputCost sets the "image_output_cost" field.
+func (_u *UsageLogUpdateOne) SetImageOutputCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.ResetImageOutputCost()
+	_u.mutation.SetImageOutputCost(v)
+	return _u
+}
+
+// SetNillableImageOutputCost sets the "image_output_cost" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableImageOutputCost(v *float64) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetImageOutputCost(*v)
+	}
+	return _u
+}
+
+// AddImageOutputCost adds value to the "image_output_cost" field.
+func (_u *UsageLogUpdateOne) AddImageOutputCost(v float64) *UsageLogUpdateOne {
+	_u.mutation.AddImageOutputCost(v)
 	return _u
 }
 
@@ -2171,6 +2380,20 @@ func (_u *UsageLogUpdateOne) SetNillableCacheTTLOverridden(v *bool) *UsageLogUpd
 	return _u
 }
 
+// SetBillingIncomplete sets the "billing_incomplete" field.
+func (_u *UsageLogUpdateOne) SetBillingIncomplete(v bool) *UsageLogUpdateOne {
+	_u.mutation.SetBillingIncomplete(v)
+	return _u
+}
+
+// SetNillableBillingIncomplete sets the "billing_incomplete" field if the given value is not nil.
+func (_u *UsageLogUpdateOne) SetNillableBillingIncomplete(v *bool) *UsageLogUpdateOne {
+	if v != nil {
+		_u.SetBillingIncomplete(*v)
+	}
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *UsageLogUpdateOne) SetUser(v *User) *UsageLogUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -2460,6 +2683,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	if value, ok := _u.mutation.AddedCacheCreation1hTokens(); ok {
 		_spec.AddField(usagelog.FieldCacheCreation1hTokens, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ImageInputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedImageInputTokens(); ok {
+		_spec.AddField(usagelog.FieldImageInputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ImageOutputTokens(); ok {
+		_spec.SetField(usagelog.FieldImageOutputTokens, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedImageOutputTokens(); ok {
+		_spec.AddField(usagelog.FieldImageOutputTokens, field.TypeInt, value)
+	}
 	if value, ok := _u.mutation.InputCost(); ok {
 		_spec.SetField(usagelog.FieldInputCost, field.TypeFloat64, value)
 	}
@@ -2483,6 +2718,18 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.AddedCacheReadCost(); ok {
 		_spec.AddField(usagelog.FieldCacheReadCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ImageInputCost(); ok {
+		_spec.SetField(usagelog.FieldImageInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedImageInputCost(); ok {
+		_spec.AddField(usagelog.FieldImageInputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.ImageOutputCost(); ok {
+		_spec.SetField(usagelog.FieldImageOutputCost, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedImageOutputCost(); ok {
+		_spec.AddField(usagelog.FieldImageOutputCost, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.TotalCost(); ok {
 		_spec.SetField(usagelog.FieldTotalCost, field.TypeFloat64, value)
@@ -2588,6 +2835,9 @@ func (_u *UsageLogUpdateOne) sqlSave(ctx context.Context) (_node *UsageLog, err 
 	}
 	if value, ok := _u.mutation.CacheTTLOverridden(); ok {
 		_spec.SetField(usagelog.FieldCacheTTLOverridden, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.BillingIncomplete(); ok {
+		_spec.SetField(usagelog.FieldBillingIncomplete, field.TypeBool, value)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

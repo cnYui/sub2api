@@ -106,6 +106,36 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 	return resolved
 }
 
+func (r *ModelPricingResolver) ResolveToken(ctx context.Context, input PricingInput) *ResolvedPricing {
+	basePricing, source := r.resolveBasePricing(input.Model)
+	resolved := &ResolvedPricing{
+		Mode:                   BillingModeToken,
+		BasePricing:            basePricing,
+		Source:                 source,
+		SupportsCacheBreakdown: basePricing != nil && basePricing.SupportsCacheBreakdown,
+	}
+
+	if input.GroupID == nil || r.channelService == nil {
+		return resolved
+	}
+
+	chPricing := r.channelService.GetChannelModelPricing(ctx, *input.GroupID, input.Model)
+	if chPricing == nil {
+		return resolved
+	}
+	mode := chPricing.BillingMode
+	if mode == "" {
+		mode = BillingModeToken
+	}
+	if mode != BillingModeToken {
+		return resolved
+	}
+	resolved.Source = PricingSourceChannel
+	resolved.channelPricing = chPricing
+	r.applyTokenOverrides(chPricing, resolved)
+	return resolved
+}
+
 // resolveBasePricing 从 LiteLLM 或 Fallback 获取基础定价
 func (r *ModelPricingResolver) resolveBasePricing(model string) (*ModelPricing, string) {
 	pricing, err := r.billingService.GetModelPricing(model)

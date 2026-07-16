@@ -557,7 +557,7 @@ function onPaymentSettled(outcome?: string) {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], traffic_packs: [], traffic_credit_summary: null, balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], traffic_packs: [], traffic_credit_summary: null, traffic_credits: [], balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
@@ -1360,6 +1360,7 @@ async function reloadCheckoutInfo() {
     ...res.data,
     traffic_packs: res.data.traffic_packs ?? [],
     traffic_credit_summary: res.data.traffic_credit_summary ?? null,
+    traffic_credits: res.data.traffic_credits ?? [],
   }
 }
 

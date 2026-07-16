@@ -96,13 +96,8 @@ type Group struct {
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
 
-	// 图片生成计费配置（仅 antigravity 平台使用）
-	AllowImageGeneration bool     `json:"allow_image_generation"`
-	ImageRateIndependent bool     `json:"image_rate_independent"`
-	ImageRateMultiplier  float64  `json:"image_rate_multiplier"`
-	ImagePrice1K         *float64 `json:"image_price_1k"`
-	ImagePrice2K         *float64 `json:"image_price_2k"`
-	ImagePrice4K         *float64 `json:"image_price_4k"`
+	// 图片生成能力开关
+	AllowImageGeneration bool `json:"allow_image_generation"`
 
 	// Claude Code 客户端限制
 	ClaudeCodeOnly  bool   `json:"claude_code_only"`
@@ -472,11 +467,14 @@ type UsageLog struct {
 	ImageSize          *string        `json:"image_size"`
 	ImageInputSize     *string        `json:"image_input_size"`
 	ImageOutputSize    *string        `json:"image_output_size"`
+	ImageInputTokens   int            `json:"image_input_tokens"`
+	ImageInputCost     float64        `json:"image_input_cost"`
 	ImageOutputTokens  int            `json:"image_output_tokens"`
 	ImageOutputCost    float64        `json:"image_output_cost"`
 	ImageSizeSource    *string        `json:"image_size_source"`
 	ImageSizeBreakdown map[string]int `json:"image_size_breakdown"`
 	MediaType          *string        `json:"media_type"`
+	BillingIncomplete  bool           `json:"billing_incomplete"`
 
 	// User-Agent
 	UserAgent *string `json:"user_agent"`

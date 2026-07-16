@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -16,12 +18,13 @@ import (
 
 // UserHandler handles user-related requests
 type UserHandler struct {
-	userService           *service.UserService
-	authService           *service.AuthService
-	emailService          *service.EmailService
-	emailCache            service.EmailCache
-	affiliateService      *service.AffiliateService
-	userPlatformQuotaRepo service.UserPlatformQuotaRepository
+	userService                 *service.UserService
+	authService                 *service.AuthService
+	emailService                *service.EmailService
+	emailCache                  service.EmailCache
+	affiliateService            *service.AffiliateService
+	userPlatformQuotaRepo       service.UserPlatformQuotaRepository
+	trafficCreditExhaustionRepo service.TrafficCreditExhaustionRepository
 }
 
 // NewUserHandler creates a new UserHandler
@@ -41,6 +44,10 @@ func NewUserHandler(
 		affiliateService:      affiliateService,
 		userPlatformQuotaRepo: userPlatformQuotaRepo,
 	}
+}
+
+func (h *UserHandler) SetTrafficCreditExhaustionRepository(repo service.TrafficCreditExhaustionRepository) {
+	h.trafficCreditExhaustionRepo = repo
 }
 
 // GetMyPlatformQuotas GET /user/platform-quotas
@@ -83,6 +90,10 @@ type UpdateProfileRequest struct {
 	BalanceNotifyThreshold *float64 `json:"balance_notify_threshold"`
 }
 
+type acknowledgeTrafficCreditExhaustionEventsRequest struct {
+	EventIDs []int64 `json:"event_ids"`
+}
+
 type userProfileResponse struct {
 	dto.User
 	AvatarURL         string                                 `json:"avatar_url,omitempty"`
@@ -104,6 +115,43 @@ type userProfileResponse struct {
 type userProfileSourceContext struct {
 	Provider string `json:"provider,omitempty"`
 	Source   string `json:"source,omitempty"`
+}
+
+func (h *UserHandler) AcknowledgeTrafficCreditExhaustionEvents(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	if h.trafficCreditExhaustionRepo == nil {
+		response.InternalError(c, "Traffic credit exhaustion repository not configured")
+		return
+	}
+
+	var req acknowledgeTrafficCreditExhaustionEventsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if len(req.EventIDs) == 0 {
+		response.BadRequest(c, "Invalid event_ids")
+		return
+	}
+	for _, eventID := range req.EventIDs {
+		if eventID <= 0 {
+			response.BadRequest(c, "Invalid event_ids")
+			return
+		}
+	}
+	if err := h.trafficCreditExhaustionRepo.AcknowledgeEvents(c.Request.Context(), subject.UserID, req.EventIDs, time.Now()); err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			response.BadRequest(c, "Invalid event_ids")
+			return
+		}
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.AbortWithStatus(http.StatusNoContent)
 }
 
 // GetProfile handles getting user profile

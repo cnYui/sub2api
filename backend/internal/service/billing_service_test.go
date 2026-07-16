@@ -751,9 +751,11 @@ func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	mixed := UsageTokens{InputTokens: 1340, ImageInputTokens: 28}
 	cost, err := svc.CalculateCost("doubao-embedding-vision", mixed, 1.0)
 	require.NoError(t, err)
-	wantMixed := float64(1312)*0.098e-6 + float64(28)*0.252e-6
-	require.InDelta(t, wantMixed, cost.InputCost, 1e-15)
-	require.InDelta(t, wantMixed, cost.TotalCost, 1e-15)
+	wantTextInput := float64(1312) * 0.098e-6
+	wantImageInput := float64(28) * 0.252e-6
+	require.InDelta(t, wantTextInput, cost.InputCost, 1e-15)
+	require.InDelta(t, wantImageInput, cost.ImageInputCost, 1e-15)
+	require.InDelta(t, wantTextInput+wantImageInput, cost.TotalCost, 1e-15)
 	require.Zero(t, cost.OutputCost)
 
 	// 纯文本：全部按文本档计费，与原单价路径一致。
@@ -766,8 +768,43 @@ func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	weird := UsageTokens{InputTokens: 10, ImageInputTokens: 50}
 	costWeird, err := svc.CalculateCost("doubao-embedding-vision", weird, 1.0)
 	require.NoError(t, err)
-	require.InDelta(t, float64(10)*0.252e-6, costWeird.InputCost, 1e-15)
+	require.Zero(t, costWeird.InputCost)
+	require.InDelta(t, float64(10)*0.252e-6, costWeird.ImageInputCost, 1e-15)
 }
+
+func TestBillingServiceImageInputCostIsSeparatedFromTextInput(t *testing.T) {
+	pricingSvc := &PricingService{
+		pricingData: map[string]*LiteLLMModelPricing{
+			"gpt-image-2": {
+				InputCostPerToken:       5e-6,
+				InputCostPerImageToken:  8e-6,
+				OutputCostPerToken:      1e-5,
+				OutputCostPerImageToken: 3e-5,
+				CacheReadInputTokenCost: 1.25e-6,
+			},
+		},
+	}
+	svc := NewBillingService(&config.Config{}, pricingSvc)
+
+	pricing, err := svc.GetModelPricing("gpt-image-2")
+	require.NoError(t, err)
+	require.InDelta(t, 8e-6, pricing.ImageInputPricePerToken, 1e-12)
+
+	cost, err := svc.CalculateCost("gpt-image-2", UsageTokens{
+		InputTokens:       20,
+		ImageInputTokens:  20,
+		OutputTokens:      40,
+		ImageOutputTokens: 40,
+	}, 1.5)
+	require.NoError(t, err)
+	require.Zero(t, cost.InputCost)
+	require.Zero(t, cost.OutputCost)
+	require.InDelta(t, 20*8e-6, cost.ImageInputCost, 1e-12)
+	require.InDelta(t, 40*3e-5, cost.ImageOutputCost, 1e-12)
+	require.InDelta(t, 20*8e-6+40*3e-5, cost.TotalCost, 1e-12)
+	require.InDelta(t, (20*8e-6+40*3e-5)*1.5, cost.ActualCost, 1e-12)
+}
+
 func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
 	svc := newTestBillingService()
 
@@ -863,17 +900,6 @@ func TestCalculateCostWithLongContext_ExtraMultiplierLessEqualOne(t *testing.T) 
 	require.NoError(t, err)
 
 	require.InDelta(t, normalCost.ActualCost, cost.ActualCost, 1e-10)
-}
-
-func TestCalculateImageCost(t *testing.T) {
-	svc := newTestBillingService()
-
-	price := 0.134
-	cfg := &ImagePriceConfig{Price1K: &price}
-	cost := svc.CalculateImageCost("gpt-image-1", "1K", 3, cfg, 1.0)
-
-	require.InDelta(t, 0.134*3, cost.TotalCost, 1e-10)
-	require.InDelta(t, 0.134*3, cost.ActualCost, 1e-10)
 }
 
 func TestIsModelSupported(t *testing.T) {
