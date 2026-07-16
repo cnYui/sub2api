@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
@@ -15,22 +17,30 @@ var ErrTrafficCreditInsufficient = errors.New("traffic credit is insufficient fo
 var ErrBillingPreauthUnavailable = errors.New("billing preauthorization is unavailable")
 
 type OpenAITrafficBudgetInput struct {
-	Model                   string
-	GroupID                 *int64
-	ServiceTier             string
-	RateMultiplier          float64
-	Body                    []byte
-	AvailableUSD            float64
-	ExplicitMaxOutputTokens *int
-	OutputLimitField        string
+	RequestID                  string
+	RequestFingerprint         string
+	Model                      string
+	ImageModel                 string
+	GroupID                    *int64
+	ServiceTier                string
+	RateMultiplier             float64
+	Body                       []byte
+	AvailableUSD               float64
+	ExplicitMaxOutputTokens    *int
+	OutputLimitField           string
+	ImageInputTokenUpperBound  int
+	ImageOutputTokenUpperBound int
+	DoNotClampOutputLimit      bool
 }
 
 type OpenAITrafficCreditBudget struct {
-	Body                     []byte
-	InputTokenUpperBound     int
-	EffectiveMaxOutputTokens int
-	ReserveUSD               float64
-	PricingSnapshot          json.RawMessage
+	Body                       []byte
+	InputTokenUpperBound       int
+	EffectiveMaxOutputTokens   int
+	ImageInputTokenUpperBound  int
+	ImageOutputTokenUpperBound int
+	ReserveUSD                 float64
+	PricingSnapshot            json.RawMessage
 }
 
 type OpenAITrafficCreditBudgetEstimator struct {
@@ -56,7 +66,10 @@ func NewOpenAITrafficCreditBudgetEstimator(
 
 func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input OpenAITrafficBudgetInput) (*OpenAITrafficCreditBudget, error) {
 	_ = ctx
-	if e == nil || e.billingService == nil || !gjson.ValidBytes(input.Body) || normalizeKnownOpenAICodexModel(input.Model) == "" {
+	if e == nil || e.billingService == nil || !isOpenAITrafficBudgetModel(input.Model) {
+		return nil, ErrBillingPreauthUnavailable
+	}
+	if !input.DoNotClampOutputLimit && !gjson.ValidBytes(input.Body) {
 		return nil, ErrBillingPreauthUnavailable
 	}
 	if input.RateMultiplier == 0 {
@@ -65,6 +78,9 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 	availableUSD := roundTrafficCreditAmount(input.AvailableUSD)
 	if availableUSD+1e-10 < e.minimumReserveUSD {
 		return nil, ErrTrafficCreditInsufficient
+	}
+	if input.DoNotClampOutputLimit {
+		return e.buildBudget(input, append([]byte(nil), input.Body...), 0, availableUSD)
 	}
 
 	outputLimitField, err := normalizeOpenAIOutputLimitField(input.OutputLimitField)
@@ -117,6 +133,11 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 	return e.buildBudget(input, finalBody, best, availableUSD)
 }
 
+func isOpenAITrafficBudgetModel(model string) bool {
+	model = strings.TrimSpace(model)
+	return normalizeKnownOpenAICodexModel(model) != "" || isOpenAIImageGenerationModel(model)
+}
+
 func normalizeOpenAIOutputLimitField(field string) (string, error) {
 	switch strings.TrimSpace(field) {
 	case "":
@@ -162,45 +183,116 @@ func (e *OpenAITrafficCreditBudgetEstimator) buildBudget(
 	availableUSD float64,
 ) (*OpenAITrafficCreditBudget, error) {
 	inputTokens := len(body)
-	cost, pricing, err := e.billingService.EstimateMaximumTokenCost(
+	mainTokens := UsageTokens{InputTokens: inputTokens, OutputTokens: outputTokens}
+	mainCost, err := e.billingService.CalculateCostWithServiceTier(
 		input.Model,
-		inputTokens,
-		outputTokens,
+		mainTokens,
 		input.RateMultiplier,
 		input.ServiceTier,
 	)
-	if err != nil || pricing == nil {
+	mainPricing, pricingErr := e.billingService.GetModelPricing(input.Model)
+	if err == nil {
+		err = pricingErr
+	}
+	if err != nil || mainPricing == nil {
 		return nil, ErrBillingPreauthUnavailable
+	}
+	cost := mainCost.ActualCost
+	imageModel := resolveOpenAITrafficBudgetImageModel(input.Model, input.ImageModel)
+	var imagePricing *ModelPricing
+	var imageCost *CostBreakdown
+	if input.ImageInputTokenUpperBound > 0 || input.ImageOutputTokenUpperBound > 0 {
+		imageTokens := UsageTokens{
+			InputTokens:       maxInt(input.ImageInputTokenUpperBound, 0),
+			ImageInputTokens:  maxInt(input.ImageInputTokenUpperBound, 0),
+			OutputTokens:      maxInt(input.ImageOutputTokenUpperBound, 0),
+			ImageOutputTokens: maxInt(input.ImageOutputTokenUpperBound, 0),
+		}
+		imageCost, err = e.billingService.CalculateCostWithServiceTier(
+			imageModel,
+			imageTokens,
+			input.RateMultiplier,
+			input.ServiceTier,
+		)
+		imagePricing, pricingErr = e.billingService.GetModelPricing(imageModel)
+		if err == nil {
+			err = pricingErr
+		}
+		if err != nil || imagePricing == nil {
+			return nil, ErrBillingPreauthUnavailable
+		}
+		cost += imageCost.ActualCost
 	}
 	reserveUSD := ceilTrafficCreditUSD(math.Max(cost, e.minimumReserveUSD))
 	if reserveUSD > availableUSD+1e-10 {
 		return nil, ErrTrafficCreditInsufficient
 	}
+	bodySHA := sha256.Sum256(body)
 	snapshot, err := json.Marshal(map[string]any{
-		"model":                       strings.TrimSpace(input.Model),
-		"group_id":                    input.GroupID,
-		"service_tier":                strings.TrimSpace(input.ServiceTier),
-		"rate_multiplier":             input.RateMultiplier,
-		"output_limit_field":          strings.TrimSpace(input.OutputLimitField),
-		"input_token_upper_bound":     inputTokens,
-		"effective_max_output_tokens": outputTokens,
-		"reserve_usd":                 reserveUSD,
-		"input_price_per_token":       pricing.InputPricePerToken,
-		"output_price_per_token":      pricing.OutputPricePerToken,
-		"cache_creation_price":        pricing.CacheCreationPricePerToken,
-		"cache_creation_5m_price":     pricing.CacheCreation5mPrice,
-		"cache_creation_1h_price":     pricing.CacheCreation1hPrice,
+		"model":                          strings.TrimSpace(input.Model),
+		"image_model":                    imageModel,
+		"group_id":                       input.GroupID,
+		"request_id":                     strings.TrimSpace(input.RequestID),
+		"request_fingerprint":            strings.TrimSpace(input.RequestFingerprint),
+		"request_body_sha256":            hex.EncodeToString(bodySHA[:]),
+		"service_tier":                   strings.TrimSpace(input.ServiceTier),
+		"rate_multiplier":                input.RateMultiplier,
+		"output_limit_field":             strings.TrimSpace(input.OutputLimitField),
+		"input_token_upper_bound":        inputTokens,
+		"effective_max_output_tokens":    outputTokens,
+		"image_input_token_upper_bound":  maxInt(input.ImageInputTokenUpperBound, 0),
+		"image_output_token_upper_bound": maxInt(input.ImageOutputTokenUpperBound, 0),
+		"reserve_usd":                    reserveUSD,
+		"input_price_per_token":          mainPricing.InputPricePerToken,
+		"output_price_per_token":         mainPricing.OutputPricePerToken,
+		"cache_creation_price":           mainPricing.CacheCreationPricePerToken,
+		"cache_creation_5m_price":        mainPricing.CacheCreation5mPrice,
+		"cache_creation_1h_price":        mainPricing.CacheCreation1hPrice,
+		"image_input_price_per_token":    openAITrafficBudgetImageInputPrice(imagePricing),
+		"image_output_price_per_token":   openAITrafficBudgetImageOutputPrice(imagePricing),
 	})
 	if err != nil {
 		return nil, ErrBillingPreauthUnavailable
 	}
 	return &OpenAITrafficCreditBudget{
-		Body:                     body,
-		InputTokenUpperBound:     inputTokens,
-		EffectiveMaxOutputTokens: outputTokens,
-		ReserveUSD:               reserveUSD,
-		PricingSnapshot:          snapshot,
+		Body:                       body,
+		InputTokenUpperBound:       inputTokens,
+		EffectiveMaxOutputTokens:   outputTokens,
+		ImageInputTokenUpperBound:  maxInt(input.ImageInputTokenUpperBound, 0),
+		ImageOutputTokenUpperBound: maxInt(input.ImageOutputTokenUpperBound, 0),
+		ReserveUSD:                 reserveUSD,
+		PricingSnapshot:            snapshot,
 	}, nil
+}
+
+func resolveOpenAITrafficBudgetImageModel(mainModel, imageModel string) string {
+	if trimmed := strings.TrimSpace(imageModel); trimmed != "" {
+		return trimmed
+	}
+	if isOpenAIImageGenerationModel(mainModel) {
+		return strings.TrimSpace(mainModel)
+	}
+	return "gpt-image-2"
+}
+
+func openAITrafficBudgetImageInputPrice(pricing *ModelPricing) float64 {
+	if pricing == nil {
+		return 0
+	}
+	if pricing.ImageInputPricePerToken > 0 {
+		return pricing.ImageInputPricePerToken
+	}
+	return pricing.InputPricePerToken
+}
+
+func openAITrafficBudgetImageOutputPrice(pricing *ModelPricing) float64 {
+	if pricing == nil {
+		return 0
+	}
+	if pricing.ImageOutputPricePerToken > 0 || pricing.ImageOutputPriceExplicit {
+		return pricing.ImageOutputPricePerToken
+	}
+	return pricing.OutputPricePerToken
 }
 
 func ceilTrafficCreditUSD(value float64) float64 {

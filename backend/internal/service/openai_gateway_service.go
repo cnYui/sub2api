@@ -1224,6 +1224,10 @@ func (s *OpenAIGatewayService) releaseOpenAIBillingReservation(ctx context.Conte
 	return nil
 }
 
+func (s *OpenAIGatewayService) ReleaseOpenAIBillingAuthorization(ctx context.Context, c *gin.Context, authorization *OpenAIBillingAuthorization) error {
+	return s.releaseOpenAIBillingReservation(ctx, c, authorization)
+}
+
 // isolateOpenAISessionID 将 apiKeyID 混入 session 标识符，
 // 确保不同 API Key 的用户即使使用相同的原始 session_id/conversation_id，
 // 到达上游的标识符也不同，防止跨用户会话碰撞。
@@ -6382,6 +6386,7 @@ type openAIUsageRecordBuild struct {
 	usageLog      *UsageLog
 	billingParams *postUsageBillingParams
 	effects       UsageSettlementEffectsPayload
+	openAIBilling *OpenAIUsageBillingSnapshot
 }
 
 func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRecordUsageInput) error {
@@ -6424,6 +6429,7 @@ func (s *OpenAIGatewayService) BuildUsageFact(ctx context.Context, input *OpenAI
 		BillingCommand: *command,
 		UsageLog:       *record.usageLog,
 		Effects:        record.effects,
+		OpenAIBilling:  record.openAIBilling,
 	})
 }
 
@@ -6475,37 +6481,48 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
 	}
 	var cost *CostBreakdown
+	var openAIBilling *OpenAIUsageBillingSnapshot
 	var err error
-	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
-	if result.BillingModel != "" {
-		billingModel = strings.TrimSpace(result.BillingModel)
+	mainBillingModel := strings.TrimSpace(result.MainBillingModel)
+	if mainBillingModel == "" {
+		mainBillingModel = forwardResultBillingModel(result.Model, result.UpstreamModel)
+		if result.ImageCount == 0 && result.ImageBillingModel == "" && strings.TrimSpace(result.BillingModel) != "" {
+			mainBillingModel = strings.TrimSpace(result.BillingModel)
+		}
 	}
 	if input.BillingModelSource == BillingModelSourceChannelMapped && input.ChannelMappedModel != "" && input.ChannelMappedModel != input.OriginalModel {
-		billingModel = input.ChannelMappedModel
+		mainBillingModel = input.ChannelMappedModel
 	}
 	if input.BillingModelSource == BillingModelSourceRequested && input.OriginalModel != "" {
-		billingModel = input.OriginalModel
+		mainBillingModel = input.OriginalModel
 	}
-	billingModels := usageBillingModelCandidates(
-		billingModel,
+	imageBillingModel := strings.TrimSpace(result.ImageBillingModel)
+	if imageBillingModel == "" && result.ImageCount > 0 {
+		imageBillingModel = strings.TrimSpace(result.BillingModel)
+	}
+	serviceTier := ""
+	if result.ServiceTier != nil {
+		serviceTier = strings.TrimSpace(*result.ServiceTier)
+	}
+	mainBillingModel = s.selectOpenAIMainBillingModel(ctx, apiKey, result.Usage, usageBillingModelCandidates(
+		mainBillingModel,
 		result.BillingModel,
 		input.ChannelMappedModel,
 		input.OriginalModel,
 		result.UpstreamModel,
 		result.Model,
-	)
-	serviceTier := ""
-	if result.ServiceTier != nil {
-		serviceTier = strings.TrimSpace(*result.ServiceTier)
-	}
-	cost, err = s.calculateOpenAIRecordUsageCost(ctx, apiKey, billingModels, multiplier, tokens, serviceTier)
+	), multiplier, serviceTier)
+	missingUsageComponents := MissingOpenAIUsageComponents(result.UsageExpectation, result.UsagePresence)
+	components := BuildOpenAIBillingComponents(result.Usage, mainBillingModel, imageBillingModel)
+	openAIBilling, cost, err = s.calculateOpenAIUsageBillingSnapshot(ctx, apiKey, components, multiplier, serviceTier, missingUsageComponents)
 	if err != nil {
 		if !isUsagePricingUnavailableError(err) {
 			return nil, err
 		}
 		logger.L().With(
 			zap.String("component", "service.openai_gateway"),
-			zap.Strings("billing_models", billingModels),
+			zap.String("main_billing_model", mainBillingModel),
+			zap.String("image_billing_model", imageBillingModel),
 			zap.String("requested_model", input.OriginalModel),
 			zap.String("mapped_model", input.ChannelMappedModel),
 			zap.String("upstream_model", result.UpstreamModel),
@@ -6513,7 +6530,14 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 			zap.Int64("account_id", account.ID),
 		).Warn("openai_usage.pricing_missing_record_zero_cost", zap.Error(err))
 		cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
+		openAIBilling = &OpenAIUsageBillingSnapshot{
+			ServiceTier:            serviceTier,
+			RateMultiplier:         multiplier,
+			MissingUsageComponents: missingUsageComponents,
+			BillingIncomplete:      len(missingUsageComponents) > 0,
+		}
 	}
+	result.BillingSnapshot = openAIBilling
 
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -6579,6 +6603,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		OutputTokens:        result.Usage.OutputTokens,
 		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 		ImageCount:          result.ImageCount,
 		ImageSize:           optionalTrimmedStringPtr(result.ImageSize),
@@ -6590,11 +6615,15 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
 		usageLog.OutputCost = cost.OutputCost
+		usageLog.ImageInputCost = cost.ImageInputCost
 		usageLog.ImageOutputCost = cost.ImageOutputCost
 		usageLog.CacheCreationCost = cost.CacheCreationCost
 		usageLog.CacheReadCost = cost.CacheReadCost
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
+	}
+	if openAIBilling != nil {
+		usageLog.BillingIncomplete = openAIBilling.BillingIncomplete
 	}
 	usageLog.RateMultiplier = multiplier
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
@@ -6664,6 +6693,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	return &openAIUsageRecordBuild{
 		usageLog:      usageLog,
 		billingParams: billingParams,
+		openAIBilling: openAIBilling,
 		effects: UsageSettlementEffectsPayload{
 			UserID:                user.ID,
 			APIKeyID:              apiKey.ID,
@@ -6734,6 +6764,161 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		lastErr = errors.New("no non-empty billing model candidates")
 	}
 	return nil, fmt.Errorf("calculate OpenAI usage cost failed for billing models %s: %w", strings.Join(billingModels, ","), lastErr)
+}
+
+func (s *OpenAIGatewayService) selectOpenAIMainBillingModel(
+	ctx context.Context,
+	apiKey *APIKey,
+	usage OpenAIUsage,
+	candidates []string,
+	multiplier float64,
+	serviceTier string,
+) string {
+	fallback := firstUsageBillingModel(candidates)
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		component, ok := openAIMainBillingComponent(usage, candidate)
+		if !ok {
+			return candidate
+		}
+		if _, _, err := s.calculateOpenAIBillingComponentCost(ctx, apiKey, component, multiplier, serviceTier); err == nil {
+			return candidate
+		}
+	}
+	return fallback
+}
+
+func openAIMainBillingComponent(usage OpenAIUsage, model string) (OpenAIBillingComponent, bool) {
+	for _, component := range BuildOpenAIBillingComponents(usage, model, "") {
+		if component.Kind == "main" {
+			return component, true
+		}
+	}
+	return OpenAIBillingComponent{}, false
+}
+
+func (s *OpenAIGatewayService) calculateOpenAIUsageBillingSnapshot(
+	ctx context.Context,
+	apiKey *APIKey,
+	components []OpenAIBillingComponent,
+	multiplier float64,
+	serviceTier string,
+	missingUsageComponents []string,
+) (*OpenAIUsageBillingSnapshot, *CostBreakdown, error) {
+	snapshot := &OpenAIUsageBillingSnapshot{
+		Components:             make([]OpenAIBillingComponentSnapshot, 0, len(components)),
+		ServiceTier:            serviceTier,
+		RateMultiplier:         multiplier,
+		MissingUsageComponents: append([]string(nil), missingUsageComponents...),
+		BillingIncomplete:      len(missingUsageComponents) > 0,
+	}
+	if len(components) == 0 {
+		return snapshot, &CostBreakdown{BillingMode: string(BillingModeToken)}, nil
+	}
+
+	costs := make([]*CostBreakdown, 0, len(components))
+	for _, component := range components {
+		cost, pricing, err := s.calculateOpenAIBillingComponentCost(ctx, apiKey, component, multiplier, serviceTier)
+		if err != nil {
+			return snapshot, nil, err
+		}
+		costs = append(costs, cost)
+		snapshot.Components = append(snapshot.Components, OpenAIBillingComponentSnapshot{
+			Component: component,
+			Pricing:   openAIModelPricingSnapshot(pricing),
+			Cost:      *cost,
+		})
+	}
+
+	merged := MergeCostBreakdowns(costs...)
+	if merged.BillingMode == "" {
+		merged.BillingMode = string(BillingModeToken)
+	}
+	return snapshot, merged, nil
+}
+
+func (s *OpenAIGatewayService) calculateOpenAIBillingComponentCost(
+	ctx context.Context,
+	apiKey *APIKey,
+	component OpenAIBillingComponent,
+	multiplier float64,
+	serviceTier string,
+) (*CostBreakdown, *ResolvedPricing, error) {
+	model := strings.TrimSpace(component.Model)
+	if model == "" {
+		return nil, nil, errors.New("openai billing component model is empty")
+	}
+	billingService := s.billingService
+	if billingService == nil {
+		billingService = NewBillingService(s.cfg, nil)
+	}
+	tokens := openAIBillingComponentCostTokens(component)
+	if s.resolver != nil {
+		var groupID *int64
+		if apiKey != nil {
+			groupID = apiKey.GroupID
+			if groupID == nil && apiKey.Group != nil {
+				groupID = &apiKey.Group.ID
+			}
+		}
+		resolved := s.resolver.ResolveToken(ctx, PricingInput{Model: model, GroupID: groupID})
+		cost, err := billingService.CalculateCostUnified(CostInput{
+			Ctx:            ctx,
+			Model:          model,
+			GroupID:        groupID,
+			Tokens:         tokens,
+			RequestCount:   1,
+			RateMultiplier: multiplier,
+			ServiceTier:    serviceTier,
+			Resolver:       s.resolver,
+			Resolved:       resolved,
+		})
+		return cost, resolved, err
+	}
+	cost, err := billingService.CalculateCostWithServiceTier(model, tokens, multiplier, serviceTier)
+	pricing, source := openAIModelPricingFromBillingService(billingService, model)
+	return cost, &ResolvedPricing{Mode: BillingModeToken, BasePricing: pricing, Source: source}, err
+}
+
+func openAIBillingComponentCostTokens(component OpenAIBillingComponent) UsageTokens {
+	tokens := component.Tokens
+	if strings.TrimSpace(component.Kind) == "image" && tokens.ImageInputTokens > 0 && tokens.InputTokens < tokens.ImageInputTokens {
+		tokens.InputTokens = tokens.ImageInputTokens
+	}
+	return tokens
+}
+
+func openAIModelPricingFromBillingService(billingService *BillingService, model string) (*ModelPricing, string) {
+	if billingService == nil {
+		return nil, PricingSourceFallback
+	}
+	pricing, err := billingService.GetModelPricing(model)
+	if err != nil {
+		return nil, PricingSourceFallback
+	}
+	return pricing, PricingSourceLiteLLM
+}
+
+func openAIModelPricingSnapshot(resolved *ResolvedPricing) OpenAIModelPricingSnapshot {
+	if resolved == nil || resolved.BasePricing == nil {
+		if resolved == nil {
+			return OpenAIModelPricingSnapshot{}
+		}
+		return OpenAIModelPricingSnapshot{Source: resolved.Source}
+	}
+	pricing := resolved.BasePricing
+	return OpenAIModelPricingSnapshot{
+		Source:                     resolved.Source,
+		InputPricePerToken:         pricing.InputPricePerToken,
+		ImageInputPricePerToken:    pricing.ImageInputPricePerToken,
+		OutputPricePerToken:        pricing.OutputPricePerToken,
+		CacheCreationPricePerToken: pricing.CacheCreationPricePerToken,
+		CacheReadPricePerToken:     pricing.CacheReadPricePerToken,
+		ImageOutputPricePerToken:   pricing.ImageOutputPricePerToken,
+	}
 }
 
 func isUsagePricingUnavailableError(err error) bool {

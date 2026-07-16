@@ -9045,7 +9045,10 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.OutputTokens = usageLog.OutputTokens
 		cmd.CacheCreationTokens = usageLog.CacheCreationTokens
 		cmd.CacheReadTokens = usageLog.CacheReadTokens
+		cmd.ImageInputTokens = usageLog.ImageInputTokens
+		cmd.ImageOutputTokens = usageLog.ImageOutputTokens
 		cmd.ImageCount = usageLog.ImageCount
+		cmd.BillingIncomplete = usageLog.BillingIncomplete
 		if usageLog.ServiceTier != nil {
 			cmd.ServiceTier = *usageLog.ServiceTier
 		}

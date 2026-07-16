@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -19,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
@@ -40,7 +42,15 @@ const (
 	openAIImageMaxDownloadBytes    = 20 << 20 // 20MB per image download
 	openAIImageMaxUploadPartSize   = 20 << 20 // 20MB per multipart upload part
 	openAIImagesResponsesMainModel = "gpt-5.4-mini"
+
+	gptImage2UnknownOutputTokenUpperBound = 23719
 )
+
+var gptImage2OutputTokenUpperBounds = map[string]map[string]int{
+	"1024x1024": {"low": 196, "medium": 1756, "high": 7024},
+	"1536x1024": {"low": 158, "medium": 1372, "high": 5488},
+	"1024x1536": {"low": 158, "medium": 1372, "high": 5488},
+}
 
 type OpenAIImagesCapability string
 
@@ -535,6 +545,132 @@ func normalizeOpenAIImageSizeTier(size string) string {
 	return NormalizeImageBillingTierOrDefault(size)
 }
 
+func openAIImagesOutputTokenUpperBound(req *OpenAIImagesRequest) int {
+	if req == nil {
+		return gptImage2UnknownOutputTokenUpperBound
+	}
+	n := maxInt(req.N, 1)
+	size := strings.ToLower(strings.TrimSpace(req.Size))
+	quality := strings.ToLower(strings.TrimSpace(req.Quality))
+	if size == "" || size == "auto" || quality == "" || quality == "auto" {
+		return gptImage2UnknownOutputTokenUpperBound * n
+	}
+	perQuality, ok := gptImage2OutputTokenUpperBounds[size]
+	if !ok {
+		return gptImage2UnknownOutputTokenUpperBound * n
+	}
+	base, ok := perQuality[quality]
+	if !ok {
+		return gptImage2UnknownOutputTokenUpperBound * n
+	}
+	if req.PartialImages != nil && *req.PartialImages > 0 {
+		base += *req.PartialImages * 100
+	}
+	return base * n
+}
+
+func openAIImagesInputTokenUpperBound(req *OpenAIImagesRequest) int {
+	if req == nil || !req.IsEdits() {
+		return 0
+	}
+	imageCount := len(req.InputImageURLs) + len(req.Uploads)
+	if strings.TrimSpace(req.MaskImageURL) != "" || req.MaskUpload != nil {
+		imageCount++
+	}
+	if imageCount <= 0 {
+		return 0
+	}
+	return imageCount * gptImage2UnknownOutputTokenUpperBound
+}
+
+func (s *OpenAIGatewayService) AuthorizeImagesRequest(
+	ctx context.Context,
+	c *gin.Context,
+	parsed *OpenAIImagesRequest,
+	body []byte,
+	channelMappedModel string,
+) (*OpenAIBillingAuthorization, []byte, error) {
+	if s == nil || s.billingAuthorizationService == nil || (s.cfg != nil && s.cfg.RunMode == config.RunModeSimple) {
+		return nil, body, nil
+	}
+	if parsed == nil {
+		return nil, nil, fmt.Errorf("parsed images request is required")
+	}
+	apiKey := getAPIKeyFromContext(c)
+	if apiKey == nil || apiKey.User == nil {
+		return nil, nil, ErrBillingPreauthUnavailable
+	}
+	requestModel := strings.TrimSpace(parsed.Model)
+	if mapped := strings.TrimSpace(channelMappedModel); mapped != "" {
+		requestModel = mapped
+	}
+	if requestModel == "" {
+		requestModel = "gpt-image-2"
+	}
+	if err := validateOpenAIImagesModel(requestModel); err != nil {
+		return nil, nil, err
+	}
+	fingerprint := HashUsageRequestPayload(body)
+	if state, ok := getOpenAIBillingAuthorizationRequestState(c); ok && state.RequestFingerprint == fingerprint && state.Authorization != nil {
+		if state.Unknown {
+			writeOpenAIBillingAuthorizationError(c, ErrBillingPreauthUnavailable)
+			return nil, nil, ErrBillingPreauthUnavailable
+		}
+		return state.Authorization, append([]byte(nil), body...), nil
+	}
+	balanceEligible := apiKey.User.Balance > 0
+	if s.billingCacheService != nil {
+		balance, err := s.billingCacheService.GetUserBalance(ctx, apiKey.User.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		balanceEligible = !s.billingCacheService.balanceBelowEligibilityThreshold(balance)
+	}
+	rateMultiplier := 1.0
+	if s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
+		rateMultiplier = s.cfg.Default.RateMultiplier
+	}
+	if apiKey.GroupID != nil && apiKey.Group != nil {
+		resolver := s.userGroupRateResolver
+		if resolver == nil {
+			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
+		}
+		rateMultiplier = resolver.Resolve(ctx, apiKey.User.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+	}
+	authorization, err := s.billingAuthorizationService.Authorize(ctx, OpenAIBillingAuthorizationInput{
+		RequestID:                  resolveUsageBillingRequestID(ctx, ""),
+		RequestFingerprint:         fingerprint,
+		APIKeyID:                   apiKey.ID,
+		UserID:                     apiKey.User.ID,
+		Platform:                   PlatformFromAPIKey(apiKey),
+		Model:                      requestModel,
+		ImageModel:                 requestModel,
+		Group:                      apiKey.Group,
+		Subscription:               getOpenAISubscriptionFromContext(c),
+		BalanceEligible:            balanceEligible,
+		RateMultiplier:             rateMultiplier,
+		Body:                       body,
+		ImageInputTokenUpperBound:  openAIImagesInputTokenUpperBound(parsed),
+		ImageOutputTokenUpperBound: openAIImagesOutputTokenUpperBound(parsed),
+		DoNotClampOutputLimit:      true,
+	})
+	if err != nil {
+		writeOpenAIBillingAuthorizationError(c, err)
+		return nil, nil, err
+	}
+	if authorization == nil {
+		return nil, nil, ErrBillingPreauthUnavailable
+	}
+	if authorization.RequestFingerprint == "" {
+		authorization.RequestFingerprint = fingerprint
+	}
+	setOpenAIBillingAuthorizationRequestState(c, fingerprint, authorization)
+	if len(authorization.EffectiveBody) > 0 {
+		return authorization, authorization.EffectiveBody, nil
+	}
+	return authorization, append([]byte(nil), body...), nil
+}
+
 func (s *OpenAIGatewayService) ForwardImages(
 	ctx context.Context,
 	c *gin.Context,
@@ -542,15 +678,20 @@ func (s *OpenAIGatewayService) ForwardImages(
 	body []byte,
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
+	billingAuthorizations ...*OpenAIBillingAuthorization,
 ) (*OpenAIForwardResult, error) {
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
+	var billingAuthorization *OpenAIBillingAuthorization
+	if len(billingAuthorizations) > 0 {
+		billingAuthorization = billingAuthorizations[0]
+	}
 	switch account.Type {
 	case AccountTypeAPIKey:
-		return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel)
+		return s.forwardOpenAIImagesAPIKey(ctx, c, account, body, parsed, channelMappedModel, billingAuthorization)
 	case AccountTypeOAuth:
-		return s.forwardOpenAIImagesOAuth(ctx, c, account, parsed, channelMappedModel)
+		return s.forwardOpenAIImagesOAuth(ctx, c, account, parsed, channelMappedModel, billingAuthorization)
 	default:
 		return nil, fmt.Errorf("unsupported account type: %s", account.Type)
 	}
@@ -563,6 +704,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	body []byte,
 	parsed *OpenAIImagesRequest,
 	channelMappedModel string,
+	billingAuthorization *OpenAIBillingAuthorization,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 	requestModel := strings.TrimSpace(parsed.Model)
@@ -593,21 +735,25 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 
 	token, _, err := s.GetAccessToken(upstreamCtx, account)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
+	if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+	}
 	upstreamStart := time.Now()
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 	if err != nil {
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 		safeErr := sanitizeUpstreamErrorMessage(err.Error())
 		setOpsUpstreamError(c, 0, safeErr, "")
 		appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
@@ -657,20 +803,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		if err != nil {
 			if streamCount > 0 {
 				return &OpenAIForwardResult{
-					RequestID:         resp.Header.Get("x-request-id"),
-					Usage:             streamUsage,
-					Model:             requestModel,
-					MainBillingModel:  requestModel,
-					ImageBillingModel: requestModel,
-					UpstreamModel:     upstreamModel,
-					Stream:            parsed.Stream,
-					ResponseHeaders:   resp.Header.Clone(),
-					Duration:          time.Since(startTime),
-					FirstTokenMs:      ttft,
-					ImageCount:        streamCount,
-					ImageSize:         parsed.SizeTier,
-					ImageInputSize:    parsed.Size,
-					ImageOutputSizes:  streamSizes,
+					RequestID:            resp.Header.Get("x-request-id"),
+					Usage:                streamUsage,
+					Model:                requestModel,
+					MainBillingModel:     requestModel,
+					ImageBillingModel:    requestModel,
+					UpstreamModel:        upstreamModel,
+					Stream:               parsed.Stream,
+					ResponseHeaders:      resp.Header.Clone(),
+					Duration:             time.Since(startTime),
+					FirstTokenMs:         ttft,
+					ImageCount:           streamCount,
+					ImageSize:            parsed.SizeTier,
+					ImageInputSize:       parsed.Size,
+					ImageOutputSizes:     streamSizes,
+					BillingAuthorization: billingAuthorization,
 				}, err
 			}
 			return nil, err
@@ -680,20 +827,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		imageOutputSizes := streamSizes
 		firstTokenMs = ttft
 		return &OpenAIForwardResult{
-			RequestID:         resp.Header.Get("x-request-id"),
-			Usage:             usage,
-			Model:             requestModel,
-			MainBillingModel:  requestModel,
-			ImageBillingModel: requestModel,
-			UpstreamModel:     upstreamModel,
-			Stream:            parsed.Stream,
-			ResponseHeaders:   resp.Header.Clone(),
-			Duration:          time.Since(startTime),
-			FirstTokenMs:      firstTokenMs,
-			ImageCount:        imageCount,
-			ImageSize:         parsed.SizeTier,
-			ImageInputSize:    parsed.Size,
-			ImageOutputSizes:  imageOutputSizes,
+			RequestID:            resp.Header.Get("x-request-id"),
+			Usage:                usage,
+			Model:                requestModel,
+			MainBillingModel:     requestModel,
+			ImageBillingModel:    requestModel,
+			UpstreamModel:        upstreamModel,
+			Stream:               parsed.Stream,
+			ResponseHeaders:      resp.Header.Clone(),
+			Duration:             time.Since(startTime),
+			FirstTokenMs:         firstTokenMs,
+			ImageCount:           imageCount,
+			ImageSize:            parsed.SizeTier,
+			ImageInputSize:       parsed.Size,
+			ImageOutputSizes:     imageOutputSizes,
+			BillingAuthorization: billingAuthorization,
 		}, nil
 	} else {
 		nonStreamUsage, nonStreamCount, nonStreamSizes, err := s.handleOpenAIImagesNonStreamingResponse(resp, c)
@@ -705,20 +853,21 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			imageCount = nonStreamCount
 		}
 		return &OpenAIForwardResult{
-			RequestID:         resp.Header.Get("x-request-id"),
-			Usage:             usage,
-			Model:             requestModel,
-			MainBillingModel:  requestModel,
-			ImageBillingModel: requestModel,
-			UpstreamModel:     upstreamModel,
-			Stream:            parsed.Stream,
-			ResponseHeaders:   resp.Header.Clone(),
-			Duration:          time.Since(startTime),
-			FirstTokenMs:      firstTokenMs,
-			ImageCount:        imageCount,
-			ImageSize:         parsed.SizeTier,
-			ImageInputSize:    parsed.Size,
-			ImageOutputSizes:  nonStreamSizes,
+			RequestID:            resp.Header.Get("x-request-id"),
+			Usage:                usage,
+			Model:                requestModel,
+			MainBillingModel:     requestModel,
+			ImageBillingModel:    requestModel,
+			UpstreamModel:        upstreamModel,
+			Stream:               parsed.Stream,
+			ResponseHeaders:      resp.Header.Clone(),
+			Duration:             time.Since(startTime),
+			FirstTokenMs:         firstTokenMs,
+			ImageCount:           imageCount,
+			ImageSize:            parsed.SizeTier,
+			ImageInputSize:       parsed.Size,
+			ImageOutputSizes:     nonStreamSizes,
+			BillingAuthorization: billingAuthorization,
 		}, nil
 	}
 }

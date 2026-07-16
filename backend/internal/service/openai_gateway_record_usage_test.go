@@ -1541,6 +1541,112 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
 }
 
+func TestOpenAIGatewayServiceBuildUsageFact_OpenAIImageUsesMainAndImageTokenPricing(t *testing.T) {
+	groupID := int64(501)
+	svc := newOpenAIRecordUsageServiceWithOpenAITokenPricingForTest(t, groupID)
+
+	fact, err := svc.BuildUsageFact(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:         "resp_openai_image_token_pricing",
+			Model:             "gpt-main",
+			MainBillingModel:  "gpt-main",
+			ImageBillingModel: "gpt-image-2",
+			ImageCount:        1,
+			ImageSize:         "1K",
+			Duration:          time.Second,
+			Usage: OpenAIUsage{
+				InputTokens:              130,
+				ImageInputTokens:         20,
+				OutputTokens:             70,
+				CacheCreationInputTokens: 5,
+				CacheReadInputTokens:     10,
+				ImageOutputTokens:        40,
+			},
+			UsagePresence: OpenAIUsagePresence{
+				Input:       true,
+				ImageInput:  true,
+				Output:      true,
+				ImageOutput: true,
+				CacheRead:   true,
+			},
+			UsageExpectation: OpenAIUsageExpectation{
+				Input:       true,
+				ImageInput:  true,
+				Output:      true,
+				ImageOutput: true,
+				CacheRead:   true,
+			},
+		},
+		APIKey:  &APIKey{ID: 1008, GroupID: &groupID, Group: &Group{ID: groupID, RateMultiplier: 1.5}},
+		User:    &User{ID: 2008, Balance: 10},
+		Account: &Account{ID: 3008},
+	})
+
+	require.NoError(t, err)
+	payload, err := DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+	require.NoError(t, err)
+
+	require.NotNil(t, payload.OpenAIBilling)
+	require.False(t, payload.OpenAIBilling.BillingIncomplete)
+	require.Len(t, payload.OpenAIBilling.Components, 2)
+	require.Equal(t, "main", payload.OpenAIBilling.Components[0].Component.Kind)
+	require.Equal(t, "gpt-main", payload.OpenAIBilling.Components[0].Component.Model)
+	require.Equal(t, "image", payload.OpenAIBilling.Components[1].Component.Kind)
+	require.Equal(t, "gpt-image-2", payload.OpenAIBilling.Components[1].Component.Model)
+
+	expectedTotal := 100*1e-6 + 30*2e-6 + 5*3e-6 + 10*0.5e-6 + 20*8e-6 + 40*30e-6
+	expectedActual := expectedTotal * 1.5
+	require.InDelta(t, expectedTotal, payload.UsageLog.TotalCost, 1e-12)
+	require.InDelta(t, expectedActual, payload.UsageLog.ActualCost, 1e-12)
+	require.Equal(t, 20, payload.UsageLog.ImageInputTokens)
+	require.InDelta(t, 20*8e-6, payload.UsageLog.ImageInputCost, 1e-12)
+	require.Equal(t, 40, payload.UsageLog.ImageOutputTokens)
+	require.InDelta(t, 40*30e-6, payload.UsageLog.ImageOutputCost, 1e-12)
+	require.False(t, payload.UsageLog.BillingIncomplete)
+	require.NotNil(t, payload.UsageLog.BillingMode)
+	require.Equal(t, string(BillingModeToken), *payload.UsageLog.BillingMode)
+	require.InDelta(t, expectedActual, payload.BillingCommand.BalanceCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceBuildUsageFact_OpenAIImageCostIgnoresImageCount(t *testing.T) {
+	groupID := int64(502)
+	svc := newOpenAIRecordUsageServiceWithOpenAITokenPricingForTest(t, groupID)
+	build := func(imageCount int) UsageFactPayload {
+		fact, err := svc.BuildUsageFact(context.Background(), &OpenAIRecordUsageInput{
+			Result: &OpenAIForwardResult{
+				RequestID:         "resp_openai_image_count",
+				Model:             "gpt-main",
+				MainBillingModel:  "gpt-main",
+				ImageBillingModel: "gpt-image-2",
+				ImageCount:        imageCount,
+				ImageSize:         "1K",
+				Duration:          time.Second,
+				Usage: OpenAIUsage{
+					InputTokens:       10,
+					OutputTokens:      5,
+					ImageOutputTokens: 3,
+				},
+			},
+			APIKey:  &APIKey{ID: 1009, GroupID: &groupID, Group: &Group{ID: groupID, RateMultiplier: 1.5}},
+			User:    &User{ID: 2009, Balance: 10},
+			Account: &Account{ID: 3009},
+		})
+		require.NoError(t, err)
+		payload, err := DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+		require.NoError(t, err)
+		return payload
+	}
+
+	one := build(1)
+	four := build(4)
+
+	require.Equal(t, 1, one.UsageLog.ImageCount)
+	require.Equal(t, 4, four.UsageLog.ImageCount)
+	require.InDelta(t, one.UsageLog.TotalCost, four.UsageLog.TotalCost, 1e-12)
+	require.InDelta(t, one.UsageLog.ActualCost, four.UsageLog.ActualCost, 1e-12)
+	require.InDelta(t, one.BillingCommand.BalanceCost, four.BillingCommand.BalanceCost, 1e-12)
+}
+
 func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string, price float64) *ModelPricingResolver {
 	t.Helper()
 	cache := newEmptyChannelCache()
@@ -1554,6 +1660,38 @@ func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, mo
 	cs := &ChannelService{}
 	cs.cache.Store(cache)
 	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+}
+
+func newOpenAIRecordUsageServiceWithOpenAITokenPricingForTest(t *testing.T, groupID int64) *openAIRecordUsageTestService {
+	t.Helper()
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageBillingRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	cache := newEmptyChannelCache()
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, platform: PlatformOpenAI, model: "gpt-main"}] = &ChannelModelPricing{
+		BillingMode:     BillingModeToken,
+		InputPrice:      testPtrFloat64(1e-6),
+		OutputPrice:     testPtrFloat64(2e-6),
+		CacheWritePrice: testPtrFloat64(3e-6),
+		CacheReadPrice:  testPtrFloat64(0.5e-6),
+	}
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, platform: PlatformOpenAI, model: "gpt-image-2"}] = &ChannelModelPricing{
+		BillingMode:      BillingModeToken,
+		InputPrice:       testPtrFloat64(8e-6),
+		OutputPrice:      testPtrFloat64(9e-6),
+		ImageOutputPrice: testPtrFloat64(30e-6),
+	}
+	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
+	cache.groupPlatform[groupID] = PlatformOpenAI
+	cache.loadedAt = time.Now()
+	channelService := &ChannelService{}
+	channelService.cache.Store(cache)
+	svc.resolver = NewModelPricingResolver(channelService, svc.billingService)
+	return svc
 }
 
 func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesImageCount(t *testing.T) {
