@@ -211,6 +211,56 @@ func (r *trafficCreditReservationRepository) Release(ctx context.Context, reserv
 	return tx.Commit()
 }
 
+func (r *trafficCreditReservationRepository) ReleaseExpiredReserved(ctx context.Context, now time.Time, limit int) (int, error) {
+	if r == nil || r.db == nil {
+		return 0, errors.New("traffic credit reservation repository db is nil")
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id
+		FROM traffic_credit_reservations
+		WHERE status = 'reserved' AND expires_at <= $1
+		ORDER BY expires_at ASC, id ASC
+		FOR UPDATE SKIP LOCKED
+		LIMIT $2
+	`, now, limit)
+	if err != nil {
+		return 0, err
+	}
+	reservationIDs := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			_ = rows.Close()
+			return 0, err
+		}
+		reservationIDs = append(reservationIDs, id)
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, reservationID := range reservationIDs {
+		if err := releaseTrafficCreditReservationLocked(ctx, tx, reservationID, now); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return len(reservationIDs), nil
+}
+
 func (r *trafficCreditReservationRepository) HasOutstandingDebt(ctx context.Context, userID int64, platform string) (bool, error) {
 	var exists bool
 	err := r.db.QueryRowContext(ctx, `
@@ -221,6 +271,75 @@ func (r *trafficCreditReservationRepository) HasOutstandingDebt(ctx context.Cont
 		)
 	`, userID, platform).Scan(&exists)
 	return exists, err
+}
+
+func releaseTrafficCreditReservationLocked(ctx context.Context, tx *sql.Tx, reservationID int64, now time.Time) error {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT credit_id, reserved_usd
+		FROM traffic_credit_reservation_items
+		WHERE reservation_id = $1
+		ORDER BY credit_id
+		FOR UPDATE
+	`, reservationID)
+	if err != nil {
+		return err
+	}
+	type releaseItem struct {
+		creditID    int64
+		reservedUSD float64
+	}
+	items := make([]releaseItem, 0)
+	for rows.Next() {
+		var item releaseItem
+		if err := rows.Scan(&item.creditID, &item.reservedUSD); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, item := range items {
+		result, err := tx.ExecContext(ctx, `
+			UPDATE user_traffic_credits
+			SET reserved_usd = CASE
+					WHEN reserved_usd - $1 < 0.0000000001 THEN 0
+					ELSE reserved_usd - $1
+				END,
+				updated_at = $2
+			WHERE id = $3 AND reserved_usd + 0.0000000001 >= $1
+		`, item.reservedUSD, now, item.creditID)
+		if err != nil {
+			return err
+		}
+		if affected, err := result.RowsAffected(); err != nil || affected != 1 {
+			if err != nil {
+				return err
+			}
+			return service.ErrInvalidInput
+		}
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE traffic_credit_reservations
+		SET status = 'released',
+			last_error = 'expired before dispatch',
+			updated_at = $2
+		WHERE id = $1 AND status = 'reserved'
+	`, reservationID, now)
+	if err != nil {
+		return err
+	}
+	if affected, err := result.RowsAffected(); err != nil || affected != 1 {
+		if err != nil {
+			return err
+		}
+		return service.ErrInvalidInput
+	}
+	return nil
 }
 
 func lockAvailableTrafficCredits(ctx context.Context, tx *sql.Tx, userID int64, platform string, now time.Time) ([]service.TrafficCreditBatch, error) {

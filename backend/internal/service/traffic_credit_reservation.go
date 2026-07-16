@@ -54,6 +54,7 @@ type TrafficCreditReservationRepository interface {
 	MarkDispatched(ctx context.Context, reservationID int64) error
 	MarkUnknown(ctx context.Context, reservationID int64, reason string) error
 	Release(ctx context.Context, reservationID int64, now time.Time) error
+	ReleaseExpiredReserved(ctx context.Context, now time.Time, limit int) (int, error)
 	HasOutstandingDebt(ctx context.Context, userID int64, platform string) (bool, error)
 }
 

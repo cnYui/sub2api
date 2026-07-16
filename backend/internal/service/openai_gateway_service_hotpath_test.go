@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,10 +12,303 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+type openAIBillingAuthorizerStub struct {
+	authorization   *OpenAIBillingAuthorization
+	authorizeErr    error
+	authorizeCalls  int
+	input           OpenAIBillingAuthorizationInput
+	dispatchedIDs   []int64
+	unknownIDs      []int64
+	releasedIDs     []int64
+	dispatchedReady bool
+}
+
+func (s *openAIBillingAuthorizerStub) Authorize(_ context.Context, input OpenAIBillingAuthorizationInput) (*OpenAIBillingAuthorization, error) {
+	s.authorizeCalls++
+	s.input = input
+	return s.authorization, s.authorizeErr
+}
+
+func TestOpenAIGatewayService_Forward_ReusesRequestAuthorizationAcrossFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(94)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5-account-a","stream":false,"input":"hello","max_output_tokens":256}`),
+		Enforced:      true,
+	}}
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		{
+			StatusCode: http.StatusInternalServerError,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"temporary failure"}}`)),
+		},
+		{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":2}}`)),
+		},
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	c := newOpenAIBillingAuthorizationGinContext()
+	firstAccount := newOpenAIBillingAuthorizationTestAccount()
+	firstAccount.ID = 71
+	firstAccount.Credentials["model_mapping"] = map[string]any{"gpt-5": "gpt-5-account-a"}
+	secondAccount := newOpenAIBillingAuthorizationTestAccount()
+	secondAccount.ID = 72
+	secondAccount.Credentials["model_mapping"] = map[string]any{"gpt-5": "gpt-5-account-b"}
+	body := []byte(`{"model":"gpt-5","stream":false,"input":"hello"}`)
+
+	first, firstErr := svc.Forward(c.Request.Context(), c, firstAccount, body)
+	require.Error(t, firstErr)
+	require.Nil(t, first)
+	second, secondErr := svc.Forward(c.Request.Context(), c, secondAccount, body)
+
+	require.NoError(t, secondErr)
+	require.NotNil(t, second)
+	require.Len(t, upstream.bodies, 2)
+	require.Equal(t, "gpt-5-account-b", gjson.GetBytes(upstream.bodies[1], "model").String())
+	require.Equal(t, int64(256), gjson.GetBytes(upstream.bodies[1], "max_output_tokens").Int())
+	require.Equal(t, HashUsageRequestPayload(body), authorizer.input.RequestFingerprint)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, reservationID, *second.BillingAuthorization.ReservationID)
+}
+
+func (s *openAIBillingAuthorizerStub) MarkDispatched(_ context.Context, reservationID int64) error {
+	s.dispatchedIDs = append(s.dispatchedIDs, reservationID)
+	s.dispatchedReady = true
+	return nil
+}
+
+func (s *openAIBillingAuthorizerStub) MarkUnknown(_ context.Context, reservationID int64, _ string) error {
+	s.unknownIDs = append(s.unknownIDs, reservationID)
+	return nil
+}
+
+func (s *openAIBillingAuthorizerStub) Release(_ context.Context, reservationID int64) error {
+	s.releasedIDs = append(s.releasedIDs, reservationID)
+	return nil
+}
+
+type dispatchedOpenAIHTTPUpstream struct {
+	authorizer *openAIBillingAuthorizerStub
+	resp       *http.Response
+	err        error
+	called     bool
+	lastBody   []byte
+}
+
+func (u *dispatchedOpenAIHTTPUpstream) Do(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+	u.called = true
+	if !u.authorizer.dispatchedReady {
+		return nil, errors.New("request dispatched before billing reservation")
+	}
+	if req != nil && req.Body != nil {
+		body, _ := io.ReadAll(req.Body)
+		u.lastBody = append([]byte(nil), body...)
+		_ = req.Body.Close()
+		req.Body = io.NopCloser(strings.NewReader(string(body)))
+	}
+	return u.resp, u.err
+}
+
+func (u *dispatchedOpenAIHTTPUpstream) DoWithTLS(req *http.Request, proxyURL string, accountID int64, accountConcurrency int, _ *tlsfingerprint.Profile) (*http.Response, error) {
+	return u.Do(req, proxyURL, accountID, accountConcurrency)
+}
+
+func TestOpenAIGatewayService_Forward_AuthorizesFinalBodyBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(91)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"none"},"input":"hello","max_output_tokens":256}`),
+		Enforced:      true,
+	}}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"usage":{"input_tokens":1,"output_tokens":2}}`)),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	account := newOpenAIBillingAuthorizationTestAccount()
+	c := newOpenAIBillingAuthorizationGinContext()
+
+	result, err := svc.Forward(c.Request.Context(), c, account, []byte(`{"model":"gpt-5","stream":false,"reasoning":{"effort":"minimal"},"input":"hello"}`))
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+	require.Equal(t, "none", gjson.GetBytes(authorizer.input.Body, "reasoning.effort").String())
+	require.NotEmpty(t, gjson.GetBytes(authorizer.input.Body, "instructions").String())
+	require.JSONEq(t, string(authorizer.authorization.EffectiveBody), string(upstream.lastBody))
+}
+
+func TestOpenAIGatewayService_Forward_RejectsBeforeUpstreamWhenAuthorizationFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	authorizer := &openAIBillingAuthorizerStub{authorizeErr: ErrTrafficCreditInsufficient}
+	upstream := &httpUpstreamRecorder{}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	c := newOpenAIBillingAuthorizationGinContext()
+
+	result, err := svc.Forward(c.Request.Context(), c, newOpenAIBillingAuthorizationTestAccount(), []byte(`{"model":"gpt-5","stream":false,"input":"hello"}`))
+
+	require.ErrorIs(t, err, ErrTrafficCreditInsufficient)
+	require.Nil(t, result)
+	require.Nil(t, upstream.lastReq)
+	require.Equal(t, http.StatusPaymentRequired, c.Writer.Status())
+}
+
+func TestOpenAIGatewayService_Forward_MarksReservationUnknownOnTransportFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(92)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5","stream":false,"input":"hello","max_output_tokens":256}`),
+		Enforced:      true,
+	}}
+	upstream := &dispatchedOpenAIHTTPUpstream{authorizer: authorizer, err: errors.New("TLS result unknown")}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	c := newOpenAIBillingAuthorizationGinContext()
+
+	result, err := svc.Forward(c.Request.Context(), c, newOpenAIBillingAuthorizationTestAccount(), []byte(`{"model":"gpt-5","stream":false,"input":"hello"}`))
+
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.True(t, upstream.called)
+	require.Equal(t, []int64{reservationID}, authorizer.dispatchedIDs)
+	require.Equal(t, []int64{reservationID}, authorizer.unknownIDs)
+	require.Empty(t, authorizer.releasedIDs)
+}
+
+func TestOpenAIGatewayService_Forward_ReleasesReservationWhenTokenLoadFails(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(93)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5","stream":false,"input":"hello","max_output_tokens":256}`),
+		Enforced:      true,
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                &httpUpstreamRecorder{},
+		billingAuthorizationService: authorizer,
+	}
+	account := newOpenAIBillingAuthorizationTestAccount()
+	delete(account.Credentials, "api_key")
+	c := newOpenAIBillingAuthorizationGinContext()
+
+	result, err := svc.Forward(c.Request.Context(), c, account, []byte(`{"model":"gpt-5","stream":false,"input":"hello"}`))
+
+	require.Error(t, err)
+	require.Nil(t, result)
+	require.Equal(t, []int64{reservationID}, authorizer.releasedIDs)
+	require.Empty(t, authorizer.dispatchedIDs)
+}
+
+func TestOpenAIGatewayService_RawChatCompletions_AuthorizesBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	reservationID := int64(95)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5","messages":[{"role":"user","content":"hello"}],"stream":false,"max_tokens":256}`),
+		Enforced:      true,
+	}}
+	upstream := &dispatchedOpenAIHTTPUpstream{
+		authorizer: authorizer,
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"raw-chat-req"}},
+			Body:       io.NopCloser(strings.NewReader(`{"id":"chatcmpl_1","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2}}`)),
+		},
+	}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	account := newOpenAIBillingAuthorizationTestAccount()
+	account.Extra = map[string]any{"responses_support": "force_chat_completions"}
+	c := newOpenAIBillingAuthorizationGinContext()
+	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/chat/completions", nil)
+
+	result, err := svc.forwardAsRawChatCompletions(
+		c.Request.Context(),
+		c,
+		account,
+		[]byte(`{"model":"gpt-5","messages":[{"role":"user","content":"hello"}],"stream":false}`),
+		"",
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, "max_tokens", authorizer.input.OutputLimitField)
+	require.Equal(t, HashUsageRequestPayload([]byte(`{"model":"gpt-5","messages":[{"role":"user","content":"hello"}],"stream":false}`)), authorizer.input.RequestFingerprint)
+	require.Equal(t, []int64{reservationID}, authorizer.dispatchedIDs)
+	require.JSONEq(t, string(authorizer.authorization.EffectiveBody), string(upstream.lastBody))
+	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+}
+
+func newOpenAIBillingAuthorizationTestAccount() *Account {
+	return &Account{
+		ID:          71,
+		Name:        "openai-apikey",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://example.com",
+		},
+		Extra: map[string]any{"use_responses_api": true},
+	}
+}
+
+func newOpenAIBillingAuthorizationGinContext() *gin.Context {
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	request := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
+	request = request.WithContext(context.WithValue(request.Context(), ctxkey.RequestID, "billing-auth-req"))
+	c.Request = request
+	groupID := int64(2)
+	c.Set("api_key", &APIKey{
+		ID:      9,
+		UserID:  7,
+		GroupID: &groupID,
+		User:    &User{ID: 7, Balance: 0},
+		Group:   &Group{ID: 2, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1},
+	})
+	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
+	return c
+}
 
 func TestOpenAIRequestView_ExtractsRawScalars(t *testing.T) {
 	view := newOpenAIRequestView([]byte(`{"model":" gpt-5 ","stream":true,"prompt_cache_key":" ses-1 ","previous_response_id":" resp-1 ","service_tier":" fast ","reasoning":{"effort":" medium "}}`))

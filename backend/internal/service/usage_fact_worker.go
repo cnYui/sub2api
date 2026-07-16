@@ -8,9 +8,12 @@ import (
 )
 
 type UsageFactWorkerConfig struct {
-	BatchSize    int
-	PollInterval time.Duration
-	TaskTimeout  time.Duration
+	BatchSize                    int
+	PollInterval                 time.Duration
+	TaskTimeout                  time.Duration
+	ReservationCleanupInterval   time.Duration
+	ReservationCleanupBatchSize  int
+	TrafficCreditReservationRepo TrafficCreditReservationRepository
 }
 
 type UsageFactSettler interface {
@@ -18,13 +21,14 @@ type UsageFactSettler interface {
 }
 
 type UsageFactWorker struct {
-	repo      UsageFactRepository
-	settler   UsageFactSettler
-	cfg       UsageFactWorkerConfig
-	stopCh    chan struct{}
-	stopOnce  sync.Once
-	startOnce sync.Once
-	wg        sync.WaitGroup
+	repo                   UsageFactRepository
+	settler                UsageFactSettler
+	cfg                    UsageFactWorkerConfig
+	lastReservationCleanup time.Time
+	stopCh                 chan struct{}
+	stopOnce               sync.Once
+	startOnce              sync.Once
+	wg                     sync.WaitGroup
 }
 
 func NewUsageFactWorker(repo UsageFactRepository, settler UsageFactSettler, cfg UsageFactWorkerConfig) *UsageFactWorker {
@@ -36,6 +40,12 @@ func NewUsageFactWorker(repo UsageFactRepository, settler UsageFactSettler, cfg 
 	}
 	if cfg.TaskTimeout <= 0 {
 		cfg.TaskTimeout = 10 * time.Second
+	}
+	if cfg.ReservationCleanupInterval <= 0 {
+		cfg.ReservationCleanupInterval = time.Minute
+	}
+	if cfg.ReservationCleanupBatchSize <= 0 {
+		cfg.ReservationCleanupBatchSize = 100
 	}
 	return &UsageFactWorker{
 		repo:    repo,
@@ -85,6 +95,7 @@ func (w *UsageFactWorker) runOnce(ctx context.Context) {
 		return
 	}
 	now := time.Now()
+	w.releaseExpiredTrafficCreditReservations(ctx, now)
 	leaseUntil := now.Add(w.cfg.TaskTimeout + w.cfg.PollInterval + 5*time.Second)
 	facts, err := w.repo.ClaimPending(ctx, w.cfg.BatchSize, now, leaseUntil)
 	if err != nil {
@@ -102,6 +113,25 @@ func (w *UsageFactWorker) runOnce(ctx context.Context) {
 		if markErr := w.repo.MarkRetry(ctx, fact.ID, err.Error(), retryAt); markErr != nil {
 			slog.Error("mark usage fact retry failed", "fact_id", fact.ID, "error", markErr, "settlement_error", err)
 		}
+	}
+}
+
+func (w *UsageFactWorker) releaseExpiredTrafficCreditReservations(ctx context.Context, now time.Time) {
+	if w == nil || w.cfg.TrafficCreditReservationRepo == nil {
+		return
+	}
+	if !w.lastReservationCleanup.IsZero() && now.Sub(w.lastReservationCleanup) < w.cfg.ReservationCleanupInterval {
+		return
+	}
+	w.lastReservationCleanup = now
+	released, err := w.cfg.TrafficCreditReservationRepo.ReleaseExpiredReserved(ctx, now, w.cfg.ReservationCleanupBatchSize)
+	if err != nil {
+		slog.Error("release expired traffic credit reservations failed", "error", err)
+		return
+	}
+	if released > 0 {
+		recordTrafficCreditStaleReservedReleased(released)
+		slog.Info("released expired traffic credit reservations", "count", released)
 	}
 }
 

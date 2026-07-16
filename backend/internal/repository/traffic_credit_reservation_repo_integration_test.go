@@ -112,6 +112,73 @@ func TestTrafficCreditReservationRepository_ReleaseRestoresAvailableAmount(t *te
 	require.Equal(t, string(service.TrafficCreditReservationReleased), status)
 }
 
+func TestTrafficCreditReservationRepository_ReleasesUndispatchedExpiredReservation(t *testing.T) {
+	ctx := context.Background()
+	userID, creditID := createTrafficCreditReservationFixture(t, 1)
+	repo := NewTrafficCreditReservationRepository(integrationDB)
+	reservation, _, err := repo.Reserve(ctx, newTrafficCreditReservationInput(userID, "req-"+uuid.NewString(), "expired-reserved", 0.6))
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		UPDATE traffic_credit_reservations
+		SET expires_at = $2
+		WHERE id = $1
+		RETURNING id
+	`, reservation.ID, now.Add(-time.Minute)).Scan(&reservation.ID))
+
+	released, err := repo.ReleaseExpiredReserved(ctx, now, 100)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, released)
+
+	var remainingUSD float64
+	var reservedUSD float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT remaining_usd, reserved_usd
+		FROM user_traffic_credits
+		WHERE id = $1
+	`, creditID).Scan(&remainingUSD, &reservedUSD))
+	require.InDelta(t, 1, remainingUSD, 1e-10)
+	require.Zero(t, reservedUSD)
+
+	var status string
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM traffic_credit_reservations WHERE id = $1", reservation.ID).Scan(&status))
+	require.Equal(t, string(service.TrafficCreditReservationReleased), status)
+}
+
+func TestTrafficCreditReservationRepository_DoesNotReleaseDispatchedExpiredReservation(t *testing.T) {
+	ctx := context.Background()
+	userID, creditID := createTrafficCreditReservationFixture(t, 1)
+	repo := NewTrafficCreditReservationRepository(integrationDB)
+	reservation, _, err := repo.Reserve(ctx, newTrafficCreditReservationInput(userID, "req-"+uuid.NewString(), "expired-dispatched", 0.6))
+	require.NoError(t, err)
+	require.NoError(t, repo.MarkDispatched(ctx, reservation.ID))
+	now := time.Now().UTC()
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		UPDATE traffic_credit_reservations
+		SET expires_at = $2
+		WHERE id = $1
+		RETURNING id
+	`, reservation.ID, now.Add(-time.Minute)).Scan(&reservation.ID))
+
+	released, err := repo.ReleaseExpiredReserved(ctx, now, 100)
+
+	require.NoError(t, err)
+	require.Zero(t, released)
+
+	var reservedUSD float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT reserved_usd
+		FROM user_traffic_credits
+		WHERE id = $1
+	`, creditID).Scan(&reservedUSD))
+	require.InDelta(t, 0.6, reservedUSD, 1e-10)
+
+	var status string
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM traffic_credit_reservations WHERE id = $1", reservation.ID).Scan(&status))
+	require.Equal(t, string(service.TrafficCreditReservationDispatched), status)
+}
+
 func createTrafficCreditReservationFixture(t *testing.T, remainingUSD float64) (int64, int64) {
 	t.Helper()
 	ctx := context.Background()

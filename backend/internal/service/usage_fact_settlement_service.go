@@ -53,6 +53,10 @@ func (s *UsageFactSettlementService) Settle(ctx context.Context, fact UsageFact)
 	if errors.Is(billingErr, ErrInsufficientBalance) {
 		return s.factRepo.MarkDebt(ctx, fact.ID, fmt.Sprintf("%v", billingErr), now)
 	}
+	if result != nil && result.TrafficCreditDebtUSD > 0 {
+		recordTrafficCreditActualExceededReserved()
+		return s.factRepo.MarkDebt(ctx, fact.ID, fmt.Sprintf("traffic credit debt %.10f", result.TrafficCreditDebtUSD), now)
+	}
 	if err := s.factRepo.MarkSettled(ctx, fact.ID, now); err != nil {
 		return err
 	}

@@ -182,6 +182,67 @@ func TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody(
 	require.Equal(t, generateSessionUUID(isolateOpenAISessionID(99, "cache-key-123")), upstream.lastReq.Header.Get("session_id"))
 }
 
+func TestForwardAsChatCompletions_APIKeyResponsesAuthorizesBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	reservationID := int64(96)
+	authorizer := &openAIBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:        BillingSourceTrafficCredit,
+		ReservationID: &reservationID,
+		EffectiveBody: []byte(`{"model":"gpt-5.1","input":[],"stream":true,"max_output_tokens":256}`),
+		Enforced:      true,
+	}}
+	upstreamBody := strings.Join([]string{
+		`data: {"type":"response.completed","response":{"id":"resp_auth","object":"response","model":"gpt-5.1","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":11,"output_tokens":3,"total_tokens":14}}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+	upstream := &dispatchedOpenAIHTTPUpstream{
+		authorizer: authorizer,
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_chat_auth"}},
+			Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+		},
+	}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+	account := &Account{
+		ID:          2,
+		Name:        "openai-compatible",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key": "sk-compatible",
+		},
+		Extra: map[string]any{
+			"openai_responses_mode":      "force_responses",
+			"openai_responses_supported": true,
+		},
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(`{"model":"gpt-5.1","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("api_key", &APIKey{ID: 99, User: &User{ID: 7}, Group: &Group{ID: 2, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: 1}})
+
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, "max_output_tokens", authorizer.input.OutputLimitField)
+	require.Equal(t, []int64{reservationID}, authorizer.dispatchedIDs)
+	require.JSONEq(t, string(authorizer.authorization.EffectiveBody), string(upstream.lastBody))
+	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+}
+
 func TestForwardAsChatCompletions_APIKeyResponsesShapeKeepsResponsesPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

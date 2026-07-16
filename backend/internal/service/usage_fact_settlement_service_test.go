@@ -67,6 +67,21 @@ func TestUsageFactSettlementService_MarksDebtAndWritesUsageLogOnInsufficientBala
 	require.Zero(t, factRepo.markSettledID)
 }
 
+func TestUsageFactSettlementService_MarksDebtWhenReservationSettlementReportsDebt(t *testing.T) {
+	factRepo := &usageFactSettlementFactRepoStub{}
+	billingRepo := &usageFactSettlementBillingRepoStub{result: &UsageBillingApplyResult{Applied: true, TrafficCreditDebtUSD: 0.125}}
+	logRepo := &usageFactSettlementLogRepoStub{}
+	svc := NewUsageFactSettlementService(factRepo, billingRepo, logRepo, nil)
+
+	err := svc.Settle(context.Background(), usageFactSettlementTestFact(t, 0.25))
+
+	require.NoError(t, err)
+	require.Equal(t, int64(1), factRepo.markDebtID)
+	require.Contains(t, factRepo.markDebtError, "traffic credit debt")
+	require.NotNil(t, logRepo.created)
+	require.Zero(t, factRepo.markSettledID)
+}
+
 func TestUsageFactSettlementService_RetriesTransientBillingFailure(t *testing.T) {
 	transient := errors.New("database unavailable")
 	factRepo := &usageFactSettlementFactRepoStub{}

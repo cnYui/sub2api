@@ -41,6 +41,33 @@ func TestOpenAITrafficCreditBudget_InjectsAffordableLimitWhenMissing(t *testing.
 	require.True(t, gjson.GetBytes(got.Body, "max_output_tokens").Exists())
 }
 
+func TestOpenAITrafficCreditBudget_InjectsConfiguredOutputLimitField(t *testing.T) {
+	estimator := newTestTrafficBudgetEstimator(0.01, 256, 8192)
+	got, err := estimator.Estimate(context.Background(), OpenAITrafficBudgetInput{
+		Model:            "gpt-5.6-sol",
+		Body:             []byte(`{"messages":[{"role":"user","content":"hello"}]}`),
+		AvailableUSD:     0.2,
+		OutputLimitField: "max_tokens",
+	})
+
+	require.NoError(t, err)
+	require.True(t, gjson.GetBytes(got.Body, "max_tokens").Exists())
+	require.False(t, gjson.GetBytes(got.Body, "max_output_tokens").Exists())
+}
+
+func TestOpenAITrafficCreditBudget_UsesExplicitMaxTokens(t *testing.T) {
+	estimator := newTestTrafficBudgetEstimator(0.01, 256, 8192)
+	got, err := estimator.Estimate(context.Background(), OpenAITrafficBudgetInput{
+		Model:        "gpt-5.6-sol",
+		Body:         []byte(`{"messages":[{"role":"user","content":"hello"}],"max_tokens":512}`),
+		AvailableUSD: 0.2,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 512, got.EffectiveMaxOutputTokens)
+	require.Equal(t, int64(512), gjson.GetBytes(got.Body, "max_tokens").Int())
+}
+
 func newTestTrafficBudgetEstimator(minimumReserve float64, minimumOutput, defaultMaxOutput int) *OpenAITrafficCreditBudgetEstimator {
 	cfg := &config.Config{}
 	cfg.Default.RateMultiplier = 1

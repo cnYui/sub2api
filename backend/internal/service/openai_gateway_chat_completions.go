@@ -251,11 +251,18 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 		return nil, policyErr
 	}
 	responsesBody = updatedBody
+	billingAuthorization, effectiveBody, err := s.authorizeOpenAIForward(ctx, c, upstreamModel, responsesBody, body, "max_output_tokens")
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(effectiveBody, responsesBody) {
+		responsesBody = effectiveBody
+	}
 
 	// 5. Get access token
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
-		return nil, fmt.Errorf("get access token: %w", err)
+		return nil, errors.Join(fmt.Errorf("get access token: %w", err), s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	// 6. Build upstream request
@@ -263,7 +270,7 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, true, promptCacheKey, false)
 	releaseUpstreamCtx()
 	if err != nil {
-		return nil, fmt.Errorf("build upstream request: %w", err)
+		return nil, errors.Join(fmt.Errorf("build upstream request: %w", err), s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	if promptCacheKey != "" {
@@ -276,8 +283,12 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	if account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
+	if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+	}
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -349,6 +360,7 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 
 	// Propagate ServiceTier and ReasoningEffort to result for billing
 	if handleErr == nil && result != nil {
+		result.BillingAuthorization = billingAuthorization
 		if responsesReq.ServiceTier != "" {
 			st := responsesReq.ServiceTier
 			result.ServiceTier = &st

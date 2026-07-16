@@ -68,6 +68,8 @@ const (
 	openAICodexAutoPauseStaleAfter = 2 * time.Hour
 )
 
+const openAIBillingAuthorizationContextKey = "openai_billing_authorization"
+
 // OpenAI allowed headers whitelist (for non-passthrough).
 var openaiAllowedHeaders = map[string]bool{
 	"accept-language":       true,
@@ -238,20 +240,21 @@ type OpenAIForwardResult struct {
 	ServiceTier *string
 	// ReasoningEffort is extracted from request body (reasoning.effort) or derived from model suffix.
 	// Stored for usage records display; nil means not provided / not applicable.
-	ReasoningEffort    *string
-	Stream             bool
-	OpenAIWSMode       bool
-	ResponseHeaders    http.Header
-	Duration           time.Duration
-	FirstTokenMs       *int
-	ClientDisconnect   bool
-	ImageCount         int
-	ImageSize          string
-	ImageInputSize     string
-	ImageOutputSize    string
-	ImageOutputSizes   []string
-	ImageSizeSource    string
-	ImageSizeBreakdown map[string]int
+	ReasoningEffort      *string
+	Stream               bool
+	OpenAIWSMode         bool
+	ResponseHeaders      http.Header
+	Duration             time.Duration
+	FirstTokenMs         *int
+	ClientDisconnect     bool
+	ImageCount           int
+	ImageSize            string
+	ImageInputSize       string
+	ImageOutputSize      string
+	ImageOutputSizes     []string
+	ImageSizeSource      string
+	ImageSizeBreakdown   map[string]int
+	BillingAuthorization *OpenAIBillingAuthorization
 
 	wsReplayInput       []json.RawMessage
 	wsReplayInputExists bool
@@ -284,6 +287,13 @@ type openAIWSRetryMetrics struct {
 	retryBackoffMs           atomic.Int64
 	retryExhausted           atomic.Int64
 	nonRetryableFastFallback atomic.Int64
+}
+
+type openAIBillingAuthorizationRequestState struct {
+	RequestFingerprint string
+	Authorization      *OpenAIBillingAuthorization
+	Dispatched         bool
+	Unknown            bool
 }
 
 type accountWriteThrottle struct {
@@ -332,31 +342,32 @@ var ErrNoAvailableCompactAccounts = errors.New("no available OpenAI accounts sup
 
 // OpenAIGatewayService handles OpenAI API gateway operations
 type OpenAIGatewayService struct {
-	accountRepo           AccountRepository
-	usageLogRepo          UsageLogRepository
-	usageBillingRepo      UsageBillingRepository
-	usageFactRepo         UsageFactRepository
-	userRepo              UserRepository
-	userSubRepo           UserSubscriptionRepository
-	cache                 GatewayCache
-	cfg                   *config.Config
-	codexDetector         CodexClientRestrictionDetector
-	schedulerSnapshot     *SchedulerSnapshotService
-	concurrencyService    *ConcurrencyService
-	billingService        *BillingService
-	rateLimitService      *RateLimitService
-	billingCacheService   *BillingCacheService
-	userGroupRateResolver *userGroupRateResolver
-	httpUpstream          HTTPUpstream
-	deferredService       *DeferredService
-	openAITokenProvider   *OpenAITokenProvider
-	toolCorrector         *CodexToolCorrector
-	openaiWSResolver      OpenAIWSProtocolResolver
-	resolver              *ModelPricingResolver
-	channelService        *ChannelService
-	balanceNotifyService  *BalanceNotifyService
-	settingService        *SettingService
-	userPlatformQuotaRepo UserPlatformQuotaRepository
+	accountRepo                 AccountRepository
+	usageLogRepo                UsageLogRepository
+	usageBillingRepo            UsageBillingRepository
+	usageFactRepo               UsageFactRepository
+	billingAuthorizationService OpenAIBillingAuthorizer
+	userRepo                    UserRepository
+	userSubRepo                 UserSubscriptionRepository
+	cache                       GatewayCache
+	cfg                         *config.Config
+	codexDetector               CodexClientRestrictionDetector
+	schedulerSnapshot           *SchedulerSnapshotService
+	concurrencyService          *ConcurrencyService
+	billingService              *BillingService
+	rateLimitService            *RateLimitService
+	billingCacheService         *BillingCacheService
+	userGroupRateResolver       *userGroupRateResolver
+	httpUpstream                HTTPUpstream
+	deferredService             *DeferredService
+	openAITokenProvider         *OpenAITokenProvider
+	toolCorrector               *CodexToolCorrector
+	openaiWSResolver            OpenAIWSProtocolResolver
+	resolver                    *ModelPricingResolver
+	channelService              *ChannelService
+	balanceNotifyService        *BalanceNotifyService
+	settingService              *SettingService
+	userPlatformQuotaRepo       UserPlatformQuotaRepository
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -403,22 +414,24 @@ func NewOpenAIGatewayService(
 	settingService *SettingService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 	usageFactRepo UsageFactRepository,
+	billingAuthorizationService OpenAIBillingAuthorizer,
 ) *OpenAIGatewayService {
 	svc := &OpenAIGatewayService{
-		accountRepo:         accountRepo,
-		usageLogRepo:        usageLogRepo,
-		usageBillingRepo:    usageBillingRepo,
-		usageFactRepo:       usageFactRepo,
-		userRepo:            userRepo,
-		userSubRepo:         userSubRepo,
-		cache:               cache,
-		cfg:                 cfg,
-		codexDetector:       NewOpenAICodexClientRestrictionDetector(cfg),
-		schedulerSnapshot:   schedulerSnapshot,
-		concurrencyService:  concurrencyService,
-		billingService:      billingService,
-		rateLimitService:    rateLimitService,
-		billingCacheService: billingCacheService,
+		accountRepo:                 accountRepo,
+		usageLogRepo:                usageLogRepo,
+		usageBillingRepo:            usageBillingRepo,
+		usageFactRepo:               usageFactRepo,
+		billingAuthorizationService: billingAuthorizationService,
+		userRepo:                    userRepo,
+		userSubRepo:                 userSubRepo,
+		cache:                       cache,
+		cfg:                         cfg,
+		codexDetector:               NewOpenAICodexClientRestrictionDetector(cfg),
+		schedulerSnapshot:           schedulerSnapshot,
+		concurrencyService:          concurrencyService,
+		billingService:              billingService,
+		rateLimitService:            rateLimitService,
+		billingCacheService:         billingCacheService,
 		userGroupRateResolver: newUserGroupRateResolver(
 			userGroupRateRepo,
 			nil,
@@ -943,6 +956,247 @@ func getAPIKeyIDFromContext(c *gin.Context) int64 {
 		return 0
 	}
 	return apiKey.ID
+}
+
+func getOpenAISubscriptionFromContext(c *gin.Context) *UserSubscription {
+	if c == nil {
+		return nil
+	}
+	v, exists := c.Get("subscription")
+	if !exists {
+		return nil
+	}
+	subscription, _ := v.(*UserSubscription)
+	return subscription
+}
+
+func getOpenAIBillingAuthorizationRequestState(c *gin.Context) (*openAIBillingAuthorizationRequestState, bool) {
+	if c == nil {
+		return nil, false
+	}
+	v, exists := c.Get(openAIBillingAuthorizationContextKey)
+	if !exists {
+		return nil, false
+	}
+	state, ok := v.(*openAIBillingAuthorizationRequestState)
+	return state, ok && state != nil
+}
+
+func sameOpenAIBillingAuthorization(a, b *OpenAIBillingAuthorization) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	if a.ReservationID != nil && b.ReservationID != nil {
+		return *a.ReservationID == *b.ReservationID
+	}
+	return a.RequestFingerprint != "" && a.RequestFingerprint == b.RequestFingerprint && a.Source == b.Source
+}
+
+func setOpenAIBillingAuthorizationRequestState(c *gin.Context, fingerprint string, authorization *OpenAIBillingAuthorization) {
+	if c == nil || authorization == nil {
+		return
+	}
+	c.Set(openAIBillingAuthorizationContextKey, &openAIBillingAuthorizationRequestState{
+		RequestFingerprint: fingerprint,
+		Authorization:      authorization,
+	})
+}
+
+func clearOpenAIBillingAuthorizationRequestState(c *gin.Context, authorization *OpenAIBillingAuthorization) {
+	state, ok := getOpenAIBillingAuthorizationRequestState(c)
+	if !ok || !sameOpenAIBillingAuthorization(state.Authorization, authorization) {
+		return
+	}
+	c.Set(openAIBillingAuthorizationContextKey, (*openAIBillingAuthorizationRequestState)(nil))
+}
+
+func openAIBillingAuthorizationOutputLimit(body []byte, field string) (int64, bool) {
+	result := gjson.GetBytes(body, field)
+	if !result.Exists() || result.Type != gjson.Number || result.Int() <= 0 || result.Float() != float64(result.Int()) {
+		return 0, false
+	}
+	return result.Int(), true
+}
+
+func applyOpenAIBillingAuthorizationEffectiveLimits(body []byte, effectiveBody []byte) ([]byte, error) {
+	if len(effectiveBody) == 0 {
+		return body, nil
+	}
+	out := body
+	for _, field := range []string{"max_output_tokens", "max_completion_tokens", "max_tokens"} {
+		limit, ok := openAIBillingAuthorizationOutputLimit(effectiveBody, field)
+		if !ok {
+			continue
+		}
+		if current, ok := openAIBillingAuthorizationOutputLimit(out, field); ok && current <= limit {
+			continue
+		}
+		next, err := sjson.SetBytes(out, field, limit)
+		if err != nil {
+			return nil, ErrBillingPreauthUnavailable
+		}
+		out = next
+	}
+	return out, nil
+}
+
+func (s *OpenAIGatewayService) authorizeOpenAIForward(
+	ctx context.Context,
+	c *gin.Context,
+	model string,
+	body []byte,
+	requestFingerprintBody []byte,
+	outputLimitField string,
+) (*OpenAIBillingAuthorization, []byte, error) {
+	if s == nil || s.billingAuthorizationService == nil || (s.cfg != nil && s.cfg.RunMode == config.RunModeSimple) {
+		return nil, body, nil
+	}
+	apiKey := getAPIKeyFromContext(c)
+	if apiKey == nil || apiKey.User == nil {
+		return nil, nil, ErrBillingPreauthUnavailable
+	}
+	balanceEligible := apiKey.User.Balance > 0
+	if s.billingCacheService != nil {
+		balance, err := s.billingCacheService.GetUserBalance(ctx, apiKey.User.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		balanceEligible = !s.billingCacheService.balanceBelowEligibilityThreshold(balance)
+	}
+	rateMultiplier := 1.0
+	if s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
+		rateMultiplier = s.cfg.Default.RateMultiplier
+	}
+	if apiKey.GroupID != nil && apiKey.Group != nil {
+		resolver := s.userGroupRateResolver
+		if resolver == nil {
+			resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
+		}
+		rateMultiplier = resolver.Resolve(ctx, apiKey.User.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+	}
+	if len(requestFingerprintBody) == 0 {
+		requestFingerprintBody = body
+	}
+	fingerprint := HashUsageRequestPayload(requestFingerprintBody)
+	if state, ok := getOpenAIBillingAuthorizationRequestState(c); ok && state.RequestFingerprint == fingerprint && state.Authorization != nil {
+		if state.Unknown {
+			writeOpenAIBillingAuthorizationError(c, ErrBillingPreauthUnavailable)
+			return nil, nil, ErrBillingPreauthUnavailable
+		}
+		effectiveBody, err := applyOpenAIBillingAuthorizationEffectiveLimits(body, state.Authorization.EffectiveBody)
+		if err != nil {
+			writeOpenAIBillingAuthorizationError(c, err)
+			return nil, nil, err
+		}
+		return state.Authorization, effectiveBody, nil
+	}
+	serviceTier := ""
+	if value := extractOpenAIServiceTierFromBody(body); value != nil {
+		serviceTier = strings.TrimSpace(*value)
+	}
+	authorization, err := s.billingAuthorizationService.Authorize(ctx, OpenAIBillingAuthorizationInput{
+		RequestID:          resolveUsageBillingRequestID(ctx, ""),
+		RequestFingerprint: fingerprint,
+		APIKeyID:           apiKey.ID,
+		UserID:             apiKey.User.ID,
+		Platform:           PlatformFromAPIKey(apiKey),
+		Model:              strings.TrimSpace(model),
+		Group:              apiKey.Group,
+		Subscription:       getOpenAISubscriptionFromContext(c),
+		BalanceEligible:    balanceEligible,
+		ServiceTier:        serviceTier,
+		RateMultiplier:     rateMultiplier,
+		Body:               body,
+		OutputLimitField:   outputLimitField,
+	})
+	if err != nil {
+		writeOpenAIBillingAuthorizationError(c, err)
+		return nil, nil, err
+	}
+	if authorization == nil {
+		return nil, nil, ErrBillingPreauthUnavailable
+	}
+	if authorization.RequestFingerprint == "" {
+		authorization.RequestFingerprint = fingerprint
+	}
+	setOpenAIBillingAuthorizationRequestState(c, fingerprint, authorization)
+	effectiveBody := body
+	if len(authorization.EffectiveBody) > 0 {
+		effectiveBody = authorization.EffectiveBody
+	}
+	return authorization, effectiveBody, nil
+}
+
+func writeOpenAIBillingAuthorizationError(c *gin.Context, err error) {
+	if c == nil || c.Writer == nil || c.Writer.Written() {
+		return
+	}
+	status := http.StatusServiceUnavailable
+	code := "billing_preauthorization_unavailable"
+	message := "Billing preauthorization is temporarily unavailable"
+	switch {
+	case errors.Is(err, ErrTrafficCreditInsufficient):
+		status = http.StatusPaymentRequired
+		code = "insufficient_quota"
+		message = "Traffic credit is insufficient for this request"
+	case errors.Is(err, ErrTrafficCreditDebtOutstanding):
+		status = http.StatusPaymentRequired
+		code = "billing_debt_outstanding"
+		message = "Outstanding traffic credit debt must be settled before making another request"
+	}
+	c.JSON(status, gin.H{"error": gin.H{"type": "billing_error", "code": code, "message": message}})
+}
+
+func (s *OpenAIGatewayService) markOpenAIBillingDispatched(ctx context.Context, c *gin.Context, authorization *OpenAIBillingAuthorization) error {
+	if s == nil || s.billingAuthorizationService == nil || authorization == nil || !authorization.Enforced || authorization.ReservationID == nil {
+		return nil
+	}
+	state, hasState := getOpenAIBillingAuthorizationRequestState(c)
+	if hasState && sameOpenAIBillingAuthorization(state.Authorization, authorization) && state.Dispatched {
+		return nil
+	}
+	if err := s.billingAuthorizationService.MarkDispatched(ctx, *authorization.ReservationID); err != nil {
+		return err
+	}
+	if hasState && sameOpenAIBillingAuthorization(state.Authorization, authorization) {
+		state.Dispatched = true
+	}
+	return nil
+}
+
+func (s *OpenAIGatewayService) markOpenAIBillingUnknown(ctx context.Context, c *gin.Context, authorization *OpenAIBillingAuthorization, reason string) {
+	if s == nil || s.billingAuthorizationService == nil || authorization == nil || !authorization.Enforced || authorization.ReservationID == nil {
+		return
+	}
+	if state, ok := getOpenAIBillingAuthorizationRequestState(c); ok && sameOpenAIBillingAuthorization(state.Authorization, authorization) {
+		state.Unknown = true
+	}
+	operationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	if err := s.billingAuthorizationService.MarkUnknown(operationCtx, *authorization.ReservationID, reason); err != nil {
+		logger.LegacyPrintf("service.openai_gateway", "mark billing reservation unknown failed: reservation_id=%d err=%v", *authorization.ReservationID, err)
+	}
+}
+
+func (s *OpenAIGatewayService) releaseOpenAIBillingReservation(ctx context.Context, c *gin.Context, authorization *OpenAIBillingAuthorization) error {
+	if s == nil || s.billingAuthorizationService == nil || authorization == nil || !authorization.Enforced || authorization.ReservationID == nil {
+		return nil
+	}
+	if state, ok := getOpenAIBillingAuthorizationRequestState(c); ok && sameOpenAIBillingAuthorization(state.Authorization, authorization) {
+		if state.Dispatched || state.Unknown {
+			return nil
+		}
+	}
+	operationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+	defer cancel()
+	if err := s.billingAuthorizationService.Release(operationCtx, *authorization.ReservationID); err != nil {
+		return err
+	}
+	clearOpenAIBillingAuthorizationRequestState(c, authorization)
+	return nil
 }
 
 // isolateOpenAISessionID 将 apiKeyID 混入 session 标识符，
@@ -2777,10 +3031,20 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageInputSize = imageCfg.InputSize
 	}
 
+	billingAuthorization, effectiveBody, err := s.authorizeOpenAIForward(ctx, c, upstreamModel, body, originalBody, "max_output_tokens")
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(effectiveBody, body) {
+		body = effectiveBody
+		requestView = newOpenAIRequestView(body)
+		reqBody = nil
+	}
+
 	// Get access token
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	// 命中 WS 时仅走 WebSocket Mode；不再自动回退 HTTP。
@@ -2788,7 +3052,10 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		// WS 分支需要结构化 payload 与重连恢复，命中后再触发 full-map decode。
 		wsReqBody, err := ensureReqBody()
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+		}
+		if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+			return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 		}
 		_, hasPreviousResponseID := wsReqBody["previous_response_id"]
 		logOpenAIWSModeDebug(
@@ -2986,6 +3253,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				wsAttempts,
 			)
 			wsResult.UpstreamModel = upstreamModel
+			wsResult.BillingAuthorization = billingAuthorization
 			if wsResult.ImageCount > 0 {
 				wsResult.ImageSize = imageSizeTier
 				wsResult.ImageInputSize = imageInputSize
@@ -2993,17 +3261,22 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			}
 			return wsResult, nil
 		}
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, wsErr.Error())
 		s.writeOpenAIWSFallbackErrorResponse(c, account, wsErr)
 		return nil, wsErr
 	}
 
 	httpInvalidEncryptedContentRetryTried := false
+	billingReservationDispatched := false
 	for {
 		// Build upstream request
 		upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 		upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, body, token, reqStream, promptCacheKey, isCodexCLI)
 		releaseUpstreamCtx()
 		if err != nil {
+			if !billingReservationDispatched {
+				err = errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+			}
 			return nil, err
 		}
 
@@ -3014,10 +3287,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 
 		// Send request
+		if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+			if !billingReservationDispatched {
+				err = errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+			}
+			return nil, err
+		}
+		billingReservationDispatched = true
 		upstreamStart := time.Now()
 		resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if err != nil {
+			s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 			// Transport-level failure (proxy/DNS/TCP/TLS — no HTTP response). Convert to
 			// a failover so the handler switches to a healthy account, and temporarily
 			// unschedule the account on durable faults (e.g. rejected proxy credentials).
@@ -3128,17 +3409,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 
 		forwardResult := &OpenAIForwardResult{
-			RequestID:       resp.Header.Get("x-request-id"),
-			ResponseID:      responseID,
-			Usage:           *usage,
-			Model:           originalModel,
-			UpstreamModel:   upstreamModel,
-			ServiceTier:     serviceTier,
-			ReasoningEffort: reasoningEffort,
-			Stream:          reqStream,
-			OpenAIWSMode:    false,
-			Duration:        time.Since(startTime),
-			FirstTokenMs:    firstTokenMs,
+			RequestID:            resp.Header.Get("x-request-id"),
+			ResponseID:           responseID,
+			Usage:                *usage,
+			Model:                originalModel,
+			UpstreamModel:        upstreamModel,
+			ServiceTier:          serviceTier,
+			ReasoningEffort:      reasoningEffort,
+			Stream:               reqStream,
+			OpenAIWSMode:         false,
+			Duration:             time.Since(startTime),
+			FirstTokenMs:         firstTokenMs,
+			BillingAuthorization: billingAuthorization,
 		}
 		if imageCount > 0 {
 			forwardResult.ImageCount = imageCount
@@ -6181,10 +6463,29 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 	quotaPlatform := PlatformFromAPIKey(apiKey)
-	useTrafficPack := shouldBillWithTrafficPack(ctx, s.billingDeps(), user, quotaPlatform, subscription, apiKey.Group, cost, isSubscriptionBilling)
-	if useTrafficPack {
-		isSubscriptionBilling = false
-		subscription = nil
+	useTrafficPack := false
+	var trafficReservationID *int64
+	requestFingerprint := ""
+	if authorization := result.BillingAuthorization; authorization != nil {
+		requestFingerprint = strings.TrimSpace(authorization.RequestFingerprint)
+		switch authorization.Source {
+		case BillingSourceTrafficCredit:
+			useTrafficPack = true
+			trafficReservationID = authorization.ReservationID
+			isSubscriptionBilling = false
+			subscription = nil
+		case BillingSourceBalance:
+			isSubscriptionBilling = false
+			subscription = nil
+		case BillingSourceSubscription:
+			isSubscriptionBilling = subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
+		}
+	} else {
+		useTrafficPack = shouldBillWithTrafficPack(ctx, s.billingDeps(), user, quotaPlatform, subscription, apiKey.Group, cost, isSubscriptionBilling)
+		if useTrafficPack {
+			isSubscriptionBilling = false
+			subscription = nil
+		}
 	}
 	billingType := BillingTypeBalance
 	if isSubscriptionBilling {
@@ -6300,12 +6601,14 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		APIKey:                apiKey,
 		Account:               account,
 		Subscription:          subscription,
+		RequestFingerprint:    requestFingerprint,
 		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
 		IsSubscriptionBill:    isSubscriptionBilling,
 		AccountRateMultiplier: accountRateMultiplier,
 		APIKeyService:         input.APIKeyService,
 		Platform:              quotaPlatform,
 		UseTrafficPack:        useTrafficPack,
+		TrafficReservationID:  trafficReservationID,
 	}
 	return &openAIUsageRecordBuild{
 		usageLog:      usageLog,

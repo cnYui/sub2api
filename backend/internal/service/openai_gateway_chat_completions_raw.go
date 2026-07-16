@@ -111,6 +111,13 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 			return nil, fmt.Errorf("enable stream usage: %w", usageErr)
 		}
 	}
+	billingAuthorization, effectiveBody, err := s.authorizeOpenAIForward(ctx, c, upstreamModel, upstreamBody, body, "max_tokens")
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(effectiveBody, upstreamBody) {
+		upstreamBody = effectiveBody
+	}
 
 	logger.L().Debug("openai chat_completions raw: forwarding without protocol conversion",
 		zap.Int64("account_id", account.ID),
@@ -123,7 +130,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// 5. Build upstream request
 	apiKey := account.GetOpenAIApiKey()
 	if apiKey == "" {
-		return nil, fmt.Errorf("account %d missing api_key", account.ID)
+		return nil, errors.Join(fmt.Errorf("account %d missing api_key", account.ID), s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	baseURL := account.GetOpenAIBaseURL()
 	if baseURL == "" {
@@ -131,7 +138,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	}
 	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid base_url: %w", err)
+		return nil, errors.Join(fmt.Errorf("invalid base_url: %w", err), s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	targetURL := buildOpenAIChatCompletionsURL(validatedURL)
 
@@ -139,7 +146,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	upstreamReq, err := http.NewRequestWithContext(upstreamCtx, http.MethodPost, targetURL, bytes.NewReader(upstreamBody))
 	releaseUpstreamCtx()
 	if err != nil {
-		return nil, fmt.Errorf("build upstream request: %w", err)
+		return nil, errors.Join(fmt.Errorf("build upstream request: %w", err), s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 	upstreamReq = upstreamReq.WithContext(WithHTTPUpstreamProfile(upstreamReq.Context(), HTTPUpstreamProfileOpenAI))
 	upstreamReq.Header.Set("Content-Type", "application/json")
@@ -169,8 +176,12 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	if account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
 	}
+	if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+	}
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	if err != nil {
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 		return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -214,9 +225,17 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 
 	// 8. Forward response
 	if clientStream {
-		return s.streamRawChatCompletions(c, resp, account, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, len(body))
+		result, streamErr := s.streamRawChatCompletions(c, resp, account, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime, len(body))
+		if result != nil {
+			result.BillingAuthorization = billingAuthorization
+		}
+		return result, streamErr
 	}
-	return s.bufferRawChatCompletions(c, resp, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+	result, bufferErr := s.bufferRawChatCompletions(c, resp, originalModel, billingModel, upstreamModel, reasoningEffort, serviceTier, startTime)
+	if result != nil {
+		result.BillingAuthorization = billingAuthorization
+	}
+	return result, bufferErr
 }
 
 // streamRawChatCompletions 透传上游 CC SSE 流到客户端，并提取 usage（包括

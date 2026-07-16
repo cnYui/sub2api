@@ -46,6 +46,7 @@ type UsageFact struct {
 	UserID             int64
 	AccountID          int64
 	RequestFingerprint string
+	ReservationID      *int64
 	PayloadVersion     int
 	Payload            json.RawMessage
 	BillingStatus      string
@@ -101,6 +102,7 @@ func NewUsageFact(payload UsageFactPayload) (*UsageFact, error) {
 		UserID:             payload.BillingCommand.UserID,
 		AccountID:          payload.BillingCommand.AccountID,
 		RequestFingerprint: payload.BillingCommand.RequestFingerprint,
+		ReservationID:      payload.BillingCommand.TrafficCreditReservationID,
 		PayloadVersion:     UsageFactPayloadVersion1,
 		Payload:            raw,
 		BillingStatus:      UsageFactStatusPending,

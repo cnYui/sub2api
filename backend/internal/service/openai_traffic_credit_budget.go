@@ -22,6 +22,7 @@ type OpenAITrafficBudgetInput struct {
 	Body                    []byte
 	AvailableUSD            float64
 	ExplicitMaxOutputTokens *int
+	OutputLimitField        string
 }
 
 type OpenAITrafficCreditBudget struct {
@@ -66,6 +67,10 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 		return nil, ErrTrafficCreditInsufficient
 	}
 
+	outputLimitField, err := normalizeOpenAIOutputLimitField(input.OutputLimitField)
+	if err != nil {
+		return nil, err
+	}
 	explicitLimit, hasExplicit, err := resolveExplicitOpenAIOutputLimit(input)
 	if err != nil {
 		return nil, err
@@ -74,7 +79,7 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 		return e.buildBudget(input, append([]byte(nil), input.Body...), explicitLimit, availableUSD)
 	}
 
-	minimumBody, err := sjson.SetBytes(input.Body, "max_output_tokens", e.minimumOutputTokens)
+	minimumBody, err := sjson.SetBytes(input.Body, outputLimitField, e.minimumOutputTokens)
 	if err != nil {
 		return nil, ErrBillingPreauthUnavailable
 	}
@@ -90,7 +95,7 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 	best := low
 	for low <= high {
 		mid := low + (high-low)/2
-		body, setErr := sjson.SetBytes(input.Body, "max_output_tokens", mid)
+		body, setErr := sjson.SetBytes(input.Body, outputLimitField, mid)
 		if setErr != nil {
 			return nil, ErrBillingPreauthUnavailable
 		}
@@ -105,11 +110,22 @@ func (e *OpenAITrafficCreditBudgetEstimator) Estimate(ctx context.Context, input
 		}
 		high = mid - 1
 	}
-	finalBody, err := sjson.SetBytes(input.Body, "max_output_tokens", best)
+	finalBody, err := sjson.SetBytes(input.Body, outputLimitField, best)
 	if err != nil {
 		return nil, ErrBillingPreauthUnavailable
 	}
 	return e.buildBudget(input, finalBody, best, availableUSD)
+}
+
+func normalizeOpenAIOutputLimitField(field string) (string, error) {
+	switch strings.TrimSpace(field) {
+	case "":
+		return "max_output_tokens", nil
+	case "max_output_tokens", "max_completion_tokens", "max_tokens":
+		return strings.TrimSpace(field), nil
+	default:
+		return "", ErrBillingPreauthUnavailable
+	}
 }
 
 func resolveExplicitOpenAIOutputLimit(input OpenAITrafficBudgetInput) (int, bool, error) {
@@ -121,9 +137,10 @@ func resolveExplicitOpenAIOutputLimit(input OpenAITrafficBudgetInput) (int, bool
 	}
 	maxOutput := gjson.GetBytes(input.Body, "max_output_tokens")
 	maxCompletion := gjson.GetBytes(input.Body, "max_completion_tokens")
+	maxTokens := gjson.GetBytes(input.Body, "max_tokens")
 	limit := 0
 	found := false
-	for _, result := range []gjson.Result{maxOutput, maxCompletion} {
+	for _, result := range []gjson.Result{maxOutput, maxCompletion, maxTokens} {
 		if !result.Exists() {
 			continue
 		}
@@ -164,6 +181,7 @@ func (e *OpenAITrafficCreditBudgetEstimator) buildBudget(
 		"group_id":                    input.GroupID,
 		"service_tier":                strings.TrimSpace(input.ServiceTier),
 		"rate_multiplier":             input.RateMultiplier,
+		"output_limit_field":          strings.TrimSpace(input.OutputLimitField),
 		"input_token_upper_bound":     inputTokens,
 		"effective_max_output_tokens": outputTokens,
 		"reserve_usd":                 reserveUSD,

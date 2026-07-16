@@ -115,6 +115,59 @@ func TestOpenAIGatewayServicePersistUsageFact_DoesNotApplyBillingInline(t *testi
 	require.Equal(t, "req-1", payload.UsageLog.RequestID)
 }
 
+func TestOpenAIGatewayServiceBuildUsageFact_UsesRequestBillingAuthorization(t *testing.T) {
+	factRepo := &openAIRecordUsageFactRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageBillingRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	svc.usageFactRepo = factRepo
+	reservationID := int64(451)
+
+	fact, err := svc.PersistUsageFact(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "req-reservation-source",
+			Usage: OpenAIUsage{
+				InputTokens:  1000,
+				OutputTokens: 200,
+			},
+			Model:    "gpt-5.1",
+			Duration: time.Second,
+			BillingAuthorization: &OpenAIBillingAuthorization{
+				Source:             BillingSourceTrafficCredit,
+				ReservationID:      &reservationID,
+				RequestFingerprint: "reservation-fingerprint",
+			},
+		},
+		APIKey: &APIKey{
+			ID:      91,
+			GroupID: i64p(88),
+			Group:   &Group{ID: 88, SubscriptionType: SubscriptionTypeSubscription, RateMultiplier: 1},
+		},
+		User:         &User{ID: 7, Balance: 100},
+		Account:      &Account{ID: 5},
+		Subscription: &UserSubscription{ID: 77},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, fact)
+	require.NotNil(t, fact.ReservationID)
+	require.Equal(t, reservationID, *fact.ReservationID)
+	payload, err := DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+	require.NoError(t, err)
+	require.NotNil(t, payload.BillingCommand.TrafficCreditReservationID)
+	require.Equal(t, reservationID, *payload.BillingCommand.TrafficCreditReservationID)
+	require.Equal(t, "reservation-fingerprint", payload.BillingCommand.RequestFingerprint)
+	require.Greater(t, payload.BillingCommand.TrafficPackCost, 0.0)
+	require.Zero(t, payload.BillingCommand.BalanceCost)
+	require.Zero(t, payload.BillingCommand.SubscriptionCost)
+	require.True(t, payload.Effects.IsTrafficCredit)
+	require.False(t, payload.Effects.IsSubscription)
+}
+
 func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
@@ -291,6 +344,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil, // userPlatformQuotaRepo
 		nil, // usageFactRepo
+		nil, // billingAuthorizationService
 	)
 	svc.userGroupRateResolver = newUserGroupRateResolver(
 		rateRepo,
