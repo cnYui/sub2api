@@ -66,6 +66,7 @@ export interface CheckoutInfoResponse {
   plans: SubscriptionPlan[]
   traffic_packs: TrafficPack[]
   traffic_credit_summary?: TrafficCreditSummary | null
+  traffic_credits: TrafficCredit[]
   balance_disabled: boolean
   balance_recharge_multiplier: number
   recharge_fee_rate: number
@@ -94,6 +95,18 @@ export interface TrafficCreditSummary {
   total_remaining_usd: number
   next_expiring_usd: number
   next_expires_at?: string
+}
+
+export interface TrafficCredit {
+  id: number
+  order_id: number | null
+  pack_id: number | null
+  initial_usd: number
+  remaining_usd: number
+  reserved_usd: number
+  available_usd: number
+  credited_at: string
+  expires_at: string
 }
 
 // ==================== Orders ====================

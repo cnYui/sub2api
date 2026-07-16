@@ -27,15 +27,17 @@
         <section v-if="hasTrafficPackContent" class="space-y-4">
           <div class="grid gap-6 lg:grid-cols-2">
             <SubscriptionUsageCard
-              title="GPT 流量包"
+              v-for="credit in trafficCredits"
+              :key="credit.id"
+              :title="`GPT 流量卡 #${credit.id}`"
               platform="openai"
-              description="套餐额度用完后自动消耗，剩余额度不会每日刷新。"
+              :description="trafficCreditDescription(credit)"
               status="active"
               :status-label="t('userSubscriptions.status.active')"
               expiration-label="到期时间"
-              :expiration-value="trafficCreditExpiration"
+              :expiration-value="formatExpirationDate(credit.expires_at)"
               expiration-value-class="text-gray-700 dark:text-gray-300"
-              :usage-rows="trafficCreditUsageRows"
+              :usage-rows="trafficCreditUsageRows(credit)"
               :unlimited-title="t('userSubscriptions.unlimited')"
               :unlimited-description="t('userSubscriptions.unlimitedDesc')"
             />
@@ -72,7 +74,7 @@ import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import { paymentAPI } from '@/api/payment'
 import type { UserSubscription } from '@/types'
-import type { CheckoutInfoResponse } from '@/types/payment'
+import type { CheckoutInfoResponse, TrafficCredit } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import SubscriptionUsageCard from '@/components/user/SubscriptionUsageCard.vue'
@@ -93,29 +95,32 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
-const checkout = ref<Pick<CheckoutInfoResponse, 'traffic_packs' | 'traffic_credit_summary'>>({
+const checkout = ref<Pick<CheckoutInfoResponse, 'traffic_packs' | 'traffic_credit_summary' | 'traffic_credits'>>({
   traffic_packs: [],
   traffic_credit_summary: null,
+  traffic_credits: [],
 })
 const loading = ref(true)
 
-const trafficCreditSummary = computed(() => checkout.value.traffic_credit_summary ?? null)
-const hasTrafficPackContent = computed(() =>
-  (trafficCreditSummary.value?.total_remaining_usd ?? 0) > 0
-)
-const trafficCreditExpiration = computed(() => '剩余 365 天')
-const trafficCreditUsageRows = computed<SubscriptionUsageRow[]>(() => {
-  const total = trafficCreditSummary.value?.total_initial_usd ?? 0
-  const remaining = trafficCreditSummary.value?.total_remaining_usd ?? 0
-  const used = Math.max(total - remaining, 0)
+const trafficCredits = computed(() => checkout.value.traffic_credits ?? [])
+const hasTrafficPackContent = computed(() => trafficCredits.value.length > 0)
+
+function trafficCreditDescription(credit: TrafficCredit): string {
+  return `剩余额度 $${credit.remaining_usd.toFixed(2)}，当前可用 $${credit.available_usd.toFixed(2)}。`
+}
+
+function trafficCreditUsageRows(credit: TrafficCredit): SubscriptionUsageRow[] {
+  const total = credit.initial_usd
+  const used = Math.max(total - credit.remaining_usd, 0)
   return [{
-    label: '总计',
+    label: '已结算用量',
     value: `$${used.toFixed(2)} / $${total.toFixed(2)}`,
     progressWidth: getProgressWidth(used, total),
     progressClass: getProgressBarClass(used, total),
-    testId: 'traffic-credit-progress',
+    footer: `当前可用 $${credit.available_usd.toFixed(2)}`,
+    testId: `traffic-credit-progress-${credit.id}`,
   }]
-})
+}
 
 async function loadSubscriptions() {
   try {
@@ -128,6 +133,7 @@ async function loadSubscriptions() {
     checkout.value = {
       traffic_packs: checkoutInfo.data.traffic_packs ?? [],
       traffic_credit_summary: checkoutInfo.data.traffic_credit_summary ?? null,
+      traffic_credits: checkoutInfo.data.traffic_credits ?? [],
     }
   } catch (error) {
     console.error('Failed to load subscriptions:', error)

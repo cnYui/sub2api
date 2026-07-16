@@ -155,6 +155,19 @@ function checkoutInfoFixture() {
         next_expiring_usd: 5,
         next_expires_at: '2027-06-22T12:00:00Z',
       },
+      traffic_credits: [
+        {
+          id: 20,
+          order_id: 101,
+          pack_id: 2,
+          initial_usd: 5,
+          remaining_usd: 3,
+          reserved_usd: 0.5,
+          available_usd: 2.5,
+          credited_at: '2026-07-16T08:57:24+08:00',
+          expires_at: '2027-06-26T08:57:24+08:00',
+        },
+      ],
       balance_disabled: false,
       balance_recharge_multiplier: 1,
       recharge_fee_rate: 0,
@@ -446,6 +459,30 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.currentBalance')
     expect(wrapper.text()).not.toContain('payment.paymentAmount')
     expect(wrapper.findComponent({ name: 'AmountInput' }).exists()).toBe(false)
+  })
+
+  it('keeps traffic credits from checkout info without rendering a separate list', async () => {
+    getCheckoutInfo.mockResolvedValueOnce(checkoutInfoFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect((wrapper.vm as unknown as { checkout: { traffic_credits: Array<{ id: number; available_usd: number }> } }).checkout.traffic_credits).toEqual([
+      expect.objectContaining({ id: 20, available_usd: 2.5 }),
+    ])
+    expect(wrapper.text()).not.toContain('GPT 流量卡 #20')
   })
 
   it('shows balance recharge as the first purchase product', async () => {
