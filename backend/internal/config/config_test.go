@@ -744,6 +744,45 @@ func TestLoadDefaultUsageFactWorkerConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultTrafficCreditReservationConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.Billing.TrafficCreditReservationEnabled {
+		t.Fatal("TrafficCreditReservationEnabled = true, want false")
+	}
+	if !cfg.Billing.TrafficCreditReservationShadow {
+		t.Fatal("TrafficCreditReservationShadow = false, want true")
+	}
+	if cfg.Billing.TrafficCreditMinimumReserveUSD != 0.01 {
+		t.Fatalf("TrafficCreditMinimumReserveUSD = %v, want 0.01", cfg.Billing.TrafficCreditMinimumReserveUSD)
+	}
+	if cfg.Billing.TrafficCreditMinimumOutputTokens != 256 {
+		t.Fatalf("TrafficCreditMinimumOutputTokens = %d, want 256", cfg.Billing.TrafficCreditMinimumOutputTokens)
+	}
+	if cfg.Billing.TrafficCreditDefaultMaxOutputTokens != 8192 {
+		t.Fatalf("TrafficCreditDefaultMaxOutputTokens = %d, want 8192", cfg.Billing.TrafficCreditDefaultMaxOutputTokens)
+	}
+	if cfg.Billing.TrafficCreditReservationTimeoutSeconds != 900 {
+		t.Fatalf("TrafficCreditReservationTimeoutSeconds = %d, want 900", cfg.Billing.TrafficCreditReservationTimeoutSeconds)
+	}
+}
+
+func TestValidateTrafficCreditReservationConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	cfg.Billing.TrafficCreditMinimumOutputTokens = 0
+	err = cfg.Validate()
+	if err == nil || !strings.Contains(err.Error(), "billing.traffic_credit_minimum_output_tokens") {
+		t.Fatalf("Validate() expected traffic credit output token error, got: %v", err)
+	}
+}
+
 func TestValidateUsageFactWorkerConfig(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

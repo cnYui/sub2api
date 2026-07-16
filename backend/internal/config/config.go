@@ -647,7 +647,13 @@ type BillingConfig struct {
 	// MinimumBalanceReserve is the conservative preflight floor for balance billing.
 	// Requests in balance mode are rejected when the cached balance is below this
 	// amount, even if it is still positive. Set to 0 to keep the legacy balance > 0 gate.
-	MinimumBalanceReserve float64 `mapstructure:"minimum_balance_reserve"`
+	MinimumBalanceReserve                  float64 `mapstructure:"minimum_balance_reserve"`
+	TrafficCreditReservationEnabled        bool    `mapstructure:"traffic_credit_reservation_enabled"`
+	TrafficCreditReservationShadow         bool    `mapstructure:"traffic_credit_reservation_shadow"`
+	TrafficCreditMinimumReserveUSD         float64 `mapstructure:"traffic_credit_minimum_reserve_usd"`
+	TrafficCreditMinimumOutputTokens       int     `mapstructure:"traffic_credit_minimum_output_tokens"`
+	TrafficCreditDefaultMaxOutputTokens    int     `mapstructure:"traffic_credit_default_max_output_tokens"`
+	TrafficCreditReservationTimeoutSeconds int     `mapstructure:"traffic_credit_reservation_timeout_seconds"`
 	// UserPlatformQuotaCacheTTLSeconds 用户 × 平台 quota 缓存 TTL（秒），默认 86400=1天，覆盖典型 daily 窗口。
 	// 消费点：
 	//   - billing_cache_service.cacheWriteWorker 异步累加
@@ -1628,6 +1634,12 @@ func setDefaults() {
 	viper.SetDefault("billing.circuit_breaker.reset_timeout_seconds", 30)
 	viper.SetDefault("billing.circuit_breaker.half_open_requests", 3)
 	viper.SetDefault("billing.minimum_balance_reserve", 0.000001)
+	viper.SetDefault("billing.traffic_credit_reservation_enabled", false)
+	viper.SetDefault("billing.traffic_credit_reservation_shadow", true)
+	viper.SetDefault("billing.traffic_credit_minimum_reserve_usd", 0.01)
+	viper.SetDefault("billing.traffic_credit_minimum_output_tokens", 256)
+	viper.SetDefault("billing.traffic_credit_default_max_output_tokens", 8192)
+	viper.SetDefault("billing.traffic_credit_reservation_timeout_seconds", 900)
 	viper.SetDefault("billing.user_platform_quota_cache_ttl_seconds", 86400)
 	viper.SetDefault("billing.user_platform_quota_sentinel_ttl_seconds", 3600)
 
@@ -2297,6 +2309,18 @@ func (c *Config) Validate() error {
 	}
 	if c.Billing.MinimumBalanceReserve < 0 {
 		return fmt.Errorf("billing.minimum_balance_reserve must be non-negative")
+	}
+	if c.Billing.TrafficCreditMinimumReserveUSD < 0 {
+		return fmt.Errorf("billing.traffic_credit_minimum_reserve_usd must be non-negative")
+	}
+	if c.Billing.TrafficCreditMinimumOutputTokens <= 0 {
+		return fmt.Errorf("billing.traffic_credit_minimum_output_tokens must be positive")
+	}
+	if c.Billing.TrafficCreditDefaultMaxOutputTokens < c.Billing.TrafficCreditMinimumOutputTokens {
+		return fmt.Errorf("billing.traffic_credit_default_max_output_tokens must be greater than or equal to billing.traffic_credit_minimum_output_tokens")
+	}
+	if c.Billing.TrafficCreditReservationTimeoutSeconds <= 0 {
+		return fmt.Errorf("billing.traffic_credit_reservation_timeout_seconds must be positive")
 	}
 	if c.Database.MaxOpenConns <= 0 {
 		return fmt.Errorf("database.max_open_conns must be positive")

@@ -1033,6 +1033,49 @@ func (s *BillingService) CalculateCostWithServiceTier(model string, tokens Usage
 	return s.calculateCostInternal(model, tokens, rateMultiplier, serviceTier, nil)
 }
 
+func (s *BillingService) EstimateMaximumTokenCost(
+	model string,
+	inputTokens int,
+	outputTokens int,
+	rateMultiplier float64,
+	serviceTier string,
+) (float64, *ModelPricing, error) {
+	pricing, err := s.GetModelPricing(model)
+	if err != nil {
+		return 0, nil, err
+	}
+	inputPrice := maxFloat64(
+		pricing.InputPricePerToken,
+		pricing.CacheCreationPricePerToken,
+		pricing.CacheCreation5mPrice,
+		pricing.CacheCreation1hPrice,
+	)
+	outputPrice := pricing.OutputPricePerToken
+	tierMultiplier := modelServiceTierCostMultiplier(model, serviceTier)
+	inputPrice *= tierMultiplier
+	outputPrice *= tierMultiplier
+	if pricing.LongContextInputThreshold > 0 && inputTokens > pricing.LongContextInputThreshold {
+		if pricing.LongContextInputMultiplier > 1 {
+			inputPrice *= pricing.LongContextInputMultiplier
+		}
+		if pricing.LongContextOutputMultiplier > 1 {
+			outputPrice *= pricing.LongContextOutputMultiplier
+		}
+	}
+	cost := (float64(inputTokens)*inputPrice + float64(outputTokens)*outputPrice) * rateMultiplier
+	return cost, pricing, nil
+}
+
+func maxFloat64(values ...float64) float64 {
+	var maxValue float64
+	for _, value := range values {
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+	return maxValue
+}
+
 func (s *BillingService) calculateCostInternal(model string, tokens UsageTokens, rateMultiplier float64, serviceTier string, channelPricing *ChannelModelPricing) (*CostBreakdown, error) {
 	var pricing *ModelPricing
 	var err error
