@@ -24,6 +24,7 @@ type UsageFactPayload struct {
 	BillingCommand UsageBillingCommand           `json:"billing_command"`
 	UsageLog       UsageLog                      `json:"usage_log"`
 	Effects        UsageSettlementEffectsPayload `json:"effects"`
+	OpenAIBilling  *OpenAIUsageBillingSnapshot   `json:"openai_billing,omitempty"`
 }
 
 type UsageSettlementEffectsPayload struct {
