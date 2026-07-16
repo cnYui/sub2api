@@ -110,6 +110,22 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 		"debt",
 		"failed",
 	)
+	requireColumn(t, tx, "usage_facts", "reservation_id", "bigint", 0, true)
+	requireIndex(t, tx, "usage_facts", "idx_usage_facts_reservation_id")
+
+	// traffic credit reservations: 请求前预留与 debt gate
+	requireColumn(t, tx, "user_traffic_credits", "reserved_usd", "numeric", 0, false)
+	var reservationsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_reservations')").Scan(&reservationsRegclass))
+	require.True(t, reservationsRegclass.Valid, "expected traffic_credit_reservations table to exist")
+	requireColumn(t, tx, "traffic_credit_reservations", "reserved_usd", "numeric", 0, false)
+	requireColumn(t, tx, "traffic_credit_reservations", "debt_usd", "numeric", 0, false)
+	requireIndex(t, tx, "traffic_credit_reservations", "idx_traffic_credit_reservations_request_api_key")
+	requireIndex(t, tx, "traffic_credit_reservations", "idx_traffic_credit_reservations_user_debt")
+
+	var reservationItemsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_reservation_items')").Scan(&reservationItemsRegclass))
+	require.True(t, reservationItemsRegclass.Valid, "expected traffic_credit_reservation_items table to exist")
 
 	// settings table should exist
 	var settingsRegclass sql.NullString
