@@ -4,9 +4,16 @@ import {
   describePaymentScenarioError,
   normalizePaymentMethodForDisplay,
 } from '../paymentUx'
+import en from '@/i18n/locales/en'
 import zh from '@/i18n/locales/zh'
 
-const messages = zh as {
+const zhMessages = zh as {
+  payment: {
+    errors: Record<string, string>
+  }
+}
+
+const enMessages = en as {
   payment: {
     errors: Record<string, string>
   }
@@ -89,9 +96,13 @@ describe('buildPaymentErrorToastMessage', () => {
 })
 
 describe('payment subscription guard copy', () => {
-  it('uses the refund-first message only for subscription switches', () => {
-    expect(messages.payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND).toBe(
-      '当前套餐仍在有效期内，如需更换套餐，请先退款后再购买'
-    )
+  it('uses self-service prorated refund guidance for subscription switches', () => {
+    const zhCopy = '仅可续费当前套餐；购买新套餐前，请在“我的订单”按比例退款。'
+    const enCopy = 'You can only renew your current plan. Before buying a new plan, request a prorated refund in My Orders.'
+
+    expect(zhMessages.payment.errors.ACTIVE_SUBSCRIPTION_EXISTS).toBe(zhCopy)
+    expect(zhMessages.payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND).toBe(zhCopy)
+    expect(enMessages.payment.errors.ACTIVE_SUBSCRIPTION_EXISTS).toBe(enCopy)
+    expect(enMessages.payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND).toBe(enCopy)
   })
 })
