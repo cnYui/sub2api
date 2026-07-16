@@ -249,6 +249,22 @@ func TestOfflinePaymentBackfillRejectsExistingOrderAndAuditMismatch(t *testing.T
 				require.NoError(t, err)
 			},
 		},
+		{
+			name: "audit missing",
+			mutate: func(t *testing.T, fixture *offlinePaymentBackfillFixture) {
+				entry := fixture.batch.Entries[0]
+				_, err := integrationDB.ExecContext(context.Background(), `
+					DELETE FROM payment_audit_logs
+					WHERE order_id = (
+						SELECT id::text
+						FROM payment_orders
+						WHERE out_trade_no = $1
+					)
+					  AND action = 'OFFLINE_PAYMENT_RECORDED'
+				`, offlinePaymentBackfillOutTradeNo(fixture.batch.Source, entry.SubscriptionID))
+				require.NoError(t, err)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -310,7 +326,7 @@ func TestOfflinePaymentBackfillRejectsDuplicateOfflinePaymentAudit(t *testing.T)
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 	_, err = service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.Error(t, err)
-	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_EXISTING_RECORD_MISMATCH", infraerrors.Reason(err))
+	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
 	require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
 }
 
@@ -379,7 +395,7 @@ func TestOfflinePaymentBackfillRejectsDuplicateExistingOrder(t *testing.T) {
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 	_, err = service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.Error(t, err)
-	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_EXISTING_RECORD_MISMATCH", infraerrors.Reason(err))
+	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
 	require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
 }
 

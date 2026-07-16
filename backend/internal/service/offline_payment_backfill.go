@@ -39,6 +39,34 @@ var offlinePaymentBackfillRequiredColumns = []string{
 	"refund_balance_status",
 }
 
+var offlinePaymentBackfillRequiredAuditLogColumns = []string{
+	"id",
+	"order_id",
+	"action",
+	"detail",
+	"operator",
+	"created_at",
+}
+
+var offlinePaymentBackfillRequiredUniqueIndexes = []struct {
+	table     string
+	name      string
+	columns   string
+	predicate string
+}{
+	{
+		table:     "payment_orders",
+		name:      "paymentorder_out_trade_no",
+		columns:   "out_trade_no",
+		predicate: "out_trade_no <> ''",
+	},
+	{
+		table:   "payment_audit_logs",
+		name:    "idx_payment_audit_logs_order_action_uniq",
+		columns: "order_id,action",
+	},
+}
+
 type offlinePaymentBackfillEntry struct {
 	SubscriptionID int64
 	UserID         int64
@@ -284,7 +312,106 @@ func ensureOfflinePaymentBackfillSchema(ctx context.Context, db *sql.DB) error {
 			return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required payment_orders column %s is missing", column))
 		}
 	}
+
+	var auditTable string
+	err = db.QueryRowContext(ctx, `
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = current_schema()
+		  AND table_name = $1
+	`, "payment_audit_logs").Scan(&auditTable)
+	if errors.Is(err, sql.ErrNoRows) {
+		return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required table payment_audit_logs is missing"))
+	}
+	if err != nil {
+		return offlinePaymentBackfillSchemaNotReady(err)
+	}
+	if auditTable != "payment_audit_logs" {
+		return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required table payment_audit_logs is missing"))
+	}
+
+	auditColumnRows, err := db.QueryContext(ctx, `
+		SELECT column_name
+		FROM information_schema.columns
+		WHERE table_schema = current_schema()
+		  AND table_name = 'payment_audit_logs'
+		  AND column_name IN ('id', 'order_id', 'action', 'detail', 'operator', 'created_at')
+	`)
+	if err != nil {
+		return offlinePaymentBackfillSchemaNotReady(err)
+	}
+	defer func() { _ = auditColumnRows.Close() }()
+
+	auditColumns := make(map[string]struct{}, len(offlinePaymentBackfillRequiredAuditLogColumns))
+	for auditColumnRows.Next() {
+		var column string
+		if err := auditColumnRows.Scan(&column); err != nil {
+			return offlinePaymentBackfillSchemaNotReady(err)
+		}
+		auditColumns[column] = struct{}{}
+	}
+	if err := auditColumnRows.Err(); err != nil {
+		return offlinePaymentBackfillSchemaNotReady(err)
+	}
+	for _, column := range offlinePaymentBackfillRequiredAuditLogColumns {
+		if _, exists := auditColumns[column]; !exists {
+			return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required payment_audit_logs column %s is missing", column))
+		}
+	}
+
+	for _, index := range offlinePaymentBackfillRequiredUniqueIndexes {
+		if err := ensureOfflinePaymentBackfillUniqueIndex(ctx, db, index.table, index.name, index.columns, index.predicate); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func ensureOfflinePaymentBackfillUniqueIndex(ctx context.Context, db *sql.DB, table, name, columns, predicate string) error {
+	var unique bool
+	var actualColumns, actualPredicate string
+	err := db.QueryRowContext(ctx, `
+		SELECT
+			i.indisunique,
+			COALESCE(index_columns.columns, ''),
+			COALESCE(pg_get_expr(i.indpred, i.indrelid), '')
+		FROM pg_class AS index_class
+		JOIN pg_index AS i ON i.indexrelid = index_class.oid
+		JOIN pg_class AS table_class ON table_class.oid = i.indrelid
+		JOIN pg_namespace AS table_schema ON table_schema.oid = table_class.relnamespace
+		JOIN LATERAL (
+			SELECT string_agg(attribute.attname::text, ',' ORDER BY key_attnum.ordinality) AS columns
+			FROM unnest(i.indkey::smallint[]) WITH ORDINALITY AS key_attnum(attnum, ordinality)
+			JOIN pg_attribute AS attribute
+				ON attribute.attrelid = table_class.oid
+			   AND attribute.attnum = key_attnum.attnum
+		) AS index_columns ON true
+		WHERE table_schema.nspname = current_schema()
+		  AND table_class.relname = $1
+		  AND index_class.relname = $2
+	`, table, name).Scan(&unique, &actualColumns, &actualPredicate)
+	if errors.Is(err, sql.ErrNoRows) {
+		return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required unique index %s on %s is missing", name, table))
+	}
+	if err != nil {
+		return offlinePaymentBackfillSchemaNotReady(err)
+	}
+	if !unique || actualColumns != columns || normalizeOfflinePaymentBackfillIndexPredicate(actualPredicate) != normalizeOfflinePaymentBackfillIndexPredicate(predicate) {
+		return offlinePaymentBackfillSchemaNotReady(fmt.Errorf("required unique index %s on %s is invalid", name, table))
+	}
+	return nil
+}
+
+func normalizeOfflinePaymentBackfillIndexPredicate(value string) string {
+	normalized := strings.ToLower(strings.Join(strings.Fields(value), ""))
+	return strings.NewReplacer(
+		`"`, "",
+		"(", "",
+		")", "",
+		"::charactervarying", "",
+		"::varchar", "",
+		"::text", "",
+	).Replace(normalized)
 }
 
 func lockOfflinePaymentBackfillEntries(ctx context.Context, tx *sql.Tx, batch offlinePaymentBackfillBatch) ([]offlinePaymentBackfillLockedEntry, error) {

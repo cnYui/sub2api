@@ -117,3 +117,167 @@ func TestEnsureOfflinePaymentBackfillSchemaRejectsMissingProviderSnapshot(t *tes
 	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestRunOfflinePaymentBackfillRejectsMissingRequiredUniqueIndexBeforeTransaction(t *testing.T) {
+	tests := []struct {
+		name            string
+		missingIndex    string
+		paymentIndexRow []any
+		auditIndexRow   []any
+	}{
+		{
+			name:         "payment orders out trade number",
+			missingIndex: "payment_orders",
+		},
+		{
+			name:            "payment audit order action",
+			missingIndex:    "payment_audit_logs",
+			paymentIndexRow: []any{true, "out_trade_no", "out_trade_no <> ''"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+
+			expectOfflinePaymentBackfillSchemaBase(mock)
+			mock.ExpectQuery(`(?s)SELECT.*indisunique.*FROM pg_class AS index_class`).
+				WithArgs("payment_orders", "paymentorder_out_trade_no").
+				WillReturnRows(offlinePaymentBackfillIndexRows(tt.paymentIndexRow))
+			if tt.missingIndex == "payment_audit_logs" {
+				mock.ExpectQuery(`(?s)SELECT.*indisunique.*FROM pg_class AS index_class`).
+					WithArgs("payment_audit_logs", "idx_payment_audit_logs_order_action_uniq").
+					WillReturnRows(offlinePaymentBackfillIndexRows(tt.auditIndexRow))
+			}
+
+			_, err = runOfflinePaymentBackfillBatch(context.Background(), db, defaultOfflinePaymentBackfillBatch(), "unit:operator", true)
+			require.Error(t, err)
+			require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestEnsureOfflinePaymentBackfillSchemaRejectsMissingAuditLogSchema(t *testing.T) {
+	tests := []struct {
+		name            string
+		auditTableRows  *sqlmock.Rows
+		auditColumnRows *sqlmock.Rows
+	}{
+		{
+			name:           "table",
+			auditTableRows: sqlmock.NewRows([]string{"table_name"}),
+		},
+		{
+			name:            "operator column",
+			auditTableRows:  sqlmock.NewRows([]string{"table_name"}).AddRow("payment_audit_logs"),
+			auditColumnRows: offlinePaymentBackfillColumnRows([]string{"id", "order_id", "action", "detail", "created_at"}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+
+			mock.ExpectQuery(`(?s)SELECT filename.*FROM schema_migrations`).
+				WithArgs("162_refund_state_machine.sql", "163_alipay_balance_hybrid_payment.sql").
+				WillReturnRows(sqlmock.NewRows([]string{"filename"}).
+					AddRow("162_refund_state_machine.sql").
+					AddRow("163_alipay_balance_hybrid_payment.sql"))
+			mock.ExpectQuery(`(?s)SELECT column_name.*FROM information_schema.columns.*table_name = 'payment_orders'`).
+				WillReturnRows(offlinePaymentBackfillColumnRows(offlinePaymentBackfillRequiredColumns))
+			mock.ExpectQuery(`(?s)SELECT table_name.*FROM information_schema.tables`).
+				WithArgs("payment_audit_logs").
+				WillReturnRows(tt.auditTableRows)
+			if tt.auditColumnRows != nil {
+				mock.ExpectQuery(`(?s)SELECT column_name.*FROM information_schema.columns.*table_name = 'payment_audit_logs'`).
+					WillReturnRows(tt.auditColumnRows)
+			}
+
+			err = ensureOfflinePaymentBackfillSchema(context.Background(), db)
+			require.Error(t, err)
+			require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestEnsureOfflinePaymentBackfillSchemaRejectsInvalidRequiredUniqueIndexDefinition(t *testing.T) {
+	tests := []struct {
+		name            string
+		paymentIndexRow []any
+		auditIndexRow   []any
+	}{
+		{
+			name:            "payment orders index is not unique",
+			paymentIndexRow: []any{false, "out_trade_no", "out_trade_no <> ''"},
+		},
+		{
+			name:            "payment orders predicate differs",
+			paymentIndexRow: []any{true, "out_trade_no", "out_trade_no <> 'placeholder'"},
+		},
+		{
+			name:            "payment audit columns differ",
+			paymentIndexRow: []any{true, "out_trade_no", "out_trade_no <> ''"},
+			auditIndexRow:   []any{true, "action,order_id", ""},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+
+			expectOfflinePaymentBackfillSchemaBase(mock)
+			mock.ExpectQuery(`(?s)SELECT.*indisunique.*FROM pg_class AS index_class`).
+				WithArgs("payment_orders", "paymentorder_out_trade_no").
+				WillReturnRows(offlinePaymentBackfillIndexRows(tt.paymentIndexRow))
+			if tt.auditIndexRow != nil {
+				mock.ExpectQuery(`(?s)SELECT.*indisunique.*FROM pg_class AS index_class`).
+					WithArgs("payment_audit_logs", "idx_payment_audit_logs_order_action_uniq").
+					WillReturnRows(offlinePaymentBackfillIndexRows(tt.auditIndexRow))
+			}
+
+			err = ensureOfflinePaymentBackfillSchema(context.Background(), db)
+			require.Error(t, err)
+			require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func expectOfflinePaymentBackfillSchemaBase(mock sqlmock.Sqlmock) {
+	mock.ExpectQuery(`(?s)SELECT filename.*FROM schema_migrations`).
+		WithArgs("162_refund_state_machine.sql", "163_alipay_balance_hybrid_payment.sql").
+		WillReturnRows(sqlmock.NewRows([]string{"filename"}).
+			AddRow("162_refund_state_machine.sql").
+			AddRow("163_alipay_balance_hybrid_payment.sql"))
+	mock.ExpectQuery(`(?s)SELECT column_name.*FROM information_schema.columns.*table_name = 'payment_orders'`).
+		WillReturnRows(offlinePaymentBackfillColumnRows(offlinePaymentBackfillRequiredColumns))
+	mock.ExpectQuery(`(?s)SELECT table_name.*FROM information_schema.tables`).
+		WithArgs("payment_audit_logs").
+		WillReturnRows(sqlmock.NewRows([]string{"table_name"}).AddRow("payment_audit_logs"))
+	mock.ExpectQuery(`(?s)SELECT column_name.*FROM information_schema.columns.*table_name = 'payment_audit_logs'`).
+		WillReturnRows(offlinePaymentBackfillColumnRows([]string{"id", "order_id", "action", "detail", "operator", "created_at"}))
+}
+
+func offlinePaymentBackfillColumnRows(columns []string) *sqlmock.Rows {
+	rows := sqlmock.NewRows([]string{"column_name"})
+	for _, column := range columns {
+		rows.AddRow(column)
+	}
+	return rows
+}
+
+func offlinePaymentBackfillIndexRows(row []any) *sqlmock.Rows {
+	rows := sqlmock.NewRows([]string{"indisunique", "columns", "predicate"})
+	if row != nil {
+		rows.AddRow(row[0], row[1], row[2])
+	}
+	return rows
+}
