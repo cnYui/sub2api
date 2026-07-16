@@ -257,6 +257,24 @@ func (s *subscriptionUserSubRepoStub) UpdateStatus(_ context.Context, id int64, 
 	return nil
 }
 
+func (s *subscriptionUserSubRepoStub) ExtendExpiry(_ context.Context, id int64, newExpiresAt time.Time) error {
+	existing := s.byID[id]
+	if existing == nil {
+		return ErrSubscriptionNotFound
+	}
+	existing.ExpiresAt = newExpiresAt
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) UpdateNotes(_ context.Context, id int64, notes string) error {
+	existing := s.byID[id]
+	if existing == nil {
+		return ErrSubscriptionNotFound
+	}
+	existing.Notes = notes
+	return nil
+}
+
 func (s *subscriptionUserSubRepoStub) Delete(_ context.Context, id int64) error {
 	existing := s.byID[id]
 	if existing == nil {

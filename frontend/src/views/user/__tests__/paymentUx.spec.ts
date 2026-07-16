@@ -89,7 +89,9 @@ describe('buildPaymentErrorToastMessage', () => {
 })
 
 describe('payment subscription guard copy', () => {
-  it('uses the required refund-contact message for active subscription conflicts', () => {
-    expect(messages.payment.errors.ACTIVE_SUBSCRIPTION_EXISTS).toBe('需要先和管理员联系来进行退款')
+  it('uses the refund-first message only for subscription switches', () => {
+    expect(messages.payment.errors.ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND).toBe(
+      '当前套餐仍在有效期内，如需更换套餐，请先退款后再购买'
+    )
   })
 })

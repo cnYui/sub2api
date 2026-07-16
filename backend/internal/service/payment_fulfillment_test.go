@@ -14,6 +14,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1034,6 +1035,70 @@ func TestExecuteSubscriptionFulfillmentRecoversExistingOrderSubscriptionLink(t *
 	recoveredSub, err := subRepo.GetByID(ctx, 55)
 	require.NoError(t, err)
 	require.Equal(t, expiresAt, recoveredSub.ExpiresAt)
+}
+
+func TestExecuteSubscriptionFulfillmentRejectsDifferentActiveSubscriptionAtPaymentTime(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+
+	user, err := client.User.Create().
+		SetEmail("subscription-payment-time-switch@example.com").
+		SetPasswordHash("hash").
+		SetUsername("subscription-payment-time-switch-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(59).
+		SetPayAmount(59.59).
+		SetFeeRate(1).
+		SetRechargeCode("PAY-SUB-PAYMENT-TIME-SWITCH").
+		SetOutTradeNo("sub2_subscription_payment_time_switch").
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo("trade-sub-payment-time-switch").
+		SetOrderType(payment.OrderTypeSubscription).
+		SetPlanID(102).
+		SetSubscriptionGroupID(7).
+		SetSubscriptionDays(30).
+		SetStatus(OrderStatusPaid).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        66,
+		UserID:    user.ID,
+		GroupID:   2,
+		StartsAt:  time.Now().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().Add(29 * 24 * time.Hour),
+		Status:    SubscriptionStatusActive,
+	})
+	svc := &PaymentService{
+		entClient: client,
+		groupRepo: &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
+		subscriptionSvc: NewSubscriptionService(&subscriptionGroupRepoStub{
+			group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+		}, subRepo, nil, nil, nil),
+	}
+
+	err = svc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+	require.Error(t, err)
+	require.Equal(t, "ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND", infraerrors.FromError(err).Reason)
+	require.Zero(t, subRepo.createCalls)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusFailed, reloaded.Status)
+	require.Nil(t, reloaded.SubscriptionID)
+	require.NotNil(t, reloaded.FailedReason)
+	require.Contains(t, *reloaded.FailedReason, "ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND")
 }
 
 func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAudit(t *testing.T) {

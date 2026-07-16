@@ -15,7 +15,43 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateSubOrderRejectsExistingActiveSubscriptionAcrossGroups(t *testing.T) {
+func TestValidateSubOrderAllowsRenewingSameActiveSubscription(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
+
+	u, err := client.User.Create().
+		SetEmail("renew-same-subscription@example.com").
+		SetUsername("renew-same-subscription").
+		SetPasswordHash("hash").
+		SetBalance(100).
+		SetStatus(payment.EntityStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        42,
+		UserID:    u.ID,
+		GroupID:   7,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  time.Now().Add(-24 * time.Hour),
+		ExpiresAt: time.Now().Add(29 * 24 * time.Hour),
+	})
+	svc := newBalancePayTestService(client, 0)
+	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+
+	_, err = svc.validateSubOrder(ctx, CreateOrderRequest{
+		UserID:    u.ID,
+		OrderType: payment.OrderTypeSubscription,
+		PlanID:    planID,
+	})
+	require.NoError(t, err)
+}
+
+func TestValidateSubOrderRejectsActiveSubscriptionInDifferentGroup(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
@@ -49,11 +85,65 @@ func TestValidateSubOrderRejectsExistingActiveSubscriptionAcrossGroups(t *testin
 		PlanID:    planID,
 	})
 	require.Error(t, err)
-	require.Equal(t, "ACTIVE_SUBSCRIPTION_EXISTS", infraerrors.FromError(err).Reason)
-	require.Equal(t, "需要先和管理员联系来进行退款", infraerrors.FromError(err).Message)
+	require.Equal(t, "ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND", infraerrors.FromError(err).Reason)
+	require.Equal(t, "当前套餐仍在有效期内，如需更换套餐，请先退款后再购买", infraerrors.FromError(err).Message)
 }
 
-func TestBalancePaySubscriptionWithExistingActiveSubscriptionDoesNotCreateOrderOrDeduct(t *testing.T) {
+func TestBalancePaySubscriptionRenewsSameActiveSubscription(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
+
+	u, err := client.User.Create().
+		SetEmail("balance-pay-renew-same-subscription@example.com").
+		SetUsername("balance-pay-renew-same-subscription").
+		SetPasswordHash("hash").
+		SetBalance(100).
+		SetStatus(payment.EntityStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	expiresAt := time.Now().Add(29 * 24 * time.Hour)
+	subRepo := newSubscriptionUserSubRepoStub()
+	subRepo.seed(&UserSubscription{
+		ID:        43,
+		UserID:    u.ID,
+		GroupID:   7,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  time.Now().Add(-24 * time.Hour),
+		ExpiresAt: expiresAt,
+		Notes:     "initial subscription",
+	})
+	svc := newBalancePayTestService(client, 0)
+	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}, subRepo, nil, nil, nil)
+
+	resp, err := svc.BalancePayOrder(ctx, BalancePayOrderRequest{
+		UserID:    u.ID,
+		OrderType: payment.OrderTypeSubscription,
+		PlanID:    planID,
+		ClientIP:  "127.0.0.1",
+		SrcHost:   "api.example.com",
+	})
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, resp.Status)
+
+	order, err := client.PaymentOrder.Query().Only(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, order.SubscriptionID)
+	require.Equal(t, int64(43), *order.SubscriptionID)
+
+	renewed, err := subRepo.GetByID(ctx, 43)
+	require.NoError(t, err)
+	require.Equal(t, expiresAt.AddDate(0, 0, 30), renewed.ExpiresAt)
+	require.Contains(t, renewed.Notes, "initial subscription")
+	require.Contains(t, renewed.Notes, "payment order")
+	require.Zero(t, subRepo.createCalls)
+}
+
+func TestBalancePaySubscriptionRejectsDifferentActiveSubscription(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	planID := createBalancePayTestPlan(t, ctx, client, 7, 59)
@@ -89,7 +179,7 @@ func TestBalancePaySubscriptionWithExistingActiveSubscriptionDoesNotCreateOrderO
 		SrcHost:   "api.example.com",
 	})
 	require.Error(t, err)
-	require.Equal(t, "ACTIVE_SUBSCRIPTION_EXISTS", infraerrors.FromError(err).Reason)
+	require.Equal(t, "ACTIVE_SUBSCRIPTION_SWITCH_REQUIRES_REFUND", infraerrors.FromError(err).Reason)
 
 	orderCount, err := client.PaymentOrder.Query().Count(ctx)
 	require.NoError(t, err)
