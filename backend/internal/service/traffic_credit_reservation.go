@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"time"
@@ -45,6 +46,15 @@ type TrafficCreditReservationItem struct {
 	CreditID    int64
 	ReservedUSD float64
 	SettledUSD  float64
+}
+
+type TrafficCreditReservationRepository interface {
+	GetAvailableUSD(ctx context.Context, userID int64, platform string, now time.Time) (float64, error)
+	Reserve(ctx context.Context, input TrafficCreditReservationInput) (*TrafficCreditReservation, bool, error)
+	MarkDispatched(ctx context.Context, reservationID int64) error
+	MarkUnknown(ctx context.Context, reservationID int64, reason string) error
+	Release(ctx context.Context, reservationID int64, now time.Time) error
+	HasOutstandingDebt(ctx context.Context, userID int64, platform string) (bool, error)
 }
 
 func PlanTrafficCreditReservations(batches []TrafficCreditBatch, amountUSD float64) ([]TrafficCreditReservationItem, bool) {
