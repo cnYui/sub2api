@@ -19,14 +19,15 @@ import (
 
 // AuthHandler handles authentication-related requests
 type AuthHandler struct {
-	cfg                  *config.Config
-	authService          *service.AuthService
-	userService          *service.UserService
-	settingSvc           *service.SettingService
-	promoService         *service.PromoService
-	redeemService        *service.RedeemService
-	totpService          *service.TotpService
-	userAttributeService *service.UserAttributeService
+	cfg                         *config.Config
+	authService                 *service.AuthService
+	userService                 *service.UserService
+	settingSvc                  *service.SettingService
+	promoService                *service.PromoService
+	redeemService               *service.RedeemService
+	totpService                 *service.TotpService
+	userAttributeService        *service.UserAttributeService
+	trafficCreditExhaustionRepo service.TrafficCreditExhaustionRepository
 
 	dingTalkClientInstance *DingTalkClient
 	dingTalkClientMu       sync.Mutex
@@ -44,6 +45,10 @@ func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userSe
 		totpService:          totpService,
 		userAttributeService: userAttributeService,
 	}
+}
+
+func (h *AuthHandler) SetTrafficCreditExhaustionRepository(repo service.TrafficCreditExhaustionRepository) {
+	h.trafficCreditExhaustionRepo = repo
 }
 
 // RegisterRequest represents the registration request payload
@@ -445,7 +450,8 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 
 	type UserResponse struct {
 		userProfileResponse
-		RunMode string `json:"run_mode"`
+		RunMode                       string                                 `json:"run_mode"`
+		TrafficCreditExhaustionNotice *service.TrafficCreditExhaustionNotice `json:"traffic_credit_exhaustion_notice,omitempty"`
 	}
 
 	runMode := config.RunModeStandard
@@ -454,9 +460,25 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	}
 
 	response.Success(c, UserResponse{
-		userProfileResponse: userProfileResponseFromService(user, identities),
-		RunMode:             runMode,
+		userProfileResponse:           userProfileResponseFromService(user, identities),
+		RunMode:                       runMode,
+		TrafficCreditExhaustionNotice: h.loadTrafficCreditExhaustionNotice(c.Request.Context(), subject.UserID),
 	})
+}
+
+func (h *AuthHandler) loadTrafficCreditExhaustionNotice(ctx context.Context, userID int64) *service.TrafficCreditExhaustionNotice {
+	if h == nil || h.trafficCreditExhaustionRepo == nil {
+		return nil
+	}
+	eventIDs, err := h.trafficCreditExhaustionRepo.ListPendingEventIDs(ctx, userID)
+	if err != nil {
+		slog.Warn("failed to list pending traffic credit exhaustion events", "error", err, "user_id", userID)
+		return nil
+	}
+	if len(eventIDs) == 0 {
+		return nil
+	}
+	return &service.TrafficCreditExhaustionNotice{EventIDs: eventIDs}
 }
 
 // ValidatePromoCodeRequest 验证优惠码请求

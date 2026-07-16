@@ -134,8 +134,12 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		trafficPacks = packs
 	}
 	var trafficSummary *service.TrafficCreditSummary
+	trafficCredits := []service.TrafficCredit{}
 	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
 		trafficSummary, _ = h.paymentService.GetTrafficCreditSummary(ctx, subject.UserID)
+		if credits, err := h.paymentService.ListUserTrafficCredits(ctx, subject.UserID); err == nil {
+			trafficCredits = credits
+		}
 	}
 
 	response.Success(c, checkoutInfoResponse{
@@ -145,6 +149,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		Plans:                     planList,
 		TrafficPacks:              trafficPacks,
 		TrafficCreditSummary:      trafficSummary,
+		TrafficCredits:            trafficCredits,
 		BalanceDisabled:           cfg.BalanceDisabled,
 		BalanceRechargeMultiplier: cfg.BalanceRechargeMultiplier,
 		RechargeFeeRate:           cfg.RechargeFeeRate,
@@ -162,6 +167,7 @@ type checkoutInfoResponse struct {
 	Plans                     []checkoutPlan                  `json:"plans"`
 	TrafficPacks              []service.TrafficPack           `json:"traffic_packs"`
 	TrafficCreditSummary      *service.TrafficCreditSummary   `json:"traffic_credit_summary,omitempty"`
+	TrafficCredits            []service.TrafficCredit         `json:"traffic_credits"`
 	BalanceDisabled           bool                            `json:"balance_disabled"`
 	BalanceRechargeMultiplier float64                         `json:"balance_recharge_multiplier"`
 	RechargeFeeRate           float64                         `json:"recharge_fee_rate"`

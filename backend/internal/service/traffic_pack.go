@@ -45,6 +45,18 @@ type TrafficCreditBatch struct {
 	ExpiresAt    time.Time
 }
 
+type TrafficCredit struct {
+	ID           int64     `json:"id"`
+	OrderID      *int64    `json:"order_id"`
+	PackID       *int64    `json:"pack_id"`
+	InitialUSD   float64   `json:"initial_usd"`
+	RemainingUSD float64   `json:"remaining_usd"`
+	ReservedUSD  float64   `json:"reserved_usd"`
+	AvailableUSD float64   `json:"available_usd"`
+	CreditedAt   time.Time `json:"credited_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+}
+
 type TrafficCreditDeduction struct {
 	CreditID  int64
 	AmountUSD float64
@@ -70,6 +82,7 @@ type TrafficPackRepository interface {
 	ListForSale(ctx context.Context) ([]TrafficPack, error)
 	GetForSaleByID(ctx context.Context, id int64) (*TrafficPack, error)
 	GetSummary(ctx context.Context, userID int64, now time.Time) (*TrafficCreditSummary, error)
+	ListUserCredits(ctx context.Context, userID int64, now time.Time) ([]TrafficCredit, error)
 	HasAvailableCredit(ctx context.Context, userID int64, now time.Time) (bool, error)
 	CreditPurchase(ctx context.Context, input CreditTrafficPackInput) error
 	Deduct(ctx context.Context, userID int64, amountUSD float64, requestID string, now time.Time) (bool, []TrafficCreditDeduction, error)
@@ -106,6 +119,13 @@ func (s *TrafficPackService) GetSummary(ctx context.Context, userID int64, now t
 		return &TrafficCreditSummary{}, nil
 	}
 	return s.repo.GetSummary(ctx, userID, now)
+}
+
+func (s *TrafficPackService) ListUserCredits(ctx context.Context, userID int64, now time.Time) ([]TrafficCredit, error) {
+	if s == nil || s.repo == nil {
+		return []TrafficCredit{}, nil
+	}
+	return s.repo.ListUserCredits(ctx, userID, now)
 }
 
 func (s *TrafficPackService) HasAvailableCredit(ctx context.Context, userID int64, now time.Time) (bool, error) {

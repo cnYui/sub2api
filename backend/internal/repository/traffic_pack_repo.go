@@ -93,6 +93,49 @@ func (r *trafficPackRepository) GetSummary(ctx context.Context, userID int64, no
 	return summary, nil
 }
 
+func (r *trafficPackRepository) ListUserCredits(ctx context.Context, userID int64, now time.Time) ([]service.TrafficCredit, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, order_id, pack_id, initial_usd, remaining_usd, reserved_usd, credited_at, expires_at
+		FROM user_traffic_credits
+		WHERE user_id = $1 AND platform = $2
+			AND remaining_usd > $4
+			AND expires_at > $3
+		ORDER BY expires_at ASC, credited_at ASC, id ASC
+	`, userID, service.TrafficPackPlatformOpenAI, now, r.policy.MinimumReserveUSD)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	credits := []service.TrafficCredit{}
+	for rows.Next() {
+		var credit service.TrafficCredit
+		var orderID sql.NullInt64
+		var packID sql.NullInt64
+		if err := rows.Scan(
+			&credit.ID,
+			&orderID,
+			&packID,
+			&credit.InitialUSD,
+			&credit.RemainingUSD,
+			&credit.ReservedUSD,
+			&credit.CreditedAt,
+			&credit.ExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		if orderID.Valid {
+			credit.OrderID = &orderID.Int64
+		}
+		if packID.Valid {
+			credit.PackID = &packID.Int64
+		}
+		credit.AvailableUSD = r.policy.AvailableUSD(credit.RemainingUSD, credit.ReservedUSD)
+		credits = append(credits, credit)
+	}
+	return credits, rows.Err()
+}
+
 func (r *trafficPackRepository) HasAvailableCredit(ctx context.Context, userID int64, now time.Time) (bool, error) {
 	var id int64
 	err := r.db.QueryRowContext(ctx, `
