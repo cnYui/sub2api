@@ -256,6 +256,9 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 
 func TestMigrationsRunner_AutoAPIKeyEffectiveGroupSeed(t *testing.T) {
 	ctx := context.Background()
+	if !columnExists(t, integrationDB, "groups", "image_rate_independent") {
+		t.Skip("migration 159 historical replay references image columns removed by migration 168")
+	}
 	suffix := time.Now().UnixNano()
 	email := fmt.Sprintf("auto-key-migration-%d@example.test", suffix)
 	openAIGroupName := fmt.Sprintf("auto-key-openai-%d", suffix)
@@ -575,4 +578,21 @@ SELECT EXISTS (
 `, table, column).Scan(&exists)
 	require.NoError(t, err, "query information_schema.columns for %s.%s", table, column)
 	require.False(t, exists, "expected column %s.%s to be absent", table, column)
+}
+
+func columnExists(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+
+	var exists bool
+	err := db.QueryRowContext(context.Background(), `
+SELECT EXISTS (
+  SELECT 1
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name = $1
+    AND column_name = $2
+)
+`, table, column).Scan(&exists)
+	require.NoError(t, err, "query information_schema.columns for %s.%s", table, column)
+	return exists
 }

@@ -1488,7 +1488,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					cyberBlockedThisConn = true
 				}
 				if turnErr != nil {
-					if result == nil || result.ImageCount <= 0 {
+					if result == nil || !service.HasBillableOpenAIUsage(result.Usage) {
 						return
 					}
 					// cyber 命中时该 turn 的用量已由 recordCyberPolicyIfMarked(forwardErrored=true)

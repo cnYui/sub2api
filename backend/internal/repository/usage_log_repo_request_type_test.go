@@ -265,11 +265,11 @@ func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
 		CreatedAt:          time.Date(2025, 1, 6, 12, 0, 0, 0, time.UTC),
 	})
 
-	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[34])
-	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[35])
-	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[36])
-	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[37])
-	breakdownJSON, ok := prepared.args[38].(string)
+	require.Equal(t, sql.NullString{String: imageSize, Valid: true}, prepared.args[37])
+	require.Equal(t, sql.NullString{String: inputSize, Valid: true}, prepared.args[38])
+	require.Equal(t, sql.NullString{String: outputSize, Valid: true}, prepared.args[39])
+	require.Equal(t, sql.NullString{String: source, Valid: true}, prepared.args[40])
+	breakdownJSON, ok := prepared.args[41].(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"1K":1,"4K":1}`, breakdownJSON)
 }

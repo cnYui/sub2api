@@ -182,7 +182,7 @@ func TestOpenAIGatewayHandlerSubmitOpenAIUsageRecordTask_ImageResultUsesMandator
 	pool.Submit(func(ctx context.Context) {})
 
 	var called atomic.Bool
-	h.submitOpenAIUsageRecordTask(context.Background(), &service.OpenAIForwardResult{ImageCount: 1}, func(ctx context.Context) {
+	h.submitOpenAIUsageRecordTask(context.Background(), &service.OpenAIForwardResult{Usage: service.OpenAIUsage{ImageOutputTokens: 1}}, func(ctx context.Context) {
 		called.Store(true)
 	})
 	close(release)
