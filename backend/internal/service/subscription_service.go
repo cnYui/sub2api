@@ -7,6 +7,7 @@ import (
 	"math/rand/v2"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -42,10 +43,13 @@ var (
 
 // SubscriptionService 订阅服务
 type SubscriptionService struct {
-	groupRepo           GroupRepository
-	userSubRepo         UserSubscriptionRepository
-	billingCacheService *BillingCacheService
-	entClient           *dbent.Client
+	groupRepo             GroupRepository
+	userSubRepo           UserSubscriptionRepository
+	entitlementPeriodRepo SubscriptionEntitlementPeriodRepository
+	billingCacheService   *BillingCacheService
+	entClient             *dbent.Client
+	now                   func() time.Time
+	subscriptionCacheTxs  sync.Map
 
 	// L1 缓存：加速中间件热路径的订阅查询
 	subCacheL1     *ristretto.Cache
@@ -54,6 +58,17 @@ type SubscriptionService struct {
 	subCacheJitter int // 抖动百分比
 
 	maintenanceQueue *SubscriptionMaintenanceQueue
+}
+
+type subscriptionCacheInvalidationKey struct {
+	userID  int64
+	groupID int64
+}
+
+type subscriptionTransactionCacheInvalidations struct {
+	mu         sync.Mutex
+	keys       map[subscriptionCacheInvalidationKey]struct{}
+	registered bool
 }
 
 // NewSubscriptionService 创建订阅服务
@@ -143,17 +158,100 @@ func (s *SubscriptionService) InvalidateSubCache(userID, groupID int64) {
 	s.subCacheL1.Del(subCacheKey(userID, groupID))
 }
 
+func (s *SubscriptionService) invalidateSubscriptionCaches(userID, groupID int64) {
+	s.InvalidateSubCache(userID, groupID)
+	if s.billingCacheService == nil {
+		return
+	}
+	go func() {
+		cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.billingCacheService.InvalidateSubscription(cacheCtx, userID, groupID)
+	}()
+}
+
+func (s *SubscriptionService) invalidateSubscriptionCachesAfterCommit(ctx context.Context, userID, groupID int64) {
+	tx := dbent.TxFromContext(ctx)
+	if tx == nil {
+		s.invalidateSubscriptionCaches(userID, groupID)
+		return
+	}
+
+	key := subscriptionCacheInvalidationKey{userID: userID, groupID: groupID}
+	state := &subscriptionTransactionCacheInvalidations{
+		keys: make(map[subscriptionCacheInvalidationKey]struct{}),
+	}
+	actual, loaded := s.subscriptionCacheTxs.LoadOrStore(tx, state)
+	if loaded {
+		state = actual.(*subscriptionTransactionCacheInvalidations)
+	}
+
+	state.mu.Lock()
+	state.keys[key] = struct{}{}
+	if state.registered {
+		state.mu.Unlock()
+		return
+	}
+	state.registered = true
+	state.mu.Unlock()
+
+	// 事务提交前不能让缓存失效；同一事务内的多个订阅变更在此统一去重。
+	tx.OnCommit(func(next dbent.Committer) dbent.Committer {
+		return dbent.CommitFunc(func(commitCtx context.Context, committedTx *dbent.Tx) error {
+			if err := next.Commit(commitCtx, committedTx); err != nil {
+				s.subscriptionCacheTxs.Delete(committedTx)
+				return err
+			}
+			for _, invalidationKey := range s.takeSubscriptionCacheInvalidations(committedTx) {
+				s.invalidateSubscriptionCaches(invalidationKey.userID, invalidationKey.groupID)
+			}
+			return nil
+		})
+	})
+	tx.OnRollback(func(next dbent.Rollbacker) dbent.Rollbacker {
+		return dbent.RollbackFunc(func(rollbackCtx context.Context, rolledBackTx *dbent.Tx) error {
+			err := next.Rollback(rollbackCtx, rolledBackTx)
+			s.subscriptionCacheTxs.Delete(rolledBackTx)
+			return err
+		})
+	})
+}
+
+func (s *SubscriptionService) takeSubscriptionCacheInvalidations(tx *dbent.Tx) []subscriptionCacheInvalidationKey {
+	actual, ok := s.subscriptionCacheTxs.LoadAndDelete(tx)
+	if !ok {
+		return nil
+	}
+	state := actual.(*subscriptionTransactionCacheInvalidations)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	keys := make([]subscriptionCacheInvalidationKey, 0, len(state.keys))
+	for key := range state.keys {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 // AssignSubscriptionInput 分配订阅输入
 type AssignSubscriptionInput struct {
-	UserID       int64
-	GroupID      int64
-	ValidityDays int
-	AssignedBy   int64
-	Notes        string
+	UserID            int64
+	GroupID           int64
+	ValidityDays      int
+	AssignedBy        int64
+	Notes             string
+	EntitlementSource SubscriptionEntitlementSource
 }
 
 // AssignSubscription 分配订阅给用户（不允许重复分配）
 func (s *SubscriptionService) AssignSubscription(ctx context.Context, input *AssignSubscriptionInput) (*UserSubscription, error) {
+	if hasSubscriptionEntitlementSource(input) {
+		result, err := s.GrantSubscriptionEntitlement(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		return result.Subscription, nil
+	}
+
 	sub, _, err := s.assignSubscriptionWithReuse(ctx, input)
 	if err != nil {
 		return nil, err
@@ -168,6 +266,14 @@ func (s *SubscriptionService) AssignSubscription(ctx context.Context, input *Ass
 //
 // 如果没有订阅：创建新订阅
 func (s *SubscriptionService) AssignOrExtendSubscription(ctx context.Context, input *AssignSubscriptionInput) (*UserSubscription, bool, error) {
+	if hasSubscriptionEntitlementSource(input) {
+		result, err := s.GrantSubscriptionEntitlement(ctx, input)
+		if err != nil {
+			return nil, false, err
+		}
+		return result.Subscription, result.Extended || result.Replayed, nil
+	}
+
 	// 检查分组是否存在且为订阅类型
 	group, err := s.groupRepo.GetByID(ctx, input.GroupID)
 	if err != nil {
@@ -292,6 +398,9 @@ func (s *SubscriptionService) updateExistingSubscriptionTerm(
 }
 
 func (s *SubscriptionService) withSubscriptionUpdateTx(ctx context.Context, fn func(context.Context) error) error {
+	if dbent.TxFromContext(ctx) != nil {
+		return fn(ctx)
+	}
 	if s.entClient == nil {
 		return fn(ctx)
 	}
@@ -519,31 +628,34 @@ func normalizeAssignValidityDays(days int) int {
 
 // RevokeSubscription 撤销订阅
 func (s *SubscriptionService) RevokeSubscription(ctx context.Context, subscriptionID int64) error {
-	// 先获取订阅信息用于失效缓存
-	sub, err := s.userSubRepo.GetByID(ctx, subscriptionID)
-	if err != nil {
+	var sub *UserSubscription
+	if err := s.withSubscriptionUpdateTx(ctx, func(txCtx context.Context) error {
+		var err error
+		sub, err = s.userSubRepo.GetByID(txCtx, subscriptionID)
+		if err != nil {
+			return err
+		}
+
+		if s.entitlementPeriodRepo != nil {
+			if err := s.entitlementPeriodRepo.RevokeUnexpiredBySubscription(
+				txCtx,
+				subscriptionID,
+				s.currentTime(),
+				"subscription_revoked",
+			); err != nil {
+				return fmt.Errorf("revoke subscription entitlement periods: %w", err)
+			}
+		}
+
+		if err := s.userSubRepo.UpdateStatus(txCtx, subscriptionID, SubscriptionStatusExpired); err != nil {
+			return err
+		}
+		return s.userSubRepo.Delete(txCtx, subscriptionID)
+	}); err != nil {
 		return err
 	}
 
-	if err := s.userSubRepo.UpdateStatus(ctx, subscriptionID, SubscriptionStatusExpired); err != nil {
-		return err
-	}
-
-	if err := s.userSubRepo.Delete(ctx, subscriptionID); err != nil {
-		return err
-	}
-
-	// 失效订阅缓存
-	s.InvalidateSubCache(sub.UserID, sub.GroupID)
-	if s.billingCacheService != nil {
-		userID, groupID := sub.UserID, sub.GroupID
-		go func() {
-			cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_ = s.billingCacheService.InvalidateSubscription(cacheCtx, userID, groupID)
-		}()
-	}
-
+	s.invalidateSubscriptionCachesAfterCommit(ctx, sub.UserID, sub.GroupID)
 	return nil
 }
 

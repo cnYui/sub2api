@@ -47,3 +47,11 @@ type UserSubscriptionRepository interface {
 
 	BatchUpdateExpiredStatus(ctx context.Context) (int64, error)
 }
+
+// SubscriptionEntitlementPeriodRepository 持久化不可变套餐权益周期事实。
+type SubscriptionEntitlementPeriodRepository interface {
+	GetBySource(ctx context.Context, source SubscriptionEntitlementSource) (*SubscriptionEntitlementPeriod, error)
+	Create(ctx context.Context, period *SubscriptionEntitlementPeriod) error
+	RevokeUnexpiredBySubscription(ctx context.Context, subscriptionID int64, now time.Time, reason string) error
+	RevokeBySource(ctx context.Context, source SubscriptionEntitlementSource, now time.Time, reason string) error
+}
