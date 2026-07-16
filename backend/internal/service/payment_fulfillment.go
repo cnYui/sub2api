@@ -15,6 +15,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -103,11 +104,22 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		})
 		return fmt.Errorf("invalid paid amount from provider: %v", paid)
 	}
-	if math.Abs(paid-o.PayAmount) > paymentAmountToleranceForCurrency(PaymentOrderCurrency(o)) {
-		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": o.PayAmount, "paid": paid, "tradeNo": tradeNo})
-		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(o.PayAmount, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
+	expectedPaid := expectedProviderPaidAmount(o)
+	if math.Abs(paid-expectedPaid) > paymentAmountToleranceForCurrency(PaymentOrderCurrency(o)) {
+		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": expectedPaid, "paid": paid, "tradeNo": tradeNo})
+		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(expectedPaid, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
 	}
 	return s.toPaid(ctx, o, tradeNo, paid, pk)
+}
+
+func expectedProviderPaidAmount(o *dbent.PaymentOrder) float64 {
+	if o != nil && o.FundingMode == paymentFundingModeMixed {
+		return o.GatewayAmount
+	}
+	if o == nil {
+		return 0
+	}
+	return o.PayAmount
 }
 
 func paymentAmountToleranceForCurrency(currency string) float64 {
@@ -142,10 +154,21 @@ func expectedNotificationProviderKey(registry *payment.Registry, orderPaymentTyp
 }
 
 func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, paid float64, pk string) error {
+	if o.FundingMode == paymentFundingModeMixed {
+		hold, err := s.entClient.PaymentBalanceHold.Query().
+			Where(paymentbalancehold.OrderIDEQ(o.ID)).
+			Only(ctx)
+		if err != nil && !dbent.IsNotFound(err) {
+			return fmt.Errorf("query hybrid balance hold before paid: %w", err)
+		}
+		if hold != nil && hold.Status == balanceHoldStatusReleased {
+			return s.compensateReleasedHybridPayment(ctx, o, tradeNo, paid, pk)
+		}
+	}
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
-	c, err := s.entClient.PaymentOrder.Update().Where(
+	updater := s.entClient.PaymentOrder.Update().Where(
 		paymentorder.IDEQ(o.ID),
 		paymentorder.Or(
 			paymentorder.StatusEQ(OrderStatusPending),
@@ -155,12 +178,25 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 				paymentorder.UpdatedAtGTE(grace),
 			),
 		),
-	).SetStatus(OrderStatusPaid).SetPayAmount(paid).SetPaymentTradeNo(tradeNo).SetPaidAt(now).ClearFailedAt().ClearFailedReason().Save(ctx)
+	).SetStatus(OrderStatusPaid).SetPaymentTradeNo(tradeNo).SetPaidAt(now).SetPaymentResolutionStatus(paymentResolutionStatusPaid).ClearFailedAt().ClearFailedReason()
+	if o.FundingMode != paymentFundingModeMixed {
+		updater.SetPayAmount(paid)
+	}
+	c, err := updater.Save(ctx)
 	if err != nil {
 		return fmt.Errorf("update to PAID: %w", err)
 	}
 	if c == 0 {
 		return s.alreadyProcessed(ctx, o)
+	}
+	if o.FundingMode == paymentFundingModeMixed {
+		captured, err := s.capturePaymentBalanceHold(ctx, o.ID)
+		if err != nil {
+			return err
+		}
+		if captured == 0 {
+			return fmt.Errorf("hybrid balance hold was not reserved")
+		}
 	}
 	if previousStatus == OrderStatusCancelled || previousStatus == OrderStatusExpired {
 		slog.Info("order recovered from webhook payment success",
@@ -180,13 +216,57 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	return s.executeFulfillment(ctx, o.ID)
 }
 
+func (s *PaymentService) compensateReleasedHybridPayment(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, paid float64, pk string) error {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin hybrid compensation transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	now := time.Now()
+	updated, err := tx.PaymentOrder.Update().
+		Where(
+			paymentorder.IDEQ(o.ID),
+			paymentorder.StatusNotIn(OrderStatusCompleted, OrderStatusRefunded, OrderStatusCompensated),
+		).
+		SetStatus(OrderStatusCompensated).
+		SetPaymentTradeNo(tradeNo).
+		SetPaidAt(now).
+		SetPaymentResolutionStatus(paymentResolutionStatusPaid).
+		SetCompensationAmount(paid).
+		SetCompensatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("mark hybrid payment compensated: %w", err)
+	}
+	if updated == 0 {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit skipped hybrid compensation: %w", err)
+		}
+		return nil
+	}
+	reloadedUser, err := tx.User.Get(ctx, o.UserID)
+	if err != nil {
+		return fmt.Errorf("load user for hybrid compensation: %w", err)
+	}
+	compensatedBalance := math.Round((reloadedUser.Balance+paid)*100) / 100
+	if _, err := tx.User.UpdateOneID(o.UserID).SetBalance(compensatedBalance).Save(ctx); err != nil {
+		return fmt.Errorf("credit hybrid compensation balance: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit hybrid compensation transaction: %w", err)
+	}
+	s.writeAuditLog(ctx, o.ID, "PAYMENT_COMPENSATED_TO_BALANCE", pk, map[string]any{"tradeNo": tradeNo, "amount": paid})
+	return nil
+}
+
 func (s *PaymentService) alreadyProcessed(ctx context.Context, o *dbent.PaymentOrder) error {
 	cur, err := s.entClient.PaymentOrder.Get(ctx, o.ID)
 	if err != nil {
 		return nil
 	}
 	switch cur.Status {
-	case OrderStatusCompleted, OrderStatusRefunded:
+	case OrderStatusCompleted, OrderStatusRefunded, OrderStatusCompensated:
 		return nil
 	case OrderStatusFailed:
 		return s.executeFulfillment(ctx, o.ID)

@@ -186,4 +186,39 @@ describe('PaymentStatusPanel', () => {
     expect(wrapper.text()).toContain('payment.result.success')
     expect(wrapper.emitted('success')).toHaveLength(1)
   })
+
+  it('shows confirmation pending instead of final expiry while hybrid payment resolution is unknown', async () => {
+    vi.setSystemTime(new Date('2026-04-20T12:30:00.000Z'))
+    pollOrderStatus.mockResolvedValue({
+      ...orderFactory('PENDING'),
+      funding_mode: 'mixed',
+      payment_resolution_status: 'UNKNOWN',
+      payment_resolution_deadline: '2026-04-20T12:35:00.000Z',
+      expires_at: '2026-04-20T12:30:01.000Z',
+    })
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2026-04-20T12:30:01.000Z',
+        paymentType: 'alipay',
+        orderType: 'subscription',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(1000)
+    await flushPromises()
+
+    expect(pollOrderStatus).toHaveBeenCalledWith(42)
+    expect(wrapper.text()).toContain('payment.qr.confirmingPayment')
+    expect(wrapper.text()).not.toContain('payment.qr.expired')
+    expect(wrapper.emitted('settled')).toBeUndefined()
+  })
 })

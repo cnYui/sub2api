@@ -28,6 +28,7 @@ const (
 	OrderStatusExpired           = payment.OrderStatusExpired
 	OrderStatusCancelled         = payment.OrderStatusCancelled
 	OrderStatusFailed            = payment.OrderStatusFailed
+	OrderStatusCompensated       = payment.OrderStatusCompensated
 	OrderStatusRefundRequested   = payment.OrderStatusRefundRequested
 	OrderStatusRefunding         = payment.OrderStatusRefunding
 	OrderStatusPartiallyRefunded = payment.OrderStatusPartiallyRefunded
@@ -70,47 +71,59 @@ func generateRandomString(n int) string {
 }
 
 type CreateOrderRequest struct {
-	UserID          int64
-	Amount          float64
-	PaymentType     string
-	OpenID          string
-	ClientIP        string
-	IsMobile        bool
-	IsWeChatBrowser bool
-	SrcHost         string
-	SrcURL          string
-	ReturnURL       string
-	PaymentSource   string
-	OrderType       string
-	PlanID          int64
-	TrafficPackID   int64
-	Locale          string
+	UserID                int64
+	Amount                float64
+	PaymentType           string
+	UseBalance            bool
+	ExpectedPayAmount     string
+	ExpectedBalanceAmount string
+	OpenID                string
+	ClientIP              string
+	IsMobile              bool
+	IsWeChatBrowser       bool
+	SrcHost               string
+	SrcURL                string
+	ReturnURL             string
+	PaymentSource         string
+	OrderType             string
+	PlanID                int64
+	TrafficPackID         int64
+	Locale                string
 }
 
 type CreateOrderResponse struct {
-	OrderID      int64                           `json:"order_id"`
-	Amount       float64                         `json:"amount"`
-	PayAmount    float64                         `json:"pay_amount"`
-	FeeRate      float64                         `json:"fee_rate"`
-	Status       string                          `json:"status"`
-	ResultType   payment.CreatePaymentResultType `json:"result_type,omitempty"`
-	PaymentType  string                          `json:"payment_type"`
-	OutTradeNo   string                          `json:"out_trade_no,omitempty"`
-	PayURL       string                          `json:"pay_url,omitempty"`
-	QRCode       string                          `json:"qr_code,omitempty"`
-	QRImageURL   string                          `json:"qr_image_url,omitempty"`
-	ClientSecret string                          `json:"client_secret,omitempty"`
-	IntentID     string                          `json:"intent_id,omitempty"`
-	Currency     string                          `json:"currency,omitempty"`
-	CountryCode  string                          `json:"country_code,omitempty"`
-	PaymentEnv   string                          `json:"payment_env,omitempty"`
-	OAuth        *payment.WechatOAuthInfo        `json:"oauth,omitempty"`
-	JSAPI        *payment.WechatJSAPIPayload     `json:"jsapi,omitempty"`
-	JSAPIPayload *payment.WechatJSAPIPayload     `json:"jsapi_payload,omitempty"`
-	ExpiresAt    time.Time                       `json:"expires_at"`
-	PaymentMode  string                          `json:"payment_mode,omitempty"`
-	ResumeToken  string                          `json:"resume_token,omitempty"`
+	OrderID                   int64                           `json:"order_id"`
+	Amount                    float64                         `json:"amount"`
+	PayAmount                 float64                         `json:"pay_amount"`
+	FeeRate                   float64                         `json:"fee_rate"`
+	Status                    string                          `json:"status"`
+	FundingMode               string                          `json:"funding_mode,omitempty"`
+	BalanceAmount             float64                         `json:"balance_amount,omitempty"`
+	GatewayAmount             float64                         `json:"gateway_amount,omitempty"`
+	PaymentResolutionStatus   string                          `json:"payment_resolution_status,omitempty"`
+	PaymentResolutionDeadline *time.Time                      `json:"payment_resolution_deadline,omitempty"`
+	CompensationAmount        float64                         `json:"compensation_amount,omitempty"`
+	CompensatedAt             *time.Time                      `json:"compensated_at,omitempty"`
+	ResultType                payment.CreatePaymentResultType `json:"result_type,omitempty"`
+	PaymentType               string                          `json:"payment_type"`
+	OutTradeNo                string                          `json:"out_trade_no,omitempty"`
+	PayURL                    string                          `json:"pay_url,omitempty"`
+	QRCode                    string                          `json:"qr_code,omitempty"`
+	QRImageURL                string                          `json:"qr_image_url,omitempty"`
+	ClientSecret              string                          `json:"client_secret,omitempty"`
+	IntentID                  string                          `json:"intent_id,omitempty"`
+	Currency                  string                          `json:"currency,omitempty"`
+	CountryCode               string                          `json:"country_code,omitempty"`
+	PaymentEnv                string                          `json:"payment_env,omitempty"`
+	OAuth                     *payment.WechatOAuthInfo        `json:"oauth,omitempty"`
+	JSAPI                     *payment.WechatJSAPIPayload     `json:"jsapi,omitempty"`
+	JSAPIPayload              *payment.WechatJSAPIPayload     `json:"jsapi_payload,omitempty"`
+	ExpiresAt                 time.Time                       `json:"expires_at"`
+	PaymentMode               string                          `json:"payment_mode,omitempty"`
+	ResumeToken               string                          `json:"resume_token,omitempty"`
 }
+
+type paymentProviderFactory func(providerKey, instanceID string, config map[string]string) (payment.Provider, error)
 
 type BalancePayOrderRequest struct {
 	UserID        int64
@@ -149,6 +162,7 @@ type RefundPlan struct {
 	Order           *dbent.PaymentOrder
 	RefundAmount    float64
 	GatewayAmount   float64
+	BalanceAmount   float64
 	Reason          string
 	Force           bool
 	DeductBalance   bool
@@ -216,6 +230,7 @@ type PaymentService struct {
 	trafficPackService       *TrafficPackService
 	billingCacheService      *BillingCacheService
 	refundProvider           payment.Provider
+	createProvider           paymentProviderFactory
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {

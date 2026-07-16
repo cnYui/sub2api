@@ -525,6 +525,74 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).not.toContain('payment.methods.airwallex')
   })
 
+  it('creates a mixed Alipay subscription order instead of opening recharge when balance partially covers the product', async () => {
+    getCheckoutInfo.mockResolvedValueOnce({
+      data: {
+        ...checkoutInfoWithFiveZPayPlansFixture().data,
+        recharge_fee_rate: 1,
+      },
+    })
+    authState.userBalance = 6.32
+    createOrder.mockResolvedValue({
+      order_id: 41,
+      amount: 79,
+      pay_amount: 79.79,
+      balance_amount: 6.32,
+      gateway_amount: 73.47,
+      fee_rate: 1,
+      funding_mode: 'mixed',
+      expires_at: '2099-01-01T00:10:00.000Z',
+      payment_type: 'alipay',
+      qr_image_url: 'https://zpayz.cn/qrcode/mixed.jpg',
+      out_trade_no: 'sub2_mixed_41',
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+          PaymentStatusPanel: {
+            name: 'PaymentStatusPanel',
+            props: ['orderId', 'qrImageUrl', 'orderType'],
+            template: '<div data-testid="payment-status-panel">{{ orderId }} {{ qrImageUrl }} {{ orderType }}</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[4].trigger('click')
+    await flushPromises()
+
+    const confirmButton = wrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirmButton?.attributes('disabled')).toBeUndefined()
+    expect(wrapper.text()).toContain('payment.hybrid.balanceDeduction')
+    expect(wrapper.text()).toContain('payment.hybrid.gatewayPay')
+
+    await confirmButton?.trigger('click')
+    await flushPromises()
+
+    expect(createOrder).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 79,
+      payment_type: 'alipay',
+      order_type: 'subscription',
+      plan_id: 5,
+      use_balance: true,
+      expected_pay_amount: '79.79',
+      expected_balance_amount: '6.32',
+    }))
+    expect(balancePayOrder).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('payment.recharge.title')
+    expect(wrapper.find('[data-testid="payment-status-panel"]').text()).toContain('https://zpayz.cn/qrcode/mixed.jpg')
+  })
+
   it('blocks subscription purchase when the user already has an active subscription', async () => {
     getCheckoutInfo.mockResolvedValueOnce(checkoutInfoWithFiveZPayPlansFixture())
     activeSubscriptionsState.items = [

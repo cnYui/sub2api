@@ -67,6 +67,20 @@
       </div>
     </template>
 
+    <!-- Compensated late callback -->
+    <template v-else-if="outcome === 'compensated'">
+      <div class="card p-6">
+        <div class="flex flex-col items-center space-y-4 py-4">
+          <div class="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700">
+            <Icon name="check" size="lg" class="text-gray-700 dark:text-gray-200" />
+          </div>
+          <p class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.qr.compensated') }}</p>
+          <p class="text-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.compensatedDesc') }}</p>
+          <button class="btn btn-primary" @click="handleDone">{{ t('common.confirm') }}</button>
+        </div>
+      </div>
+    </template>
+
     <!-- ═══ Active States: QR or Popup waiting ═══ -->
 
     <!-- QR Code Mode -->
@@ -99,9 +113,9 @@
       <div class="card p-4 text-center">
         <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.expiresIn') }}</p>
         <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</p>
-        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.qr.waitingPayment') }}</p>
+        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ waitingPaymentText }}</p>
       </div>
-      <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
+      <button class="btn btn-secondary w-full" :disabled="cancelling || confirmingResolution" @click="handleCancel">
         {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
       </button>
     </template>
@@ -119,9 +133,9 @@
       </div>
       <div class="card p-4 text-center">
         <p class="mt-1 text-2xl font-bold tabular-nums text-gray-900 dark:text-white">{{ countdownDisplay }}</p>
-        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ t('payment.qr.waitingPayment') }}</p>
+        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ waitingPaymentText }}</p>
       </div>
-      <button class="btn btn-secondary w-full" :disabled="cancelling" @click="handleCancel">
+      <button class="btn btn-secondary w-full" :disabled="cancelling || confirmingResolution" @click="handleCancel">
         {{ cancelling ? t('common.processing') : t('payment.qr.cancelOrder') }}
       </button>
     </template>
@@ -154,7 +168,7 @@ const props = defineProps<{
   currency?: string
 }>()
 
-type PaymentOutcome = 'success' | 'cancelled' | 'expired'
+type PaymentOutcome = 'success' | 'cancelled' | 'expired' | 'compensated'
 
 const emit = defineEmits<{ done: []; success: []; settled: [outcome: PaymentOutcome] }>()
 
@@ -168,6 +182,7 @@ const qrUrl = ref('')
 const qrImageUrl = computed(() => props.qrImageUrl || '')
 const remainingSeconds = ref(0)
 const cancelling = ref(false)
+const confirmingResolution = ref(false)
 const paidOrder = ref<PaymentOrder | null>(null)
 const paymentCurrency = computed(() => normalizePaymentCurrency(props.currency))
 const localeCode = computed(() => {
@@ -224,6 +239,10 @@ const countdownDisplay = computed(() => {
   return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
 })
 
+const waitingPaymentText = computed(() => confirmingResolution.value
+  ? t('payment.qr.confirmingPayment')
+  : t('payment.qr.waitingPayment'))
+
 function formatGatewayAmount(value: number, currency?: string | null): string {
   return formatPaymentAmount(value, currency || paymentCurrency.value, localeCode.value)
 }
@@ -234,6 +253,24 @@ function creditedAmountSymbol(order: PaymentOrder): string {
 
 function isSuccessStatus(status: string | null | undefined): boolean {
   return status === 'COMPLETED' || status === 'PAID' || status === 'RECHARGING'
+}
+
+function isCompensatedStatus(status: string | null | undefined): boolean {
+  return status === 'COMPENSATED'
+}
+
+function isUnknownResolutionPending(order: PaymentOrder): boolean {
+  if (String(order.status || '').toUpperCase() !== 'PENDING') return false
+  if (String(order.payment_resolution_status || '').toUpperCase() !== 'UNKNOWN') return false
+  const deadlineMs = Date.parse(order.payment_resolution_deadline || '')
+  return Number.isFinite(deadlineMs) && deadlineMs > Date.now()
+}
+
+function isUnknownResolutionPastDeadline(order: PaymentOrder): boolean {
+  if (String(order.status || '').toUpperCase() !== 'PENDING') return false
+  if (String(order.payment_resolution_status || '').toUpperCase() !== 'UNKNOWN') return false
+  const deadlineMs = Date.parse(order.payment_resolution_deadline || '')
+  return Number.isFinite(deadlineMs) && deadlineMs <= Date.now()
 }
 
 function reopenPopup() {
@@ -281,39 +318,79 @@ async function tryRecoverPendingOrder(order: PaymentOrder): Promise<PaymentOrder
   }
 }
 
-async function pollStatus() {
-  if (!props.orderId || outcome.value) return
+async function pollStatus(): Promise<boolean> {
+  if (!props.orderId || outcome.value) return false
   let order = await paymentStore.pollOrderStatus(props.orderId)
-  if (!order) return
+  if (!order) return false
   order = await tryRecoverPendingOrder(order)
   if (isSuccessStatus(order.status)) {
     cleanup()
     paidOrder.value = order
     setOutcome('success')
     emit('success')
+    return true
+  } else if (isCompensatedStatus(order.status)) {
+    cleanup()
+    paidOrder.value = order
+    setOutcome('compensated')
+    return true
+  } else if (isUnknownResolutionPending(order)) {
+    confirmingResolution.value = true
+    const deadlineMs = Date.parse(order.payment_resolution_deadline || '')
+    remainingSeconds.value = Math.max(0, Math.floor((deadlineMs - Date.now()) / 1000))
+    if (!countdownTimer && remainingSeconds.value > 0) {
+      startCountdown(remainingSeconds.value)
+    }
+    return true
+  } else if (isUnknownResolutionPastDeadline(order)) {
+    cleanup()
+    setOutcome('expired')
+    return true
   } else if (order.status === 'CANCELLED') {
     cleanup()
     setOutcome('cancelled')
+    return true
   } else if (order.status === 'EXPIRED' || order.status === 'FAILED') {
     cleanup()
     setOutcome('expired')
+    return true
   }
+  confirmingResolution.value = false
+  return false
 }
 
 function startCountdown(seconds: number) {
   remainingSeconds.value = Math.max(0, seconds)
-  if (remainingSeconds.value <= 0) { setOutcome('expired'); return }
+  if (remainingSeconds.value <= 0) { void handleCountdownElapsed(); return }
   countdownTimer = setInterval(() => {
     remainingSeconds.value--
-    if (remainingSeconds.value <= 0) { setOutcome('expired'); cleanup() }
+    if (remainingSeconds.value <= 0) { void handleCountdownElapsed() }
   }, 1000)
+}
+
+async function handleCountdownElapsed() {
+  if (outcome.value) return
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
+  const handled = await pollStatus()
+  if (!handled && !confirmingResolution.value && !outcome.value) {
+    cleanup()
+    setOutcome('expired')
+  }
 }
 
 async function handleCancel() {
   if (!props.orderId || cancelling.value) return
   cancelling.value = true
   try {
-    await paymentAPI.cancelOrder(props.orderId)
+    const result = await paymentAPI.cancelOrder(props.orderId)
+    const message = typeof result === 'object' && result && 'data' in result
+      ? String((result as { data?: { message?: string } }).data?.message || '')
+      : ''
+    if (message === 'confirmation_pending') {
+      confirmingResolution.value = true
+      await pollStatus()
+      return
+    }
     cleanup()
     setOutcome('cancelled')
   } catch (err: unknown) {

@@ -48,6 +48,13 @@ export interface PaymentRecoverySnapshot {
   orderType: OrderType | ''
   paymentMode: string
   resumeToken: string
+  fundingMode?: string
+  balanceAmount?: number
+  gatewayAmount?: number
+  paymentResolutionStatus?: string
+  paymentResolutionDeadline?: string
+  compensationAmount?: number
+  compensatedAt?: string
   createdAt: number
 }
 
@@ -84,6 +91,9 @@ export interface BuildCreateOrderPayloadInput {
   isWechatBrowser: boolean
   /** When true, Alipay payments always use QR code (passes is_mobile: false to backend) */
   forceQRCode?: boolean
+  useBalance?: boolean
+  expectedPayAmount?: string
+  expectedBalanceAmount?: string
 }
 
 type CreateOrderFlowResult = CreateOrderResult & {
@@ -146,6 +156,11 @@ export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): Cr
   if (normalizedOrigin) {
     payload.return_url = `${normalizedOrigin}/payment/result`
   }
+  if (input.useBalance) {
+    payload.use_balance = true
+    payload.expected_pay_amount = input.expectedPayAmount
+    payload.expected_balance_amount = input.expectedBalanceAmount
+  }
 
   return payload
 }
@@ -173,6 +188,13 @@ export function decidePaymentLaunch(
     orderType: context.orderType,
     paymentMode: (result.payment_mode || '').trim(),
     resumeToken: result.resume_token || '',
+    fundingMode: result.funding_mode || '',
+    balanceAmount: result.balance_amount || 0,
+    gatewayAmount: result.gateway_amount || 0,
+    paymentResolutionStatus: result.payment_resolution_status || '',
+    paymentResolutionDeadline: result.payment_resolution_deadline || '',
+    compensationAmount: result.compensation_amount || 0,
+    compensatedAt: result.compensated_at || '',
   }, context.now)
 
   if (visibleMethod === 'airwallex' && baseState.clientSecret && baseState.intentId) {
@@ -291,6 +313,13 @@ export function readPaymentRecoverySnapshot(
       || typeof parsed.payAmount !== 'number'
       || typeof parsed.paymentMode !== 'string'
       || typeof parsed.resumeToken !== 'string'
+      || (parsed.fundingMode != null && typeof parsed.fundingMode !== 'string')
+      || (parsed.balanceAmount != null && typeof parsed.balanceAmount !== 'number')
+      || (parsed.gatewayAmount != null && typeof parsed.gatewayAmount !== 'number')
+      || (parsed.paymentResolutionStatus != null && typeof parsed.paymentResolutionStatus !== 'string')
+      || (parsed.paymentResolutionDeadline != null && typeof parsed.paymentResolutionDeadline !== 'string')
+      || (parsed.compensationAmount != null && typeof parsed.compensationAmount !== 'number')
+      || (parsed.compensatedAt != null && typeof parsed.compensatedAt !== 'string')
       || typeof parsed.createdAt !== 'number'
     ) {
       return null
@@ -320,9 +349,18 @@ export function readPaymentRecoverySnapshot(
       countryCode: parsed.countryCode || '',
       paymentEnv: parsed.paymentEnv || '',
       payAmount: parsed.payAmount,
-      orderType: parsed.orderType === 'subscription' ? 'subscription' : 'balance',
+      orderType: parsed.orderType === 'subscription' || parsed.orderType === 'traffic_pack' || parsed.orderType === 'balance'
+        ? parsed.orderType
+        : '',
       paymentMode: parsed.paymentMode,
       resumeToken: parsed.resumeToken,
+      fundingMode: parsed.fundingMode || '',
+      balanceAmount: parsed.balanceAmount || 0,
+      gatewayAmount: parsed.gatewayAmount || 0,
+      paymentResolutionStatus: parsed.paymentResolutionStatus || '',
+      paymentResolutionDeadline: parsed.paymentResolutionDeadline || '',
+      compensationAmount: parsed.compensationAmount || 0,
+      compensatedAt: parsed.compensatedAt || '',
       createdAt: parsed.createdAt,
     }
   } catch {

@@ -346,6 +346,29 @@ describe('buildCreateOrderPayload', () => {
       is_mobile: true,
     })
   })
+
+  it('attaches hybrid checkout expectations when using balance with Alipay', () => {
+    expect(buildCreateOrderPayload({
+      amount: 79,
+      paymentType: 'alipay',
+      orderType: 'subscription',
+      planId: 7,
+      origin: 'https://app.example.com',
+      isMobile: true,
+      isWechatBrowser: false,
+      useBalance: true,
+      expectedPayAmount: '79.79',
+      expectedBalanceAmount: '6.32',
+    })).toMatchObject({
+      amount: 79,
+      payment_type: 'alipay',
+      order_type: 'subscription',
+      plan_id: 7,
+      use_balance: true,
+      expected_pay_amount: '79.79',
+      expected_balance_amount: '6.32',
+    })
+  })
 })
 
 describe('readPaymentRecoverySnapshot', () => {

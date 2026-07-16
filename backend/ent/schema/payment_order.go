@@ -50,6 +50,15 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Float("fee_rate").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0),
+		field.String("funding_mode").
+			MaxLen(20).
+			Default("gateway"),
+		field.Float("balance_amount").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Default(0),
+		field.Float("gateway_amount").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Default(0),
 		field.String("recharge_code").
 			MaxLen(64),
 
@@ -98,6 +107,17 @@ func (PaymentOrder) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			MaxLen(30),
+		field.String("provider_init_status").
+			MaxLen(20).
+			Default("NOT_STARTED"),
+		field.Time("provider_init_attempted_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("provider_init_lease_until").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.JSON("provider_snapshot", map[string]any{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
@@ -106,11 +126,38 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(30).
 			Default("PENDING"),
+		field.String("payment_resolution_status").
+			MaxLen(20).
+			Default(""),
+		field.Time("payment_resolution_deadline").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("cancel_requested_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Float("compensation_amount").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Default(0),
+		field.Time("compensated_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 
 		// 退款信息
 		field.Float("refund_amount").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
 			Default(0),
+		field.Float("refund_balance_amount").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Default(0),
+		field.Float("refund_gateway_amount").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
+			Default(0),
+		field.String("refund_balance_status").
+			MaxLen(20).
+			Default("NOT_STARTED"),
 		field.String("refund_reason").
 			Optional().
 			Nillable().
@@ -197,6 +244,8 @@ func (PaymentOrder) Edges() []ent.Edge {
 			Field("user_id").
 			Unique().
 			Required(),
+		edge.To("balance_hold", PaymentBalanceHold.Type).
+			Unique(),
 	}
 }
 
@@ -213,5 +262,8 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
 		index.Fields("subscription_id"),
+		index.Fields("funding_mode"),
+		index.Fields("provider_init_status", "provider_init_lease_until"),
+		index.Fields("payment_resolution_status", "payment_resolution_deadline"),
 	}
 }

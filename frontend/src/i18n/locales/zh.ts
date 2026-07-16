@@ -7108,6 +7108,10 @@ export default {
     fee: '手续费',
     actualPay: '实付金额',
     createOrder: '确认支付',
+    hybrid: {
+      balanceDeduction: '余额抵扣',
+      gatewayPay: '支付宝支付',
+    },
     methods: {
       easypay: '易支付',
       alipay: '支付宝',
@@ -7142,6 +7146,7 @@ export default {
       paid: '已支付',
       recharging: '充值中',
       completed: '已完成',
+      compensated: '已转入余额',
       expired: '已过期',
       cancelled: '已取消',
       failed: '失败',
@@ -7166,6 +7171,9 @@ export default {
       cancelled: '订单已取消',
       cancelledDesc: '您已取消本次支付',
       waitingPayment: '等待支付...',
+      confirmingPayment: '正在确认支付结果，请稍候...',
+      compensated: '支付已转入余额',
+      compensatedDesc: '该订单已超时释放余额，迟到的支付宝款项已自动转入您的站内余额。',
       cancelOrder: '取消订单',
     },
     orders: {

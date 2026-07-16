@@ -10,6 +10,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
@@ -20,12 +21,13 @@ import (
 
 // Cancel rate limit configuration constants.
 const (
-	rateLimitUnitDay           = "day"
-	rateLimitUnitMinute        = "minute"
-	rateLimitUnitHour          = "hour"
-	rateLimitModeFixed         = "fixed"
-	checkPaidResultAlreadyPaid = "already_paid"
-	checkPaidResultCancelled   = "cancelled"
+	rateLimitUnitDay                   = "day"
+	rateLimitUnitMinute                = "minute"
+	rateLimitUnitHour                  = "hour"
+	rateLimitModeFixed                 = "fixed"
+	checkPaidResultAlreadyPaid         = "already_paid"
+	checkPaidResultCancelled           = "cancelled"
+	checkPaidResultConfirmationPending = "confirmation_pending"
 
 	pendingWxpayReconcileLimit = 20
 )
@@ -122,6 +124,9 @@ func (s *PaymentService) AdminCancelOrder(ctx context.Context, orderID int64) (s
 }
 
 func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, fs, op, ad string) (string, error) {
+	if o.FundingMode == paymentFundingModeMixed {
+		return s.cancelHybridCore(ctx, o, fs, op, ad)
+	}
 	if o.PaymentTradeNo != "" || o.PaymentType != "" {
 		if s.checkPaid(ctx, o) == checkPaidResultAlreadyPaid {
 			return checkPaidResultAlreadyPaid, nil
@@ -138,6 +143,151 @@ func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, 
 		}
 		s.writeAuditLog(ctx, o.ID, auditAction, op, map[string]any{"detail": ad})
 	}
+	return checkPaidResultCancelled, nil
+}
+
+func (s *PaymentService) cancelHybridCore(ctx context.Context, o *dbent.PaymentOrder, fs, op, ad string) (string, error) {
+	now := time.Now()
+	if hybridResolutionDeadlinePassed(o, now) {
+		return s.finalizeHybridUnpaid(ctx, o, fs, op, ad)
+	}
+	resolution := s.queryHybridPaymentResolution(ctx, o)
+	switch resolution {
+	case paymentResolutionStatusPaid:
+		return checkPaidResultAlreadyPaid, nil
+	case paymentResolutionStatusUnpaid:
+		return s.finalizeHybridUnpaid(ctx, o, fs, op, ad)
+	default:
+		if err := s.markHybridPaymentUnknown(ctx, o, fs, now); err != nil {
+			return "", err
+		}
+		return checkPaidResultConfirmationPending, nil
+	}
+}
+
+func hybridResolutionDeadlinePassed(o *dbent.PaymentOrder, now time.Time) bool {
+	return o != nil &&
+		o.PaymentResolutionStatus == paymentResolutionStatusUnknown &&
+		o.PaymentResolutionDeadline != nil &&
+		!o.PaymentResolutionDeadline.After(now)
+}
+
+func (s *PaymentService) queryHybridPaymentResolution(ctx context.Context, o *dbent.PaymentOrder) string {
+	prov, err := s.getOrderProvider(ctx, o)
+	if err != nil {
+		return paymentResolutionStatusUnknown
+	}
+	queryRef := paymentOrderQueryReference(o, prov)
+	if queryRef == "" {
+		return paymentResolutionStatusUnknown
+	}
+	resp, err := prov.QueryOrder(ctx, queryRef)
+	if err != nil {
+		slog.Warn("query upstream failed for hybrid order", "orderID", o.ID, "error", err)
+		return paymentResolutionStatusUnknown
+	}
+	if resp == nil {
+		return paymentResolutionStatusUnknown
+	}
+	switch resp.Status {
+	case payment.ProviderStatusPaid:
+		notificationTradeNo := o.PaymentTradeNo
+		if upstreamTradeNo := strings.TrimSpace(resp.TradeNo); paymentOrderShouldPersistUpstreamTradeNo(queryRef, upstreamTradeNo, notificationTradeNo) {
+			if _, updateErr := s.entClient.PaymentOrder.Update().
+				Where(paymentorder.IDEQ(o.ID)).
+				SetPaymentTradeNo(upstreamTradeNo).
+				Save(ctx); updateErr == nil {
+				notificationTradeNo = upstreamTradeNo
+			}
+		}
+		if err := s.HandlePaymentNotification(ctx, &payment.PaymentNotification{TradeNo: notificationTradeNo, OrderID: o.OutTradeNo, Amount: resp.Amount, Status: payment.ProviderStatusSuccess, Metadata: resp.Metadata}, prov.ProviderKey()); err != nil {
+			slog.Error("hybrid fulfillment failed during payment resolution", "orderID", o.ID, "error", err)
+		}
+		return paymentResolutionStatusPaid
+	case payment.ProviderStatusFailed, payment.ProviderStatusRefunded:
+		return paymentResolutionStatusUnpaid
+	default:
+		return paymentResolutionStatusUnknown
+	}
+}
+
+func (s *PaymentService) markHybridPaymentUnknown(ctx context.Context, o *dbent.PaymentOrder, finalStatus string, now time.Time) error {
+	deadline := o.ExpiresAt.Add(time.Duration(paymentGraceMinutes) * time.Minute)
+	if finalStatus == OrderStatusCancelled {
+		cancelDeadline := now.Add(time.Duration(paymentGraceMinutes) * time.Minute)
+		if cancelDeadline.Before(deadline) {
+			deadline = cancelDeadline
+		}
+	}
+	if o.PaymentResolutionDeadline != nil && o.PaymentResolutionDeadline.Before(deadline) {
+		deadline = *o.PaymentResolutionDeadline
+	}
+	updater := s.entClient.PaymentOrder.Update().
+		Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusPending)).
+		SetPaymentResolutionStatus(paymentResolutionStatusUnknown).
+		SetPaymentResolutionDeadline(deadline)
+	if finalStatus == OrderStatusCancelled {
+		updater.SetCancelRequestedAt(now)
+	}
+	if _, err := updater.Save(ctx); err != nil {
+		return fmt.Errorf("mark hybrid payment unknown: %w", err)
+	}
+	return nil
+}
+
+func (s *PaymentService) finalizeHybridUnpaid(ctx context.Context, o *dbent.PaymentOrder, finalStatus, operator, detail string) (string, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin hybrid unpaid transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	updated, err := tx.PaymentOrder.Update().
+		Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusPending)).
+		SetStatus(finalStatus).
+		SetPaymentResolutionStatus(paymentResolutionStatusUnpaid).
+		Save(ctx)
+	if err != nil {
+		return "", fmt.Errorf("mark hybrid order unpaid: %w", err)
+	}
+	if updated == 0 {
+		if err := tx.Commit(); err != nil {
+			return "", fmt.Errorf("commit skipped hybrid unpaid transaction: %w", err)
+		}
+		return "", nil
+	}
+
+	hold, err := tx.PaymentBalanceHold.Query().
+		Where(
+			paymentbalancehold.OrderIDEQ(o.ID),
+			paymentbalancehold.StatusEQ(balanceHoldStatusReserved),
+		).
+		Only(ctx)
+	if err == nil {
+		now := time.Now()
+		if _, err := tx.PaymentBalanceHold.Update().
+			Where(paymentbalancehold.IDEQ(hold.ID), paymentbalancehold.StatusEQ(balanceHoldStatusReserved)).
+			SetStatus(balanceHoldStatusReleased).
+			SetReleasedAt(now).
+			SetReleaseReason(detail).
+			Save(ctx); err != nil {
+			return "", fmt.Errorf("release hybrid balance hold: %w", err)
+		}
+		if _, err := tx.User.UpdateOneID(hold.UserID).AddBalance(hold.Amount).Save(ctx); err != nil {
+			return "", fmt.Errorf("restore hybrid balance hold: %w", err)
+		}
+	} else if !dbent.IsNotFound(err) {
+		return "", fmt.Errorf("query hybrid balance hold: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit hybrid unpaid transaction: %w", err)
+	}
+	auditAction := "ORDER_CANCELLED"
+	if finalStatus == OrderStatusExpired {
+		auditAction = "ORDER_EXPIRED"
+	}
+	s.writeAuditLog(ctx, o.ID, auditAction, operator, map[string]any{"detail": detail})
 	return checkPaidResultCancelled, nil
 }
 
@@ -381,7 +531,7 @@ func (s *PaymentService) ExpireTimedOutOrders(ctx context.Context) (int, error) 
 			slog.Info("order was paid during expiry", "orderID", o.ID)
 			continue
 		}
-		if outcome != "" {
+		if outcome == checkPaidResultCancelled {
 			n++
 		}
 	}

@@ -201,6 +201,18 @@ func (f PaymentAuditLogFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PaymentAuditLogMutation", m)
 }
 
+// The PaymentBalanceHoldFunc type is an adapter to allow the use of ordinary
+// function as PaymentBalanceHold mutator.
+type PaymentBalanceHoldFunc func(context.Context, *ent.PaymentBalanceHoldMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PaymentBalanceHoldFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PaymentBalanceHoldMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PaymentBalanceHoldMutation", m)
+}
+
 // The PaymentOrderFunc type is an adapter to allow the use of ordinary
 // function as PaymentOrder mutator.
 type PaymentOrderFunc func(context.Context, *ent.PaymentOrderMutation) (ent.Value, error)

@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 // --- Order Creation ---
@@ -219,6 +220,25 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if err != nil {
 		return nil, err
 	}
+	fundingMode := paymentFundingModeGateway
+	balanceAmount := 0.0
+	gatewayAmount := payAmount
+	if req.UseBalance && req.OrderType != payment.OrderTypeBalance && payment.GetBasePaymentType(req.PaymentType) == payment.TypeAlipay {
+		principal := decimal.NewFromFloat(orderAmount).Round(2)
+		total := decimal.NewFromFloat(payAmount).Round(2)
+		funding, fundingErr := calculateHybridFunding(principal, total.Sub(principal), decimal.NewFromFloat(user.Balance))
+		if fundingErr != nil && !errors.Is(fundingErr, errNotHybridFunding) {
+			return nil, fundingErr
+		}
+		if fundingErr == nil {
+			if _, err := validateHybridCheckoutExpectation(req.ExpectedPayAmount, req.ExpectedBalanceAmount, funding.PayAmount, funding.BalanceAmount); err != nil {
+				return nil, err
+			}
+			fundingMode = paymentFundingModeMixed
+			balanceAmount = funding.BalanceAmount.InexactFloat64()
+			gatewayAmount = funding.GatewayAmount.InexactFloat64()
+		}
+	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req, trafficPack)
 	selectedInstanceID := ""
 	selectedProviderKey := ""
@@ -234,6 +254,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		SetAmount(orderAmount).
 		SetPayAmount(payAmount).
 		SetFeeRate(feeRate).
+		SetFundingMode(fundingMode).
+		SetBalanceAmount(balanceAmount).
+		SetGatewayAmount(gatewayAmount).
 		SetRechargeCode("").
 		SetOutTradeNo(outTradeNo).
 		SetPaymentType(req.PaymentType).
@@ -261,6 +284,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	order, err := b.Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("create order: %w", err)
+	}
+	if fundingMode == paymentFundingModeMixed {
+		if err := reserveBalanceForHybridOrderTx(ctx, tx, order.ID, req.UserID, balanceAmount, exp.Add(time.Duration(paymentGraceMinutes)*time.Minute)); err != nil {
+			return nil, err
+		}
 	}
 	code := fmt.Sprintf("PAY-%d-%d", order.ID, time.Now().UnixNano()%100000)
 	order, err = tx.PaymentOrder.UpdateOneID(order.ID).SetRechargeCode(code).Save(ctx)
@@ -459,7 +487,15 @@ func (s *PaymentService) usesOfficialWxpayVisibleMethod(ctx context.Context) boo
 }
 
 func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, trafficPack *TrafficPack, sel *payment.InstanceSelection) (*CreateOrderResponse, error) {
-	prov, err := provider.CreateProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
+	now := time.Now()
+	claimed, err := s.claimProviderInitialization(ctx, order.ID, now, 2*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if !claimed {
+		return nil, errProviderInitializationInProgress()
+	}
+	prov, err := s.newPaymentProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
 	if err != nil {
 		slog.Error("[PaymentService] CreateProvider failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)
 		// If the provider returned a structured ApplicationError (e.g. WXPAY_CONFIG_MISSING_KEY),
@@ -500,13 +536,21 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 	if err != nil {
 		return nil, err
 	}
+	providerPayAmountStr := payAmountStr
+	if order.FundingMode == paymentFundingModeMixed {
+		providerCurrency := paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
+		providerPayAmountStr = payment.FormatAmountForCurrency(order.GatewayAmount, providerCurrency)
+		if err := validateSelectedCreateOrderAmountCurrency(providerPayAmountStr, sel); err != nil {
+			return nil, err
+		}
+	}
 	providerReq := buildProviderCreatePaymentRequest(CreateOrderRequest{
 		PaymentType: req.PaymentType,
 		OpenID:      req.OpenID,
 		ClientIP:    req.ClientIP,
 		IsMobile:    req.IsMobile,
 		ReturnURL:   providerReturnURL,
-	}, sel, outTradeNo, payAmountStr, subject)
+	}, sel, outTradeNo, providerPayAmountStr, subject)
 	pr, err := prov.CreatePayment(ctx, providerReq)
 	if err != nil {
 		slog.Error("[PaymentService] CreatePayment failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)
@@ -521,6 +565,8 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 		SetNillableQrCode(psNilIfEmpty(pr.QRCode)).
 		SetNillableProviderInstanceID(psNilIfEmpty(sel.InstanceID)).
 		SetNillableProviderKey(psNilIfEmpty(sel.ProviderKey)).
+		SetProviderInitStatus(providerInitStatusCreated).
+		ClearProviderInitLeaseUntil().
 		Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("update order with payment details: %w", err)
@@ -759,27 +805,34 @@ func classifyCreatePaymentError(req CreateOrderRequest, providerKey string, err 
 
 func buildCreateOrderResponse(order *dbent.PaymentOrder, req CreateOrderRequest, payAmount float64, sel *payment.InstanceSelection, pr *payment.CreatePaymentResponse, resultType payment.CreatePaymentResultType) *CreateOrderResponse {
 	return &CreateOrderResponse{
-		OrderID:      order.ID,
-		Amount:       order.Amount,
-		PayAmount:    payAmount,
-		FeeRate:      order.FeeRate,
-		Status:       OrderStatusPending,
-		ResultType:   resultType,
-		PaymentType:  req.PaymentType,
-		OutTradeNo:   order.OutTradeNo,
-		PayURL:       pr.PayURL,
-		QRCode:       pr.QRCode,
-		QRImageURL:   pr.QRImageURL,
-		ClientSecret: pr.ClientSecret,
-		IntentID:     pr.IntentID,
-		Currency:     pr.Currency,
-		CountryCode:  pr.CountryCode,
-		PaymentEnv:   pr.PaymentEnv,
-		OAuth:        pr.OAuth,
-		JSAPI:        pr.JSAPI,
-		JSAPIPayload: pr.JSAPI,
-		ExpiresAt:    order.ExpiresAt,
-		PaymentMode:  sel.PaymentMode,
+		OrderID:                   order.ID,
+		Amount:                    order.Amount,
+		PayAmount:                 payAmount,
+		FeeRate:                   order.FeeRate,
+		Status:                    OrderStatusPending,
+		FundingMode:               order.FundingMode,
+		BalanceAmount:             order.BalanceAmount,
+		GatewayAmount:             order.GatewayAmount,
+		PaymentResolutionStatus:   order.PaymentResolutionStatus,
+		PaymentResolutionDeadline: order.PaymentResolutionDeadline,
+		CompensationAmount:        order.CompensationAmount,
+		CompensatedAt:             order.CompensatedAt,
+		ResultType:                resultType,
+		PaymentType:               req.PaymentType,
+		OutTradeNo:                order.OutTradeNo,
+		PayURL:                    pr.PayURL,
+		QRCode:                    pr.QRCode,
+		QRImageURL:                pr.QRImageURL,
+		ClientSecret:              pr.ClientSecret,
+		IntentID:                  pr.IntentID,
+		Currency:                  pr.Currency,
+		CountryCode:               pr.CountryCode,
+		PaymentEnv:                pr.PaymentEnv,
+		OAuth:                     pr.OAuth,
+		JSAPI:                     pr.JSAPI,
+		JSAPIPayload:              pr.JSAPI,
+		ExpiresAt:                 order.ExpiresAt,
+		PaymentMode:               sel.PaymentMode,
 	}
 }
 

@@ -6928,6 +6928,10 @@ export default {
     fee: 'Fee',
     actualPay: 'Actual Payment',
     createOrder: 'Confirm Payment',
+    hybrid: {
+      balanceDeduction: 'Balance deduction',
+      gatewayPay: 'Alipay payment',
+    },
     methods: {
       easypay: 'EasyPay',
       alipay: 'Alipay',
@@ -6962,6 +6966,7 @@ export default {
       paid: 'Paid',
       recharging: 'Recharging',
       completed: 'Completed',
+      compensated: 'Credited to Balance',
       expired: 'Expired',
       cancelled: 'Cancelled',
       failed: 'Failed',
@@ -6986,6 +6991,9 @@ export default {
       cancelled: 'Order Cancelled',
       cancelledDesc: 'You have cancelled this payment.',
       waitingPayment: 'Waiting for payment...',
+      confirmingPayment: 'Confirming payment result, please wait...',
+      compensated: 'Payment credited to balance',
+      compensatedDesc: 'This order had already released its balance hold. The late Alipay payment has been credited to your account balance.',
       cancelOrder: 'Cancel Order',
     },
     orders: {

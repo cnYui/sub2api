@@ -815,6 +815,62 @@ var (
 			},
 		},
 	}
+	// PaymentBalanceHoldsColumns holds the columns for the "payment_balance_holds" table.
+	PaymentBalanceHoldsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "RESERVED"},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "captured_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "released_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "release_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "order_id", Type: field.TypeInt64, Unique: true},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// PaymentBalanceHoldsTable holds the schema information for the "payment_balance_holds" table.
+	PaymentBalanceHoldsTable = &schema.Table{
+		Name:       "payment_balance_holds",
+		Columns:    PaymentBalanceHoldsColumns,
+		PrimaryKey: []*schema.Column{PaymentBalanceHoldsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "payment_balance_holds_payment_orders_balance_hold",
+				Columns:    []*schema.Column{PaymentBalanceHoldsColumns[9]},
+				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "payment_balance_holds_users_payment_balance_holds",
+				Columns:    []*schema.Column{PaymentBalanceHoldsColumns[10]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "paymentbalancehold_order_id",
+				Unique:  true,
+				Columns: []*schema.Column{PaymentBalanceHoldsColumns[9]},
+			},
+			{
+				Name:    "paymentbalancehold_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentBalanceHoldsColumns[10]},
+			},
+			{
+				Name:    "paymentbalancehold_status",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentBalanceHoldsColumns[2]},
+			},
+			{
+				Name:    "paymentbalancehold_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentBalanceHoldsColumns[3]},
+			},
+		},
+	}
 	// PaymentOrdersColumns holds the columns for the "payment_orders" table.
 	PaymentOrdersColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -824,6 +880,9 @@ var (
 		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
 		{Name: "pay_amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
 		{Name: "fee_rate", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(10,4)"}},
+		{Name: "funding_mode", Type: field.TypeString, Size: 20, Default: "gateway"},
+		{Name: "balance_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "gateway_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
 		{Name: "recharge_code", Type: field.TypeString, Size: 64},
 		{Name: "out_trade_no", Type: field.TypeString, Size: 64, Default: ""},
 		{Name: "payment_type", Type: field.TypeString, Size: 30},
@@ -838,9 +897,20 @@ var (
 		{Name: "subscription_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "provider_instance_id", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "provider_key", Type: field.TypeString, Nullable: true, Size: 30},
+		{Name: "provider_init_status", Type: field.TypeString, Size: 20, Default: "NOT_STARTED"},
+		{Name: "provider_init_attempted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "provider_init_lease_until", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "provider_snapshot", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "status", Type: field.TypeString, Size: 30, Default: "PENDING"},
+		{Name: "payment_resolution_status", Type: field.TypeString, Size: 20, Default: ""},
+		{Name: "payment_resolution_deadline", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "cancel_requested_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "compensation_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "compensated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "refund_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "refund_balance_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "refund_gateway_amount", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "refund_balance_status", Type: field.TypeString, Size: 20, Default: "NOT_STARTED"},
 		{Name: "refund_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "refund_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "force_refund", Type: field.TypeBool, Default: false},
@@ -871,7 +941,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "payment_orders_users_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[44]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[58]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -880,7 +950,7 @@ var (
 			{
 				Name:    "paymentorder_out_trade_no",
 				Unique:  true,
-				Columns: []*schema.Column{PaymentOrdersColumns[8]},
+				Columns: []*schema.Column{PaymentOrdersColumns[11]},
 				Annotation: &entsql.IndexAnnotation{
 					Where: "out_trade_no <> ''",
 				},
@@ -888,42 +958,57 @@ var (
 			{
 				Name:    "paymentorder_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[44]},
+				Columns: []*schema.Column{PaymentOrdersColumns[58]},
 			},
 			{
 				Name:    "paymentorder_status",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[22]},
+				Columns: []*schema.Column{PaymentOrdersColumns[28]},
 			},
 			{
 				Name:    "paymentorder_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[34]},
+				Columns: []*schema.Column{PaymentOrdersColumns[48]},
 			},
 			{
 				Name:    "paymentorder_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[42]},
+				Columns: []*schema.Column{PaymentOrdersColumns[56]},
 			},
 			{
 				Name:    "paymentorder_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[35]},
+				Columns: []*schema.Column{PaymentOrdersColumns[49]},
 			},
 			{
 				Name:    "paymentorder_payment_type_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[9], PaymentOrdersColumns[35]},
+				Columns: []*schema.Column{PaymentOrdersColumns[12], PaymentOrdersColumns[49]},
 			},
 			{
 				Name:    "paymentorder_order_type",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[14]},
+				Columns: []*schema.Column{PaymentOrdersColumns[17]},
 			},
 			{
 				Name:    "paymentorder_subscription_id",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[18]},
+				Columns: []*schema.Column{PaymentOrdersColumns[21]},
+			},
+			{
+				Name:    "paymentorder_funding_mode",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentOrdersColumns[7]},
+			},
+			{
+				Name:    "paymentorder_provider_init_status_provider_init_lease_until",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentOrdersColumns[24], PaymentOrdersColumns[26]},
+			},
+			{
+				Name:    "paymentorder_payment_resolution_status_payment_resolution_deadline",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentOrdersColumns[29], PaymentOrdersColumns[30]},
 			},
 		},
 	}
@@ -1801,6 +1886,7 @@ var (
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		PaymentAuditLogsTable,
+		PaymentBalanceHoldsTable,
 		PaymentOrdersTable,
 		PaymentProviderInstancesTable,
 		PendingAuthSessionsTable,
@@ -1885,6 +1971,11 @@ func init() {
 	}
 	PaymentAuditLogsTable.Annotation = &entsql.Annotation{
 		Table: "payment_audit_logs",
+	}
+	PaymentBalanceHoldsTable.ForeignKeys[0].RefTable = PaymentOrdersTable
+	PaymentBalanceHoldsTable.ForeignKeys[1].RefTable = UsersTable
+	PaymentBalanceHoldsTable.Annotation = &entsql.Annotation{
+		Table: "payment_balance_holds",
 	}
 	PaymentOrdersTable.ForeignKeys[0].RefTable = UsersTable
 	PaymentOrdersTable.Annotation = &entsql.Annotation{

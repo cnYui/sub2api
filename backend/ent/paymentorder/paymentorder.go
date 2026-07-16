@@ -28,6 +28,12 @@ const (
 	FieldPayAmount = "pay_amount"
 	// FieldFeeRate holds the string denoting the fee_rate field in the database.
 	FieldFeeRate = "fee_rate"
+	// FieldFundingMode holds the string denoting the funding_mode field in the database.
+	FieldFundingMode = "funding_mode"
+	// FieldBalanceAmount holds the string denoting the balance_amount field in the database.
+	FieldBalanceAmount = "balance_amount"
+	// FieldGatewayAmount holds the string denoting the gateway_amount field in the database.
+	FieldGatewayAmount = "gateway_amount"
 	// FieldRechargeCode holds the string denoting the recharge_code field in the database.
 	FieldRechargeCode = "recharge_code"
 	// FieldOutTradeNo holds the string denoting the out_trade_no field in the database.
@@ -56,12 +62,34 @@ const (
 	FieldProviderInstanceID = "provider_instance_id"
 	// FieldProviderKey holds the string denoting the provider_key field in the database.
 	FieldProviderKey = "provider_key"
+	// FieldProviderInitStatus holds the string denoting the provider_init_status field in the database.
+	FieldProviderInitStatus = "provider_init_status"
+	// FieldProviderInitAttemptedAt holds the string denoting the provider_init_attempted_at field in the database.
+	FieldProviderInitAttemptedAt = "provider_init_attempted_at"
+	// FieldProviderInitLeaseUntil holds the string denoting the provider_init_lease_until field in the database.
+	FieldProviderInitLeaseUntil = "provider_init_lease_until"
 	// FieldProviderSnapshot holds the string denoting the provider_snapshot field in the database.
 	FieldProviderSnapshot = "provider_snapshot"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldPaymentResolutionStatus holds the string denoting the payment_resolution_status field in the database.
+	FieldPaymentResolutionStatus = "payment_resolution_status"
+	// FieldPaymentResolutionDeadline holds the string denoting the payment_resolution_deadline field in the database.
+	FieldPaymentResolutionDeadline = "payment_resolution_deadline"
+	// FieldCancelRequestedAt holds the string denoting the cancel_requested_at field in the database.
+	FieldCancelRequestedAt = "cancel_requested_at"
+	// FieldCompensationAmount holds the string denoting the compensation_amount field in the database.
+	FieldCompensationAmount = "compensation_amount"
+	// FieldCompensatedAt holds the string denoting the compensated_at field in the database.
+	FieldCompensatedAt = "compensated_at"
 	// FieldRefundAmount holds the string denoting the refund_amount field in the database.
 	FieldRefundAmount = "refund_amount"
+	// FieldRefundBalanceAmount holds the string denoting the refund_balance_amount field in the database.
+	FieldRefundBalanceAmount = "refund_balance_amount"
+	// FieldRefundGatewayAmount holds the string denoting the refund_gateway_amount field in the database.
+	FieldRefundGatewayAmount = "refund_gateway_amount"
+	// FieldRefundBalanceStatus holds the string denoting the refund_balance_status field in the database.
+	FieldRefundBalanceStatus = "refund_balance_status"
 	// FieldRefundReason holds the string denoting the refund_reason field in the database.
 	FieldRefundReason = "refund_reason"
 	// FieldRefundAt holds the string denoting the refund_at field in the database.
@@ -104,6 +132,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
+	// EdgeBalanceHold holds the string denoting the balance_hold edge name in mutations.
+	EdgeBalanceHold = "balance_hold"
 	// Table holds the table name of the paymentorder in the database.
 	Table = "payment_orders"
 	// UserTable is the table that holds the user relation/edge.
@@ -113,6 +143,13 @@ const (
 	UserInverseTable = "users"
 	// UserColumn is the table column denoting the user relation/edge.
 	UserColumn = "user_id"
+	// BalanceHoldTable is the table that holds the balance_hold relation/edge.
+	BalanceHoldTable = "payment_balance_holds"
+	// BalanceHoldInverseTable is the table name for the PaymentBalanceHold entity.
+	// It exists in this package in order to avoid circular dependency with the "paymentbalancehold" package.
+	BalanceHoldInverseTable = "payment_balance_holds"
+	// BalanceHoldColumn is the table column denoting the balance_hold relation/edge.
+	BalanceHoldColumn = "order_id"
 )
 
 // Columns holds all SQL columns for paymentorder fields.
@@ -125,6 +162,9 @@ var Columns = []string{
 	FieldAmount,
 	FieldPayAmount,
 	FieldFeeRate,
+	FieldFundingMode,
+	FieldBalanceAmount,
+	FieldGatewayAmount,
 	FieldRechargeCode,
 	FieldOutTradeNo,
 	FieldPaymentType,
@@ -139,9 +179,20 @@ var Columns = []string{
 	FieldSubscriptionID,
 	FieldProviderInstanceID,
 	FieldProviderKey,
+	FieldProviderInitStatus,
+	FieldProviderInitAttemptedAt,
+	FieldProviderInitLeaseUntil,
 	FieldProviderSnapshot,
 	FieldStatus,
+	FieldPaymentResolutionStatus,
+	FieldPaymentResolutionDeadline,
+	FieldCancelRequestedAt,
+	FieldCompensationAmount,
+	FieldCompensatedAt,
 	FieldRefundAmount,
+	FieldRefundBalanceAmount,
+	FieldRefundGatewayAmount,
+	FieldRefundBalanceStatus,
 	FieldRefundReason,
 	FieldRefundAt,
 	FieldForceRefund,
@@ -181,6 +232,14 @@ var (
 	UserNameValidator func(string) error
 	// DefaultFeeRate holds the default value on creation for the "fee_rate" field.
 	DefaultFeeRate float64
+	// DefaultFundingMode holds the default value on creation for the "funding_mode" field.
+	DefaultFundingMode string
+	// FundingModeValidator is a validator for the "funding_mode" field. It is called by the builders before save.
+	FundingModeValidator func(string) error
+	// DefaultBalanceAmount holds the default value on creation for the "balance_amount" field.
+	DefaultBalanceAmount float64
+	// DefaultGatewayAmount holds the default value on creation for the "gateway_amount" field.
+	DefaultGatewayAmount float64
 	// RechargeCodeValidator is a validator for the "recharge_code" field. It is called by the builders before save.
 	RechargeCodeValidator func(string) error
 	// DefaultOutTradeNo holds the default value on creation for the "out_trade_no" field.
@@ -199,12 +258,30 @@ var (
 	ProviderInstanceIDValidator func(string) error
 	// ProviderKeyValidator is a validator for the "provider_key" field. It is called by the builders before save.
 	ProviderKeyValidator func(string) error
+	// DefaultProviderInitStatus holds the default value on creation for the "provider_init_status" field.
+	DefaultProviderInitStatus string
+	// ProviderInitStatusValidator is a validator for the "provider_init_status" field. It is called by the builders before save.
+	ProviderInitStatusValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultPaymentResolutionStatus holds the default value on creation for the "payment_resolution_status" field.
+	DefaultPaymentResolutionStatus string
+	// PaymentResolutionStatusValidator is a validator for the "payment_resolution_status" field. It is called by the builders before save.
+	PaymentResolutionStatusValidator func(string) error
+	// DefaultCompensationAmount holds the default value on creation for the "compensation_amount" field.
+	DefaultCompensationAmount float64
 	// DefaultRefundAmount holds the default value on creation for the "refund_amount" field.
 	DefaultRefundAmount float64
+	// DefaultRefundBalanceAmount holds the default value on creation for the "refund_balance_amount" field.
+	DefaultRefundBalanceAmount float64
+	// DefaultRefundGatewayAmount holds the default value on creation for the "refund_gateway_amount" field.
+	DefaultRefundGatewayAmount float64
+	// DefaultRefundBalanceStatus holds the default value on creation for the "refund_balance_status" field.
+	DefaultRefundBalanceStatus string
+	// RefundBalanceStatusValidator is a validator for the "refund_balance_status" field. It is called by the builders before save.
+	RefundBalanceStatusValidator func(string) error
 	// DefaultForceRefund holds the default value on creation for the "force_refund" field.
 	DefaultForceRefund bool
 	// RefundRequestedByValidator is a validator for the "refund_requested_by" field. It is called by the builders before save.
@@ -274,6 +351,21 @@ func ByPayAmount(opts ...sql.OrderTermOption) OrderOption {
 // ByFeeRate orders the results by the fee_rate field.
 func ByFeeRate(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldFeeRate, opts...).ToFunc()
+}
+
+// ByFundingMode orders the results by the funding_mode field.
+func ByFundingMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFundingMode, opts...).ToFunc()
+}
+
+// ByBalanceAmount orders the results by the balance_amount field.
+func ByBalanceAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalanceAmount, opts...).ToFunc()
+}
+
+// ByGatewayAmount orders the results by the gateway_amount field.
+func ByGatewayAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldGatewayAmount, opts...).ToFunc()
 }
 
 // ByRechargeCode orders the results by the recharge_code field.
@@ -346,14 +438,69 @@ func ByProviderKey(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldProviderKey, opts...).ToFunc()
 }
 
+// ByProviderInitStatus orders the results by the provider_init_status field.
+func ByProviderInitStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderInitStatus, opts...).ToFunc()
+}
+
+// ByProviderInitAttemptedAt orders the results by the provider_init_attempted_at field.
+func ByProviderInitAttemptedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderInitAttemptedAt, opts...).ToFunc()
+}
+
+// ByProviderInitLeaseUntil orders the results by the provider_init_lease_until field.
+func ByProviderInitLeaseUntil(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProviderInitLeaseUntil, opts...).ToFunc()
+}
+
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
 }
 
+// ByPaymentResolutionStatus orders the results by the payment_resolution_status field.
+func ByPaymentResolutionStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPaymentResolutionStatus, opts...).ToFunc()
+}
+
+// ByPaymentResolutionDeadline orders the results by the payment_resolution_deadline field.
+func ByPaymentResolutionDeadline(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPaymentResolutionDeadline, opts...).ToFunc()
+}
+
+// ByCancelRequestedAt orders the results by the cancel_requested_at field.
+func ByCancelRequestedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCancelRequestedAt, opts...).ToFunc()
+}
+
+// ByCompensationAmount orders the results by the compensation_amount field.
+func ByCompensationAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompensationAmount, opts...).ToFunc()
+}
+
+// ByCompensatedAt orders the results by the compensated_at field.
+func ByCompensatedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldCompensatedAt, opts...).ToFunc()
+}
+
 // ByRefundAmount orders the results by the refund_amount field.
 func ByRefundAmount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRefundAmount, opts...).ToFunc()
+}
+
+// ByRefundBalanceAmount orders the results by the refund_balance_amount field.
+func ByRefundBalanceAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundBalanceAmount, opts...).ToFunc()
+}
+
+// ByRefundGatewayAmount orders the results by the refund_gateway_amount field.
+func ByRefundGatewayAmount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundGatewayAmount, opts...).ToFunc()
+}
+
+// ByRefundBalanceStatus orders the results by the refund_balance_status field.
+func ByRefundBalanceStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRefundBalanceStatus, opts...).ToFunc()
 }
 
 // ByRefundReason orders the results by the refund_reason field.
@@ -462,10 +609,24 @@ func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newUserStep(), sql.OrderByField(field, opts...))
 	}
 }
+
+// ByBalanceHoldField orders the results by balance_hold field.
+func ByBalanceHoldField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBalanceHoldStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UserInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, UserTable, UserColumn),
+	)
+}
+func newBalanceHoldStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BalanceHoldInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2O, false, BalanceHoldTable, BalanceHoldColumn),
 	)
 }

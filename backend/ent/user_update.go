@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/paymentbalancehold"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -561,6 +562,21 @@ func (_u *UserUpdate) AddPaymentOrders(v ...*PaymentOrder) *UserUpdate {
 	return _u.AddPaymentOrderIDs(ids...)
 }
 
+// AddPaymentBalanceHoldIDs adds the "payment_balance_holds" edge to the PaymentBalanceHold entity by IDs.
+func (_u *UserUpdate) AddPaymentBalanceHoldIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddPaymentBalanceHoldIDs(ids...)
+	return _u
+}
+
+// AddPaymentBalanceHolds adds the "payment_balance_holds" edges to the PaymentBalanceHold entity.
+func (_u *UserUpdate) AddPaymentBalanceHolds(v ...*PaymentBalanceHold) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPaymentBalanceHoldIDs(ids...)
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by IDs.
 func (_u *UserUpdate) AddAuthIdentityIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAuthIdentityIDs(ids...)
@@ -819,6 +835,27 @@ func (_u *UserUpdate) RemovePaymentOrders(v ...*PaymentOrder) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePaymentOrderIDs(ids...)
+}
+
+// ClearPaymentBalanceHolds clears all "payment_balance_holds" edges to the PaymentBalanceHold entity.
+func (_u *UserUpdate) ClearPaymentBalanceHolds() *UserUpdate {
+	_u.mutation.ClearPaymentBalanceHolds()
+	return _u
+}
+
+// RemovePaymentBalanceHoldIDs removes the "payment_balance_holds" edge to PaymentBalanceHold entities by IDs.
+func (_u *UserUpdate) RemovePaymentBalanceHoldIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemovePaymentBalanceHoldIDs(ids...)
+	return _u
+}
+
+// RemovePaymentBalanceHolds removes "payment_balance_holds" edges to PaymentBalanceHold entities.
+func (_u *UserUpdate) RemovePaymentBalanceHolds(v ...*PaymentBalanceHold) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePaymentBalanceHoldIDs(ids...)
 }
 
 // ClearAuthIdentities clears all "auth_identities" edges to the AuthIdentity entity.
@@ -1534,6 +1571,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.PaymentBalanceHoldsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPaymentBalanceHoldsIDs(); len(nodes) > 0 && !_u.mutation.PaymentBalanceHoldsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PaymentBalanceHoldsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AuthIdentitiesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2210,6 +2292,21 @@ func (_u *UserUpdateOne) AddPaymentOrders(v ...*PaymentOrder) *UserUpdateOne {
 	return _u.AddPaymentOrderIDs(ids...)
 }
 
+// AddPaymentBalanceHoldIDs adds the "payment_balance_holds" edge to the PaymentBalanceHold entity by IDs.
+func (_u *UserUpdateOne) AddPaymentBalanceHoldIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddPaymentBalanceHoldIDs(ids...)
+	return _u
+}
+
+// AddPaymentBalanceHolds adds the "payment_balance_holds" edges to the PaymentBalanceHold entity.
+func (_u *UserUpdateOne) AddPaymentBalanceHolds(v ...*PaymentBalanceHold) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddPaymentBalanceHoldIDs(ids...)
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by IDs.
 func (_u *UserUpdateOne) AddAuthIdentityIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAuthIdentityIDs(ids...)
@@ -2468,6 +2565,27 @@ func (_u *UserUpdateOne) RemovePaymentOrders(v ...*PaymentOrder) *UserUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePaymentOrderIDs(ids...)
+}
+
+// ClearPaymentBalanceHolds clears all "payment_balance_holds" edges to the PaymentBalanceHold entity.
+func (_u *UserUpdateOne) ClearPaymentBalanceHolds() *UserUpdateOne {
+	_u.mutation.ClearPaymentBalanceHolds()
+	return _u
+}
+
+// RemovePaymentBalanceHoldIDs removes the "payment_balance_holds" edge to PaymentBalanceHold entities by IDs.
+func (_u *UserUpdateOne) RemovePaymentBalanceHoldIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemovePaymentBalanceHoldIDs(ids...)
+	return _u
+}
+
+// RemovePaymentBalanceHolds removes "payment_balance_holds" edges to PaymentBalanceHold entities.
+func (_u *UserUpdateOne) RemovePaymentBalanceHolds(v ...*PaymentBalanceHold) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemovePaymentBalanceHoldIDs(ids...)
 }
 
 // ClearAuthIdentities clears all "auth_identities" edges to the AuthIdentity entity.
@@ -3206,6 +3324,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.PaymentBalanceHoldsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedPaymentBalanceHoldsIDs(); len(nodes) > 0 && !_u.mutation.PaymentBalanceHoldsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.PaymentBalanceHoldsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.PaymentBalanceHoldsTable,
+			Columns: []string{user.PaymentBalanceHoldsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(paymentbalancehold.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
