@@ -116,17 +116,6 @@
               {{ paragraph }}
             </p>
 
-            <div v-if="section.priceRows" class="usage-guide-price-grid">
-              <div
-                v-for="row in section.priceRows"
-                :key="row.label"
-                class="usage-guide-price-row"
-              >
-                <span>{{ row.label }}</span>
-                <strong>{{ row.price }}</strong>
-              </div>
-            </div>
-
             <div v-if="section.endpointRows" class="usage-guide-table-wrap">
               <table class="usage-guide-endpoint-table">
                 <thead>
@@ -215,15 +204,9 @@ type GuideLegacyRow = {
   useInstead: string
 }
 
-type GuidePriceRow = {
-  label: string
-  price: string
-}
-
 type GuideSection = {
   title: string
   paragraphs: string[]
-  priceRows?: GuidePriceRow[]
   endpointRows?: GuideEndpointRow[]
   legacyRows?: GuideLegacyRow[]
   code?: string
@@ -601,12 +584,7 @@ const guideTopics: GuideTopic[] = [
         paragraphs: [
           '图生图编辑接口：如果客户端把 Base URL 和路径分开填写，接口路径填 /images/edits；如果工具要求完整 URL，使用 https://api.aaccx.pw/v1/images/edits。模型填写 gpt-image-2。',
           'JSON 请求可传 images[].image_url，上传本地文件时改用 multipart 的 image=@...；需要局部修改时可以再加 mask。',
-          '图片按实际分辨率消耗订阅日额度，余额和用量记录会按图片价格统计。',
-        ],
-        priceRows: [
-          { label: '1K 图片', price: '$0.10 / 张' },
-          { label: '2K 图片', price: '$0.20 / 张' },
-          { label: '4K 图片', price: '$0.40 / 张' },
+          '图片生成按上游实际返回的 Token 用量和套餐有效倍率计费；图片数量和文件大小不作为单独收费单位。',
         ],
       },
       {
@@ -833,37 +811,6 @@ const activeTopic = computed(() => (
 
 .dark .usage-guide-section-text {
   color: rgb(209 213 219);
-}
-
-.usage-guide-price-grid {
-  display: grid;
-  gap: 0.5rem;
-}
-
-.usage-guide-price-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 0.5rem;
-  padding: 0.75rem;
-  color: rgb(55 65 81);
-  font-size: 0.9rem;
-}
-
-.dark .usage-guide-price-row {
-  border-color: rgb(55 65 81);
-  color: rgb(209 213 219);
-}
-
-.usage-guide-price-row strong {
-  color: rgb(17 24 39);
-  white-space: nowrap;
-}
-
-.dark .usage-guide-price-row strong {
-  color: rgb(243 244 246);
 }
 
 .usage-guide-table-wrap {

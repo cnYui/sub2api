@@ -127,9 +127,7 @@ describe('UsageGuideView', () => {
       '文本生图完整 URL 是 https://api.aaccx.pw/v1/images/generations',
       'images[].image_url',
       'image=@/absolute/path/input.png',
-      '$0.10 / 张',
-      '$0.20 / 张',
-      '$0.40 / 张',
+      '按上游实际返回的 Token 用量和套餐有效倍率计费',
       'Authorization: Bearer sk-xxxx',
       'gpt-image-2',
     ]
@@ -141,6 +139,9 @@ describe('UsageGuideView', () => {
     expect(source).not.toContain('groups.id')
     expect(source).not.toContain('127.0.0.1:18080')
     expect(source).not.toContain('POST /v1/images/edits')
+    expect(source).not.toContain('$0.10 / 张')
+    expect(source).not.toContain('$0.20 / 张')
+    expect(source).not.toContain('$0.40 / 张')
   })
 
   it('规范使用栏目用大白话列出正式 API 请求路径和旧路径迁移', () => {

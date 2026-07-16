@@ -54,19 +54,15 @@ import userChannelsAPI, {
   type UserModelPrice,
   type UserSupportedModel,
 } from '@/api/channels'
-import userGroupsAPI from '@/api/groups'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatScaled } from '@/utils/pricing'
-import { BILLING_MODE_IMAGE } from '@/constants/channel'
-import type { Group } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const channels = ref<UserAvailableChannel[]>([])
 const modelPrices = ref<UserModelPrice[]>([])
-const groups = ref<Group[]>([])
 
 const FEATURED_TEXT_MODELS = ['gpt-5.4', 'gpt-5.5'] as const
 const TOKEN_PRICE_SCALE = 1_000_000
@@ -104,7 +100,7 @@ const featuredPriceItems = computed<PriceSummaryItem[]>(() => {
     )
     .filter((item): item is PriceSummaryItem => item !== null)
 
-  const imageItem = buildImagePriceItem(groups.value, models)
+  const imageItem = buildImagePriceItem(models)
   if (imageItem) {
     items.push(imageItem)
   }
@@ -114,20 +110,15 @@ const featuredPriceItems = computed<PriceSummaryItem[]>(() => {
 
 async function loadChannels() {
   try {
-    const [list, prices, availableGroups] = await Promise.all([
+    const [list, prices] = await Promise.all([
       userChannelsAPI.getAvailable(),
       userChannelsAPI.getPrices().catch((err: unknown) => {
         console.error('Failed to load channel prices:', err)
         return [] as UserModelPrice[]
       }),
-      userGroupsAPI.getAvailable().catch((err: unknown) => {
-        console.error('Failed to load available groups:', err)
-        return [] as Group[]
-      }),
     ])
     channels.value = list
     modelPrices.value = prices
-    groups.value = availableGroups
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, t('common.error')))
   }
@@ -220,45 +211,18 @@ function addPriorityPriceRow(
   })
 }
 
-function buildImagePriceItem(groups: Group[], models: UserSupportedModel[]): PriceSummaryItem | null {
-  const group = groups.find((g) =>
-    g.allow_image_generation &&
-    (g.image_price_1k != null || g.image_price_2k != null || g.image_price_4k != null),
-  )
-  if (group) {
-    return {
-      key: 'image-generation',
-      title: t('availableChannels.priceSummary.imageTitle'),
-      rows: [
-        {
-          label: t('availableChannels.priceSummary.image1k'),
-          value: formatImagePrice(group.image_price_1k),
-        },
-        {
-          label: t('availableChannels.priceSummary.image2k'),
-          value: formatImagePrice(group.image_price_2k),
-        },
-        {
-          label: t('availableChannels.priceSummary.image4k'),
-          value: formatImagePrice(group.image_price_4k),
-        },
-      ],
-    }
-  }
+function buildImagePriceItem(models: UserSupportedModel[]): PriceSummaryItem | null {
+  const imageModel = models.find((model) => model.pricing?.image_output_price != null)
+  const price = imageModel?.pricing?.image_output_price
+  if (!imageModel || price == null) return null
 
-  const imageModel = models.find((m) =>
-    m.pricing?.billing_mode === BILLING_MODE_IMAGE ||
-    m.name.toLowerCase().includes('image'),
-  )
-  if (!imageModel?.pricing) return null
-  const price = imageModel.pricing.image_output_price ?? imageModel.pricing.per_request_price
   return {
     key: imageModel.name,
-    title: imageModel.name,
+    title: t('availableChannels.priceSummary.imageTitle'),
     rows: [
       {
         label: t('availableChannels.priceSummary.imageOutput'),
-        value: formatImagePrice(price),
+        value: formatTokenPrice(price),
       },
     ],
   }
@@ -266,11 +230,6 @@ function buildImagePriceItem(groups: Group[], models: UserSupportedModel[]): Pri
 
 function formatTokenPrice(value: number | null): string {
   return `${formatScaled(value, TOKEN_PRICE_SCALE)} / 1M token`
-}
-
-function formatImagePrice(value: number | null): string {
-  if (value == null) return '-'
-  return `$${value.toFixed(2)} / 张`
 }
 
 onMounted(loadChannels)

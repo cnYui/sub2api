@@ -3,11 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import AvailableChannelsView from '../AvailableChannelsView.vue'
 
-const { getAvailableChannels, getChannelPrices, getAvailableGroups, getUserGroupRates, showError } = vi.hoisted(() => ({
+const { getAvailableChannels, getChannelPrices, showError } = vi.hoisted(() => ({
   getAvailableChannels: vi.fn(),
   getChannelPrices: vi.fn(),
-  getAvailableGroups: vi.fn(),
-  getUserGroupRates: vi.fn(),
   showError: vi.fn(),
 }))
 
@@ -45,13 +43,6 @@ vi.mock('@/api/channels', () => ({
   },
 }))
 
-vi.mock('@/api/groups', () => ({
-  default: {
-    getAvailable: getAvailableGroups,
-    getUserGroupRates,
-  },
-}))
-
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showError }),
 }))
@@ -74,8 +65,6 @@ describe('AvailableChannelsView price summary', () => {
   beforeEach(() => {
     getAvailableChannels.mockReset()
     getChannelPrices.mockReset()
-    getAvailableGroups.mockReset()
-    getUserGroupRates.mockReset()
     showError.mockReset()
     getChannelPrices.mockResolvedValue([])
   })
@@ -127,24 +116,25 @@ describe('AvailableChannelsView price summary', () => {
                   intervals: [],
                 },
               },
+              {
+                name: 'gpt-image-2',
+                platform: 'openai',
+                pricing: {
+                  billing_mode: 'token',
+                  input_price: 0.000005,
+                  output_price: 0.00001,
+                  cache_write_price: null,
+                  cache_read_price: 0.00000125,
+                  image_output_price: 0.00003,
+                  per_request_price: null,
+                  intervals: [],
+                },
+              },
             ],
           },
         ],
       },
     ])
-    getAvailableGroups.mockResolvedValue([
-      {
-        id: 2,
-        name: 'codex-pool-19-usd',
-        platform: 'openai',
-        allow_image_generation: true,
-        image_price_1k: 0.1,
-        image_price_2k: 0.2,
-        image_price_4k: 0.4,
-      },
-    ])
-    getUserGroupRates.mockResolvedValue({})
-
     const wrapper = mount(AvailableChannelsView, {
       global: {
         stubs: {
@@ -166,12 +156,9 @@ describe('AvailableChannelsView price summary', () => {
     expect(text).toContain('$5 / 1M token')
     expect(text).toContain('$30 / 1M token')
     expect(text).toContain('生图')
-    expect(text).toContain('1K')
-    expect(text).toContain('$0.10 / 张')
-    expect(text).toContain('2K')
-    expect(text).toContain('$0.20 / 张')
-    expect(text).toContain('4K')
-    expect(text).toContain('$0.40 / 张')
+    expect(text).toContain('图片输出')
+    expect(text).toContain('$30 / 1M token')
+    expect(text).not.toContain('/ 张')
   })
 
   it('shows billing prices even when available channel table is empty', async () => {
@@ -202,19 +189,6 @@ describe('AvailableChannelsView price summary', () => {
         priority_cache_read_price: 0.00000075,
       },
     ])
-    getAvailableGroups.mockResolvedValue([
-      {
-        id: 2,
-        name: 'codex-pool-19-usd',
-        platform: 'openai',
-        allow_image_generation: true,
-        image_price_1k: 0.1,
-        image_price_2k: 0.2,
-        image_price_4k: 0.4,
-      },
-    ])
-    getUserGroupRates.mockResolvedValue({})
-
     const wrapper = mount(AvailableChannelsView, {
       global: {
         stubs: {
@@ -243,7 +217,6 @@ describe('AvailableChannelsView price summary', () => {
     expect(text).toContain('$7.5 / 1M token')
     expect(text).toContain('$45 / 1M token')
     expect(text).toContain('$0.5 / 1M token')
-    expect(text).toContain('生图')
-    expect(text).toContain('$0.40 / 张')
+    expect(text).not.toContain('/ 张')
   })
 })
