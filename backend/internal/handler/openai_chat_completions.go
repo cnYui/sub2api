@@ -117,6 +117,8 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	defer restoreUsageWriter()
 
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	promptCacheKey := h.gatewayService.ExtractSessionID(c, body)
@@ -285,33 +287,38 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		clientIP := ip.GetClientIP(c)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
+		requestPayloadHash := service.HashUsageRequestPayload(body)
 
 		cyberBlocked := service.GetOpsCyberPolicy(c) != nil
-		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-				Result:             result,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				APIKeyService:      h.apiKeyService,
-				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
-				CyberBlocked:       cyberBlocked,
-			}); err != nil {
-				logger.L().With(
-					zap.String("component", "handler.openai_gateway.chat_completions"),
-					zap.Int64("user_id", subject.UserID),
-					zap.Int64("api_key_id", apiKey.ID),
-					zap.Any("group_id", apiKey.GroupID),
-					zap.String("model", reqModel),
-					zap.Int64("account_id", account.ID),
-				).Error("openai_chat_completions.record_usage_failed", zap.Error(err))
-			}
-		})
+		usageInput := &service.OpenAIRecordUsageInput{
+			Result:             result,
+			APIKey:             apiKey,
+			User:               apiKey.User,
+			Account:            account,
+			Subscription:       subscription,
+			InboundEndpoint:    inboundEndpoint,
+			UpstreamEndpoint:   upstreamEndpoint,
+			UserAgent:          userAgent,
+			IPAddress:          clientIP,
+			RequestPayloadHash: requestPayloadHash,
+			APIKeyService:      h.apiKeyService,
+			ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
+			CyberBlocked:       cyberBlocked,
+		}
+		if err := finalizeUsageFactResponse(c, usageGate, func(ctx context.Context) error {
+			_, err := h.gatewayService.PersistUsageFact(ctx, usageInput)
+			return err
+		}); err != nil {
+			logger.L().With(
+				zap.String("component", "handler.openai_gateway.chat_completions"),
+				zap.Int64("user_id", subject.UserID),
+				zap.Int64("api_key_id", apiKey.ID),
+				zap.Any("group_id", apiKey.GroupID),
+				zap.String("model", reqModel),
+				zap.Int64("account_id", account.ID),
+			).Error("openai_chat_completions.persist_usage_fact_failed", zap.Error(err))
+			return
+		}
 		reqLog.Debug("openai_chat_completions.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
