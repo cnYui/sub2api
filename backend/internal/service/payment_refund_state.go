@@ -124,9 +124,19 @@ func (s *PaymentService) lockRefundOrder(ctx context.Context, client *dbent.Clie
 	return query.Only(ctx)
 }
 
-func (s *PaymentService) revokeRefundSubscriptionInTransaction(ctx context.Context, sub *UserSubscription) error {
+func (s *PaymentService) revokeRefundSubscriptionInTransaction(ctx context.Context, orderID int64, sub *UserSubscription) error {
 	if sub == nil || s.subscriptionSvc == nil || s.subscriptionSvc.userSubRepo == nil {
 		return infraerrors.BadRequest("SUBSCRIPTION_NOT_FOUND", "linked subscription not found")
+	}
+	if s.subscriptionSvc.entitlementPeriodRepo != nil {
+		if err := s.subscriptionSvc.entitlementPeriodRepo.RevokeBySource(
+			ctx,
+			paymentOrderSubscriptionEntitlementSource(orderID),
+			s.subscriptionSvc.currentTime(),
+			"payment_refund",
+		); err != nil {
+			return err
+		}
 	}
 	if err := s.subscriptionSvc.userSubRepo.UpdateStatus(ctx, sub.ID, SubscriptionStatusExpired); err != nil {
 		return err
@@ -237,7 +247,7 @@ func (s *PaymentService) completeGatewaySubscriptionRefundTransaction(
 			s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
 			return nil, failure
 		}
-		if err := s.revokeRefundSubscriptionInTransaction(txCtx, sub); err != nil && !errors.Is(err, ErrSubscriptionNotFound) {
+		if err := s.revokeRefundSubscriptionInTransaction(txCtx, order.ID, sub); err != nil && !errors.Is(err, ErrSubscriptionNotFound) {
 			failure := rollback(fmt.Errorf("revoke subscription after gateway refund: %w", err))
 			s.markGatewayRefundEntitlementFailure(ctx, order.ID, failure, operator, order.RefundAmount)
 			return nil, failure

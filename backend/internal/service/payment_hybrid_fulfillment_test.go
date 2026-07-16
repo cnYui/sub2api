@@ -44,6 +44,10 @@ func TestHybridWebhook_CapturesHoldAndFulfillsExactlyOnce(t *testing.T) {
 	require.Equal(t, balanceHoldStatusCaptured, hold.Status)
 	require.NotNil(t, hold.CapturedAt)
 	require.Equal(t, 1, scenario.subRepo.createCalls)
+	period, err := scenario.entitlementRepo.GetBySource(ctx, paymentOrderSubscriptionEntitlementSource(scenario.order.ID))
+	require.NoError(t, err)
+	require.Equal(t, int64(1), period.SubscriptionID)
+	require.Len(t, scenario.entitlementRepo.periods, 1)
 }
 
 func TestHybridWebhook_RejectsPayAmountInsteadOfGatewayAmount(t *testing.T) {
@@ -98,11 +102,12 @@ func TestHybridWebhook_AfterReleasedHoldCreditsGatewayAmountOnce(t *testing.T) {
 }
 
 type hybridFulfillmentScenario struct {
-	client  *dbent.Client
-	svc     *PaymentService
-	subRepo *subscriptionUserSubRepoStub
-	order   *dbent.PaymentOrder
-	userID  int64
+	client          *dbent.Client
+	svc             *PaymentService
+	subRepo         *subscriptionUserSubRepoStub
+	entitlementRepo *subscriptionEntitlementPeriodRepoStub
+	order           *dbent.PaymentOrder
+	userID          int64
 }
 
 func newHybridFulfillmentScenario(t *testing.T, ctx context.Context, holdStatus, orderStatus string) hybridFulfillmentScenario {
@@ -161,11 +166,21 @@ func newHybridFulfillmentScenario(t *testing.T, ctx context.Context, holdStatus,
 	require.Equal(t, 1, count)
 
 	subRepo := newSubscriptionUserSubRepoStub()
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	groupRepo := &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}}
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 	svc := &PaymentService{
 		entClient:       client,
 		groupRepo:       groupRepo,
-		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
+		subscriptionSvc: subscriptionSvc,
 	}
-	return hybridFulfillmentScenario{client: client, svc: svc, subRepo: subRepo, order: order, userID: u.ID}
+	return hybridFulfillmentScenario{
+		client:          client,
+		svc:             svc,
+		subRepo:         subRepo,
+		entitlementRepo: entitlementRepo,
+		order:           order,
+		userID:          u.ID,
+	}
 }

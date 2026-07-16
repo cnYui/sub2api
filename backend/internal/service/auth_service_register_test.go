@@ -647,8 +647,10 @@ func TestAuthService_Register_AssignsDefaultSubscriptions(t *testing.T) {
 	require.Equal(t, int64(42), assigner.calls[0].UserID)
 	require.Equal(t, int64(11), assigner.calls[0].GroupID)
 	require.Equal(t, 30, assigner.calls[0].ValidityDays)
+	require.Equal(t, SubscriptionEntitlementSource{Type: "signup_default", ID: "42:11"}, assigner.calls[0].EntitlementSource)
 	require.Equal(t, int64(12), assigner.calls[1].GroupID)
 	require.Equal(t, 7, assigner.calls[1].ValidityDays)
+	require.Equal(t, SubscriptionEntitlementSource{Type: "signup_default", ID: "42:12"}, assigner.calls[1].EntitlementSource)
 }
 
 func TestAuthService_Register_UsesEmailAuthSourceDefaultsWhenGrantEnabled(t *testing.T) {

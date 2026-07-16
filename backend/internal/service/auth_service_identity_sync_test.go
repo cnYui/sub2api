@@ -480,3 +480,28 @@ func countProviderGrantRecords(
 	require.NoError(t, rows.Err())
 	return count
 }
+
+func providerGrantRecordID(
+	t *testing.T,
+	client *dbent.Client,
+	userID int64,
+	providerType string,
+	grantReason string,
+) int64 {
+	t.Helper()
+
+	var id int64
+	rows, err := client.QueryContext(
+		context.Background(),
+		`SELECT id FROM user_provider_default_grants WHERE user_id = ? AND provider_type = ? AND grant_reason = ?`,
+		userID,
+		providerType,
+		grantReason,
+	)
+	require.NoError(t, err)
+	defer rows.Close()
+	require.True(t, rows.Next())
+	require.NoError(t, rows.Scan(&id))
+	require.NoError(t, rows.Err())
+	return id
+}

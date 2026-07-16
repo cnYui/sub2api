@@ -76,6 +76,10 @@ ON CONFLICT (user_id, provider_type, grant_reason) DO NOTHING`,
 	if affected == 0 {
 		return nil
 	}
+	grantID, err := lookupProviderDefaultGrantID(ctx, client, userID, providerType, "first_bind")
+	if err != nil {
+		return err
+	}
 
 	if providerDefaults.Balance != 0 {
 		if err := client.User.UpdateOneID(userID).AddBalance(providerDefaults.Balance).Exec(ctx); err != nil {
@@ -90,10 +94,11 @@ ON CONFLICT (user_id, provider_type, grant_reason) DO NOTHING`,
 	if s.defaultSubAssigner != nil {
 		for _, item := range providerDefaults.Subscriptions {
 			if _, _, err := s.defaultSubAssigner.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
-				UserID:       userID,
-				GroupID:      item.GroupID,
-				ValidityDays: item.ValidityDays,
-				Notes:        "auto assigned by first bind defaults",
+				UserID:            userID,
+				GroupID:           item.GroupID,
+				ValidityDays:      item.ValidityDays,
+				Notes:             "auto assigned by first bind defaults",
+				EntitlementSource: providerDefaultSubscriptionEntitlementSource(grantID, item.GroupID),
 			}); err != nil {
 				return fmt.Errorf("apply first bind subscription default: %w", err)
 			}
@@ -101,4 +106,29 @@ ON CONFLICT (user_id, provider_type, grant_reason) DO NOTHING`,
 	}
 
 	return nil
+}
+
+func lookupProviderDefaultGrantID(ctx context.Context, client *dbent.Client, userID int64, providerType, grantReason string) (int64, error) {
+	rows, err := client.QueryContext(
+		ctx,
+		`SELECT id FROM user_provider_default_grants WHERE user_id = $1 AND provider_type = $2 AND grant_reason = $3`,
+		userID,
+		strings.TrimSpace(providerType),
+		strings.TrimSpace(grantReason),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("load first bind provider grant id: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		return 0, fmt.Errorf("first bind provider grant id not found")
+	}
+	var id int64
+	if err := rows.Scan(&id); err != nil {
+		return 0, fmt.Errorf("scan first bind provider grant id: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("iterate first bind provider grant id: %w", err)
+	}
+	return id, nil
 }

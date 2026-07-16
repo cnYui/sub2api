@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -169,6 +170,8 @@ func TestAuthServiceBindEmailIdentity_UpdatesEmailAndAppliesFirstBindDefaults(t 
 	require.Equal(t, user.ID, assigner.calls[0].UserID)
 	require.Equal(t, int64(11), assigner.calls[0].GroupID)
 	require.Equal(t, 30, assigner.calls[0].ValidityDays)
+	grantID := providerGrantRecordID(t, client, user.ID, "email", "first_bind")
+	require.Equal(t, service.SubscriptionEntitlementSource{Type: "provider_default", ID: fmt.Sprintf("%d:11", grantID)}, assigner.calls[0].EntitlementSource)
 	require.Equal(t, 1, countProviderGrantRecords(t, client, user.ID, "email", "first_bind"))
 }
 

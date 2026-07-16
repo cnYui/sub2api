@@ -733,10 +733,11 @@ func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userI
 	items := s.settingService.GetDefaultSubscriptions(ctx)
 	for _, item := range items {
 		if _, _, err := s.defaultSubAssigner.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
-			UserID:       userID,
-			GroupID:      item.GroupID,
-			ValidityDays: item.ValidityDays,
-			Notes:        "auto assigned by default user subscriptions setting",
+			UserID:            userID,
+			GroupID:           item.GroupID,
+			ValidityDays:      item.ValidityDays,
+			Notes:             "auto assigned by default user subscriptions setting",
+			EntitlementSource: signupDefaultSubscriptionEntitlementSource(userID, item.GroupID),
 		}); err != nil {
 			logger.LegacyPrintf("service.admin", "failed to assign default subscription: user_id=%d group_id=%d err=%v", userID, item.GroupID, err)
 		}

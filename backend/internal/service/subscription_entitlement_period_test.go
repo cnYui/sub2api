@@ -21,6 +21,8 @@ type subscriptionEntitlementPeriodRepoStub struct {
 	periods                 map[string]*SubscriptionEntitlementPeriod
 	nextID                  int64
 	revokeSubscriptionCalls []int64
+	revokeSourceCalls       []SubscriptionEntitlementSource
+	revokeReasons           []string
 }
 
 type wrappedSourceConflictEntitlementPeriodRepoStub struct {
@@ -70,6 +72,8 @@ func (s *subscriptionEntitlementPeriodRepoStub) RevokeUnexpiredBySubscription(_ 
 }
 
 func (s *subscriptionEntitlementPeriodRepoStub) RevokeBySource(_ context.Context, source SubscriptionEntitlementSource, now time.Time, reason string) error {
+	s.revokeSourceCalls = append(s.revokeSourceCalls, source)
+	s.revokeReasons = append(s.revokeReasons, reason)
 	period := s.periods[subscriptionEntitlementSourceKey(source)]
 	if period == nil || period.Status != "active" || !period.ExpiresAt.After(now) {
 		return nil
@@ -443,6 +447,80 @@ func TestRevokeSubscription_RevokesUnexpiredEntitlementPeriodsBeforeDeletingSubs
 	require.NotNil(t, period.RevokedAt)
 	require.Equal(t, "subscription_revoked", period.RevokedReason)
 	require.Equal(t, []string{"get", "status", "delete"}, userSubRepo.callOrder)
+}
+
+func TestExtendSubscription_PositiveAdjustmentAppendsAdminAdjustmentEntitlementPeriod(t *testing.T) {
+	now := time.Date(2030, 7, 16, 9, 0, 0, 0, time.UTC)
+	oldExpiresAt := now.AddDate(0, 0, 20)
+	newExpiresAt := oldExpiresAt.AddDate(0, 0, 10)
+	dailyLimit := 19.0
+	userSubRepo := newSubscriptionUserSubRepoStub()
+	userSubRepo.seed(&UserSubscription{
+		ID:        90,
+		UserID:    70,
+		GroupID:   9,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  now.AddDate(0, 0, -10),
+		ExpiresAt: oldExpiresAt,
+	})
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
+	svc := newEntitlementSubscriptionServiceForTest(&subscriptionGroupRepoStub{
+		group: &Group{
+			ID:               9,
+			SubscriptionType: SubscriptionTypeSubscription,
+			DailyLimitUSD:    &dailyLimit,
+		},
+	}, userSubRepo, entitlementRepo, now)
+
+	subscription, err := svc.ExtendSubscription(context.Background(), 90, 10)
+
+	require.NoError(t, err)
+	require.Equal(t, newExpiresAt, subscription.ExpiresAt)
+	period, err := entitlementRepo.GetBySource(context.Background(), adminAdjustmentSubscriptionEntitlementSource(90, newExpiresAt))
+	require.NoError(t, err)
+	require.Equal(t, int64(70), period.UserID)
+	require.Equal(t, int64(9), period.GroupID)
+	require.Equal(t, int64(90), period.SubscriptionID)
+	require.Equal(t, oldExpiresAt, period.StartsAt)
+	require.Equal(t, newExpiresAt, period.ExpiresAt)
+	require.Equal(t, 10, period.PeriodDays)
+	require.InDelta(t, dailyLimit, *period.DailyLimitUSD, 0.0000001)
+}
+
+func TestExtendSubscription_NegativeAdjustmentRevokesUnexpiredEntitlementPeriods(t *testing.T) {
+	now := time.Date(2030, 7, 16, 9, 0, 0, 0, time.UTC)
+	userSubRepo := newSubscriptionUserSubRepoStub()
+	userSubRepo.seed(&UserSubscription{
+		ID:        91,
+		UserID:    71,
+		GroupID:   10,
+		Status:    SubscriptionStatusActive,
+		StartsAt:  now.AddDate(0, 0, -10),
+		ExpiresAt: now.AddDate(0, 0, 20),
+	})
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
+	entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})] = &SubscriptionEntitlementPeriod{
+		ID:             1,
+		UserID:         71,
+		SubscriptionID: 91,
+		GroupID:        10,
+		Source:         SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"},
+		StartsAt:       now.AddDate(0, 0, -10),
+		ExpiresAt:      now.AddDate(0, 0, 20),
+		PeriodDays:     30,
+		Status:         SubscriptionEntitlementPeriodStatusActive,
+	}
+	svc := newEntitlementSubscriptionServiceForTest(&subscriptionGroupRepoStub{
+		group: &Group{ID: 10, SubscriptionType: SubscriptionTypeSubscription},
+	}, userSubRepo, entitlementRepo, now)
+
+	subscription, err := svc.ExtendSubscription(context.Background(), 91, -5)
+
+	require.NoError(t, err)
+	require.Equal(t, now.AddDate(0, 0, 15), subscription.ExpiresAt)
+	require.Equal(t, []int64{91}, entitlementRepo.revokeSubscriptionCalls)
+	require.Equal(t, "revoked", entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})].Status)
+	require.Equal(t, "admin_adjustment_negative", entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})].RevokedReason)
 }
 
 func TestWithSubscriptionUpdateTx_ReusesOuterTransactionWithoutNestedBegin(t *testing.T) {

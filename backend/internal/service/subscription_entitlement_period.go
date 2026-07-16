@@ -2,10 +2,14 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	"entgo.io/ent/dialect"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -15,6 +19,13 @@ import (
 const (
 	SubscriptionEntitlementPeriodStatusActive  = "active"
 	SubscriptionEntitlementPeriodStatusRevoked = "revoked"
+
+	subscriptionEntitlementSourceTypePaymentOrder    = "payment_order"
+	subscriptionEntitlementSourceTypeRedeemCode      = "redeem_code"
+	subscriptionEntitlementSourceTypeSignupDefault   = "signup_default"
+	subscriptionEntitlementSourceTypeProviderDefault = "provider_default"
+	subscriptionEntitlementSourceTypeAdminAssignment = "admin_assignment"
+	subscriptionEntitlementSourceTypeAdminAdjustment = "admin_adjustment"
 )
 
 var (
@@ -93,6 +104,49 @@ func (source SubscriptionEntitlementSource) validate() error {
 
 func hasSubscriptionEntitlementSource(input *AssignSubscriptionInput) bool {
 	return input != nil && !input.EntitlementSource.isZero()
+}
+
+func paymentOrderSubscriptionEntitlementSource(orderID int64) SubscriptionEntitlementSource {
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypePaymentOrder,
+		ID:   strconv.FormatInt(orderID, 10),
+	}
+}
+
+func redeemCodeSubscriptionEntitlementSource(codeID int64) SubscriptionEntitlementSource {
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypeRedeemCode,
+		ID:   strconv.FormatInt(codeID, 10),
+	}
+}
+
+func signupDefaultSubscriptionEntitlementSource(userID, groupID int64) SubscriptionEntitlementSource {
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypeSignupDefault,
+		ID:   fmt.Sprintf("%d:%d", userID, groupID),
+	}
+}
+
+func providerDefaultSubscriptionEntitlementSource(grantID, groupID int64) SubscriptionEntitlementSource {
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypeProviderDefault,
+		ID:   fmt.Sprintf("%d:%d", grantID, groupID),
+	}
+}
+
+func adminAssignmentSubscriptionEntitlementSource(userID, groupID int64, validityDays int, notes string) SubscriptionEntitlementSource {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(notes)))
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypeAdminAssignment,
+		ID:   fmt.Sprintf("%d:%d:%d:%x", userID, groupID, normalizeAssignValidityDays(validityDays), digest),
+	}
+}
+
+func adminAdjustmentSubscriptionEntitlementSource(subscriptionID int64, newExpiresAt time.Time) SubscriptionEntitlementSource {
+	return SubscriptionEntitlementSource{
+		Type: subscriptionEntitlementSourceTypeAdminAdjustment,
+		ID:   fmt.Sprintf("%d:%s", subscriptionID, newExpiresAt.UTC().Format(time.RFC3339Nano)),
+	}
 }
 
 // GrantSubscriptionEntitlement 在同一事务内更新订阅和权益周期。
@@ -258,7 +312,11 @@ func (s *SubscriptionService) lockSubscriptionEntitlementUser(ctx context.Contex
 	if client == nil {
 		return nil
 	}
-	_, err := client.User.Query().Where(user.IDEQ(userID)).ForUpdate().Only(ctx)
+	query := client.User.Query().Where(user.IDEQ(userID))
+	if client.Driver() != nil && client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	_, err := query.Only(ctx)
 	if dbent.IsNotFound(err) {
 		return ErrUserNotFound.WithCause(err)
 	}

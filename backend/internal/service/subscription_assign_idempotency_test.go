@@ -365,6 +365,8 @@ func TestBulkAssignSubscriptionCreatedReusedAndConflict(t *testing.T) {
 	})
 
 	svc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
+	svc.entitlementPeriodRepo = entitlementRepo
 	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
 		UserIDs:      []int64{1, 2, 3},
 		GroupID:      1,
@@ -381,6 +383,12 @@ func TestBulkAssignSubscriptionCreatedReusedAndConflict(t *testing.T) {
 	require.Equal(t, "created", result.Statuses[2])
 	require.Equal(t, "failed", result.Statuses[3])
 	require.Equal(t, 1, subRepo.createCalls)
+	createdPeriod, err := entitlementRepo.GetBySource(context.Background(), adminAssignmentSubscriptionEntitlementSource(2, 1, 30, "same-note"))
+	require.NoError(t, err)
+	require.Equal(t, int64(2), createdPeriod.UserID)
+	require.Equal(t, int64(1), createdPeriod.GroupID)
+	_, err = entitlementRepo.GetBySource(context.Background(), adminAssignmentSubscriptionEntitlementSource(1, 1, 30, "same-note"))
+	require.ErrorIs(t, err, ErrSubscriptionEntitlementPeriodNotFound)
 }
 
 func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testing.T) {
