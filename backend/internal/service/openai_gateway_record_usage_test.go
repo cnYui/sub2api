@@ -39,6 +39,24 @@ type openAIRecordUsageBillingRepoStub struct {
 	lastCtxErr error
 }
 
+type openAIRecordUsageFactRepoStub struct {
+	UsageFactRepository
+	createCalls int
+	created     *UsageFact
+	err         error
+}
+
+func (s *openAIRecordUsageFactRepoStub) CreatePending(ctx context.Context, fact *UsageFact) (*UsageFact, bool, error) {
+	s.createCalls++
+	s.created = fact
+	if s.err != nil {
+		return nil, false, s.err
+	}
+	persisted := *fact
+	persisted.ID = 1
+	return &persisted, true, nil
+}
+
 func (s *openAIRecordUsageBillingRepoStub) Apply(ctx context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error) {
 	s.calls++
 	s.lastCmd = cmd
@@ -56,6 +74,45 @@ func TestOpenAIGatewayServiceRecordUsage_RejectsNilInput(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	require.Error(t, svc.RecordUsage(context.Background(), nil))
 	require.Error(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{}))
+}
+
+func TestOpenAIGatewayServicePersistUsageFact_DoesNotApplyBillingInline(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{}
+	billingRepo := &openAIRecordUsageBillingRepoStub{}
+	factRepo := &openAIRecordUsageFactRepoStub{}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		usageRepo,
+		billingRepo,
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+	svc.usageFactRepo = factRepo
+
+	fact, err := svc.PersistUsageFact(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "req-1",
+			Usage: OpenAIUsage{
+				InputTokens:  10,
+				OutputTokens: 2,
+			},
+			Model:    "gpt-5.1",
+			Duration: time.Second,
+		},
+		APIKey:  &APIKey{ID: 9, Group: &Group{RateMultiplier: 1}},
+		User:    &User{ID: 7},
+		Account: &Account{ID: 5},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, fact)
+	require.Equal(t, 1, factRepo.createCalls)
+	require.Zero(t, billingRepo.calls)
+	require.Zero(t, usageRepo.calls)
+	payload, err := DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+	require.NoError(t, err)
+	require.Equal(t, "req-1", payload.BillingCommand.RequestID)
+	require.Equal(t, "req-1", payload.UsageLog.RequestID)
 }
 
 func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
@@ -200,7 +257,15 @@ func i64p(v int64) *int64 {
 	return &v
 }
 
-func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *OpenAIGatewayService {
+type openAIRecordUsageTestService struct {
+	*OpenAIGatewayService
+}
+
+func (s *openAIRecordUsageTestService) RecordUsage(ctx context.Context, input *OpenAIRecordUsageInput) error {
+	return s.recordUsageLegacy(ctx, input)
+}
+
+func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *openAIRecordUsageTestService {
 	cfg := &config.Config{}
 	cfg.Default.RateMultiplier = 1.1
 	svc := NewOpenAIGatewayService(
@@ -225,6 +290,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil,
 		nil, // userPlatformQuotaRepo
+		nil, // usageFactRepo
 	)
 	svc.userGroupRateResolver = newUserGroupRateResolver(
 		rateRepo,
@@ -233,16 +299,16 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		"service.openai_gateway.test",
 	)
-	return svc
+	return &openAIRecordUsageTestService{OpenAIGatewayService: svc}
 }
 
-func newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *OpenAIGatewayService {
+func newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *openAIRecordUsageTestService {
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
 	svc.usageBillingRepo = billingRepo
 	return svc
 }
 
-func expectedOpenAICost(t *testing.T, svc *OpenAIGatewayService, model string, usage OpenAIUsage, multiplier float64) *CostBreakdown {
+func expectedOpenAICost(t *testing.T, svc *openAIRecordUsageTestService, model string, usage OpenAIUsage, multiplier float64) *CostBreakdown {
 	t.Helper()
 
 	cost, err := svc.billingService.CalculateCost(model, UsageTokens{

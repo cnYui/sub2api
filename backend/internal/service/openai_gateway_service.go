@@ -335,6 +335,7 @@ type OpenAIGatewayService struct {
 	accountRepo           AccountRepository
 	usageLogRepo          UsageLogRepository
 	usageBillingRepo      UsageBillingRepository
+	usageFactRepo         UsageFactRepository
 	userRepo              UserRepository
 	userSubRepo           UserSubscriptionRepository
 	cache                 GatewayCache
@@ -401,11 +402,13 @@ func NewOpenAIGatewayService(
 	balanceNotifyService *BalanceNotifyService,
 	settingService *SettingService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	usageFactRepo UsageFactRepository,
 ) *OpenAIGatewayService {
 	svc := &OpenAIGatewayService{
 		accountRepo:         accountRepo,
 		usageLogRepo:        usageLogRepo,
 		usageBillingRepo:    usageBillingRepo,
+		usageFactRepo:       usageFactRepo,
 		userRepo:            userRepo,
 		userSubRepo:         userSubRepo,
 		cache:               cache,
@@ -6017,7 +6020,7 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 			OutputTokens: in.OutputTokens,
 		},
 	}
-	if err := s.RecordUsage(ctx, &OpenAIRecordUsageInput{
+	if err := s.recordUsageLegacy(ctx, &OpenAIRecordUsageInput{
 		Result:             result,
 		APIKey:             in.APIKey,
 		User:               in.APIKey.User,
@@ -6036,14 +6039,62 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 	}
 }
 
-// RecordUsage records usage and deducts balance
+type openAIUsageRecordBuild struct {
+	usageLog      *UsageLog
+	billingParams *postUsageBillingParams
+	effects       UsageSettlementEffectsPayload
+}
+
 func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRecordUsageInput) error {
+	_, err := s.PersistUsageFact(ctx, input)
+	return err
+}
+
+func (s *OpenAIGatewayService) PersistUsageFact(ctx context.Context, input *OpenAIRecordUsageInput) (*UsageFact, error) {
+	if s == nil || s.usageFactRepo == nil {
+		return nil, errors.New("usage fact repository is required")
+	}
+	fact, err := s.BuildUsageFact(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	persisted, _, err := s.usageFactRepo.CreatePending(ctx, fact)
+	return persisted, err
+}
+
+func (s *OpenAIGatewayService) BuildUsageFact(ctx context.Context, input *OpenAIRecordUsageInput) (*UsageFact, error) {
+	record, err := s.buildOpenAIUsageRecord(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	command := BuildUsageBillingCommand(record.usageLog.RequestID, record.usageLog, record.billingParams)
+	if command == nil {
+		return nil, errors.New("failed to build usage billing command")
+	}
+	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		command.BalanceCost = 0
+		command.SubscriptionCost = 0
+		command.TrafficPackCost = 0
+		command.APIKeyQuotaCost = 0
+		command.APIKeyRateLimitCost = 0
+		command.AccountQuotaCost = 0
+		command.RequestFingerprint = ""
+		command.Normalize()
+	}
+	return NewUsageFact(UsageFactPayload{
+		BillingCommand: *command,
+		UsageLog:       *record.usageLog,
+		Effects:        record.effects,
+	})
+}
+
+func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input *OpenAIRecordUsageInput) (*openAIUsageRecordBuild, error) {
 	if input == nil {
-		return errors.New("openai usage input is nil")
+		return nil, errors.New("openai usage input is nil")
 	}
 	result := input.Result
 	if result == nil {
-		return errors.New("openai usage result is nil")
+		return nil, errors.New("openai usage result is nil")
 	}
 	if s.rateLimitService != nil && input.Account != nil && input.Account.Platform == PlatformOpenAI {
 		s.rateLimitService.ResetOpenAI403Counter(ctx, input.Account.ID)
@@ -6113,7 +6164,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
 	if err != nil {
 		if !isUsagePricingUnavailableError(err) {
-			return err
+			return nil, err
 		}
 		logger.L().With(
 			zap.String("component", "service.openai_gateway"),
@@ -6243,35 +6294,59 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		)
 	}
 
+	billingParams := &postUsageBillingParams{
+		Cost:                  cost,
+		User:                  user,
+		APIKey:                apiKey,
+		Account:               account,
+		Subscription:          subscription,
+		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+		IsSubscriptionBill:    isSubscriptionBilling,
+		AccountRateMultiplier: accountRateMultiplier,
+		APIKeyService:         input.APIKeyService,
+		Platform:              quotaPlatform,
+		UseTrafficPack:        useTrafficPack,
+	}
+	return &openAIUsageRecordBuild{
+		usageLog:      usageLog,
+		billingParams: billingParams,
+		effects: UsageSettlementEffectsPayload{
+			UserID:          user.ID,
+			APIKeyID:        apiKey.ID,
+			AccountID:       account.ID,
+			GroupID:         apiKey.GroupID,
+			Platform:        quotaPlatform,
+			ActualCost:      cost.ActualCost,
+			IsSubscription:  isSubscriptionBilling,
+			IsTrafficCredit: useTrafficPack,
+		},
+	}, nil
+}
+
+func (s *OpenAIGatewayService) recordUsageLegacy(ctx context.Context, input *OpenAIRecordUsageInput) error {
+	record, err := s.buildOpenAIUsageRecord(ctx, input)
+	if err != nil {
+		return err
+	}
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
-		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
-		s.deferredService.ScheduleLastUsedUpdate(account.ID)
+		writeUsageLogBestEffort(ctx, s.usageLogRepo, record.usageLog, "service.openai_gateway")
+		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", record.usageLog.UserID, record.usageLog.TotalTokens())
+		if s.deferredService != nil && record.billingParams.Account != nil {
+			s.deferredService.ScheduleLastUsedUpdate(record.billingParams.Account.ID)
+		}
 		return nil
 	}
-
-	billingErr := func() error {
-		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-			Cost:                  cost,
-			User:                  user,
-			APIKey:                apiKey,
-			Account:               account,
-			Subscription:          subscription,
-			RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-			IsSubscriptionBill:    isSubscriptionBilling,
-			AccountRateMultiplier: accountRateMultiplier,
-			APIKeyService:         input.APIKeyService,
-			Platform:              quotaPlatform,
-			UseTrafficPack:        useTrafficPack,
-		}, s.billingDeps(), s.usageBillingRepo)
+	if _, err := applyUsageBilling(
+		ctx,
+		record.usageLog.RequestID,
+		record.usageLog,
+		record.billingParams,
+		s.billingDeps(),
+		s.usageBillingRepo,
+	); err != nil {
 		return err
-	}()
-
-	if billingErr != nil {
-		return billingErr
 	}
-	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
-
+	writeUsageLogBestEffort(ctx, s.usageLogRepo, record.usageLog, "service.openai_gateway")
 	return nil
 }
 
