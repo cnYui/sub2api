@@ -27,14 +27,16 @@ type UsageFactPayload struct {
 }
 
 type UsageSettlementEffectsPayload struct {
-	UserID          int64   `json:"user_id"`
-	APIKeyID        int64   `json:"api_key_id"`
-	AccountID       int64   `json:"account_id"`
-	GroupID         *int64  `json:"group_id,omitempty"`
-	Platform        string  `json:"platform"`
-	ActualCost      float64 `json:"actual_cost"`
-	IsSubscription  bool    `json:"is_subscription"`
-	IsTrafficCredit bool    `json:"is_traffic_credit"`
+	UserID                int64   `json:"user_id"`
+	APIKeyID              int64   `json:"api_key_id"`
+	AccountID             int64   `json:"account_id"`
+	GroupID               *int64  `json:"group_id,omitempty"`
+	Platform              string  `json:"platform"`
+	ActualCost            float64 `json:"actual_cost"`
+	TotalCost             float64 `json:"total_cost"`
+	AccountRateMultiplier float64 `json:"account_rate_multiplier"`
+	IsSubscription        bool    `json:"is_subscription"`
+	IsTrafficCredit       bool    `json:"is_traffic_credit"`
 }
 
 type UsageFact struct {

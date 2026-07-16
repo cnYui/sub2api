@@ -173,8 +173,40 @@ func ProvideUsageFactSettlementService(
 	factRepo UsageFactRepository,
 	billingRepo UsageBillingRepository,
 	usageLogRepo UsageLogRepository,
+	effects *OpenAIUsageSettlementEffects,
 ) *UsageFactSettlementService {
-	return NewUsageFactSettlementService(factRepo, billingRepo, usageLogRepo, nil)
+	return NewUsageFactSettlementService(factRepo, billingRepo, usageLogRepo, effects)
+}
+
+func ProvideOpenAIUsageSettlementEffects(
+	userRepo UserRepository,
+	apiKeyRepo APIKeyRepository,
+	accountRepo AccountRepository,
+	userSubRepo UserSubscriptionRepository,
+	authInvalidator APIKeyAuthCacheInvalidator,
+	billingCacheService *BillingCacheService,
+	deferredService *DeferredService,
+	balanceNotifyService *BalanceNotifyService,
+	userPlatformQuotaRepo UserPlatformQuotaRepository,
+	cfg *config.Config,
+) *OpenAIUsageSettlementEffects {
+	return &OpenAIUsageSettlementEffects{
+		userRepo:        userRepo,
+		apiKeyRepo:      apiKeyRepo,
+		accountRepo:     accountRepo,
+		authInvalidator: authInvalidator,
+		deps: &billingDeps{
+			accountRepo:           accountRepo,
+			userRepo:              userRepo,
+			userSubRepo:           userSubRepo,
+			billingCacheService:   billingCacheService,
+			deferredService:       deferredService,
+			balanceNotifyService:  balanceNotifyService,
+			userPlatformQuotaRepo: userPlatformQuotaRepo,
+			trafficPackService:    trafficPackServiceFromBillingCache(billingCacheService),
+			cfg:                   cfg,
+		},
+	}
 }
 
 func ProvideUsageFactWorker(
@@ -622,6 +654,7 @@ var ProviderSet = wire.NewSet(
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,
+	ProvideOpenAIUsageSettlementEffects,
 	ProvideUsageFactSettlementService,
 	ProvideUsageFactWorker,
 	ProvideDeferredService,
