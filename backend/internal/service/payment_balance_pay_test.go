@@ -116,9 +116,11 @@ func TestBalancePaySubscriptionRenewsSameActiveSubscription(t *testing.T) {
 		Notes:     "initial subscription",
 	})
 	svc := newBalancePayTestService(client, 0)
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}, subRepo, nil, nil, nil)
+	svc.subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 
 	resp, err := svc.BalancePayOrder(ctx, BalancePayOrderRequest{
 		UserID:    u.ID,
@@ -141,6 +143,12 @@ func TestBalancePaySubscriptionRenewsSameActiveSubscription(t *testing.T) {
 	require.Contains(t, renewed.Notes, "initial subscription")
 	require.Contains(t, renewed.Notes, "payment order")
 	require.Zero(t, subRepo.createCalls)
+
+	period, err := entitlementRepo.GetBySource(ctx, paymentOrderSubscriptionEntitlementSource(order.ID))
+	require.NoError(t, err)
+	require.Equal(t, int64(43), period.SubscriptionID)
+	require.Equal(t, expiresAt, period.StartsAt)
+	require.Equal(t, expiresAt.AddDate(0, 0, 30), period.ExpiresAt)
 }
 
 func TestBalancePaySubscriptionRejectsDifferentActiveSubscription(t *testing.T) {
@@ -242,9 +250,11 @@ func TestBalancePaySubscriptionDeductsPayAmountAndCompletesOrder(t *testing.T) {
 
 	subRepo := newSubscriptionUserSubRepoStub()
 	svc := newBalancePayTestService(client, 1)
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}, subRepo, nil, nil, nil)
+	svc.subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 
 	resp, err := svc.BalancePayOrder(ctx, BalancePayOrderRequest{
 		UserID:    u.ID,
@@ -263,6 +273,13 @@ func TestBalancePaySubscriptionDeductsPayAmountAndCompletesOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 20.21, reloaded.Balance)
 	require.Equal(t, 1, subRepo.createCalls)
+
+	order, err := client.PaymentOrder.Query().Only(ctx)
+	require.NoError(t, err)
+	period, err := entitlementRepo.GetBySource(ctx, paymentOrderSubscriptionEntitlementSource(order.ID))
+	require.NoError(t, err)
+	require.Equal(t, u.ID, period.UserID)
+	require.Equal(t, int64(7), period.GroupID)
 }
 
 func TestBalancePayTrafficPackDeductsPayAmountAndCreditsPack(t *testing.T) {

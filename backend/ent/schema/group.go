@@ -153,6 +153,9 @@ func (Group) Edges() []ent.Edge {
 		edge.To("api_keys", APIKey.Type),
 		edge.To("redeem_codes", RedeemCode.Type),
 		edge.To("subscriptions", UserSubscription.Type),
+		edge.To("subscription_entitlement_periods", SubscriptionEntitlementPeriod.Type).
+			StorageKey(edge.Symbol("subscription_entitlement_periods_group_id_fkey")).
+			Annotations(entsql.OnDelete(entsql.Restrict)),
 		edge.To("usage_logs", UsageLog.Type),
 		edge.From("accounts", Account.Type).
 			Ref("groups").

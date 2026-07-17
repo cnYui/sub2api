@@ -387,6 +387,22 @@ func TestRequestRefundPendingDoesNotRevokeSubscription(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRequestRefundRevokesPaymentOrderEntitlementSource(t *testing.T) {
+	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-success", Status: payment.ProviderStatusSuccess}}}
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	scenario.svc.subscriptionSvc.entitlementPeriodRepo = entitlementRepo
+
+	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "撤销权益周期")
+
+	require.NoError(t, err)
+	require.Equal(t, []SubscriptionEntitlementSource{{
+		Type: "payment_order",
+		ID:   strconv.FormatInt(scenario.orderID, 10),
+	}}, entitlementRepo.revokeSourceCalls)
+	require.Equal(t, []string{"payment_refund"}, entitlementRepo.revokeReasons)
+}
+
 func TestRequestRefundRetryAfterGatewaySuccessOnlyRevokesEntitlement(t *testing.T) {
 	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-success", Status: payment.ProviderStatusSuccess}}}
 	baseRepo := newSubscriptionUserSubRepoStub()

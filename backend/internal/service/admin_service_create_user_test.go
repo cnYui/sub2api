@@ -162,4 +162,5 @@ func TestAdminService_CreateUser_AssignsDefaultSubscriptions(t *testing.T) {
 	require.Equal(t, int64(21), assigner.calls[0].UserID)
 	require.Equal(t, int64(5), assigner.calls[0].GroupID)
 	require.Equal(t, 30, assigner.calls[0].ValidityDays)
+	require.Equal(t, SubscriptionEntitlementSource{Type: "signup_default", ID: "21:5"}, assigner.calls[0].EntitlementSource)
 }

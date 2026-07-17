@@ -801,9 +801,11 @@ func TestConfirmPaymentRejectsSubscriptionAmountMismatch(t *testing.T) {
 	require.NoError(t, err)
 
 	subRepo := newSubscriptionUserSubRepoStub()
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}, subRepo, nil, nil, nil)
+	subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 	svc := &PaymentService{
 		entClient:       client,
 		groupRepo:       &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
@@ -861,9 +863,11 @@ func TestConfirmPaymentCompletesSubscriptionWhenAmountMatches(t *testing.T) {
 	require.NoError(t, err)
 
 	subRepo := newSubscriptionUserSubRepoStub()
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}, subRepo, nil, nil, nil)
+	subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 	svc := &PaymentService{
 		entClient:       client,
 		groupRepo:       &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
@@ -883,6 +887,12 @@ func TestConfirmPaymentCompletesSubscriptionWhenAmountMatches(t *testing.T) {
 	require.Equal(t, OrderStatusCompleted, reloaded.Status)
 	require.Equal(t, "zpay-trade-match", reloaded.PaymentTradeNo)
 	require.Equal(t, 1, subRepo.createCalls)
+	period, err := entitlementRepo.GetBySource(ctx, SubscriptionEntitlementSource{
+		Type: "payment_order",
+		ID:   strconv.FormatInt(order.ID, 10),
+	})
+	require.NoError(t, err)
+	require.Equal(t, reloaded.SubscriptionID, &period.SubscriptionID)
 }
 
 func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
@@ -939,9 +949,11 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		SettingKeyAffiliateRebateFreezeHours: "0",
 	}}, nil)
 	subRepo := newSubscriptionUserSubRepoStub()
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
 		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
 	}, subRepo, nil, nil, nil)
+	subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 	svc := &PaymentService{
 		entClient:        client,
 		groupRepo:        &subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}},
@@ -964,6 +976,9 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 	require.NotNil(t, affiliateRepo.accrueCalls[0].sourceOrderID)
 	require.Equal(t, order.ID, *affiliateRepo.accrueCalls[0].sourceOrderID)
 	require.Equal(t, 1, subRepo.createCalls)
+	period, err := entitlementRepo.GetBySource(ctx, paymentOrderSubscriptionEntitlementSource(order.ID))
+	require.NoError(t, err)
+	require.Equal(t, *reloaded.SubscriptionID, period.SubscriptionID)
 
 	applied, err := client.PaymentAuditLog.Query().
 		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("AFFILIATE_REBATE_APPLIED")).

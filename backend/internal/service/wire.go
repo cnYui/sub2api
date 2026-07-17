@@ -251,6 +251,19 @@ func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, se
 	return svc
 }
 
+func ProvideSubscriptionService(
+	groupRepo GroupRepository,
+	userSubRepo UserSubscriptionRepository,
+	billingCacheService *BillingCacheService,
+	entClient *dbent.Client,
+	cfg *config.Config,
+	entitlementPeriodRepo SubscriptionEntitlementPeriodRepository,
+) *SubscriptionService {
+	svc := NewSubscriptionService(groupRepo, userSubRepo, billingCacheService, entClient, cfg)
+	svc.entitlementPeriodRepo = entitlementPeriodRepo
+	return svc
+}
+
 func ProvideSubscriptionUsageWindowScheduler(userSubRepo UserSubscriptionRepository, billingCache *BillingCacheService, lockCache LeaderLockCache, db *sql.DB) *SubscriptionUsageWindowScheduler {
 	svc := NewSubscriptionUsageWindowScheduler(userSubRepo, billingCache, subscriptionUsageWindowBatchSize)
 	svc.SetLeaderLock(lockCache, db)
@@ -665,7 +678,7 @@ var ProviderSet = wire.NewSet(
 	NewNotificationEmailService,
 	ProvideEmailQueueService,
 	NewTurnstileService,
-	NewSubscriptionService,
+	ProvideSubscriptionService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,

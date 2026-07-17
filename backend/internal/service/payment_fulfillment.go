@@ -568,7 +568,14 @@ func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, clien
 			if err := s.ensureSubscriptionPurchaseAllowed(ctx, o.UserID, gid); err != nil {
 				return err
 			}
-			sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+			sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
+				UserID:            o.UserID,
+				GroupID:           gid,
+				ValidityDays:      days,
+				AssignedBy:        0,
+				Notes:             orderNote,
+				EntitlementSource: paymentOrderSubscriptionEntitlementSource(o.ID),
+			})
 			if err != nil {
 				return fmt.Errorf("assign subscription: %w", err)
 			}

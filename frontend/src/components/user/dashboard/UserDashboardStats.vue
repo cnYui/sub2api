@@ -45,22 +45,21 @@
       </div>
     </div>
 
-    <!-- Today Cost -->
+    <!-- Subscription Quota -->
     <div class="card p-4">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="dollar" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
         </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCost') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">
-            <span class="text-gray-900 dark:text-gray-100" :title="t('dashboard.actual')">${{ formatCost(stats?.today_actual_cost || 0) }}</span>
-            <span class="text-sm font-normal text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.today_cost || 0) }}</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.subscriptionQuota') }}</p>
+          <p class="truncate text-base font-bold text-gray-900 dark:text-white">
+            <span class="mr-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayQuota') }}</span>
+            <span>${{ formatCost(quotaTodayUsed) }} / ${{ formatCost(quotaTodayLimit) }}</span>
           </p>
-          <p class="text-xs">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('common.total') }}: </span>
-            <span class="text-gray-900 dark:text-gray-100" :title="t('dashboard.actual')">${{ formatCost(stats?.total_actual_cost || 0) }}</span>
-            <span class="text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.total_cost || 0) }}</span>
+          <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+            <span>{{ periodQuotaLabel }}: </span>
+            <span class="text-gray-900 dark:text-gray-100">${{ formatCost(quotaPeriodUsed) }} / ${{ formatCost(quotaPeriodLimit) }}</span>
           </p>
         </div>
       </div>
@@ -154,11 +153,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 
-defineProps<{
+const props = defineProps<{
   stats: UserStatsType
   balance: number
   isSimple: boolean
@@ -173,6 +173,18 @@ const AVAILABLE_MODELS = [
   'gpt-5.4',
   'gpt-image-2',
 ]
+
+const quota = computed(() => props.stats?.quota)
+const quotaTodayUsed = computed(() => quota.value?.today_usage_usd ?? 0)
+const quotaTodayLimit = computed(() => quota.value?.today_limit_usd ?? 0)
+const quotaPeriodUsed = computed(() => quota.value?.period_usage_usd ?? 0)
+const quotaPeriodLimit = computed(() => quota.value?.period_limit_usd ?? 0)
+const periodQuotaLabel = computed(() => {
+  if (quota.value?.period_mode === 'rolling_30d_legacy' || quota.value?.period_mode === 'none') {
+    return t('dashboard.last30DaysQuota')
+  }
+  return t('dashboard.periodQuota')
+})
 
 const formatBalance = (b: number) =>
   new Intl.NumberFormat('en-US', {

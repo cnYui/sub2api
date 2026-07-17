@@ -2481,6 +2481,16 @@ type UserDashboardStats = usagestats.UserDashboardStats
 // PlatformDashboardStats 单平台用量明细
 type PlatformDashboardStats = usagestats.PlatformDashboardStats
 
+type userDashboardQuota = usagestats.UserDashboardQuota
+
+type userDashboardQuotaPeriod struct {
+	mode       string
+	startsAt   time.Time
+	expiresAt  time.Time
+	days       int
+	dailyLimit sql.NullFloat64
+}
+
 // GetUserDashboardStats 获取用户专属的仪表盘统计
 func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID int64) (*UserDashboardStats, error) {
 	stats := &UserDashboardStats{}
@@ -2627,7 +2637,180 @@ func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID i
 		return nil, err
 	}
 
+	quota, err := r.GetUserDashboardQuota(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	stats.Quota = quota
+
 	return stats, nil
+}
+
+func (r *usageLogRepository) GetUserDashboardQuota(ctx context.Context, userID int64) (*userDashboardQuota, error) {
+	now := timezone.Now()
+	todayStart := timezone.StartOfDay(now)
+	todayEnd := todayStart.AddDate(0, 0, 1)
+
+	period, err := r.getCurrentDashboardQuotaPeriod(ctx, userID, now)
+	if err != nil {
+		return nil, err
+	}
+	periodEnd := period.expiresAt
+	if periodEnd.After(now) {
+		periodEnd = now
+	}
+
+	todayUsed, err := r.getUserDashboardQuotaUsage(ctx, userID, todayStart, todayEnd)
+	if err != nil {
+		return nil, err
+	}
+	periodUsed, err := r.getUserDashboardQuotaUsage(ctx, userID, period.startsAt, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+
+	dailyLimit := 0.0
+	if period.dailyLimit.Valid {
+		dailyLimit = period.dailyLimit.Float64
+	}
+	return &userDashboardQuota{
+		PeriodMode:      period.mode,
+		TodayUsageUSD:   todayUsed,
+		TodayLimitUSD:   dailyLimit,
+		PeriodUsageUSD:  periodUsed,
+		PeriodLimitUSD:  dailyLimit * float64(period.days),
+		PeriodDays:      period.days,
+		PeriodStartsAt:  cloneTimePtr(period.startsAt),
+		PeriodExpiresAt: cloneTimePtr(period.expiresAt),
+	}, nil
+}
+
+func (r *usageLogRepository) getCurrentDashboardQuotaPeriod(ctx context.Context, userID int64, now time.Time) (*userDashboardQuotaPeriod, error) {
+	precise, found, err := r.findPreciseDashboardQuotaPeriod(ctx, userID, now)
+	if err != nil || found {
+		return precise, err
+	}
+	legacy, found, err := r.findLegacyDashboardQuotaPeriod(ctx, userID, now)
+	if err != nil || found {
+		return legacy, err
+	}
+	startsAt := now.AddDate(0, 0, -30)
+	return &userDashboardQuotaPeriod{
+		mode:      usagestats.UserDashboardQuotaModeNoSubscription,
+		startsAt:  startsAt,
+		expiresAt: now,
+		days:      30,
+	}, nil
+}
+
+func (r *usageLogRepository) findPreciseDashboardQuotaPeriod(ctx context.Context, userID int64, now time.Time) (*userDashboardQuotaPeriod, bool, error) {
+	var period userDashboardQuotaPeriod
+	var dailyLimit sql.NullFloat64
+	err := scanSingleRow(ctx, r.sql, `
+		SELECT starts_at, expires_at, period_days, daily_limit_usd
+		FROM subscription_entitlement_periods
+		WHERE user_id = $1
+		  AND status = 'active'
+		  AND starts_at <= $2
+		  AND expires_at > $2
+		ORDER BY starts_at DESC, expires_at ASC, id DESC
+		LIMIT 1
+	`, []any{userID, now}, &period.startsAt, &period.expiresAt, &period.days, &dailyLimit)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	period.mode = usagestats.UserDashboardQuotaModeEntitlementPeriod
+	period.dailyLimit = dailyLimit
+	return &period, true, nil
+}
+
+func (r *usageLogRepository) findLegacyDashboardQuotaPeriod(ctx context.Context, userID int64, now time.Time) (*userDashboardQuotaPeriod, bool, error) {
+	var dailyLimit sql.NullFloat64
+	err := scanSingleRow(ctx, r.sql, `
+		SELECT g.daily_limit_usd
+		FROM user_subscriptions us
+		JOIN groups g ON g.id = us.group_id
+		WHERE us.user_id = $1
+		  AND us.status = $2
+		  AND us.deleted_at IS NULL
+		  AND us.starts_at <= $3
+		  AND us.expires_at > $3
+		ORDER BY us.expires_at ASC, us.id DESC
+		LIMIT 1
+	`, []any{userID, service.SubscriptionStatusActive, now}, &dailyLimit)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	startsAt := now.AddDate(0, 0, -30)
+	return &userDashboardQuotaPeriod{
+		mode:       usagestats.UserDashboardQuotaModeRolling30Legacy,
+		startsAt:   startsAt,
+		expiresAt:  now,
+		days:       30,
+		dailyLimit: dailyLimit,
+	}, true, nil
+}
+
+func (r *usageLogRepository) getUserDashboardQuotaUsage(ctx context.Context, userID int64, startTime, endTime time.Time) (float64, error) {
+	if !endTime.After(startTime) {
+		return 0, nil
+	}
+	var total float64
+	err := scanSingleRow(ctx, r.sql, `
+		WITH fact_costs AS (
+			SELECT
+				uf.request_id,
+				uf.api_key_id,
+				COALESCE(SUM(COALESCE(
+					NULLIF(uf.payload #>> '{usage_log,ActualCost}', '')::numeric,
+					NULLIF(uf.payload #>> '{usage_log,actual_cost}', '')::numeric,
+					NULLIF(uf.payload #>> '{effects,actual_cost}', '')::numeric,
+					0
+				)), 0) AS actual_cost
+			FROM usage_facts uf
+			WHERE uf.user_id = $1
+			  AND uf.completed_at >= $2
+			  AND uf.completed_at < $3
+			  AND uf.billing_status IN ('pending', 'settling', 'settled', 'debt')
+			GROUP BY uf.request_id, uf.api_key_id
+		),
+		log_costs AS (
+			SELECT ul.request_id, ul.api_key_id, ul.actual_cost::numeric AS actual_cost
+			FROM usage_logs ul
+			WHERE ul.user_id = $1
+			  AND ul.created_at >= $2
+			  AND ul.created_at < $3
+			  AND ul.actual_cost > 0
+			  AND NOT EXISTS (
+				SELECT 1
+				FROM usage_facts uf
+				WHERE uf.request_id = ul.request_id
+				  AND uf.api_key_id = ul.api_key_id
+				  AND uf.billing_status IN ('pending', 'settling', 'settled', 'debt')
+			  )
+		)
+		SELECT COALESCE(SUM(actual_cost), 0)::float8
+		FROM (
+			SELECT actual_cost FROM fact_costs
+			UNION ALL
+			SELECT actual_cost FROM log_costs
+		) costs
+	`, []any{userID, startTime, endTime}, &total)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
+func cloneTimePtr(value time.Time) *time.Time {
+	copy := value
+	return &copy
 }
 
 // getPerformanceStatsByAPIKey 获取指定 API Key 的 RPM 和 TPM（近5分钟平均值）

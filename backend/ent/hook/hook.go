@@ -321,6 +321,18 @@ func (f SettingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, err
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SettingMutation", m)
 }
 
+// The SubscriptionEntitlementPeriodFunc type is an adapter to allow the use of ordinary
+// function as SubscriptionEntitlementPeriod mutator.
+type SubscriptionEntitlementPeriodFunc func(context.Context, *ent.SubscriptionEntitlementPeriodMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SubscriptionEntitlementPeriodFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SubscriptionEntitlementPeriodMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubscriptionEntitlementPeriodMutation", m)
+}
+
 // The SubscriptionPlanFunc type is an adapter to allow the use of ordinary
 // function as SubscriptionPlan mutator.
 type SubscriptionPlanFunc func(context.Context, *ent.SubscriptionPlanMutation) (ent.Value, error)

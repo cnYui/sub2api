@@ -57,6 +57,8 @@ const (
 	EdgeAssignedByUser = "assigned_by_user"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeEntitlementPeriods holds the string denoting the entitlement_periods edge name in mutations.
+	EdgeEntitlementPeriods = "entitlement_periods"
 	// Table holds the table name of the usersubscription in the database.
 	Table = "user_subscriptions"
 	// UserTable is the table that holds the user relation/edge.
@@ -87,6 +89,13 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "subscription_id"
+	// EntitlementPeriodsTable is the table that holds the entitlement_periods relation/edge.
+	EntitlementPeriodsTable = "subscription_entitlement_periods"
+	// EntitlementPeriodsInverseTable is the table name for the SubscriptionEntitlementPeriod entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionentitlementperiod" package.
+	EntitlementPeriodsInverseTable = "subscription_entitlement_periods"
+	// EntitlementPeriodsColumn is the table column denoting the entitlement_periods relation/edge.
+	EntitlementPeriodsColumn = "subscription_id"
 )
 
 // Columns holds all SQL columns for usersubscription fields.
@@ -276,6 +285,20 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newUsageLogsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByEntitlementPeriodsCount orders the results by entitlement_periods count.
+func ByEntitlementPeriodsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newEntitlementPeriodsStep(), opts...)
+	}
+}
+
+// ByEntitlementPeriods orders the results by entitlement_periods terms.
+func ByEntitlementPeriods(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newEntitlementPeriodsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -302,5 +325,12 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newEntitlementPeriodsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(EntitlementPeriodsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, EntitlementPeriodsTable, EntitlementPeriodsColumn),
 	)
 }

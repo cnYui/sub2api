@@ -9,6 +9,10 @@ const messages: Record<string, string> = {
   'dashboard.apiKeys': 'API 密钥',
   'dashboard.todayRequests': '今日请求',
   'dashboard.todayCost': '今日消费',
+  'dashboard.subscriptionQuota': '套餐额度',
+  'dashboard.todayQuota': '今日',
+  'dashboard.periodQuota': '本期',
+  'dashboard.last30DaysQuota': '近 30 天',
   'dashboard.totalTokens': '总 Token',
   'dashboard.todayTokens': '今日 Token',
   'dashboard.performance': '性能',
@@ -96,6 +100,14 @@ const stats: UserStatsType = {
       today_actual_cost: 0.002,
     },
   ],
+  quota: {
+    period_mode: 'entitlement_period',
+    today_usage_usd: 1.23,
+    today_limit_usd: 19,
+    period_usage_usd: 5.67,
+    period_limit_usd: 570,
+    period_days: 30,
+  },
 }
 
 describe('UserDashboardStats', () => {
@@ -138,5 +150,46 @@ describe('UserDashboardStats', () => {
     expect(wrapper.text()).not.toContain('平台限额')
     expect(wrapper.text()).not.toContain('Claude')
     expect(wrapper.text()).not.toContain('OpenAI')
+  })
+
+  it('显示套餐额度使用量而不是实际/标准计费', () => {
+    const wrapper = mount(UserDashboardStats, {
+      props: {
+        stats,
+        balance: 100,
+        isSimple: false,
+      },
+    })
+
+    expect(wrapper.text()).toContain('套餐额度')
+    expect(wrapper.text()).toContain('今日')
+    expect(wrapper.text()).toContain('$1.2300 / $19.0000')
+    expect(wrapper.text()).toContain('本期')
+    expect(wrapper.text()).toContain('$5.6700 / $570.0000')
+    expect(wrapper.text()).not.toContain('$0.0030 / $0.0040')
+    expect(wrapper.text()).not.toContain('$0.0120 / $0.0200')
+  })
+
+  it('无精确周期时显示近 30 天额度窗口', () => {
+    const wrapper = mount(UserDashboardStats, {
+      props: {
+        stats: {
+          ...stats,
+          quota: {
+            period_mode: 'rolling_30d_legacy',
+            today_usage_usd: 0.45,
+            today_limit_usd: 11,
+            period_usage_usd: 1,
+            period_limit_usd: 330,
+            period_days: 30,
+          },
+        },
+        balance: 100,
+        isSimple: false,
+      },
+    })
+
+    expect(wrapper.text()).toContain('近 30 天')
+    expect(wrapper.text()).toContain('$1.0000 / $330.0000')
   })
 })

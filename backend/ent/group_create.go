@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -468,6 +469,21 @@ func (_c *GroupCreate) AddSubscriptions(v ...*UserSubscription) *GroupCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddSubscriptionIDs(ids...)
+}
+
+// AddSubscriptionEntitlementPeriodIDs adds the "subscription_entitlement_periods" edge to the SubscriptionEntitlementPeriod entity by IDs.
+func (_c *GroupCreate) AddSubscriptionEntitlementPeriodIDs(ids ...int64) *GroupCreate {
+	_c.mutation.AddSubscriptionEntitlementPeriodIDs(ids...)
+	return _c
+}
+
+// AddSubscriptionEntitlementPeriods adds the "subscription_entitlement_periods" edges to the SubscriptionEntitlementPeriod entity.
+func (_c *GroupCreate) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEntitlementPeriod) *GroupCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSubscriptionEntitlementPeriodIDs(ids...)
 }
 
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
@@ -926,6 +942,22 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubscriptionEntitlementPeriodsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionEntitlementPeriodsTable,
+			Columns: []string{group.SubscriptionEntitlementPeriodsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -420,7 +420,7 @@ func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
 	if n == 0 {
 		return rollback(infraerrors.NotFound("USER_NOT_FOUND", "user not found"))
 	}
-	if err := s.revokeRefundSubscriptionInTransaction(txCtx, lockedSub); err != nil && !errors.Is(err, ErrSubscriptionNotFound) {
+	if err := s.revokeRefundSubscriptionInTransaction(txCtx, o.ID, lockedSub); err != nil && !errors.Is(err, ErrSubscriptionNotFound) {
 		return rollback(fmt.Errorf("revoke subscription after balance refund: %w", err))
 	}
 	finalStatus := OrderStatusRefunded

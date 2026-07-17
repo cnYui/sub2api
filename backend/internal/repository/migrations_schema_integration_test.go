@@ -120,6 +120,97 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	)
 	requireColumn(t, tx, "usage_facts", "reservation_id", "bigint", 0, true)
 	requireIndex(t, tx, "usage_facts", "idx_usage_facts_reservation_id")
+	requireIndex(t, tx, "usage_facts", "idx_usage_facts_dashboard_user_completed")
+	requireIndexDefinitionContains(
+		t,
+		tx,
+		"usage_facts",
+		"idx_usage_facts_dashboard_user_completed",
+		"user_id",
+		"completed_at",
+		"INCLUDE",
+		"request_id",
+		"api_key_id",
+		"WHERE",
+		"billing_status",
+		"pending",
+		"settling",
+		"settled",
+		"debt",
+	)
+
+	// subscription_entitlement_periods: 不可变套餐权益周期与每日额度快照
+	var entitlementPeriodsRegclass sql.NullString
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.subscription_entitlement_periods')").Scan(&entitlementPeriodsRegclass))
+	require.True(t, entitlementPeriodsRegclass.Valid, "expected subscription_entitlement_periods table to exist")
+	requireColumn(t, tx, "subscription_entitlement_periods", "source_type", "character varying", 40, false)
+	requireColumn(t, tx, "subscription_entitlement_periods", "source_id", "character varying", 128, false)
+	requireColumn(t, tx, "subscription_entitlement_periods", "daily_limit_usd", "numeric", 0, true)
+	requireColumn(t, tx, "subscription_entitlement_periods", "period_days", "integer", 0, false)
+	requireIndex(t, tx, "subscription_entitlement_periods", "idx_subscription_entitlement_periods_source")
+	requirePartialUniqueIndexDefinition(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"idx_subscription_entitlement_periods_source",
+		"source_type",
+		"source_id",
+	)
+	requireIndex(t, tx, "subscription_entitlement_periods", "idx_subscription_entitlement_periods_active_user_expiry")
+	requireIndexDefinitionContains(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"idx_subscription_entitlement_periods_active_user_expiry",
+		"user_id",
+		"expires_at",
+		"starts_at",
+		"WHERE",
+		"status",
+		"active",
+	)
+	requireForeignKeyOnDelete(t, tx, "subscription_entitlement_periods", "user_id", "users", "RESTRICT")
+	requireForeignKeyOnDelete(t, tx, "subscription_entitlement_periods", "subscription_id", "user_subscriptions", "RESTRICT")
+	requireForeignKeyOnDelete(t, tx, "subscription_entitlement_periods", "group_id", "groups", "RESTRICT")
+	requireForeignKeyConstraintName(t, tx, "subscription_entitlement_periods", "user_id", "users", "subscription_entitlement_periods_user_id_fkey")
+	requireForeignKeyConstraintName(t, tx, "subscription_entitlement_periods", "subscription_id", "user_subscriptions", "subscription_entitlement_periods_subscription_id_fkey")
+	requireForeignKeyConstraintName(t, tx, "subscription_entitlement_periods", "group_id", "groups", "subscription_entitlement_periods_group_id_fkey")
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"subscription_entitlement_periods_days_check",
+		"period_days",
+		"> 0",
+	)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"subscription_entitlement_periods_range_check",
+		"expires_at",
+		"starts_at",
+		">",
+	)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"subscription_entitlement_periods_limit_check",
+		"daily_limit_usd",
+		"IS NULL",
+		">=",
+		"(0)::numeric",
+	)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"subscription_entitlement_periods",
+		"subscription_entitlement_periods_status_check",
+		"status",
+		"'active'",
+		"'revoked'",
+	)
 
 	// traffic credit reservations: 请求前预留与 debt gate
 	requireColumn(t, tx, "user_traffic_credits", "reserved_usd", "numeric", 0, false)
@@ -462,6 +553,27 @@ WHERE ns.nspname = 'public'
 	}
 }
 
+func requireIndexDefinitionContains(t *testing.T, tx *sql.Tx, table, index string, fragments ...string) {
+	t.Helper()
+
+	var def string
+	err := tx.QueryRowContext(context.Background(), `
+SELECT pg_get_indexdef(i.indexrelid)
+FROM pg_class idx
+JOIN pg_index i ON i.indexrelid = idx.oid
+JOIN pg_class tbl ON tbl.oid = i.indrelid
+JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+WHERE ns.nspname = 'public'
+  AND tbl.relname = $1
+  AND idx.relname = $2
+`, table, index).Scan(&def)
+	require.NoError(t, err, "query index definition for %s.%s", table, index)
+
+	for _, fragment := range fragments {
+		require.Contains(t, def, fragment, "expected index definition for %s.%s to contain %q", table, index, fragment)
+	}
+}
+
 func requireForeignKeyOnDelete(t *testing.T, tx *sql.Tx, table, column, refTable, expected string) {
 	t.Helper()
 
@@ -488,6 +600,28 @@ LIMIT 1
 `, table, column, refTable).Scan(&actual)
 	require.NoError(t, err, "query foreign key action for %s.%s -> %s", table, column, refTable)
 	require.Equal(t, expected, actual, "unexpected ON DELETE action for %s.%s -> %s", table, column, refTable)
+}
+
+func requireForeignKeyConstraintName(t *testing.T, tx *sql.Tx, table, column, refTable, expected string) {
+	t.Helper()
+
+	var actual string
+	err := tx.QueryRowContext(context.Background(), `
+SELECT c.conname
+FROM pg_constraint c
+JOIN pg_class tbl ON tbl.oid = c.conrelid
+JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+JOIN pg_class ref_tbl ON ref_tbl.oid = c.confrelid
+JOIN pg_attribute attr ON attr.attrelid = tbl.oid AND attr.attnum = ANY(c.conkey)
+WHERE ns.nspname = 'public'
+  AND c.contype = 'f'
+  AND tbl.relname = $1
+  AND attr.attname = $2
+  AND ref_tbl.relname = $3
+LIMIT 1
+`, table, column, refTable).Scan(&actual)
+	require.NoError(t, err, "query foreign key name for %s.%s -> %s", table, column, refTable)
+	require.Equal(t, expected, actual, "unexpected foreign key name for %s.%s -> %s", table, column, refTable)
 }
 
 func requireConstraintDefinitionContains(t *testing.T, tx *sql.Tx, table, constraint string, fragments ...string) {

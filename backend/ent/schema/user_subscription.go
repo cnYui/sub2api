@@ -99,6 +99,9 @@ func (UserSubscription) Edges() []ent.Edge {
 			Field("assigned_by").
 			Unique(),
 		edge.To("usage_logs", UsageLog.Type),
+		edge.To("entitlement_periods", SubscriptionEntitlementPeriod.Type).
+			StorageKey(edge.Symbol("subscription_entitlement_periods_subscription_id_fkey")).
+			Annotations(entsql.OnDelete(entsql.Restrict)),
 	}
 }
 
