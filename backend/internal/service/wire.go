@@ -221,9 +221,7 @@ func ProvideUsageFactWorker(
 		TaskTimeout:                  time.Duration(cfg.UsageFactWorker.TaskTimeoutSeconds) * time.Second,
 		TrafficCreditReservationRepo: reservationRepo,
 	})
-	if cfg.UsageFactWorker.Enabled {
-		worker.Start()
-	}
+	worker.Start()
 	return worker
 }
 
@@ -682,7 +680,6 @@ var ProviderSet = wire.NewSet(
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
-	NewUsageRecordWorkerPool,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
 	NewCRSSyncService,

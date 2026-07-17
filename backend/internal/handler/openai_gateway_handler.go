@@ -31,7 +31,6 @@ type OpenAIGatewayHandler struct {
 	gatewayService           *service.OpenAIGatewayService
 	billingCacheService      *service.BillingCacheService
 	apiKeyService            *service.APIKeyService
-	usageRecordWorkerPool    *service.UsageRecordWorkerPool
 	errorPassthroughService  *service.ErrorPassthroughService
 	contentModerationService *service.ContentModerationService
 	opsService               *service.OpsService
@@ -78,38 +77,12 @@ func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFu
 	}
 }
 
-func usageRecordContext(parent context.Context, base context.Context) context.Context {
-	if base == nil {
-		base = context.Background()
-	}
-	if parent == nil {
-		return base
-	}
-	if clientRequestID, _ := parent.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
-		base = context.WithValue(base, ctxkey.ClientRequestID, strings.TrimSpace(clientRequestID))
-	}
-	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
-		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
-	}
-	return base
-}
-
-func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecordTask) service.UsageRecordTask {
-	if task == nil {
-		return nil
-	}
-	return func(ctx context.Context) {
-		task(usageRecordContext(parent, ctx))
-	}
-}
-
 // NewOpenAIGatewayHandler creates a new OpenAIGatewayHandler
 func NewOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	apiKeyService *service.APIKeyService,
-	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
 	opsService *service.OpsService,
@@ -127,7 +100,6 @@ func NewOpenAIGatewayHandler(
 		gatewayService:           gatewayService,
 		billingCacheService:      billingCacheService,
 		apiKeyService:            apiKeyService,
-		usageRecordWorkerPool:    usageRecordWorkerPool,
 		errorPassthroughService:  errorPassthroughService,
 		contentModerationService: contentModerationService,
 		opsService:               opsService,
@@ -1714,65 +1686,8 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		h.usageRecordWorkerPool.Submit(task)
-		return
-	}
-	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.responses"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
-}
-
 func shouldContinueOpenAIUsageAfterForwardError(result *service.OpenAIForwardResult) bool {
 	return result != nil && service.HasBillableOpenAIUsage(result.Usage)
-}
-
-func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
-	if shouldContinueOpenAIUsageAfterForwardError(result) {
-		h.submitMandatoryUsageRecordTask(parent, task)
-		return
-	}
-	h.submitUsageRecordTask(parent, task)
-}
-
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
-			return
-		}
-		logger.L().With(
-			zap.String("component", "handler.openai_gateway.usage"),
-		).Warn("openai.usage_record_task_mandatory_sync_fallback")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.usage"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {
