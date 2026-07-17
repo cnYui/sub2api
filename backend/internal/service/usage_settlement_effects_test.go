@@ -50,13 +50,13 @@ func (s *usageSettlementEffectsInvalidatorStub) InvalidateAuthCacheByUserID(ctx 
 func (s *usageSettlementEffectsInvalidatorStub) InvalidateAuthCacheByGroupID(ctx context.Context, groupID int64) {
 }
 
-func TestOpenAIUsageSettlementEffects_RebuildsPostBillingContext(t *testing.T) {
+func TestUsageSettlementEffectsHandler_RebuildsPostBillingContext(t *testing.T) {
 	groupID := int64(11)
 	user := &User{ID: 7}
 	apiKey := &APIKey{ID: 9, Key: "sk-test", GroupID: &groupID}
 	account := &Account{ID: 5, Type: AccountTypeAPIKey}
 	invalidator := &usageSettlementEffectsInvalidatorStub{}
-	effects := &OpenAIUsageSettlementEffects{
+	effects := &UsageSettlementEffectsHandler{
 		userRepo:        &usageSettlementEffectsUserRepoStub{user: user},
 		apiKeyRepo:      &usageSettlementEffectsAPIKeyRepoStub{apiKey: apiKey},
 		accountRepo:     &usageSettlementEffectsAccountRepoStub{account: account},

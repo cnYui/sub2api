@@ -513,7 +513,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		forceCacheBilling := fs.ForceCacheBilling
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsageWithLongContext(ctx, &service.RecordUsageLongContextInput{
+			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 				Result:                result,
 				QuotaPlatform:         quotaPlatform,
 				APIKey:                apiKey,

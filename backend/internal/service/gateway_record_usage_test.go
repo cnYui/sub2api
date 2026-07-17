@@ -1,10 +1,7 @@
-//go:build unit
-
 package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +18,6 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		nil,
 		usageRepo,
-		nil,
 		userRepo,
 		subRepo,
 		nil,
@@ -45,41 +41,21 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		nil,
 		nil, // userPlatformQuotaRepo
+		&openAIRecordUsageFactRepoStub{},
 	)
 }
 
-func newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *GatewayService {
-	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
-	svc.usageBillingRepo = billingRepo
-	return svc
+func gatewayUsageFactPayload(t *testing.T, svc *GatewayService) UsageFactPayload {
+	t.Helper()
+	repo, ok := svc.usageFactRepo.(*openAIRecordUsageFactRepoStub)
+	require.True(t, ok)
+	require.NotNil(t, repo.created)
+	payload, err := DecodeUsageFactPayload(repo.created.PayloadVersion, repo.created.Payload)
+	require.NoError(t, err)
+	return payload
 }
 
-type openAIRecordUsageBestEffortLogRepoStub struct {
-	UsageLogRepository
-
-	bestEffortErr   error
-	createErr       error
-	bestEffortCalls int
-	createCalls     int
-	lastLog         *UsageLog
-	lastCtxErr      error
-}
-
-func (s *openAIRecordUsageBestEffortLogRepoStub) CreateBestEffort(ctx context.Context, log *UsageLog) error {
-	s.bestEffortCalls++
-	s.lastLog = log
-	s.lastCtxErr = ctx.Err()
-	return s.bestEffortErr
-}
-
-func (s *openAIRecordUsageBestEffortLogRepoStub) Create(ctx context.Context, log *UsageLog) (bool, error) {
-	s.createCalls++
-	s.lastLog = log
-	s.lastCtxErr = ctx.Err()
-	return false, s.createErr
-}
-
-func TestGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T) {
+func TestGatewayServiceRecordUsage_PersistsFactWithoutInlineBilling(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: false, err: context.DeadlineExceeded}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
@@ -109,17 +85,17 @@ func TestGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, usageRepo.calls)
-	require.Equal(t, 1, userRepo.deductCalls)
-	require.NoError(t, userRepo.lastCtxErr)
-	require.Equal(t, 1, quotaSvc.quotaCalls)
-	require.NoError(t, quotaSvc.lastQuotaCtxErr)
+	require.Equal(t, 0, usageRepo.calls)
+	require.Equal(t, 0, userRepo.deductCalls)
+	require.Equal(t, 0, quotaSvc.quotaCalls)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, "gateway_detached_ctx", payload.UsageLog.RequestID)
+	require.Greater(t, payload.BillingCommand.APIKeyQuotaCost, 0.0)
 }
 
 func TestGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	payloadHash := HashUsageRequestPayload([]byte(`{"messages":[{"role":"user","content":"hello"}]}`))
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
@@ -138,14 +114,13 @@ func TestGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(
 		RequestPayloadHash: payloadHash,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, billingRepo.lastCmd)
-	require.Equal(t, payloadHash, billingRepo.lastCmd.RequestPayloadHash)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, payloadHash, payload.BillingCommand.RequestPayloadHash)
 }
 
 func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToContextRequestID(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	ctx := context.WithValue(context.Background(), ctxkey.RequestID, "req-local-123")
 	err := svc.RecordUsage(ctx, &RecordUsageInput{
@@ -163,8 +138,8 @@ func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToContextRequestID
 		Account: &Account{ID: 701},
 	})
 	require.NoError(t, err)
-	require.NotNil(t, billingRepo.lastCmd)
-	require.Equal(t, "local:req-local-123", billingRepo.lastCmd.RequestPayloadHash)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, "local:req-local-123", payload.BillingCommand.RequestPayloadHash)
 }
 
 func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testing.T) {
@@ -186,11 +161,11 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, "claude-sonnet-4", usageRepo.lastLog.Model)
-	require.Equal(t, "claude-sonnet-4", usageRepo.lastLog.RequestedModel)
-	require.NotNil(t, usageRepo.lastLog.UpstreamModel)
-	require.Equal(t, mappedModel, *usageRepo.lastLog.UpstreamModel)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, "claude-sonnet-4", payload.UsageLog.Model)
+	require.Equal(t, "claude-sonnet-4", payload.UsageLog.RequestedModel)
+	require.NotNil(t, payload.UsageLog.UpstreamModel)
+	require.Equal(t, mappedModel, *payload.UsageLog.UpstreamModel)
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
@@ -220,19 +195,19 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, 1, usageRepo.lastLog.ImageCount)
-	require.NotNil(t, usageRepo.lastLog.ImageSize)
-	require.Equal(t, ImageBillingSize2K, *usageRepo.lastLog.ImageSize)
-	require.NotNil(t, usageRepo.lastLog.ImageInputSize)
-	require.Equal(t, "auto", *usageRepo.lastLog.ImageInputSize)
-	require.NotNil(t, usageRepo.lastLog.ImageSizeSource)
-	require.Equal(t, ImageSizeSourceDefault, *usageRepo.lastLog.ImageSizeSource)
-	require.InDelta(t, 0.19, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, 0.19, usageRepo.lastLog.ActualCost, 1e-12)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, 1, payload.UsageLog.ImageCount)
+	require.NotNil(t, payload.UsageLog.ImageSize)
+	require.Equal(t, ImageBillingSize2K, *payload.UsageLog.ImageSize)
+	require.NotNil(t, payload.UsageLog.ImageInputSize)
+	require.Equal(t, "auto", *payload.UsageLog.ImageInputSize)
+	require.NotNil(t, payload.UsageLog.ImageSizeSource)
+	require.Equal(t, ImageSizeSourceDefault, *payload.UsageLog.ImageSizeSource)
+	require.InDelta(t, 0.19, payload.UsageLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.19, payload.UsageLog.ActualCost, 1e-12)
 }
 
-func TestGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t *testing.T) {
+func TestGatewayServiceRecordUsage_DoesNotWriteUsageLogInline(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: false, err: MarkUsageLogCreateNotPersisted(context.Canceled)}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
@@ -259,12 +234,13 @@ func TestGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t *testi
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, usageRepo.calls)
-	require.Equal(t, 1, userRepo.deductCalls)
-	require.Equal(t, 1, quotaSvc.quotaCalls)
+	require.Equal(t, 0, usageRepo.calls)
+	require.Equal(t, 0, userRepo.deductCalls)
+	require.Equal(t, 0, quotaSvc.quotaCalls)
+	require.NotEmpty(t, gatewayUsageFactPayload(t, svc).UsageLog.RequestID)
 }
 
-func TestGatewayServiceRecordUsageWithLongContext_BillingUsesDetachedContext(t *testing.T) {
+func TestGatewayServiceRecordUsage_LongContextFieldsBuildFact(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: false, err: context.DeadlineExceeded}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
@@ -274,7 +250,7 @@ func TestGatewayServiceRecordUsageWithLongContext_BillingUsesDetachedContext(t *
 	reqCtx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := svc.RecordUsageWithLongContext(reqCtx, &RecordUsageLongContextInput{
+	err := svc.RecordUsage(reqCtx, &RecordUsageInput{
 		Result: &ForwardResult{
 			RequestID: "gateway_long_context_detached_ctx",
 			Usage: ClaudeUsage{
@@ -296,11 +272,10 @@ func TestGatewayServiceRecordUsageWithLongContext_BillingUsesDetachedContext(t *
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, usageRepo.calls)
-	require.Equal(t, 1, userRepo.deductCalls)
-	require.NoError(t, userRepo.lastCtxErr)
-	require.Equal(t, 1, quotaSvc.quotaCalls)
-	require.NoError(t, quotaSvc.lastQuotaCtxErr)
+	require.Equal(t, 0, usageRepo.calls)
+	require.Equal(t, 0, userRepo.deductCalls)
+	require.Equal(t, 0, quotaSvc.quotaCalls)
+	require.Equal(t, "gateway_long_context_detached_ctx", gatewayUsageFactPayload(t, svc).UsageLog.RequestID)
 }
 
 func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T) {
@@ -326,14 +301,12 @@ func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, "local:gateway-local-fallback", usageRepo.lastLog.RequestID)
+	require.Equal(t, "local:gateway-local-fallback", gatewayUsageFactPayload(t, svc).UsageLog.RequestID)
 }
 
 func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	ctx := context.WithValue(context.Background(), ctxkey.ClientRequestID, "client-stable-123")
 	ctx = context.WithValue(ctx, ctxkey.RequestID, "req-local-ignored")
@@ -353,16 +326,14 @@ func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, billingRepo.lastCmd)
-	require.Equal(t, "client:client-stable-123", billingRepo.lastCmd.RequestID)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, "client:client-stable-123", usageRepo.lastLog.RequestID)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.Equal(t, "client:client-stable-123", payload.BillingCommand.RequestID)
+	require.Equal(t, "client:client-stable-123", payload.UsageLog.RequestID)
 }
 
 func TestGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 		Result: &ForwardResult{
@@ -380,68 +351,13 @@ func TestGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing(t *te
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, billingRepo.lastCmd)
-	require.True(t, strings.HasPrefix(billingRepo.lastCmd.RequestID, "generated:"))
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, billingRepo.lastCmd.RequestID, usageRepo.lastLog.RequestID)
-}
-
-func TestGatewayServiceRecordUsage_DroppedUsageLogDoesNotSyncFallback(t *testing.T) {
-	usageRepo := &openAIRecordUsageBestEffortLogRepoStub{
-		bestEffortErr: MarkUsageLogCreateDropped(errors.New("usage log best-effort queue full")),
-	}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
-
-	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-		Result: &ForwardResult{
-			RequestID: "gateway_drop_usage_log",
-			Usage: ClaudeUsage{
-				InputTokens:  10,
-				OutputTokens: 6,
-			},
-			Model:    "claude-sonnet-4",
-			Duration: time.Second,
-		},
-		APIKey:  &APIKey{ID: 508},
-		User:    &User{ID: 608},
-		Account: &Account{ID: 708},
-	})
-
-	require.NoError(t, err)
-	require.Equal(t, 1, usageRepo.bestEffortCalls)
-	require.Equal(t, 0, usageRepo.createCalls)
-}
-
-func TestGatewayServiceRecordUsage_BillingErrorSkipsUsageLogWrite(t *testing.T) {
-	usageRepo := &openAIRecordUsageLogRepoStub{}
-	billingRepo := &openAIRecordUsageBillingRepoStub{err: context.DeadlineExceeded}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
-
-	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-		Result: &ForwardResult{
-			RequestID: "gateway_billing_fail",
-			Usage: ClaudeUsage{
-				InputTokens:  10,
-				OutputTokens: 6,
-			},
-			Model:    "claude-sonnet-4",
-			Duration: time.Second,
-		},
-		APIKey:  &APIKey{ID: 505},
-		User:    &User{ID: 605},
-		Account: &Account{ID: 705},
-	})
-
-	require.Error(t, err)
-	require.Equal(t, 1, billingRepo.calls)
-	require.Equal(t, 0, usageRepo.calls)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.True(t, strings.HasPrefix(payload.BillingCommand.RequestID, "generated:"))
+	require.Equal(t, payload.BillingCommand.RequestID, payload.UsageLog.RequestID)
 }
 
 func TestGatewayServiceRecordUsage_ReasoningEffortPersisted(t *testing.T) {
-	usageRepo := &openAIRecordUsageBestEffortLogRepoStub{}
+	usageRepo := &openAIRecordUsageLogRepoStub{}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	effort := "max"
@@ -462,13 +378,13 @@ func TestGatewayServiceRecordUsage_ReasoningEffortPersisted(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.NotNil(t, usageRepo.lastLog.ReasoningEffort)
-	require.Equal(t, "max", *usageRepo.lastLog.ReasoningEffort)
+	payload := gatewayUsageFactPayload(t, svc)
+	require.NotNil(t, payload.UsageLog.ReasoningEffort)
+	require.Equal(t, "max", *payload.UsageLog.ReasoningEffort)
 }
 
 func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
-	usageRepo := &openAIRecordUsageBestEffortLogRepoStub{}
+	usageRepo := &openAIRecordUsageLogRepoStub{}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
@@ -487,6 +403,5 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Nil(t, usageRepo.lastLog.ReasoningEffort)
+	require.Nil(t, gatewayUsageFactPayload(t, svc).UsageLog.ReasoningEffort)
 }
