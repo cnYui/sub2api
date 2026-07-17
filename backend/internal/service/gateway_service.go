@@ -72,7 +72,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
 
 	defaultUserGroupRateCacheTTL = 30 * time.Second
 	defaultModelsListCacheTTL    = 15 * time.Second
-	postUsageBillingTimeout      = 15 * time.Second
 	debugGatewayBodyEnv          = "SUB2API_DEBUG_GATEWAY_BODY"
 	// 上游错误体只需要提取错误 JSON/日志摘要，默认 512KiB 避免错误风暴叠加大请求体。
 	gatewayUpstreamErrorBodyReadLimit int64 = 512 << 10
@@ -117,16 +116,11 @@ var (
 	modelsListCacheStoreTotal atomic.Int64
 
 	// Deprecated: flusher_enabled=true 后不再增长(仅 flag=false 降级直写路径使用);新主路径见 FlusherMetrics。remove after 2026-09。
-	// userPlatformQuotaDBIncrErrorTotal 统计 finalizePostUsageBilling 异步 goroutine
+	// userPlatformQuotaDBIncrErrorTotal 统计 applyUsageSettlementEffects 异步 goroutine
 	// 中 IncrementUsageWithReset 失败次数。Redis 已成功累加 + DB 写失败意味着
 	// Redis cache TTL 过期或被清后该笔 cost 会丢失（与实际消费偏差）。
 	// oncall 通过 GatewayUserPlatformQuotaIncrStats() 暴露给 ops 面板做阈值告警。
 	userPlatformQuotaDBIncrErrorTotal atomic.Int64
-	// Deprecated: flusher_enabled=true 后不再增长(仅 flag=false 降级直写路径使用);新主路径见 FlusherMetrics。remove after 2026-09。
-	// userPlatformQuotaDBIncrLegacyErrorTotal 统计 legacy postUsageBilling
-	// （applyUsageBilling 在 repo==nil 时 fallback）路径下的失败次数；
-	// 与 DB Incr 失败分开计数，便于区分"主路径暂时故障"vs"基础设施长期未配齐"。
-	userPlatformQuotaDBIncrLegacyErrorTotal atomic.Int64
 	// userPlatformQuotaSentinelSetCacheErrorTotal 统计 checkUserPlatformQuotaEligibility
 	// 在 DB 无行时回填 sentinel cache entry 写 Redis 失败的次数（phase A）。
 	userPlatformQuotaSentinelSetCacheErrorTotal atomic.Int64
@@ -152,14 +146,12 @@ func GatewayModelsListCacheStats() (cacheHit, cacheMiss, store int64) {
 	return modelsListCacheHitTotal.Load(), modelsListCacheMissTotal.Load(), modelsListCacheStoreTotal.Load()
 }
 
-// GatewayUserPlatformQuotaIncrStats 返回 (mainPathErr, legacyPathErr, sentinelSetErr)。
-// mainPathErr：finalizePostUsageBilling 异步 goroutine 写 DB 失败累计次数；
-// legacyPathErr：postUsageBilling fallback 路径写 DB 失败累计次数；
+// GatewayUserPlatformQuotaIncrStats 返回 (mainPathErr, sentinelSetErr)。
+// mainPathErr：applyUsageSettlementEffects 异步 goroutine 写 DB 失败累计次数；
 // sentinelSetErr：DB 无行时回填 sentinel cache entry 写 Redis 失败累计次数。
 // ops 监控面板可以按"持续上升斜率"做告警阈值。
-func GatewayUserPlatformQuotaIncrStats() (mainPathErr, legacyPathErr, sentinelSetErr int64) {
+func GatewayUserPlatformQuotaIncrStats() (mainPathErr, sentinelSetErr int64) {
 	return userPlatformQuotaDBIncrErrorTotal.Load(),
-		userPlatformQuotaDBIncrLegacyErrorTotal.Load(),
 		userPlatformQuotaSentinelSetCacheErrorTotal.Load()
 }
 
@@ -8839,12 +8831,8 @@ type apiKeyAuthCacheInvalidator interface {
 	InvalidateAuthCacheByKey(ctx context.Context, key string)
 }
 
-type usageLogBestEffortWriter interface {
-	CreateBestEffort(ctx context.Context, log *UsageLog) error
-}
-
-// postUsageBillingParams 统一扣费所需的参数
-type postUsageBillingParams struct {
+// usageSettlementParams durable settlement effects 所需的参数。
+type usageSettlementParams struct {
 	Cost                  *CostBreakdown
 	User                  *User
 	APIKey                *APIKey
@@ -8883,15 +8871,15 @@ func QuotaPlatform(ctx context.Context, apiKey *APIKey) string {
 	return PlatformFromAPIKey(apiKey)
 }
 
-func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {
+func (p *usageSettlementParams) shouldDeductAPIKeyQuota() bool {
 	return p.Cost.ActualCost > 0 && p.APIKey.Quota > 0 && p.APIKeyService != nil
 }
 
-func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
+func (p *usageSettlementParams) shouldUpdateRateLimits() bool {
 	return p.Cost.ActualCost > 0 && p.APIKey.HasRateLimits() && p.APIKeyService != nil
 }
 
-func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
+func (p *usageSettlementParams) shouldUpdateAccountQuota() bool {
 	return p.Cost.TotalCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
 }
 
@@ -8907,88 +8895,6 @@ func shouldBillWithTrafficPack(ctx context.Context, deps *billingDeps, user *Use
 	}
 	ok, err := deps.trafficPackService.HasAvailableCredit(ctx, user.ID, time.Now())
 	return err == nil && ok
-}
-
-// postUsageBilling is the legacy fallback billing path used when the unified
-// billing repo is unavailable (nil). Production uses applyUsageBilling → repo.Apply
-// for atomic billing. This path only runs in tests or degraded mode.
-func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps) {
-	billingCtx, cancel := detachedBillingContext(ctx)
-	defer cancel()
-
-	cost := p.Cost
-
-	if p.IsSubscriptionBill {
-		// Subscription usage tracked by ActualCost so group rate multiplier
-		// consumes the quota at the expected speed.
-		if cost.ActualCost > 0 {
-			if err := deps.userSubRepo.IncrementUsage(billingCtx, p.Subscription.ID, cost.ActualCost); err != nil {
-				slog.Error("increment subscription usage failed", "subscription_id", p.Subscription.ID, "error", err)
-			}
-		}
-	} else if p.UseTrafficPack {
-		if cost.ActualCost > 0 && deps.trafficPackService != nil {
-			if ok, _, err := deps.trafficPackService.Deduct(billingCtx, p.User.ID, cost.ActualCost, resolveUsageBillingRequestID(ctx, ""), time.Now()); err != nil {
-				slog.Error("deduct traffic pack failed", "user_id", p.User.ID, "error", err)
-			} else if !ok {
-				slog.Error("deduct traffic pack failed", "user_id", p.User.ID, "error", "insufficient traffic pack credit")
-			}
-		}
-	} else {
-		if cost.ActualCost > 0 {
-			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, cost.ActualCost); err != nil {
-				slog.Error("deduct balance failed", "user_id", p.User.ID, "error", err)
-			} else if deps.billingCacheService != nil {
-				if err := deps.billingCacheService.InvalidateUserBalance(billingCtx, p.User.ID); err != nil {
-					slog.Warn("invalidate balance cache after legacy deduction failed", "user_id", p.User.ID, "error", err)
-				}
-			}
-		}
-	}
-
-	if p.shouldDeductAPIKeyQuota() {
-		if err := p.APIKeyService.UpdateQuotaUsed(billingCtx, p.APIKey.ID, cost.ActualCost); err != nil {
-			slog.Error("update api key quota failed", "api_key_id", p.APIKey.ID, "error", err)
-		}
-	}
-
-	if p.shouldUpdateRateLimits() {
-		if err := p.APIKeyService.UpdateRateLimitUsage(billingCtx, p.APIKey.ID, cost.ActualCost); err != nil {
-			slog.Error("update api key rate limit usage failed", "api_key_id", p.APIKey.ID, "error", err)
-		}
-	}
-
-	if p.shouldUpdateAccountQuota() {
-		accountCost := cost.TotalCost * p.AccountRateMultiplier
-		if err := deps.accountRepo.IncrementQuotaUsed(billingCtx, p.Account.ID, accountCost); err != nil {
-			slog.Error("increment account quota used failed", "account_id", p.Account.ID, "cost", accountCost, "error", err)
-		}
-	}
-
-	// Platform quota 累加（legacy 兜底路径）：仅对 standard（余额）模式生效；订阅模式豁免；仅对有 limit 的用户写
-	//   - HasUserPlatformQuotaLimit 守卫:与正常路径对齐，无 limit 公司跳过
-	//   - 新增 Redis 同步写:enforcement 走 Redis，legacy 路径也必须同步写，否则 preflight 看不到消费
-	//   - flusher_enabled=false（降级）:保留原有同步直写 DB
-	//   - flusher_enabled=true:跳过直写 DB，由 flusher 异步批量刷（markDirty 在 IncrementUserPlatformQuotaUsage 内部完成）
-	//   - 失败仅记 ALERT log + counter，不阻断主扣费流程
-	if !p.IsSubscriptionBill && p.Platform != "" && cost.ActualCost > 0 && p.User != nil && deps.userPlatformQuotaRepo != nil {
-		if deps.billingCacheService.HasUserPlatformQuotaLimit(billingCtx, p.User.ID, p.Platform) {
-			deps.billingCacheService.IncrementUserPlatformQuotaUsage(p.User.ID, p.Platform, cost.ActualCost)
-			if deps.cfg == nil || !deps.cfg.Database.UserPlatformQuotaFlusherEnabled {
-				// 降级路径:flusher 未启用时保留原有同步直写 DB
-				if err := deps.userPlatformQuotaRepo.IncrementUsageWithReset(billingCtx, p.User.ID, p.Platform, cost.ActualCost, time.Now().UTC()); err != nil {
-					userPlatformQuotaDBIncrLegacyErrorTotal.Add(1)
-					logger.LegacyPrintf("service.gateway", "ALERT: legacy incr user platform quota DB failed user=%d platform=%s cost=%f: %v", p.User.ID, p.Platform, cost.ActualCost, err)
-				}
-			}
-			// flusher_enabled=true:不直写 DB，flusher 异步批量刷
-		}
-	}
-
-	// NOTE: finalizePostUsageBilling is NOT called here to avoid double-queuing
-	// cache updates. The legacy path does DB writes directly; the finalize path
-	// does cache queue + notifications. Notifications are dispatched separately
-	// by the caller after recording the usage log.
 }
 
 func resolveUsageBillingRequestID(ctx context.Context, upstreamRequestID string) string {
@@ -9021,7 +8927,7 @@ func resolveUsageBillingPayloadFingerprint(ctx context.Context, requestPayloadHa
 	return ""
 }
 
-func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsageBillingParams) *UsageBillingCommand {
+func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *usageSettlementParams) *UsageBillingCommand {
 	if p == nil || p.Cost == nil || p.APIKey == nil || p.User == nil || p.Account == nil {
 		return nil
 	}
@@ -9088,45 +8994,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	return cmd
 }
 
-func BuildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsageBillingParams) *UsageBillingCommand {
-	return buildUsageBillingCommand(requestID, usageLog, p)
-}
-
-func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog, p *postUsageBillingParams, deps *billingDeps, repo UsageBillingRepository) (bool, error) {
-	if p == nil || deps == nil {
-		return false, nil
-	}
-
-	cmd := buildUsageBillingCommand(requestID, usageLog, p)
-	if cmd == nil || cmd.RequestID == "" || repo == nil {
-		postUsageBilling(ctx, p, deps)
-		return true, nil
-	}
-
-	billingCtx, cancel := detachedBillingContext(ctx)
-	defer cancel()
-
-	result, err := repo.Apply(billingCtx, cmd)
-	if err != nil {
-		return false, err
-	}
-
-	if result == nil || !result.Applied {
-		deps.deferredService.ScheduleLastUsedUpdate(p.Account.ID)
-		return false, nil
-	}
-
-	if result.APIKeyQuotaExhausted {
-		if invalidator, ok := p.APIKeyService.(apiKeyAuthCacheInvalidator); ok && p.APIKey != nil && p.APIKey.Key != "" {
-			invalidator.InvalidateAuthCacheByKey(billingCtx, p.APIKey.Key)
-		}
-	}
-
-	finalizePostUsageBilling(billingCtx, p, deps, result)
-	return true, nil
-}
-
-func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+func applyUsageSettlementEffects(ctx context.Context, p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || deps == nil {
 		return
 	}
@@ -9187,7 +9055,7 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 	go notifyAccountQuota(p, deps, result)
 }
 
-func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+func syncBalanceCacheAfterDeduction(ctx context.Context, p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
 		return
 	}
@@ -9208,7 +9076,7 @@ func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingPara
 // notifyBalanceLow sends balance low notification after deduction.
 // When result.NewBalance is available (from DB transaction RETURNING), it is used directly
 // to reconstruct oldBalance, avoiding stale Redis reads and concurrent-deduction races.
-func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+func notifyBalanceLow(p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic in notifyBalanceLow", "recover", r)
@@ -9238,7 +9106,7 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 
 // resolveOldBalance returns the pre-deduction balance.
 // Prefers the DB transaction result (newBalance + cost) over snapshot.
-func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
+func resolveOldBalance(p *usageSettlementParams, result *UsageBillingApplyResult) float64 {
 	if result != nil && result.NewBalance != nil {
 		return *result.NewBalance + p.Cost.ActualCost
 	}
@@ -9249,7 +9117,7 @@ func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResul
 // notifyAccountQuota sends account quota threshold notification after increment.
 // When result.QuotaState is available (from DB transaction RETURNING), it is passed directly
 // to avoid a separate DB read that may see stale or concurrently-modified data.
-func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+func notifyAccountQuota(p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("panic in notifyAccountQuota", "recover", r)
@@ -9275,14 +9143,6 @@ func notifyAccountQuota(p *postUsageBillingParams, deps *billingDeps, result *Us
 		"has_quota_state", quotaState != nil,
 	)
 	deps.balanceNotifyService.CheckAccountQuotaAfterIncrement(context.Background(), p.Account, accountCost, quotaState)
-}
-
-func detachedBillingContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	base := context.Background()
-	if ctx != nil {
-		base = context.WithoutCancel(ctx)
-	}
-	return context.WithTimeout(base, postUsageBillingTimeout)
 }
 
 func detachStreamUpstreamContext(ctx context.Context, stream bool) (context.Context, context.CancelFunc) {
@@ -9336,41 +9196,10 @@ func trafficPackServiceFromBillingCache(s *BillingCacheService) *TrafficPackServ
 	return s.trafficPackService
 }
 
-func writeUsageLogBestEffort(ctx context.Context, repo UsageLogRepository, usageLog *UsageLog, logKey string) {
-	if repo == nil || usageLog == nil {
-		return
-	}
-	usageCtx, cancel := detachedBillingContext(ctx)
-	defer cancel()
-
-	if writer, ok := repo.(usageLogBestEffortWriter); ok {
-		if err := writer.CreateBestEffort(usageCtx, usageLog); err != nil {
-			logger.LegacyPrintf(logKey, "Create usage log failed: %v", err)
-			if IsUsageLogCreateDropped(err) {
-				return
-			}
-			if _, syncErr := repo.Create(usageCtx, usageLog); syncErr != nil {
-				logger.LegacyPrintf(logKey, "Create usage log sync fallback failed: %v", syncErr)
-			}
-		}
-		return
-	}
-
-	if _, err := repo.Create(usageCtx, usageLog); err != nil {
-		logger.LegacyPrintf(logKey, "Create usage log failed: %v", err)
-	}
-}
-
 type gatewayUsageRecordBuild struct {
 	usageLog      *UsageLog
-	billingParams *postUsageBillingParams
+	billingParams *usageSettlementParams
 	effects       UsageSettlementEffectsPayload
-}
-
-// RecordUsage 保留调用兼容，实际只持久化计费事实。
-func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInput) error {
-	_, err := s.PersistUsageFact(ctx, input)
-	return err
 }
 
 func (s *GatewayService) PersistUsageFact(ctx context.Context, input *RecordUsageInput) (*UsageFact, error) {
@@ -9390,7 +9219,7 @@ func (s *GatewayService) BuildUsageFact(ctx context.Context, input *RecordUsageI
 	if err != nil {
 		return nil, err
 	}
-	command := BuildUsageBillingCommand(record.usageLog.RequestID, record.usageLog, record.billingParams)
+	command := buildUsageBillingCommand(record.usageLog.RequestID, record.usageLog, record.billingParams)
 	if command == nil {
 		return nil, errors.New("failed to build usage billing command")
 	}
@@ -9510,7 +9339,7 @@ func (s *GatewayService) buildGatewayUsageRecord(ctx context.Context, input *Rec
 		)
 	}
 
-	billingParams := &postUsageBillingParams{
+	billingParams := &usageSettlementParams{
 		Cost:                  cost,
 		User:                  user,
 		APIKey:                apiKey,

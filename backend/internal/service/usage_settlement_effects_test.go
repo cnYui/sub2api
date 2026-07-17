@@ -50,7 +50,7 @@ func (s *usageSettlementEffectsInvalidatorStub) InvalidateAuthCacheByUserID(ctx 
 func (s *usageSettlementEffectsInvalidatorStub) InvalidateAuthCacheByGroupID(ctx context.Context, groupID int64) {
 }
 
-func TestUsageSettlementEffectsHandler_RebuildsPostBillingContext(t *testing.T) {
+func TestUsageSettlementEffectsHandler_RebuildsSettlementEffectsContext(t *testing.T) {
 	groupID := int64(11)
 	user := &User{ID: 7}
 	apiKey := &APIKey{ID: 9, Key: "sk-test", GroupID: &groupID}
@@ -63,8 +63,8 @@ func TestUsageSettlementEffectsHandler_RebuildsPostBillingContext(t *testing.T) 
 		authInvalidator: invalidator,
 		deps:            &billingDeps{},
 	}
-	var gotParams *postUsageBillingParams
-	effects.finalize = func(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
+	var gotParams *usageSettlementParams
+	effects.finalize = func(ctx context.Context, p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 		gotParams = p
 	}
 

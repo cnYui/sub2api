@@ -46,10 +46,10 @@ func TestPlanTrafficCreditDeductions_ReturnsUncoveredWhenBalanceInsufficient(t *
 	}, plan)
 }
 
-func TestBuildUsageBillingCommand_UsesTrafficPackInsteadOfBalance(t *testing.T) {
+func TestUsageBillingCommandBuilder_UsesTrafficPackInsteadOfBalance(t *testing.T) {
 	t.Parallel()
 
-	cmd := buildUsageBillingCommand("req-traffic-pack", &UsageLog{RequestID: "req-traffic-pack"}, &postUsageBillingParams{
+	cmd := buildUsageBillingCommand("req-traffic-pack", &UsageLog{RequestID: "req-traffic-pack"}, &usageSettlementParams{
 		Cost:           &CostBreakdown{ActualCost: 0.25, TotalCost: 0.25},
 		User:           &User{ID: 7},
 		APIKey:         &APIKey{ID: 9},
@@ -64,11 +64,11 @@ func TestBuildUsageBillingCommand_UsesTrafficPackInsteadOfBalance(t *testing.T) 
 	require.Zero(t, cmd.SubscriptionCost)
 }
 
-func TestBuildUsageBillingCommand_UsesTrafficPackInsteadOfSubscription(t *testing.T) {
+func TestUsageBillingCommandBuilder_UsesTrafficPackInsteadOfSubscription(t *testing.T) {
 	t.Parallel()
 
 	subscriptionID := int64(17)
-	cmd := buildUsageBillingCommand("req-traffic-pack-subscription", &UsageLog{RequestID: "req-traffic-pack-subscription"}, &postUsageBillingParams{
+	cmd := buildUsageBillingCommand("req-traffic-pack-subscription", &UsageLog{RequestID: "req-traffic-pack-subscription"}, &usageSettlementParams{
 		Cost:               &CostBreakdown{ActualCost: 0.25, TotalCost: 0.25},
 		User:               &User{ID: 7},
 		APIKey:             &APIKey{ID: 9},

@@ -6383,14 +6383,9 @@ func (s *OpenAIGatewayService) PersistCyberPolicyUsageFact(ctx context.Context, 
 
 type openAIUsageRecordBuild struct {
 	usageLog      *UsageLog
-	billingParams *postUsageBillingParams
+	billingParams *usageSettlementParams
 	effects       UsageSettlementEffectsPayload
 	openAIBilling *OpenAIUsageBillingSnapshot
-}
-
-func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRecordUsageInput) error {
-	_, err := s.PersistUsageFact(ctx, input)
-	return err
 }
 
 func (s *OpenAIGatewayService) PersistUsageFact(ctx context.Context, input *OpenAIRecordUsageInput) (*UsageFact, error) {
@@ -6410,7 +6405,7 @@ func (s *OpenAIGatewayService) BuildUsageFact(ctx context.Context, input *OpenAI
 	if err != nil {
 		return nil, err
 	}
-	command := BuildUsageBillingCommand(record.usageLog.RequestID, record.usageLog, record.billingParams)
+	command := buildUsageBillingCommand(record.usageLog.RequestID, record.usageLog, record.billingParams)
 	if command == nil {
 		return nil, errors.New("failed to build usage billing command")
 	}
@@ -6674,7 +6669,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		)
 	}
 
-	billingParams := &postUsageBillingParams{
+	billingParams := &usageSettlementParams{
 		Cost:                  cost,
 		User:                  user,
 		APIKey:                apiKey,
@@ -6706,33 +6701,6 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 			IsTrafficCredit:       useTrafficPack,
 		},
 	}, nil
-}
-
-func (s *OpenAIGatewayService) recordUsageLegacy(ctx context.Context, input *OpenAIRecordUsageInput) error {
-	record, err := s.buildOpenAIUsageRecord(ctx, input)
-	if err != nil {
-		return err
-	}
-	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		writeUsageLogBestEffort(ctx, s.usageLogRepo, record.usageLog, "service.openai_gateway")
-		logger.LegacyPrintf("service.openai_gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", record.usageLog.UserID, record.usageLog.TotalTokens())
-		if s.deferredService != nil && record.billingParams.Account != nil {
-			s.deferredService.ScheduleLastUsedUpdate(record.billingParams.Account.ID)
-		}
-		return nil
-	}
-	if _, err := applyUsageBilling(
-		ctx,
-		record.usageLog.RequestID,
-		record.usageLog,
-		record.billingParams,
-		s.billingDeps(),
-		s.usageBillingRepo,
-	); err != nil {
-		return err
-	}
-	writeUsageLogBestEffort(ctx, s.usageLogRepo, record.usageLog, "service.openai_gateway")
-	return nil
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(

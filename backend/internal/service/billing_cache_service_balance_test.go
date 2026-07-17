@@ -75,7 +75,7 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T
 	t.Cleanup(svc.Stop)
 
 	newBalance := -0.25
-	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
+	syncBalanceCacheAfterDeduction(context.Background(), &usageSettlementParams{
 		Cost: &CostBreakdown{ActualCost: 0.75},
 		User: &User{ID: 1},
 	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{
@@ -99,7 +99,7 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesWhenBalanceFallsBelowReserve(
 	t.Cleanup(svc.Stop)
 
 	newBalance := 0.005
-	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
+	syncBalanceCacheAfterDeduction(context.Background(), &usageSettlementParams{
 		Cost: &CostBreakdown{ActualCost: 0.495},
 		User: &User{ID: 1},
 	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance})
@@ -116,7 +116,7 @@ func TestSyncBalanceCacheAfterDeduction_QueuesDeductWhenBalanceStillEligible(t *
 	t.Cleanup(svc.Stop)
 
 	newBalance := 0.75
-	syncBalanceCacheAfterDeduction(context.Background(), &postUsageBillingParams{
+	syncBalanceCacheAfterDeduction(context.Background(), &usageSettlementParams{
 		Cost: &CostBreakdown{ActualCost: 0.25},
 		User: &User{ID: 1},
 	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance})

@@ -7,7 +7,7 @@ import (
 
 type usageSettlementFinalizeFunc func(
 	ctx context.Context,
-	p *postUsageBillingParams,
+	p *usageSettlementParams,
 	deps *billingDeps,
 	result *UsageBillingApplyResult,
 )
@@ -55,9 +55,9 @@ func (s *UsageSettlementEffectsHandler) Apply(
 	}
 	finalize := s.finalize
 	if finalize == nil {
-		finalize = finalizePostUsageBilling
+		finalize = applyUsageSettlementEffects
 	}
-	finalize(ctx, &postUsageBillingParams{
+	finalize(ctx, &usageSettlementParams{
 		Cost: &CostBreakdown{
 			ActualCost: payload.ActualCost,
 			TotalCost:  payload.TotalCost,

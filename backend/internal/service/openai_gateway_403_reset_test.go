@@ -20,19 +20,21 @@ func (s *openAI403CounterResetStub) ResetOpenAI403Count(_ context.Context, accou
 	return nil
 }
 
-func TestOpenAIGatewayServiceRecordUsage_ResetsOpenAI403CounterForZeroUsage(t *testing.T) {
+func TestOpenAIGatewayServiceBuildUsageFact_ResetsOpenAI403CounterForZeroUsage(t *testing.T) {
 	counter := &openAI403CounterResetStub{}
 	rateLimitSvc := NewRateLimitService(nil, nil, nil, nil, nil)
 	rateLimitSvc.SetOpenAI403CounterCache(counter)
 
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageBillingRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
 	svc.rateLimitService = rateLimitSvc
 
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+	fact, err := svc.BuildUsageFact(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
 			RequestID: "resp_zero_usage_reset_403",
 			Model:     "gpt-5.1",
@@ -43,6 +45,6 @@ func TestOpenAIGatewayServiceRecordUsage_ResetsOpenAI403CounterForZeroUsage(t *t
 	})
 
 	require.NoError(t, err)
+	require.NotNil(t, fact)
 	require.Equal(t, []int64{777}, counter.resetCalls)
-	require.Equal(t, 1, usageRepo.calls)
 }

@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier locks in the fix
+// TestUsageBillingCommandBuilder_SubscriptionAppliesRateMultiplier locks in the fix
 // that subscription-mode billing honours the group (and any user-specific) rate
 // multiplier — i.e. cmd.SubscriptionCost tracks ActualCost (= TotalCost *
 // RateMultiplier), not raw TotalCost.
-func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T) {
+func TestUsageBillingCommandBuilder_SubscriptionAppliesRateMultiplier(t *testing.T) {
 	t.Parallel()
 
 	groupID := int64(7)
@@ -61,7 +61,7 @@ func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			p := &postUsageBillingParams{
+			p := &usageSettlementParams{
 				Cost:               &CostBreakdown{TotalCost: tt.totalCost, ActualCost: tt.actualCost},
 				User:               &User{ID: 1},
 				APIKey:             &APIKey{ID: 2, GroupID: &groupID},
