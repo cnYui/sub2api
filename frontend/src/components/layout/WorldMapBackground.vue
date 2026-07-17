@@ -4,10 +4,17 @@
     data-testid="auth-world-map-background"
     class="pointer-events-none absolute inset-0 overflow-hidden bg-[#0a0a12]"
   >
-    <div
-      class="world-map-track absolute inset-y-0 left-0"
-      :style="{ backgroundImage: `url(${worldMapDotsUrl})` }"
-    ></div>
+    <div class="world-map-track absolute left-0 flex">
+      <img
+        v-for="copy in 3"
+        :key="copy"
+        :src="worldMapDotsUrl"
+        aria-hidden="true"
+        alt=""
+        :draggable="false"
+        class="world-map-tile"
+      />
+    </div>
   </div>
 </template>
 
@@ -17,27 +24,35 @@ import worldMapDotsUrl from '@/assets/auth/world-map-dots.webp'
 
 <style scoped>
 .world-map-track {
-  width: calc(100% + 1800px);
-  background-position: left center;
-  background-repeat: repeat-x;
-  background-size: 1800px 900px;
-  animation: world-map-scroll 60s linear infinite;
+  top: 50%;
+  height: 125%;
+  transform: translate3d(0, -50%, 0);
+  animation: world-map-scroll 75s linear infinite;
   will-change: transform;
+}
+
+.world-map-tile {
+  height: 100%;
+  width: auto;
+  max-width: none;
+  flex: none;
+  user-select: none;
 }
 
 @keyframes world-map-scroll {
   from {
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, -50%, 0);
   }
 
   to {
-    transform: translate3d(-1800px, 0, 0);
+    transform: translate3d(-33.333333%, -50%, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .world-map-track {
     animation: none;
+    transform: translate3d(0, -50%, 0);
     will-change: auto;
   }
 }
