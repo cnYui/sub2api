@@ -381,11 +381,15 @@
                 }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{
-                  t('admin.accounts.stats.todayCost')
-                }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.accountBilled') }}</span>
                 <span class="text-sm font-semibold text-gray-900 dark:text-white"
                   >${{ formatCost(stats.summary.today?.cost || 0) }}</span
+                >
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.userBilled') }}</span>
+                <span class="text-sm font-semibold text-gray-900 dark:text-white"
+                  >${{ formatCost(stats.summary.today?.user_cost || 0) }}</span
                 >
               </div>
             </div>
