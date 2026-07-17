@@ -144,7 +144,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			reqLog.Warn("openai.images.billing_preauthorization_release_failed", zap.Error(err))
 		}
 	}()
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, parsed.Stream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, parsed.Stream, usageFactProtocolOpenAI)
 	defer restoreUsageWriter()
 
 	sessionHash := h.gatewayService.GenerateExplicitSessionHash(c, body)

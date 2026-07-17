@@ -134,6 +134,8 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, failure.Status, failure.Code, failure.Message)
 		return
 	}
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolOpenAI)
+	defer restoreUsageWriter()
 
 	// Parse request for session hash
 	bodyRef := service.NewRequestBodyRef(body)
@@ -253,29 +255,31 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
-		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
-		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-				Result:             result,
-				QuotaPlatform:      quotaPlatform,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      h.apiKeyService,
-				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
-			}); err != nil {
-				reqLog.Error("gateway.responses.record_usage_failed",
-					zap.Int64("account_id", account.ID),
-					zap.Error(err),
-				)
-			}
-		})
+		usageInput := &service.RecordUsageInput{
+			Result:             result,
+			QuotaPlatform:      service.QuotaPlatform(c.Request.Context(), apiKey),
+			APIKey:             apiKey,
+			User:               apiKey.User,
+			Account:            account,
+			Subscription:       subscription,
+			InboundEndpoint:    inboundEndpoint,
+			UpstreamEndpoint:   upstreamEndpoint,
+			UserAgent:          userAgent,
+			IPAddress:          clientIP,
+			RequestPayloadHash: requestPayloadHash,
+			APIKeyService:      h.apiKeyService,
+			ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
+		}
+		if err := finalizeUsageFactResponse(c, usageGate, func(ctx context.Context) error {
+			_, err := h.gatewayService.PersistUsageFact(ctx, usageInput)
+			return err
+		}); err != nil {
+			reqLog.Error("gateway.responses.persist_usage_fact_failed",
+				zap.Int64("account_id", account.ID),
+				zap.Error(err),
+			)
+			return
+		}
 		return
 	}
 }

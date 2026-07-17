@@ -168,16 +168,18 @@ func TestOpenAIGatewayServiceBuildUsageFact_UsesRequestBillingAuthorization(t *t
 	require.False(t, payload.Effects.IsSubscription)
 }
 
-func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
+func TestPersistCyberPolicyUsageFact_StoresRealUpstreamTokens(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	factRepo := &openAIRecordUsageFactRepoStub{}
+	svc.usageFactRepo = factRepo
 	usage := OpenAIUsage{InputTokens: 1200, OutputTokens: 300}
 
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
 	// 与 WS cyber / 正常请求口径一致（不再是 tokens=0 免费行）。
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
+	err := svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{
 		APIKey:       &APIKey{ID: 2, User: &User{ID: 1}},
 		Account:      &Account{ID: 3},
 		RequestID:    "rid-cyber-stream",
@@ -187,29 +189,34 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 		OutputTokens: 300,
 	})
 
-	require.Equal(t, 1, usageRepo.calls)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, "gpt-5.1", usageRepo.lastLog.Model)
-	require.Equal(t, 1200, usageRepo.lastLog.InputTokens)
-	require.Equal(t, 300, usageRepo.lastLog.OutputTokens)
-	require.Equal(t, RequestTypeCyberBlocked, usageRepo.lastLog.RequestType, "cyber 行须标 request_type=cyber")
-	require.True(t, usageRepo.lastLog.Stream, "cyber 不覆盖真实 stream 字段")
+	require.NoError(t, err)
+	require.Equal(t, 0, usageRepo.calls)
+	require.Equal(t, 0, userRepo.deductCalls)
+	require.NotNil(t, factRepo.created)
+	payload, err := DecodeUsageFactPayload(factRepo.created.PayloadVersion, factRepo.created.Payload)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-5.1", payload.UsageLog.Model)
+	require.Equal(t, 1200, payload.UsageLog.InputTokens)
+	require.Equal(t, 300, payload.UsageLog.OutputTokens)
+	require.Equal(t, RequestTypeCyberBlocked, payload.UsageLog.RequestType)
+	require.True(t, payload.UsageLog.Stream)
 
 	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, 1.1)
-	require.Greater(t, usageRepo.lastLog.ActualCost, 0.0, "流式 cyber 有真实 token，须计费")
-	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
-	require.Equal(t, 1, userRepo.deductCalls, "按真实 token 扣费，与 WS/正常请求一致")
-	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
+	require.Greater(t, payload.UsageLog.ActualCost, 0.0)
+	require.InDelta(t, expected.ActualCost, payload.UsageLog.ActualCost, 1e-12)
+	require.InDelta(t, expected.ActualCost, payload.BillingCommand.BalanceCost, 1e-12)
 }
 
-func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
+func TestPersistCyberPolicyUsageFact_NonStreamZeroTokensZeroCost(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	factRepo := &openAIRecordUsageFactRepoStub{}
+	svc.usageFactRepo = factRepo
 
 	// 非流式直接拒：上游未报 token，mark token 为 0 → cost 自然为 0，仍写一条 cyber 行（可见）。
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
+	err := svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{
 		APIKey:    &APIKey{ID: 2, User: &User{ID: 1}},
 		Account:   &Account{ID: 3},
 		RequestID: "rid-cyber-400",
@@ -217,24 +224,28 @@ func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
 		Stream:    false,
 	})
 
-	require.Equal(t, 1, usageRepo.calls)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, 0, usageRepo.lastLog.InputTokens)
-	require.Equal(t, 0, usageRepo.lastLog.OutputTokens)
-	require.Zero(t, usageRepo.lastLog.TotalCost)
-	require.Equal(t, RequestTypeCyberBlocked, usageRepo.lastLog.RequestType)
+	require.NoError(t, err)
+	require.NotNil(t, factRepo.created)
+	payload, err := DecodeUsageFactPayload(factRepo.created.PayloadVersion, factRepo.created.Payload)
+	require.NoError(t, err)
+	require.Zero(t, payload.UsageLog.InputTokens)
+	require.Zero(t, payload.UsageLog.OutputTokens)
+	require.Zero(t, payload.UsageLog.TotalCost)
+	require.Equal(t, RequestTypeCyberBlocked, payload.UsageLog.RequestType)
 }
 
-func TestRecordCyberPolicyUsageLog_SkipsWhenIncomplete(t *testing.T) {
+func TestPersistCyberPolicyUsageFact_SkipsWhenIncomplete(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	factRepo := &openAIRecordUsageFactRepoStub{}
+	svc.usageFactRepo = factRepo
 
 	acct := &Account{ID: 3}
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                              // APIKey nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"})      // User nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Model: "gpt-5"}) // Account nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Account: acct})  // Model 空
-	require.Equal(t, 0, usageRepo.calls, "APIKey/User/Account 缺失或 Model 空时跳过，不记不扣费")
+	require.NoError(t, svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"}))
+	require.NoError(t, svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"}))
+	require.NoError(t, svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Model: "gpt-5"}))
+	require.NoError(t, svc.PersistCyberPolicyUsageFact(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Account: acct}))
+	require.Equal(t, 0, factRepo.createCalls)
 }
 
 type openAIRecordUsageUserRepoStub struct {

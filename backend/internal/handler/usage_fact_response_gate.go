@@ -3,8 +3,10 @@ package handler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +17,8 @@ const usageFactPersistenceTimeout = 10 * time.Second
 
 type usageFactResponseGate struct {
 	gin.ResponseWriter
-	stream bool
+	stream   bool
+	protocol usageFactResponseProtocol
 
 	mu           sync.Mutex
 	pending      bytes.Buffer
@@ -28,18 +31,27 @@ type usageFactResponseGate struct {
 	size         int
 }
 
-func newUsageFactResponseGate(writer gin.ResponseWriter, stream bool) *usageFactResponseGate {
+type usageFactResponseProtocol string
+
+const (
+	usageFactProtocolOpenAI    usageFactResponseProtocol = "openai"
+	usageFactProtocolAnthropic usageFactResponseProtocol = "anthropic"
+	usageFactProtocolGemini    usageFactResponseProtocol = "gemini"
+)
+
+func newUsageFactResponseGate(writer gin.ResponseWriter, stream bool, protocol usageFactResponseProtocol) *usageFactResponseGate {
 	return &usageFactResponseGate{
 		ResponseWriter: writer,
 		stream:         stream,
+		protocol:       protocol,
 		status:         http.StatusOK,
 		size:           -1,
 	}
 }
 
-func installUsageFactResponseGate(c *gin.Context, stream bool) (*usageFactResponseGate, func()) {
+func installUsageFactResponseGate(c *gin.Context, stream bool, protocol usageFactResponseProtocol) (*usageFactResponseGate, func()) {
 	original := c.Writer
-	gate := newUsageFactResponseGate(original, stream)
+	gate := newUsageFactResponseGate(original, stream, protocol)
 	c.Writer = gate
 	return gate, func() {
 		if c.Writer != gate {
@@ -174,7 +186,7 @@ func (g *usageFactResponseGate) writeStreamLocked(data []byte) (int, error) {
 			break
 		}
 		frame := append([]byte(nil), g.streamBuffer.Next(frameEnd)...)
-		if g.heldTerminal || isUsageFactTerminalSSEFrame(frame) {
+		if g.heldTerminal || isUsageFactTerminalSSEFrame(frame, g.protocol) {
 			g.heldTerminal = true
 			_, _ = g.pending.Write(frame)
 			continue
@@ -207,19 +219,66 @@ func nextSSEFrameEnd(data []byte) int {
 	}
 }
 
-func isUsageFactTerminalSSEFrame(frame []byte) bool {
-	return bytes.Contains(frame, []byte(`"response.completed"`)) ||
-		bytes.Contains(frame, []byte(`"response.failed"`)) ||
-		bytes.Contains(frame, []byte(`"response.incomplete"`)) ||
-		bytes.Contains(frame, []byte(`"response.cancelled"`)) ||
-		bytes.Contains(frame, []byte(`"response.canceled"`)) ||
-		bytes.Contains(frame, []byte(`"image_generation.completed"`)) ||
-		bytes.Contains(frame, []byte(`"image_edit.completed"`)) ||
-		bytes.Contains(frame, []byte(`"type":"error"`)) ||
-		bytes.Contains(frame, []byte(`"type": "error"`)) ||
-		bytes.Contains(frame, []byte("event: error")) ||
-		bytes.Contains(frame, []byte("[DONE]")) ||
-		bytes.Contains(frame, []byte(`"message_stop"`))
+func isUsageFactTerminalSSEFrame(frame []byte, protocol usageFactResponseProtocol) bool {
+	event, data := parseSSEFrame(frame)
+	switch protocol {
+	case usageFactProtocolAnthropic:
+		return strings.EqualFold(event, "message_stop") || jsonType(data) == "message_stop"
+	case usageFactProtocolGemini:
+		return geminiSSEHasFinishReason(data)
+	default:
+		if strings.EqualFold(event, "error") || strings.TrimSpace(string(data)) == "[DONE]" {
+			return true
+		}
+		switch jsonType(data) {
+		case "response.completed", "response.failed", "response.incomplete", "response.cancelled", "response.canceled",
+			"image_generation.completed", "image_edit.completed", "error":
+			return true
+		default:
+			return false
+		}
+	}
+}
+
+func parseSSEFrame(frame []byte) (string, []byte) {
+	var event string
+	dataLines := make([]string, 0, 1)
+	for _, line := range strings.Split(strings.ReplaceAll(string(frame), "\r\n", "\n"), "\n") {
+		switch {
+		case strings.HasPrefix(line, "event:"):
+			event = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+		case strings.HasPrefix(line, "data:"):
+			dataLines = append(dataLines, strings.TrimSpace(strings.TrimPrefix(line, "data:")))
+		}
+	}
+	return event, []byte(strings.Join(dataLines, "\n"))
+}
+
+func jsonType(data []byte) string {
+	var payload struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal(data, &payload) != nil {
+		return ""
+	}
+	return payload.Type
+}
+
+func geminiSSEHasFinishReason(data []byte) bool {
+	var payload struct {
+		Candidates []struct {
+			FinishReason string `json:"finishReason"`
+		} `json:"candidates"`
+	}
+	if json.Unmarshal(data, &payload) != nil {
+		return false
+	}
+	for _, candidate := range payload.Candidates {
+		if strings.TrimSpace(candidate.FinishReason) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func finalizeUsageFactResponse(
@@ -245,18 +304,31 @@ func finalizeUsageFactResponse(
 
 	gate.Discard()
 	c.Writer = gate.ResponseWriter
+	writeUsageFactPersistenceError(c, gate)
+	return err
+}
+
+func writeUsageFactPersistenceError(c *gin.Context, gate *usageFactResponseGate) {
+	const message = "Unable to persist usage record"
 	if gate.stream {
 		c.Header("Content-Type", "text/event-stream")
-		_, _ = c.Writer.WriteString("event: error\ndata: {\"type\":\"billing_persistence_error\",\"error\":{\"message\":\"Unable to persist usage record\"}}\n\n")
+		switch gate.protocol {
+		case usageFactProtocolAnthropic:
+			_, _ = c.Writer.WriteString("event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"" + message + "\"}}\n\n")
+		case usageFactProtocolGemini:
+			_, _ = c.Writer.WriteString("data: {\"error\":{\"code\":503,\"message\":\"" + message + "\",\"status\":\"UNAVAILABLE\"}}\n\n")
+		default:
+			_, _ = c.Writer.WriteString("event: error\ndata: {\"type\":\"billing_persistence_error\",\"error\":{\"message\":\"" + message + "\"}}\n\n")
+		}
 		c.Writer.Flush()
-		return err
+		return
 	}
-	c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
-		"error": gin.H{
-			"message": "Unable to persist usage record",
-			"type":    "api_error",
-			"code":    "billing_persistence_error",
-		},
-	})
-	return err
+	switch gate.protocol {
+	case usageFactProtocolAnthropic:
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"type": "error", "error": gin.H{"type": "api_error", "message": message}})
+	case usageFactProtocolGemini:
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"code": http.StatusServiceUnavailable, "message": message, "status": "UNAVAILABLE"}})
+	default:
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": gin.H{"message": message, "type": "api_error", "code": "billing_persistence_error"}})
+	}
 }

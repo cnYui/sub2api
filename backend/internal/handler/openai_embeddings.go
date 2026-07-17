@@ -91,7 +91,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		h.errorResponse(c, failure.Status, failure.Code, failure.Message)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, false)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, false, usageFactProtocolOpenAI)
 	defer restoreUsageWriter()
 
 	failedAccountIDs := make(map[int64]struct{})

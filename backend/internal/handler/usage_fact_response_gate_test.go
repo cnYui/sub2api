@@ -16,7 +16,7 @@ import (
 func TestUsageFactResponseGate_BuffersNonStreamingUntilRelease(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, false)
+	gate := newUsageFactResponseGate(c.Writer, false, usageFactProtocolOpenAI)
 
 	gate.WriteHeader(http.StatusCreated)
 	_, err := gate.Write([]byte(`{"id":"resp_1"}`))
@@ -32,7 +32,7 @@ func TestUsageFactResponseGate_BuffersNonStreamingUntilRelease(t *testing.T) {
 func TestUsageFactResponseGate_HoldsSSETerminalEvent(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, true)
+	gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolOpenAI)
 
 	_, err := gate.Write([]byte("data: {\"type\":\"response.output_text.delta\"}\n\n"))
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestUsageFactResponseGate_HoldsSSETerminalEvent(t *testing.T) {
 func TestUsageFactResponseGate_HoldsSplitSSETerminalEvent(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, true)
+	gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolOpenAI)
 
 	_, err := gate.Write([]byte("data: {\"type\":\"response.comp"))
 	require.NoError(t, err)
@@ -75,7 +75,7 @@ func TestUsageFactResponseGate_HoldsAllOpenAITerminalEvents(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
-			gate := newUsageFactResponseGate(c.Writer, true)
+			gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolOpenAI)
 
 			_, err := gate.Write([]byte("data: {\"type\":\"response.output_text.delta\"}\n\n"))
 			require.NoError(t, err)
@@ -91,10 +91,40 @@ func TestUsageFactResponseGate_HoldsAllOpenAITerminalEvents(t *testing.T) {
 	}
 }
 
+func TestUsageFactResponseGate_HoldsAnthropicMessageStop(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolAnthropic)
+
+	_, err := gate.Write([]byte("event: content_block_delta\ndata: {\"type\":\"content_block_delta\"}\n\n"))
+	require.NoError(t, err)
+	_, err = gate.Write([]byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"))
+	require.NoError(t, err)
+	require.NotContains(t, recorder.Body.String(), "message_stop")
+
+	require.NoError(t, gate.Release())
+	require.Contains(t, recorder.Body.String(), "message_stop")
+}
+
+func TestUsageFactResponseGate_HoldsGeminiFinishReason(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolGemini)
+
+	_, err := gate.Write([]byte("data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hello\"}]}}]}\n\n"))
+	require.NoError(t, err)
+	_, err = gate.Write([]byte("data: {\"candidates\":[{\"finishReason\":\"STOP\"}],\"usageMetadata\":{\"promptTokenCount\":2}}\n\n"))
+	require.NoError(t, err)
+	require.NotContains(t, recorder.Body.String(), "finishReason")
+
+	require.NoError(t, gate.Release())
+	require.Contains(t, recorder.Body.String(), "finishReason")
+}
+
 func TestUsageFactResponseGate_DiscardDropsBufferedResponse(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, false)
+	gate := newUsageFactResponseGate(c.Writer, false, usageFactProtocolOpenAI)
 
 	_, err := gate.Write([]byte(`{"id":"resp_1"}`))
 	require.NoError(t, err)
@@ -106,7 +136,7 @@ func TestUsageFactResponseGate_DiscardDropsBufferedResponse(t *testing.T) {
 func TestFinalizeUsageFactResponse_NonStreamingPersistenceFailureReplacesUpstreamSuccess(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, false)
+	gate := newUsageFactResponseGate(c.Writer, false, usageFactProtocolOpenAI)
 	c.Writer = gate
 	_, err := gate.Write([]byte(`{"id":"resp_1"}`))
 	require.NoError(t, err)
@@ -124,7 +154,7 @@ func TestFinalizeUsageFactResponse_NonStreamingPersistenceFailureReplacesUpstrea
 func TestFinalizeUsageFactResponse_StreamingPersistenceFailureDropsTerminalEvent(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	gate := newUsageFactResponseGate(c.Writer, true)
+	gate := newUsageFactResponseGate(c.Writer, true, usageFactProtocolOpenAI)
 	c.Writer = gate
 	_, err := gate.Write([]byte("data: {\"type\":\"response.output_text.delta\"}\n\n"))
 	require.NoError(t, err)

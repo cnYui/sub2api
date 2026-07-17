@@ -314,7 +314,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolOpenAI)
 	defer restoreUsageWriter()
 
 	// Generate session hash (header first; fallback to prompt_cache_key)
@@ -731,7 +731,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		h.anthropicStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolAnthropic)
 	defer restoreUsageWriter()
 
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
@@ -2281,10 +2281,8 @@ func (h *OpenAIGatewayHandler) enqueueCyberSessionBlockedOpsEntry(c *gin.Context
 	enqueueOpsErrorLog(h.opsService, buildCyberSessionBlockedOpsEntry(meta))
 }
 
-// recordCyberPolicyIfMarked 在 gateway forward 返回后检查 cyber 标记，异步写风控日志/邮件，
-// 并在 forward 返回错误时写一条 tokens=0 用量行。标记由 gateway 服务层在透传 cyber 后设置；
-// 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
-// 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
+// recordCyberPolicyIfMarked 在 gateway forward 返回后检查 cyber 标记。
+// 计费事实必须同步持久化，风控日志、邮件和会话封禁继续异步处理。
 func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
@@ -2360,6 +2358,34 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 		ClientIP:        clientIPStr,
 		CreatedAt:       time.Now(),
 	}
+	if forwardErrored && gwSvc != nil {
+		persistCtx, cancel := context.WithTimeout(context.Background(), usageFactPersistenceTimeout)
+		err := gwSvc.PersistCyberPolicyUsageFact(persistCtx, service.CyberPolicyUsageInput{
+			APIKey:             apiKey,
+			Account:            account,
+			Subscription:       subscription,
+			RequestID:          requestID,
+			Model:              model,
+			Stream:             stream,
+			InputTokens:        mark.UpstreamInTok,
+			OutputTokens:       mark.UpstreamOutTok,
+			InboundEndpoint:    inboundEndpoint,
+			UpstreamEndpoint:   upstreamEndpoint,
+			UserAgent:          userAgent,
+			IPAddress:          clientIPStr,
+			RequestPayloadHash: requestPayloadHash,
+			APIKeyService:      apiKeySvc,
+			ChannelUsageFields: channelFields,
+		})
+		cancel()
+		if err != nil {
+			logger.L().With(
+				zap.String("component", "handler.openai_gateway.cyber"),
+				zap.String("request_id", requestID),
+				zap.Int64("account_id", accountID),
+			).Error("openai.cyber_persist_usage_fact_failed", zap.Error(err))
+		}
+	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -2379,25 +2405,6 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 				UpstreamStatus:  mark.UpstreamStatus,
 				UpstreamInTok:   mark.UpstreamInTok,
 				UpstreamOutTok:  mark.UpstreamOutTok,
-			})
-		}
-		if forwardErrored && gwSvc != nil {
-			gwSvc.RecordCyberPolicyUsageLog(ctx, service.CyberPolicyUsageInput{
-				APIKey:             apiKey,
-				Account:            account,
-				Subscription:       subscription,
-				RequestID:          requestID,
-				Model:              model,
-				Stream:             stream,
-				InputTokens:        mark.UpstreamInTok,
-				OutputTokens:       mark.UpstreamOutTok,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIPStr,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      apiKeySvc,
-				ChannelUsageFields: channelFields,
 			})
 		}
 		if gwSvc != nil && cyberBlockKey != "" {

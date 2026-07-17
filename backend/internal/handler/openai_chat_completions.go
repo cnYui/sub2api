@@ -117,7 +117,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolOpenAI)
 	defer restoreUsageWriter()
 
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
