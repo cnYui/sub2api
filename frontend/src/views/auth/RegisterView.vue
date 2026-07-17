@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout>
+  <AuthLayout world-map-background>
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
@@ -284,11 +284,11 @@
 
     <!-- Footer -->
     <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="text-gray-400">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
           to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-medium text-primary-400 transition-colors hover:text-primary-300"
         >
           {{ t('auth.signIn') }}
         </router-link>

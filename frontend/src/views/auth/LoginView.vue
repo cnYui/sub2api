@@ -1,5 +1,5 @@
 <template>
-  <AuthLayout>
+  <AuthLayout world-map-background>
     <div class="space-y-6">
       <!-- Title -->
       <div class="text-center">
@@ -174,11 +174,11 @@
 
     <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="text-gray-400">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-medium text-primary-400 transition-colors hover:text-primary-300"
         >
           {{ t('auth.signUp') }}
         </router-link>
