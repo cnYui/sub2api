@@ -40,20 +40,6 @@ type CreateUsageLogRequest struct {
 	DurationMs            *int    `json:"duration_ms"`
 }
 
-// UsageStats 使用统计
-type UsageStats struct {
-	TotalRequests            int64   `json:"total_requests"`
-	TotalInputTokens         int64   `json:"total_input_tokens"`
-	TotalOutputTokens        int64   `json:"total_output_tokens"`
-	TotalCacheTokens         int64   `json:"total_cache_tokens"`
-	TotalCacheCreationTokens int64   `json:"total_cache_creation_tokens"`
-	TotalCacheReadTokens     int64   `json:"total_cache_read_tokens"`
-	TotalTokens              int64   `json:"total_tokens"`
-	TotalCost                float64 `json:"total_cost"`
-	TotalActualCost          float64 `json:"total_actual_cost"`
-	AverageDurationMs        float64 `json:"average_duration_ms"`
-}
-
 // UsageService 使用统计服务
 type UsageService struct {
 	usageRepo            UsageLogRepository
@@ -185,87 +171,43 @@ func (s *UsageService) ListByAccount(ctx context.Context, accountID int64, param
 }
 
 // GetStatsByUser 获取用户的使用统计
-func (s *UsageService) GetStatsByUser(ctx context.Context, userID int64, startTime, endTime time.Time) (*UsageStats, error) {
+func (s *UsageService) GetStatsByUser(ctx context.Context, userID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetUserStatsAggregated(ctx, userID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get user stats: %w", err)
 	}
 
-	return &UsageStats{
-		TotalRequests:            stats.TotalRequests,
-		TotalInputTokens:         stats.TotalInputTokens,
-		TotalOutputTokens:        stats.TotalOutputTokens,
-		TotalCacheTokens:         stats.TotalCacheTokens,
-		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
-		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
-		TotalTokens:              stats.TotalTokens,
-		TotalCost:                stats.TotalCost,
-		TotalActualCost:          stats.TotalActualCost,
-		AverageDurationMs:        stats.AverageDurationMs,
-	}, nil
+	return stats, nil
 }
 
 // GetStatsByAPIKey 获取API Key的使用统计
-func (s *UsageService) GetStatsByAPIKey(ctx context.Context, apiKeyID int64, startTime, endTime time.Time) (*UsageStats, error) {
+func (s *UsageService) GetStatsByAPIKey(ctx context.Context, apiKeyID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetAPIKeyStatsAggregated(ctx, apiKeyID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get api key stats: %w", err)
 	}
 
-	return &UsageStats{
-		TotalRequests:            stats.TotalRequests,
-		TotalInputTokens:         stats.TotalInputTokens,
-		TotalOutputTokens:        stats.TotalOutputTokens,
-		TotalCacheTokens:         stats.TotalCacheTokens,
-		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
-		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
-		TotalTokens:              stats.TotalTokens,
-		TotalCost:                stats.TotalCost,
-		TotalActualCost:          stats.TotalActualCost,
-		AverageDurationMs:        stats.AverageDurationMs,
-	}, nil
+	return stats, nil
 }
 
 // GetStatsByAccount 获取账号的使用统计
-func (s *UsageService) GetStatsByAccount(ctx context.Context, accountID int64, startTime, endTime time.Time) (*UsageStats, error) {
+func (s *UsageService) GetStatsByAccount(ctx context.Context, accountID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetAccountStatsAggregated(ctx, accountID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get account stats: %w", err)
 	}
 
-	return &UsageStats{
-		TotalRequests:            stats.TotalRequests,
-		TotalInputTokens:         stats.TotalInputTokens,
-		TotalOutputTokens:        stats.TotalOutputTokens,
-		TotalCacheTokens:         stats.TotalCacheTokens,
-		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
-		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
-		TotalTokens:              stats.TotalTokens,
-		TotalCost:                stats.TotalCost,
-		TotalActualCost:          stats.TotalActualCost,
-		AverageDurationMs:        stats.AverageDurationMs,
-	}, nil
+	return stats, nil
 }
 
 // GetStatsByModel 获取模型的使用统计
-func (s *UsageService) GetStatsByModel(ctx context.Context, modelName string, startTime, endTime time.Time) (*UsageStats, error) {
+func (s *UsageService) GetStatsByModel(ctx context.Context, modelName string, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	stats, err := s.usageRepo.GetModelStatsAggregated(ctx, modelName, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get model stats: %w", err)
 	}
 
-	return &UsageStats{
-		TotalRequests:            stats.TotalRequests,
-		TotalInputTokens:         stats.TotalInputTokens,
-		TotalOutputTokens:        stats.TotalOutputTokens,
-		TotalCacheTokens:         stats.TotalCacheTokens,
-		TotalCacheCreationTokens: stats.TotalCacheCreationTokens,
-		TotalCacheReadTokens:     stats.TotalCacheReadTokens,
-		TotalTokens:              stats.TotalTokens,
-		TotalCost:                stats.TotalCost,
-		TotalActualCost:          stats.TotalActualCost,
-		AverageDurationMs:        stats.AverageDurationMs,
-	}, nil
+	return stats, nil
 }
 
 // GetDailyStats 获取每日使用统计（最近N天）
