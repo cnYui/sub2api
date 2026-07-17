@@ -298,6 +298,15 @@ func (s *UsageService) GetUserDashboardStats(ctx context.Context, userID int64) 
 	return stats, nil
 }
 
+// GetUserDashboardQuota returns the lightweight quota block for dashboard refresh.
+func (s *UsageService) GetUserDashboardQuota(ctx context.Context, userID int64) (*usagestats.UserDashboardQuota, error) {
+	quota, err := s.usageRepo.GetUserDashboardQuota(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user dashboard quota: %w", err)
+	}
+	return quota, nil
+}
+
 // GetAPIKeyDashboardStats returns dashboard summary stats filtered by API Key.
 func (s *UsageService) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int64) (*usagestats.UserDashboardStats, error) {
 	stats, err := s.usageRepo.GetAPIKeyDashboardStats(ctx, apiKeyID)

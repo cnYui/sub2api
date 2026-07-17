@@ -28,6 +28,19 @@ export interface PlatformDashboardStats {
   today_actual_cost: number
 }
 
+export type DashboardQuotaPeriodMode = 'entitlement_period' | 'rolling_30d_legacy' | 'none'
+
+export interface UserDashboardQuota {
+  period_mode: DashboardQuotaPeriodMode
+  today_usage_usd: number
+  today_limit_usd: number
+  period_usage_usd: number
+  period_limit_usd: number
+  period_days: number
+  period_starts_at?: string
+  period_expires_at?: string
+}
+
 export interface UserDashboardStats {
   total_api_keys: number
   active_api_keys: number
@@ -51,6 +64,7 @@ export interface UserDashboardStats {
   rpm: number // 近5分钟平均每分钟请求数
   tpm: number // 近5分钟平均每分钟Token数
   by_platform?: PlatformDashboardStats[]
+  quota: UserDashboardQuota
 }
 
 export interface TrendParams {
@@ -233,6 +247,11 @@ export async function getDashboardStats(): Promise<UserDashboardStats> {
   return data
 }
 
+export async function getDashboardQuota(): Promise<UserDashboardQuota> {
+  const { data } = await apiClient.get<UserDashboardQuota>('/usage/dashboard/quota')
+  return data
+}
+
 /**
  * Get user usage trend data
  * @param params - Query parameters for filtering
@@ -332,6 +351,7 @@ export const usageAPI = {
   getById,
   // Dashboard
   getDashboardStats,
+  getDashboardQuota,
   getDashboardTrend,
   getDashboardModels,
   getMyApiKeyDailyUsage,

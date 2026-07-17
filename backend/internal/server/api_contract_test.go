@@ -516,6 +516,24 @@ func TestAPIContracts(t *testing.T) {
 			}`,
 		},
 		{
+			name:       "GET /api/v1/usage/dashboard/quota",
+			method:     http.MethodGet,
+			path:       "/api/v1/usage/dashboard/quota",
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": {
+					"period_mode": "entitlement_period",
+					"today_usage_usd": 1.23,
+					"today_limit_usd": 19,
+					"period_usage_usd": 5.67,
+					"period_limit_usd": 570,
+					"period_days": 30
+				}
+			}`,
+		},
+		{
 			name: "GET /api/v1/usage (paginated)",
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
@@ -1347,6 +1365,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	v1Usage.Use(jwtAuth)
 	v1Usage.GET("/usage", usageHandler.List)
 	v1Usage.GET("/usage/stats", usageHandler.Stats)
+	v1Usage.GET("/usage/dashboard/quota", usageHandler.DashboardQuota)
 
 	v1Subs := v1.Group("")
 	v1Subs.Use(jwtAuth)
@@ -2492,11 +2511,29 @@ func (r *stubUsageLogRepo) GetBatchAPIKeyUsageStats(ctx context.Context, apiKeyI
 }
 
 func (r *stubUsageLogRepo) GetUserDashboardStats(ctx context.Context, userID int64) (*usagestats.UserDashboardStats, error) {
-	return nil, errors.New("not implemented")
+	return &usagestats.UserDashboardStats{
+		TotalAPIKeys: 1,
+		Quota:        contractDashboardQuota(),
+	}, nil
+}
+
+func (r *stubUsageLogRepo) GetUserDashboardQuota(ctx context.Context, userID int64) (*usagestats.UserDashboardQuota, error) {
+	return contractDashboardQuota(), nil
 }
 
 func (r *stubUsageLogRepo) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int64) (*usagestats.UserDashboardStats, error) {
 	return nil, errors.New("not implemented")
+}
+
+func contractDashboardQuota() *usagestats.UserDashboardQuota {
+	return &usagestats.UserDashboardQuota{
+		PeriodMode:     usagestats.UserDashboardQuotaModeEntitlementPeriod,
+		TodayUsageUSD:  1.23,
+		TodayLimitUSD:  19,
+		PeriodUsageUSD: 5.67,
+		PeriodLimitUSD: 570,
+		PeriodDays:     30,
+	}
 }
 
 func (r *stubUsageLogRepo) GetUserUsageTrendByUserID(ctx context.Context, userID int64, startTime, endTime time.Time, granularity string) ([]usagestats.TrendDataPoint, error) {

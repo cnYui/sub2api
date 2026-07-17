@@ -246,6 +246,9 @@ type UserDashboardStats struct {
 
 	// 按"有效平台"维度拆分（与 ops 路径口径一致：group.platform 优先，否则 account.platform）
 	ByPlatform []PlatformDashboardStats `json:"by_platform,omitempty"`
+
+	// Quota 展示用户 Dashboard 的套餐额度口径。
+	Quota *UserDashboardQuota `json:"quota"`
 }
 
 // PlatformDashboardStats 单个平台的用量明细。
@@ -257,6 +260,24 @@ type PlatformDashboardStats struct {
 	TodayRequests   int64   `json:"today_requests"`
 	TodayTokens     int64   `json:"today_tokens"`
 	TodayActualCost float64 `json:"today_actual_cost"`
+}
+
+const (
+	UserDashboardQuotaModeEntitlementPeriod = "entitlement_period"
+	UserDashboardQuotaModeRolling30Legacy   = "rolling_30d_legacy"
+	UserDashboardQuotaModeNoSubscription    = "none"
+)
+
+// UserDashboardQuota 表示 Dashboard 上“使用 / 额度”的轻量读模型。
+type UserDashboardQuota struct {
+	PeriodMode      string     `json:"period_mode"`
+	TodayUsageUSD   float64    `json:"today_usage_usd"`
+	TodayLimitUSD   float64    `json:"today_limit_usd"`
+	PeriodUsageUSD  float64    `json:"period_usage_usd"`
+	PeriodLimitUSD  float64    `json:"period_limit_usd"`
+	PeriodDays      int        `json:"period_days"`
+	PeriodStartsAt  *time.Time `json:"period_starts_at,omitempty"`
+	PeriodExpiresAt *time.Time `json:"period_expires_at,omitempty"`
 }
 
 // UsageLogFilters represents filters for usage log queries

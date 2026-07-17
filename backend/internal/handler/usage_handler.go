@@ -460,6 +460,24 @@ func (h *UsageHandler) DashboardStats(c *gin.Context) {
 	response.Success(c, stats)
 }
 
+// DashboardQuota handles getting lightweight user dashboard quota data.
+// GET /api/v1/usage/dashboard/quota
+func (h *UsageHandler) DashboardQuota(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	quota, err := h.usageService.GetUserDashboardQuota(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, quota)
+}
+
 // DashboardTrend handles getting user usage trend data
 // GET /api/v1/usage/dashboard/trend
 func (h *UsageHandler) DashboardTrend(c *gin.Context) {
