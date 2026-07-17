@@ -133,7 +133,7 @@ func TestCalculateCreateOrderPayAmountUsesCurrencyPrecision(t *testing.T) {
 func TestCalculateCreateOrderPayAmountForRMBProductAddsOnlyFee(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrder(payment.OrderTypeSubscription, 79, 1, 0.14, "CNY")
+	amountStr, amount, err := calculateCreateOrderPayAmountForOrder(payment.OrderTypeSubscription, 79, 1, "CNY")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -142,10 +142,10 @@ func TestCalculateCreateOrderPayAmountForRMBProductAddsOnlyFee(t *testing.T) {
 	}
 }
 
-func TestCalculateCreateOrderPayAmountForBalanceRechargeIgnoresFeeAndMultiplier(t *testing.T) {
+func TestCalculateCreateOrderPayAmountForBalanceRechargeIgnoresFee(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrder(payment.OrderTypeBalance, 10, 1, 0.14, "CNY")
+	amountStr, amount, err := calculateCreateOrderPayAmountForOrder(payment.OrderTypeBalance, 10, 1, "CNY")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -153,7 +153,7 @@ func TestCalculateCreateOrderPayAmountForBalanceRechargeIgnoresFeeAndMultiplier(
 		t.Fatalf("balance recharge pay amount = (%q,%v), want (10.00,10)", amountStr, amount)
 	}
 
-	credited := calculateCreditedBalance(10, 0.14)
+	credited := calculateCreditedBalance(10)
 	if credited != 10 {
 		t.Fatalf("credited balance = %v, want 10", credited)
 	}

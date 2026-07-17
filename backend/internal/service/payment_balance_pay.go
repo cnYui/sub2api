@@ -127,7 +127,7 @@ func (s *PaymentService) resolveBalancePayProduct(ctx context.Context, req Balan
 		if err != nil {
 			return 0, 0, 0, nil, nil, err
 		}
-		_, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, plan.Price, feeRate, cfg.BalanceRechargeMultiplier, payment.DefaultPaymentCurrency)
+		_, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, plan.Price, feeRate, payment.DefaultPaymentCurrency)
 		if err != nil {
 			return 0, 0, 0, nil, nil, err
 		}
@@ -137,7 +137,7 @@ func (s *PaymentService) resolveBalancePayProduct(ctx context.Context, req Balan
 		if err != nil {
 			return 0, 0, 0, nil, nil, err
 		}
-		_, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, pack.Price, feeRate, cfg.BalanceRechargeMultiplier, payment.DefaultPaymentCurrency)
+		_, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, pack.Price, feeRate, payment.DefaultPaymentCurrency)
 		if err != nil {
 			return 0, 0, 0, nil, nil, err
 		}

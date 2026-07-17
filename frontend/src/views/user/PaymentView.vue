@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div :class="['mx-auto space-y-6', paymentPhase === 'select' && !selectedPlan && !selectedTrafficPack ? 'max-w-7xl' : 'max-w-4xl']">
+    <div :class="['mx-auto space-y-6', paymentPhase === 'select' && !currentPurchaseProduct ? 'max-w-7xl' : 'max-w-4xl']">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-900 border-t-transparent dark:border-gray-100 dark:border-t-transparent"></div>
       </div>
@@ -23,7 +23,7 @@
         </template>
         <!-- Subscription and traffic pack purchases -->
         <template v-else>
-          <div v-if="paymentPhase === 'recharge' || selectedPlan || selectedTrafficPack" class="mb-1">
+          <div v-if="paymentPhase === 'recharge' || currentPurchaseProduct" class="mb-1">
             <button
               type="button"
               class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
@@ -73,8 +73,9 @@
             </button>
             <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
           </template>
-          <template v-else-if="selectedTrafficPack">
-            <div class="card p-5">
+          <template v-else-if="currentPurchaseProduct">
+            <template v-if="selectedTrafficPack">
+              <div class="card p-5">
                 <div class="mb-3 flex flex-wrap items-center gap-2">
                   <span class="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">GPT</span>
                   <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedTrafficPack.name }}</h3>
@@ -97,62 +98,15 @@
                   </div>
                 </div>
               </div>
-              <div v-if="trafficPackMethodOptions.length >= 1" class="card p-6">
-                <PaymentMethodSelector
-                  :methods="trafficPackMethodOptions"
-                  :selected="selectedMethod"
-                  @select="selectedMethod = $event"
-                />
-              </div>
-              <div v-if="trafficPackMethodOptions.length === 0" class="card p-4 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
-              </div>
-              <div v-if="feeRate > 0 && selectedTrafficPack.price > 0" class="card p-6">
-                <div class="space-y-2 text-sm">
-                  <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.amountLabel') }}</span>
-                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(selectedTrafficPack.price) }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(trafficPackFeeAmount) }}</span>
-                  </div>
-                  <template v-if="trafficPackHybridSummary">
-                    <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.hybrid.balanceDeduction') }}</span>
-                      <span class="font-medium text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(trafficPackHybridSummary.balanceAmount) }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.hybrid.gatewayPay') }}</span>
-                      <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(trafficPackHybridSummary.gatewayAmount) }}</span>
-                    </div>
-                  </template>
-                  <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(trafficPackTotalAmount) }}</span>
-                  </div>
-                </div>
-              </div>
-              <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmitTrafficPack || submitting" @click="confirmTrafficPack">
-                <span v-if="submitting" class="flex items-center justify-center gap-2">
-                  <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  {{ t('common.processing') }}
-                </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ trafficPackSubmitAmountText }}</span>
-              </button>
-              <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
             </template>
-            <!-- Subscription confirm (inline, replaces plan list) -->
             <template v-else-if="selectedPlan">
               <div class="card p-5">
-                <!-- Header: platform badge + plan name -->
                 <div class="mb-3 flex flex-wrap items-center gap-2">
                   <span :class="['rounded-md border px-2 py-0.5 text-xs font-medium', planBadgeClass]">
                     {{ platformLabel(selectedPlan.group_platform || '') }}
                   </span>
                   <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedPlan.name }}</h3>
                 </div>
-                <!-- Price -->
                 <div class="flex items-baseline gap-2">
                   <span v-if="selectedPlan.original_price" class="text-sm text-gray-400 line-through dark:text-gray-500">
                     {{ formatSelectedPaymentAmount(selectedPlan.original_price) }}
@@ -160,11 +114,9 @@
                   <span :class="['text-3xl font-bold', planTextClass]">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ planValiditySuffix }}</span>
                 </div>
-                <!-- Description -->
                 <p v-if="selectedPlan.description" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                   {{ selectedPlan.description }}
                 </p>
-                <!-- Rate + Limits grid -->
                 <div class="mt-3 grid grid-cols-2 gap-3">
                   <div>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.rate') }}</span>
@@ -190,68 +142,68 @@
                   </div>
                 </div>
               </div>
-              <div v-if="subMethodOptions.length >= 1" class="card p-6">
-                <PaymentMethodSelector
-                  :methods="subMethodOptions"
-                  :selected="selectedMethod"
-                  @select="selectedMethod = $event"
-                />
-              </div>
-              <div v-if="subMethodOptions.length === 0" class="card p-4 text-center">
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
-              </div>
-              <div v-if="feeRate > 0 && selectedPlan.price > 0" class="card p-6">
-                <div class="space-y-2 text-sm">
-                  <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.amountLabel') }}</span>
-                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                    <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(subFeeAmount) }}</span>
-                  </div>
-                  <template v-if="subscriptionHybridSummary">
-                    <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-                      <span class="text-gray-500 dark:text-gray-400">{{ t('payment.hybrid.balanceDeduction') }}</span>
-                      <span class="font-medium text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(subscriptionHybridSummary.balanceAmount) }}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.hybrid.gatewayPay') }}</span>
-                      <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(subscriptionHybridSummary.gatewayAmount) }}</span>
-                    </div>
-                  </template>
+            </template>
+            <div v-if="purchaseMethodOptions.length >= 1" class="card p-6">
+              <PaymentMethodSelector
+                :methods="purchaseMethodOptions"
+                :selected="selectedMethod"
+                @select="selectedMethod = $event"
+              />
+            </div>
+            <div v-else class="card p-4 text-center">
+              <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
+            </div>
+            <div v-if="feeRate > 0 && currentPurchaseProduct.price > 0" class="card p-6">
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.amountLabel') }}</span>
+                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(currentPurchaseProduct.price) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
+                  <span class="text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(purchaseFeeAmount) }}</span>
+                </div>
+                <template v-if="purchaseHybridSummary">
                   <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
-                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
-                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">{{ t('payment.hybrid.balanceDeduction') }}</span>
+                    <span class="font-medium text-emerald-600 dark:text-emerald-400">-{{ formatSelectedPaymentAmount(purchaseHybridSummary.balanceAmount) }}</span>
                   </div>
+                  <div class="flex justify-between">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.hybrid.gatewayPay') }}</span>
+                    <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(purchaseHybridSummary.gatewayAmount) }}</span>
+                  </div>
+                </template>
+                <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                  <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
+                  <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatSelectedPaymentAmount(purchaseTotalAmount) }}</span>
                 </div>
               </div>
-              <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
-                <span v-if="submitting" class="flex items-center justify-center gap-2">
-                  <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                  {{ t('common.processing') }}
-                </span>
-                <span v-else>{{ t('payment.createOrder') }} {{ subscriptionSubmitAmountText }}</span>
-              </button>
-              <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
-            </template>
-            <!-- Product list -->
-            <template v-else>
-              <div v-if="purchaseProducts.length === 0" class="card py-16 text-center">
-                <Icon name="gift" size="xl" class="mx-auto mb-3 text-gray-300 dark:text-dark-600" />
-                <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
-              </div>
-              <div v-else :class="purchaseProductGridClass">
-                <PurchaseProductCard
-                  v-for="item in purchaseProducts"
-                  :key="item.id"
-                  :product="item.product"
-                  @select="selectPurchaseProduct(item)"
-                />
-              </div>
-            </template>
+            </div>
+            <button :class="['btn w-full py-3 text-base font-medium', paymentButtonClass]" :disabled="!canSubmitPurchase || submitting" @click="confirmPurchase">
+              <span v-if="submitting" class="flex items-center justify-center gap-2">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                {{ t('common.processing') }}
+              </span>
+              <span v-else>{{ t('payment.createOrder') }} {{ purchaseSubmitAmountText }}</span>
+            </button>
+            <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
+          </template>
+          <template v-else>
+            <div v-if="purchaseProducts.length === 0" class="card py-16 text-center">
+              <Icon name="gift" size="xl" class="mx-auto mb-3 text-gray-300 dark:text-dark-600" />
+              <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
+            </div>
+            <div v-else :class="purchaseProductGridClass">
+              <PurchaseProductCard
+                v-for="item in purchaseProducts"
+                :key="item.id"
+                :product="item.product"
+                @select="selectPurchaseProduct(item)"
+              />
+            </div>
+          </template>
         </template>
-        <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan && !selectedTrafficPack" class="card p-4">
+        <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !currentPurchaseProduct" class="card p-4">
           <div class="flex flex-col items-center gap-3">
             <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
               class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
@@ -349,8 +301,6 @@ const errorMessage = ref('')
 const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
-const selectedPlan = ref<SubscriptionPlan | null>(null)
-const selectedTrafficPack = ref<TrafficPack | null>(null)
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'recharge' | 'paying'>('select')
@@ -362,6 +312,22 @@ const rechargeError = computed(() => {
   return ''
 })
 const validRechargeAmount = computed(() => rechargeError.value ? 0 : Number(rechargeAmount.value))
+
+type CurrentPurchaseProduct =
+  | { orderType: 'subscription'; price: number; plan: SubscriptionPlan }
+  | { orderType: 'traffic_pack'; price: number; trafficPack: TrafficPack }
+
+const currentPurchaseProduct = ref<CurrentPurchaseProduct | null>(null)
+const selectedPlan = computed(() =>
+  currentPurchaseProduct.value?.orderType === 'subscription'
+    ? currentPurchaseProduct.value.plan
+    : null,
+)
+const selectedTrafficPack = computed(() =>
+  currentPurchaseProduct.value?.orderType === 'traffic_pack'
+    ? currentPurchaseProduct.value.trafficPack
+    : null,
+)
 
 interface CreateOrderOptions {
   openid?: string
@@ -526,8 +492,7 @@ function onPaymentDone() {
   const wasSubscription = paymentState.value.orderType === 'subscription'
   const wasTrafficPack = paymentState.value.orderType === 'traffic_pack'
   resetPayment()
-  selectedPlan.value = null
-  selectedTrafficPack.value = null
+  currentPurchaseProduct.value = null
   if (wasSubscription) {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
   }
@@ -557,7 +522,7 @@ function onPaymentSettled(outcome?: string) {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], traffic_packs: [], traffic_credit_summary: null, traffic_credits: [], balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], traffic_packs: [], traffic_credit_summary: null, traffic_credits: [], balance_disabled: false, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
@@ -729,64 +694,33 @@ function productMethodOptionsFor(price: number): PaymentMethodOption[] {
   return methods
 }
 
-// Subscription-specific: method options based on plan price
-const subMethodOptions = computed<PaymentMethodOption[]>(() => {
-  const planPrice = selectedPlan.value?.price ?? 0
-  return productMethodOptionsFor(planPrice)
-})
+const purchaseMethodOptions = computed<PaymentMethodOption[]>(() =>
+  productMethodOptionsFor(currentPurchaseProduct.value?.price ?? 0),
+)
 
-const subFeeAmount = computed(() => {
-  const price = selectedPlan.value?.price ?? 0
+const purchaseFeeAmount = computed(() => {
+  const price = currentPurchaseProduct.value?.price ?? 0
   if (feeRate.value <= 0 || price <= 0) return 0
   return Math.ceil(((price * feeRate.value) / 100) * 100) / 100
 })
 
-const subTotalAmount = computed(() => {
-  const price = selectedPlan.value?.price ?? 0
+const purchaseTotalAmount = computed(() => {
+  const price = currentPurchaseProduct.value?.price ?? 0
   if (feeRate.value <= 0 || price <= 0) return price
-  return Math.round((price + subFeeAmount.value) * 100) / 100
+  return Math.round((price + purchaseFeeAmount.value) * 100) / 100
 })
 
-const subscriptionHybridSummary = computed(() => buildHybridPaymentSummary(subTotalAmount.value))
-const subscriptionSubmitAmountText = computed(() => {
-  const hybrid = subscriptionHybridSummary.value
+const purchaseHybridSummary = computed(() => buildHybridPaymentSummary(purchaseTotalAmount.value))
+const purchaseSubmitAmountText = computed(() => {
+  const hybrid = purchaseHybridSummary.value
   if (hybrid) return formatSelectedPaymentAmount(hybrid.gatewayAmount)
-  return formatSelectedPaymentAmount(feeRate.value > 0 ? subTotalAmount.value : (selectedPlan.value?.price ?? 0))
+  return formatSelectedPaymentAmount(feeRate.value > 0 ? purchaseTotalAmount.value : (currentPurchaseProduct.value?.price ?? 0))
 })
 
-const canSubmitSubscription = computed(() => {
-  if (!selectedPlan.value) return false
-  return subMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
-})
-
-const trafficPackMethodOptions = computed<PaymentMethodOption[]>(() => {
-  const price = selectedTrafficPack.value?.price ?? 0
-  return productMethodOptionsFor(price)
-})
-
-const trafficPackFeeAmount = computed(() => {
-  const price = selectedTrafficPack.value?.price ?? 0
-  if (feeRate.value <= 0 || price <= 0) return 0
-  return Math.ceil(((price * feeRate.value) / 100) * 100) / 100
-})
-
-const trafficPackTotalAmount = computed(() => {
-  const price = selectedTrafficPack.value?.price ?? 0
-  if (feeRate.value <= 0 || price <= 0) return price
-  return Math.round((price + trafficPackFeeAmount.value) * 100) / 100
-})
-
-const trafficPackHybridSummary = computed(() => buildHybridPaymentSummary(trafficPackTotalAmount.value))
-const trafficPackSubmitAmountText = computed(() => {
-  const hybrid = trafficPackHybridSummary.value
-  if (hybrid) return formatSelectedPaymentAmount(hybrid.gatewayAmount)
-  return formatSelectedPaymentAmount(feeRate.value > 0 ? trafficPackTotalAmount.value : (selectedTrafficPack.value?.price ?? 0))
-})
-
-const canSubmitTrafficPack = computed(() => {
-  if (!selectedTrafficPack.value) return false
-  return trafficPackMethodOptions.value.some(method => method.type === selectedMethod.value && method.available)
-})
+const canSubmitPurchase = computed(() =>
+  !!currentPurchaseProduct.value
+  && purchaseMethodOptions.value.some(method => method.type === selectedMethod.value && method.available),
+)
 
 function buildHybridPaymentSummary(payAmount: number): { balanceAmount: number; gatewayAmount: number } | null {
   const visibleMethod = normalizeVisibleMethod(selectedMethod.value) || selectedMethod.value
@@ -801,19 +735,11 @@ function buildHybridPaymentSummary(payAmount: number): { balanceAmount: number; 
 }
 
 function hybridSummaryForOrderType(orderType: OrderType): { balanceAmount: number; payAmount: number } | null {
-  if (orderType === 'subscription' && subscriptionHybridSummary.value) {
-    return {
-      balanceAmount: subscriptionHybridSummary.value.balanceAmount,
-      payAmount: subTotalAmount.value,
-    }
+  if (currentPurchaseProduct.value?.orderType !== orderType || !purchaseHybridSummary.value) return null
+  return {
+    balanceAmount: purchaseHybridSummary.value.balanceAmount,
+    payAmount: purchaseTotalAmount.value,
   }
-  if (orderType === 'traffic_pack' && trafficPackHybridSummary.value) {
-    return {
-      balanceAmount: trafficPackHybridSummary.value.balanceAmount,
-      payAmount: trafficPackTotalAmount.value,
-    }
-  }
-  return null
 }
 
 function selectFirstAvailableProductMethod(methods: PaymentMethodOption[]) {
@@ -863,15 +789,17 @@ const planValiditySuffix = computed(() => {
 
 async function selectPlan(plan: SubscriptionPlan) {
   if (await refreshAndBlockDifferentActiveSubscription(plan)) return
-  selectedPlan.value = plan
-  selectedTrafficPack.value = null
+  selectSubscriptionProduct(plan)
+}
+
+function selectSubscriptionProduct(plan: SubscriptionPlan) {
+  currentPurchaseProduct.value = { orderType: 'subscription', price: plan.price, plan }
   errorMessage.value = ''
   selectFirstAvailableProductMethod(productMethodOptionsFor(plan.price))
 }
 
 function selectTrafficPack(pack: TrafficPack) {
-  selectedTrafficPack.value = pack
-  selectedPlan.value = null
+  currentPurchaseProduct.value = { orderType: 'traffic_pack', price: pack.price, trafficPack: pack }
   errorMessage.value = ''
   selectFirstAvailableProductMethod(productMethodOptionsFor(pack.price))
 }
@@ -890,15 +818,13 @@ async function selectPurchaseProduct(item: PurchaseProduct) {
 
 function backToSubscriptionList() {
   paymentPhase.value = 'select'
-  selectedPlan.value = null
-  selectedTrafficPack.value = null
+  currentPurchaseProduct.value = null
   errorMessage.value = ''
   errorHintMessage.value = ''
 }
 
 function openRechargeConfirm(defaultAmount = 1) {
-  selectedPlan.value = null
-  selectedTrafficPack.value = null
+  currentPurchaseProduct.value = null
   paymentPhase.value = 'recharge'
   selectedMethod.value = 'alipay'
   rechargeAmount.value = String(Math.min(100, Math.max(1, Math.ceil(defaultAmount))))
@@ -908,9 +834,7 @@ async function selectPlanFromModal(plan: SubscriptionPlan) {
   if (await refreshAndBlockDifferentActiveSubscription(plan)) return
   showRenewalModal.value = false
   renewGroupId.value = null
-  selectedPlan.value = plan
-  errorMessage.value = ''
-  selectFirstAvailableProductMethod(productMethodOptionsFor(plan.price))
+  selectSubscriptionProduct(plan)
 }
 
 function closeRenewalModal() {
@@ -918,36 +842,25 @@ function closeRenewalModal() {
   renewGroupId.value = null
 }
 
-async function confirmSubscribe() {
-  if (!selectedPlan.value || submitting.value) return
-  if (await refreshAndBlockDifferentActiveSubscription(selectedPlan.value)) return
-  if (!canSubmitSubscription.value) {
+async function confirmPurchase() {
+  const product = currentPurchaseProduct.value
+  if (!product || submitting.value) return
+  if (product.orderType === 'subscription' && await refreshAndBlockDifferentActiveSubscription(product.plan)) return
+  if (!canSubmitPurchase.value) {
     appStore.showError(t('payment.notAvailable'))
     return
   }
-  const total = subTotalAmount.value
-  if (!ensureBalanceEnough(total)) return
+  if (!ensureBalanceEnough(purchaseTotalAmount.value)) return
   if (selectedMethod.value === 'balance') {
-    await balancePayProduct({ order_type: 'subscription', plan_id: selectedPlan.value.id })
+    await balancePayProduct(
+      product.orderType === 'subscription'
+        ? { order_type: 'subscription', plan_id: product.plan.id }
+        : { order_type: 'traffic_pack', traffic_pack_id: product.trafficPack.id },
+    )
     return
   }
-  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
-}
-
-async function confirmTrafficPack() {
-  if (!selectedTrafficPack.value || submitting.value) return
-  if (!canSubmitTrafficPack.value) {
-    appStore.showError(t('payment.notAvailable'))
-    return
-  }
-  const total = trafficPackTotalAmount.value
-  if (!ensureBalanceEnough(total)) return
-  if (selectedMethod.value === 'balance') {
-    await balancePayProduct({ order_type: 'traffic_pack', traffic_pack_id: selectedTrafficPack.value.id })
-    return
-  }
-  await createOrder(selectedTrafficPack.value.price, 'traffic_pack', undefined, {
-    trafficPackId: selectedTrafficPack.value.id,
+  await createOrder(product.price, product.orderType, product.orderType === 'subscription' ? product.plan.id : undefined, {
+    trafficPackId: product.orderType === 'traffic_pack' ? product.trafficPack.id : undefined,
   })
 }
 
@@ -1331,7 +1244,12 @@ async function resumeWechatPaymentFromQuery() {
     amount.value = resume.orderAmount
   }
   if (resume.orderType === 'subscription' && resume.planId) {
-    selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
+    const plan = checkout.value.plans.find(item => item.id === resume.planId)
+    if (plan) selectSubscriptionProduct(plan)
+  }
+  if (resume.orderType === 'traffic_pack' && resume.trafficPackId) {
+    const pack = checkout.value.traffic_packs.find(item => item.id === resume.trafficPackId)
+    if (pack) selectTrafficPack(pack)
   }
 
   await router.replace({ path: route.path, query: stripWechatResumeQuery(route.query) })
@@ -1407,7 +1325,7 @@ onMounted(async () => {
       const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
       if (groupPlans.length > 0 && !(await refreshAndBlockDifferentActiveSubscription(groupPlans[0]))) {
         if (groupPlans.length === 1) {
-          selectedPlan.value = groupPlans[0]
+          selectSubscriptionProduct(groupPlans[0])
         } else {
           renewGroupId.value = groupId
           showRenewalModal.value = true

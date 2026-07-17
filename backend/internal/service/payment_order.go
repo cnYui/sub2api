@@ -70,7 +70,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		orderAmount = trafficPack.Price
 		limitAmount = trafficPack.Price
 	} else if req.OrderType == payment.OrderTypeBalance {
-		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
+		orderAmount = calculateCreditedBalance(req.Amount)
 	}
 	feeRate := cfg.RechargeFeeRate
 	if req.OrderType == payment.OrderTypeBalance {
@@ -83,7 +83,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 			return nil, err
 		}
 	}
-	payAmountStr, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, limitAmount, feeRate, cfg.BalanceRechargeMultiplier, methodCurrency)
+	payAmountStr, payAmount, err := calculateCreateOrderPayAmountForOrder(req.OrderType, limitAmount, feeRate, methodCurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
-		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrder(req.OrderType, limitAmount, feeRate, cfg.BalanceRechargeMultiplier, selectedCurrency)
+		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrder(req.OrderType, limitAmount, feeRate, selectedCurrency)
 		if err != nil {
 			return nil, err
 		}
@@ -733,7 +733,7 @@ func calculateCreateOrderPayAmount(limitAmount, feeRate float64, currency string
 	return payAmountStr, payAmount, nil
 }
 
-func calculateCreateOrderPayAmountForOrder(orderType string, limitAmount, feeRate, multiplier float64, currency string) (string, float64, error) {
+func calculateCreateOrderPayAmountForOrder(orderType string, limitAmount, feeRate float64, currency string) (string, float64, error) {
 	effectiveFeeRate := feeRate
 	if orderType == payment.OrderTypeBalance {
 		effectiveFeeRate = 0
