@@ -173,12 +173,12 @@ func ProvideUsageFactSettlementService(
 	factRepo UsageFactRepository,
 	billingRepo UsageBillingRepository,
 	usageLogRepo UsageLogRepository,
-	effects *OpenAIUsageSettlementEffects,
+	effects *UsageSettlementEffectsHandler,
 ) *UsageFactSettlementService {
 	return NewUsageFactSettlementService(factRepo, billingRepo, usageLogRepo, effects)
 }
 
-func ProvideOpenAIUsageSettlementEffects(
+func ProvideUsageSettlementEffects(
 	userRepo UserRepository,
 	apiKeyRepo APIKeyRepository,
 	accountRepo AccountRepository,
@@ -189,8 +189,8 @@ func ProvideOpenAIUsageSettlementEffects(
 	balanceNotifyService *BalanceNotifyService,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
 	cfg *config.Config,
-) *OpenAIUsageSettlementEffects {
-	return &OpenAIUsageSettlementEffects{
+) *UsageSettlementEffectsHandler {
+	return &UsageSettlementEffectsHandler{
 		userRepo:        userRepo,
 		apiKeyRepo:      apiKeyRepo,
 		accountRepo:     accountRepo,
@@ -221,9 +221,7 @@ func ProvideUsageFactWorker(
 		TaskTimeout:                  time.Duration(cfg.UsageFactWorker.TaskTimeoutSeconds) * time.Second,
 		TrafficCreditReservationRepo: reservationRepo,
 	})
-	if cfg.UsageFactWorker.Enabled {
-		worker.Start()
-	}
+	worker.Start()
 	return worker
 }
 
@@ -682,7 +680,6 @@ var ProviderSet = wire.NewSet(
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
-	NewUsageRecordWorkerPool,
 	ProvideSchedulerSnapshotService,
 	NewIdentityService,
 	NewCRSSyncService,
@@ -695,7 +692,7 @@ var ProviderSet = wire.NewSet(
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,
-	ProvideOpenAIUsageSettlementEffects,
+	ProvideUsageSettlementEffects,
 	ProvideUsageFactSettlementService,
 	ProvideUsageFactWorker,
 	ProvideDeferredService,

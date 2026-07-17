@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/tool/offlinepaymentbackfill"
 	_ "github.com/lib/pq"
 )
 
@@ -50,7 +50,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	result, err := service.RunOfflinePaymentBackfill(ctx, db, opts.operator, opts.execute)
+	result, err := offlinepaymentbackfill.RunOfflinePaymentBackfill(ctx, db, opts.operator, opts.execute)
 	if err != nil {
 		fmt.Fprintf(stderr, "补录校验失败: %v\n", err)
 		return 1
@@ -108,7 +108,7 @@ func applyBackfillDBPoolSettings(db *sql.DB, cfg *config.Config) {
 	}
 }
 
-func printBackfillResult(w io.Writer, opts backfillOptions, result service.OfflinePaymentBackfillResult) {
+func printBackfillResult(w io.Writer, opts backfillOptions, result offlinepaymentbackfill.OfflinePaymentBackfillResult) {
 	mode := "dry-run"
 	if opts.execute {
 		mode = "execute"

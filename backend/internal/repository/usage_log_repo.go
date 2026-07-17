@@ -1817,137 +1817,32 @@ func (r *usageLogRepository) ListByUserAndTimeRange(ctx context.Context, userID 
 	return logs, nil, err
 }
 
-// GetUserStatsAggregated returns aggregated usage statistics for a user using database-level aggregation
-func (r *usageLogRepository) GetUserStatsAggregated(ctx context.Context, userID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
-	query := `
-		SELECT
-			COUNT(*) as total_requests,
-			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
-			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
-			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
-			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
-			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
-		FROM usage_logs
-		WHERE user_id = $1 AND created_at >= $2 AND created_at < $3
-	`
+type usageStatsDimension string
 
-	var stats usagestats.UsageStats
-	if err := scanSingleRow(
-		ctx,
-		r.sql,
-		query,
-		[]any{userID, startTime, endTime},
-		&stats.TotalRequests,
-		&stats.TotalInputTokens,
-		&stats.TotalOutputTokens,
-		&stats.TotalCacheTokens,
-		&stats.TotalCacheCreationTokens,
-		&stats.TotalCacheReadTokens,
-		&stats.TotalCost,
-		&stats.TotalActualCost,
-		&stats.AverageDurationMs,
-	); err != nil {
-		return nil, err
+const (
+	usageStatsDimensionUser    usageStatsDimension = "user"
+	usageStatsDimensionAPIKey  usageStatsDimension = "api_key"
+	usageStatsDimensionAccount usageStatsDimension = "account"
+	usageStatsDimensionModel   usageStatsDimension = "model"
+)
+
+func usageStatsDimensionColumn(dimension usageStatsDimension) string {
+	switch dimension {
+	case usageStatsDimensionUser:
+		return "user_id"
+	case usageStatsDimensionAPIKey:
+		return "api_key_id"
+	case usageStatsDimensionAccount:
+		return "account_id"
+	case usageStatsDimensionModel:
+		return rawUsageLogModelColumn
+	default:
+		panic("unknown usage stats dimension")
 	}
-	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheTokens
-	return &stats, nil
 }
 
-// GetAPIKeyStatsAggregated returns aggregated usage statistics for an API key using database-level aggregation
-func (r *usageLogRepository) GetAPIKeyStatsAggregated(ctx context.Context, apiKeyID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
+func (r *usageLogRepository) getStatsAggregatedByDimension(ctx context.Context, dimension usageStatsDimension, value any, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
 	query := `
-		SELECT
-			COUNT(*) as total_requests,
-			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
-			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
-			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
-			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
-			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
-		FROM usage_logs
-		WHERE api_key_id = $1 AND created_at >= $2 AND created_at < $3
-	`
-
-	var stats usagestats.UsageStats
-	if err := scanSingleRow(
-		ctx,
-		r.sql,
-		query,
-		[]any{apiKeyID, startTime, endTime},
-		&stats.TotalRequests,
-		&stats.TotalInputTokens,
-		&stats.TotalOutputTokens,
-		&stats.TotalCacheTokens,
-		&stats.TotalCacheCreationTokens,
-		&stats.TotalCacheReadTokens,
-		&stats.TotalCost,
-		&stats.TotalActualCost,
-		&stats.AverageDurationMs,
-	); err != nil {
-		return nil, err
-	}
-	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheTokens
-	return &stats, nil
-}
-
-// GetAccountStatsAggregated 使用 SQL 聚合统计账号使用数据
-//
-// 性能优化说明：
-// 原实现先查询所有日志记录，再在应用层循环计算统计值：
-// 1. 需要传输大量数据到应用层
-// 2. 应用层循环计算增加 CPU 和内存开销
-//
-// 新实现使用 SQL 聚合函数：
-// 1. 在数据库层完成 COUNT/SUM/AVG 计算
-// 2. 只返回单行聚合结果，大幅减少数据传输量
-// 3. 利用数据库索引优化聚合查询性能
-func (r *usageLogRepository) GetAccountStatsAggregated(ctx context.Context, accountID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
-	query := `
-		SELECT
-			COUNT(*) as total_requests,
-			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-			COALESCE(SUM(cache_creation_tokens + cache_read_tokens), 0) as total_cache_tokens,
-			COALESCE(SUM(cache_creation_tokens), 0) as total_cache_creation_tokens,
-			COALESCE(SUM(cache_read_tokens), 0) as total_cache_read_tokens,
-			COALESCE(SUM(total_cost), 0) as total_cost,
-			COALESCE(SUM(actual_cost), 0) as total_actual_cost,
-			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
-		FROM usage_logs
-		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
-	`
-
-	var stats usagestats.UsageStats
-	if err := scanSingleRow(
-		ctx,
-		r.sql,
-		query,
-		[]any{accountID, startTime, endTime},
-		&stats.TotalRequests,
-		&stats.TotalInputTokens,
-		&stats.TotalOutputTokens,
-		&stats.TotalCacheTokens,
-		&stats.TotalCacheCreationTokens,
-		&stats.TotalCacheReadTokens,
-		&stats.TotalCost,
-		&stats.TotalActualCost,
-		&stats.AverageDurationMs,
-	); err != nil {
-		return nil, err
-	}
-	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheTokens
-	return &stats, nil
-}
-
-// GetModelStatsAggregated 使用 SQL 聚合统计模型使用数据
-// 性能优化：数据库层聚合计算，避免应用层循环统计
-func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelName string, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
-	query := fmt.Sprintf(`
 		SELECT
 			COUNT(*) as total_requests,
 			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
@@ -1960,14 +1855,15 @@ func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelN
 			COALESCE(AVG(COALESCE(duration_ms, 0)), 0) as avg_duration_ms
 		FROM usage_logs
 		WHERE %s = $1 AND created_at >= $2 AND created_at < $3
-	`, rawUsageLogModelColumn)
+	`
+	query = fmt.Sprintf(query, usageStatsDimensionColumn(dimension))
 
 	var stats usagestats.UsageStats
 	if err := scanSingleRow(
 		ctx,
 		r.sql,
 		query,
-		[]any{modelName, startTime, endTime},
+		[]any{value, startTime, endTime},
 		&stats.TotalRequests,
 		&stats.TotalInputTokens,
 		&stats.TotalOutputTokens,
@@ -1982,6 +1878,22 @@ func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelN
 	}
 	stats.TotalTokens = stats.TotalInputTokens + stats.TotalOutputTokens + stats.TotalCacheTokens
 	return &stats, nil
+}
+
+func (r *usageLogRepository) GetUserStatsAggregated(ctx context.Context, userID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
+	return r.getStatsAggregatedByDimension(ctx, usageStatsDimensionUser, userID, startTime, endTime)
+}
+
+func (r *usageLogRepository) GetAPIKeyStatsAggregated(ctx context.Context, apiKeyID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
+	return r.getStatsAggregatedByDimension(ctx, usageStatsDimensionAPIKey, apiKeyID, startTime, endTime)
+}
+
+func (r *usageLogRepository) GetAccountStatsAggregated(ctx context.Context, accountID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
+	return r.getStatsAggregatedByDimension(ctx, usageStatsDimensionAccount, accountID, startTime, endTime)
+}
+
+func (r *usageLogRepository) GetModelStatsAggregated(ctx context.Context, modelName string, startTime, endTime time.Time) (*usagestats.UsageStats, error) {
+	return r.getStatsAggregatedByDimension(ctx, usageStatsDimensionModel, modelName, startTime, endTime)
 }
 
 // GetDailyStatsAggregated 使用 SQL 聚合统计用户的每日使用数据
@@ -3871,7 +3783,28 @@ type AccountUsageStatsResponse = usagestats.AccountUsageStatsResponse
 // EndpointStat represents endpoint usage statistics row.
 type EndpointStat = usagestats.EndpointStat
 
-func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Context, endpointColumn string, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) (results []EndpointStat, err error) {
+type endpointStatsDimension uint8
+
+const (
+	endpointStatsDimensionInbound endpointStatsDimension = iota
+	endpointStatsDimensionUpstream
+	endpointStatsDimensionPath
+)
+
+func endpointStatsDimensionExpression(dimension endpointStatsDimension) string {
+	switch dimension {
+	case endpointStatsDimensionInbound:
+		return "COALESCE(NULLIF(TRIM(inbound_endpoint), ''), 'unknown')"
+	case endpointStatsDimensionUpstream:
+		return "COALESCE(NULLIF(TRIM(upstream_endpoint), ''), 'unknown')"
+	case endpointStatsDimensionPath:
+		return "CONCAT(COALESCE(NULLIF(TRIM(inbound_endpoint), ''), 'unknown'), ' -> ', COALESCE(NULLIF(TRIM(upstream_endpoint), ''), 'unknown'))"
+	default:
+		panic("unknown endpoint stats dimension")
+	}
+}
+
+func (r *usageLogRepository) getEndpointStatsWithFilters(ctx context.Context, dimension endpointStatsDimension, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) (results []EndpointStat, err error) {
 	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
 	if accountID > 0 && userID == 0 && apiKeyID == 0 {
 		actualCostExpr = "COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
@@ -3879,14 +3812,14 @@ func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Con
 
 	query := fmt.Sprintf(`
 		SELECT
-			COALESCE(NULLIF(TRIM(%s), ''), 'unknown') AS endpoint,
+			%s AS endpoint,
 			COUNT(*) AS requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
 			%s
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
-	`, endpointColumn, actualCostExpr)
+	`, endpointStatsDimensionExpression(dimension), actualCostExpr)
 
 	args := []any{startTime, endTime}
 	if userID > 0 {
@@ -3938,85 +3871,18 @@ func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Con
 	return results, nil
 }
 
-func (r *usageLogRepository) getEndpointPathStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) (results []EndpointStat, err error) {
-	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
-	if accountID > 0 && userID == 0 && apiKeyID == 0 {
-		actualCostExpr = "COALESCE(SUM(COALESCE(account_stats_cost, total_cost) * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			CONCAT(
-				COALESCE(NULLIF(TRIM(inbound_endpoint), ''), 'unknown'),
-				' -> ',
-				COALESCE(NULLIF(TRIM(upstream_endpoint), ''), 'unknown')
-			) AS endpoint,
-			COUNT(*) AS requests,
-			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_tokens,
-			COALESCE(SUM(total_cost), 0) as cost,
-			%s
-		FROM usage_logs
-		WHERE created_at >= $1 AND created_at < $2
-	`, actualCostExpr)
-
-	args := []any{startTime, endTime}
-	if userID > 0 {
-		query += fmt.Sprintf(" AND user_id = $%d", len(args)+1)
-		args = append(args, userID)
-	}
-	if apiKeyID > 0 {
-		query += fmt.Sprintf(" AND api_key_id = $%d", len(args)+1)
-		args = append(args, apiKeyID)
-	}
-	if accountID > 0 {
-		query += fmt.Sprintf(" AND account_id = $%d", len(args)+1)
-		args = append(args, accountID)
-	}
-	if groupID > 0 {
-		query += fmt.Sprintf(" AND group_id = $%d", len(args)+1)
-		args = append(args, groupID)
-	}
-	query, args = appendRawUsageLogModelQueryFilter(query, args, model)
-	query, args = appendRequestTypeOrStreamQueryFilter(query, args, requestType, stream)
-	if billingType != nil {
-		query += fmt.Sprintf(" AND billing_type = $%d", len(args)+1)
-		args = append(args, int16(*billingType))
-	}
-	query += " GROUP BY endpoint ORDER BY requests DESC"
-
-	rows, err := r.sql.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := rows.Close(); closeErr != nil && err == nil {
-			err = closeErr
-			results = nil
-		}
-	}()
-
-	results = make([]EndpointStat, 0)
-	for rows.Next() {
-		var row EndpointStat
-		if err := rows.Scan(&row.Endpoint, &row.Requests, &row.TotalTokens, &row.Cost, &row.ActualCost); err != nil {
-			return nil, err
-		}
-		results = append(results, row)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return results, nil
+func (r *usageLogRepository) getEndpointPathStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]EndpointStat, error) {
+	return r.getEndpointStatsWithFilters(ctx, endpointStatsDimensionPath, startTime, endTime, userID, apiKeyID, accountID, groupID, model, requestType, stream, billingType)
 }
 
 // GetEndpointStatsWithFilters returns inbound endpoint statistics with optional filters.
 func (r *usageLogRepository) GetEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]EndpointStat, error) {
-	return r.getEndpointStatsByColumnWithFilters(ctx, "inbound_endpoint", startTime, endTime, userID, apiKeyID, accountID, groupID, model, requestType, stream, billingType)
+	return r.getEndpointStatsWithFilters(ctx, endpointStatsDimensionInbound, startTime, endTime, userID, apiKeyID, accountID, groupID, model, requestType, stream, billingType)
 }
 
 // GetUpstreamEndpointStatsWithFilters returns upstream endpoint statistics with optional filters.
 func (r *usageLogRepository) GetUpstreamEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]EndpointStat, error) {
-	return r.getEndpointStatsByColumnWithFilters(ctx, "upstream_endpoint", startTime, endTime, userID, apiKeyID, accountID, groupID, model, requestType, stream, billingType)
+	return r.getEndpointStatsWithFilters(ctx, endpointStatsDimensionUpstream, startTime, endTime, userID, apiKeyID, accountID, groupID, model, requestType, stream, billingType)
 }
 
 // GetAccountUsageStats returns comprehensive usage statistics for an account over a time range

@@ -371,7 +371,7 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		endTime = now
 	}
 
-	var stats *service.UsageStats
+	var stats *usagestats.UsageStats
 	var err error
 	if apiKeyID > 0 {
 		stats, err = h.usageService.GetStatsByAPIKey(c.Request.Context(), apiKeyID, startTime, endTime)

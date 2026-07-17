@@ -1,14 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { flushPromises, mount } from '@vue/test-utils'
+import { describe, expect, it, vi } from 'vitest'
+import { mount } from '@vue/test-utils'
 
 const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
 }))
 const routerPush = vi.hoisted(() => vi.fn())
-const pollOrderStatus = vi.hoisted(() => vi.fn())
-const cancelOrder = vi.hoisted(() => vi.fn())
-const showError = vi.hoisted(() => vi.fn())
-const toCanvas = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -19,63 +15,28 @@ vi.mock('vue-router', async () => {
   }
 })
 
-vi.mock('vue-i18n', async () => {
-  const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
-  return {
-    ...actual,
-    useI18n: () => ({
-      t: (key: string) => key,
-    }),
-  }
-})
-
-vi.mock('@/stores/payment', () => ({
-  usePaymentStore: () => ({
-    pollOrderStatus,
-  }),
-}))
-
-vi.mock('@/stores', () => ({
-  useAppStore: () => ({
-    showError,
-  }),
-}))
-
-vi.mock('@/api/payment', () => ({
-  paymentAPI: {
-    cancelOrder,
-  },
-}))
-
-vi.mock('qrcode', () => ({
+vi.mock('@/components/payment/PaymentStatusPanel.vue', () => ({
   default: {
-    toCanvas,
+    name: 'PaymentStatusPanel',
+    props: ['orderId', 'qrCode', 'qrImageUrl', 'expiresAt', 'paymentType', 'payUrl', 'orderType', 'currency'],
+    emits: ['done'],
+    template: '<div data-testid="payment-status-panel" />',
   },
 }))
 
 import PaymentQRCodeView from '../PaymentQRCodeView.vue'
 
 describe('PaymentQRCodeView', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    routeState.query = {}
-    routerPush.mockReset()
-    pollOrderStatus.mockReset()
-    cancelOrder.mockReset()
-    showError.mockReset()
-    toCanvas.mockReset().mockResolvedValue(undefined)
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('renders provider-hosted QR image from qr_image_url query', async () => {
+  it('passes legacy QR query parameters to the shared payment status panel', () => {
     routeState.query = {
       order_id: '42',
+      qr: 'https://example.com/qr',
       qr_image_url: 'https://zpayz.cn/qrcode/123.jpg',
+      pay_url: 'https://example.com/pay',
       expires_at: '2099-01-01T12:30:00Z',
       payment_type: 'alipay',
+      order_type: 'traffic_pack',
+      currency: 'CNY',
     }
 
     const wrapper = mount(PaymentQRCodeView, {
@@ -86,10 +47,32 @@ describe('PaymentQRCodeView', () => {
       },
     })
 
-    await flushPromises()
+    const panel = wrapper.findComponent({ name: 'PaymentStatusPanel' })
+    expect(panel.props()).toMatchObject({
+      orderId: 42,
+      qrCode: 'https://example.com/qr',
+      qrImageUrl: 'https://zpayz.cn/qrcode/123.jpg',
+      payUrl: 'https://example.com/pay',
+      expiresAt: '2099-01-01T12:30:00Z',
+      paymentType: 'alipay',
+      orderType: 'traffic_pack',
+      currency: 'CNY',
+    })
+  })
 
-    const image = wrapper.get('[data-testid="payment-qr-image"]')
-    expect(image.attributes('src')).toBe('https://zpayz.cn/qrcode/123.jpg')
-    expect(toCanvas).not.toHaveBeenCalled()
+  it('returns to the purchase page after the shared panel finishes', async () => {
+    routeState.query = {}
+    routerPush.mockReset()
+
+    const wrapper = mount(PaymentQRCodeView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+        },
+      },
+    })
+
+    await wrapper.findComponent({ name: 'PaymentStatusPanel' }).vm.$emit('done')
+    expect(routerPush).toHaveBeenCalledWith('/purchase')
   })
 })

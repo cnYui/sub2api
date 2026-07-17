@@ -31,7 +31,6 @@ type OpenAIGatewayHandler struct {
 	gatewayService           *service.OpenAIGatewayService
 	billingCacheService      *service.BillingCacheService
 	apiKeyService            *service.APIKeyService
-	usageRecordWorkerPool    *service.UsageRecordWorkerPool
 	errorPassthroughService  *service.ErrorPassthroughService
 	contentModerationService *service.ContentModerationService
 	opsService               *service.OpsService
@@ -51,6 +50,65 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
 
 const openAIResponsesMessagesWithoutInputMessage = "/v1/responses expects input; use /v1/chat/completions for messages"
+
+type openAIHTTPFailoverAction uint8
+
+const (
+	openAIHTTPFailoverContinue openAIHTTPFailoverAction = iota
+	openAIHTTPFailoverExhausted
+	openAIHTTPFailoverCanceled
+)
+
+func (h *OpenAIGatewayHandler) advanceOpenAIHTTPFailover(
+	ctx context.Context,
+	account *service.Account,
+	failoverErr *service.UpstreamFailoverError,
+	failedAccountIDs map[int64]struct{},
+	sameAccountRetryCount map[int64]int,
+	lastFailoverErr **service.UpstreamFailoverError,
+	switchCount *int,
+	maxAccountSwitches int,
+	reqLog *zap.Logger,
+	logEvent string,
+) openAIHTTPFailoverAction {
+	h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
+	if failoverErr.RetryableOnSameAccount {
+		retryLimit := account.GetPoolModeRetryCount()
+		if sameAccountRetryCount[account.ID] < retryLimit {
+			sameAccountRetryCount[account.ID]++
+			reqLog.Warn(logEvent+".pool_mode_same_account_retry",
+				zap.Int64("account_id", account.ID),
+				zap.Int("upstream_status", failoverErr.StatusCode),
+				zap.Int("retry_limit", retryLimit),
+				zap.Int("retry_count", sameAccountRetryCount[account.ID]),
+			)
+			select {
+			case <-ctx.Done():
+				return openAIHTTPFailoverCanceled
+			case <-time.After(sameAccountRetryDelay):
+				return openAIHTTPFailoverContinue
+			}
+		}
+	}
+
+	h.gatewayService.RecordOpenAIAccountSwitch()
+	failedAccountIDs[account.ID] = struct{}{}
+	*lastFailoverErr = failoverErr
+	if *switchCount >= maxAccountSwitches {
+		return openAIHTTPFailoverExhausted
+	}
+	(*switchCount)++
+	if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, *switchCount) {
+		return openAIHTTPFailoverExhausted
+	}
+	reqLog.Warn(logEvent+".upstream_failover_switching",
+		zap.Int64("account_id", account.ID),
+		zap.Int("upstream_status", failoverErr.StatusCode),
+		zap.Int("switch_count", *switchCount),
+		zap.Int("max_switches", maxAccountSwitches),
+	)
+	return openAIHTTPFailoverContinue
+}
 
 func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
 	if !mapped || replace == nil {
@@ -78,38 +136,12 @@ func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFu
 	}
 }
 
-func usageRecordContext(parent context.Context, base context.Context) context.Context {
-	if base == nil {
-		base = context.Background()
-	}
-	if parent == nil {
-		return base
-	}
-	if clientRequestID, _ := parent.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
-		base = context.WithValue(base, ctxkey.ClientRequestID, strings.TrimSpace(clientRequestID))
-	}
-	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
-		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
-	}
-	return base
-}
-
-func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecordTask) service.UsageRecordTask {
-	if task == nil {
-		return nil
-	}
-	return func(ctx context.Context) {
-		task(usageRecordContext(parent, ctx))
-	}
-}
-
 // NewOpenAIGatewayHandler creates a new OpenAIGatewayHandler
 func NewOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
 	apiKeyService *service.APIKeyService,
-	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
 	opsService *service.OpsService,
@@ -127,7 +159,6 @@ func NewOpenAIGatewayHandler(
 		gatewayService:           gatewayService,
 		billingCacheService:      billingCacheService,
 		apiKeyService:            apiKeyService,
-		usageRecordWorkerPool:    usageRecordWorkerPool,
 		errorPassthroughService:  errorPassthroughService,
 		contentModerationService: contentModerationService,
 		opsService:               opsService,
@@ -314,7 +345,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		h.handleStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolOpenAI)
 	defer restoreUsageWriter()
 
 	// Generate session hash (header first; fallback to prompt_cache_key)
@@ -433,45 +464,18 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 						h.handleFailoverExhausted(c, failoverErr, true)
 						return
 					}
-					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
-					// 池模式：同账号重试
-					if failoverErr.RetryableOnSameAccount {
-						retryLimit := account.GetPoolModeRetryCount()
-						if sameAccountRetryCount[account.ID] < retryLimit {
-							sameAccountRetryCount[account.ID]++
-							reqLog.Warn("openai.pool_mode_same_account_retry",
-								zap.Int64("account_id", account.ID),
-								zap.Int("upstream_status", failoverErr.StatusCode),
-								zap.Int("retry_limit", retryLimit),
-								zap.Int("retry_count", sameAccountRetryCount[account.ID]),
-							)
-							select {
-							case <-c.Request.Context().Done():
-								return
-							case <-time.After(sameAccountRetryDelay):
-							}
-							continue
-						}
-					}
-					h.gatewayService.RecordOpenAIAccountSwitch()
-					failedAccountIDs[account.ID] = struct{}{}
-					lastFailoverErr = failoverErr
-					if switchCount >= maxAccountSwitches {
+					switch h.advanceOpenAIHTTPFailover(
+						c.Request.Context(), account, failoverErr, failedAccountIDs, sameAccountRetryCount,
+						&lastFailoverErr, &switchCount, maxAccountSwitches, reqLog, "openai",
+					) {
+					case openAIHTTPFailoverContinue:
+						continue
+					case openAIHTTPFailoverCanceled:
+						return
+					default:
 						h.handleFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
-					switchCount++
-					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount) {
-						h.handleFailoverExhausted(c, failoverErr, streamStarted)
-						return
-					}
-					reqLog.Warn("openai.upstream_failover_switching",
-						zap.Int64("account_id", account.ID),
-						zap.Int("upstream_status", failoverErr.StatusCode),
-						zap.Int("switch_count", switchCount),
-						zap.Int("max_switches", maxAccountSwitches),
-					)
-					continue
 				}
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
 				upstreamErrorAlreadyCommunicated := openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
@@ -731,7 +735,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		h.anthropicStreamingAwareError(c, failure.Status, failure.Code, failure.Message, streamStarted)
 		return
 	}
-	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream)
+	usageGate, restoreUsageWriter := installUsageFactResponseGate(c, reqStream, usageFactProtocolAnthropic)
 	defer restoreUsageWriter()
 
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
@@ -845,45 +849,26 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 						h.handleAnthropicFailoverExhausted(c, failoverErr, true)
 						return
 					}
-					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
-					// 池模式：同账号重试
-					if failoverErr.RetryableOnSameAccount {
-						retryLimit := account.GetPoolModeRetryCount()
-						if sameAccountRetryCount[account.ID] < retryLimit {
-							sameAccountRetryCount[account.ID]++
-							reqLog.Warn("openai_messages.pool_mode_same_account_retry",
-								zap.Int64("account_id", account.ID),
-								zap.Int("upstream_status", failoverErr.StatusCode),
-								zap.Int("retry_limit", retryLimit),
-								zap.Int("retry_count", sameAccountRetryCount[account.ID]),
-							)
-							select {
-							case <-c.Request.Context().Done():
-								return
-							case <-time.After(sameAccountRetryDelay):
-							}
-							continue
-						}
-					}
-					h.gatewayService.RecordOpenAIAccountSwitch()
-					failedAccountIDs[account.ID] = struct{}{}
-					lastFailoverErr = failoverErr
-					if switchCount >= maxAccountSwitches {
+					switch h.advanceOpenAIHTTPFailover(
+						c.Request.Context(),
+						account,
+						failoverErr,
+						failedAccountIDs,
+						sameAccountRetryCount,
+						&lastFailoverErr,
+						&switchCount,
+						maxAccountSwitches,
+						reqLog,
+						"openai_messages",
+					) {
+					case openAIHTTPFailoverContinue:
+						continue
+					case openAIHTTPFailoverCanceled:
+						return
+					default:
 						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
 						return
 					}
-					switchCount++
-					if h.gatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, switchCount) {
-						h.handleAnthropicFailoverExhausted(c, failoverErr, streamStarted)
-						return
-					}
-					reqLog.Warn("openai_messages.upstream_failover_switching",
-						zap.Int64("account_id", account.ID),
-						zap.Int("upstream_status", failoverErr.StatusCode),
-						zap.Int("switch_count", switchCount),
-						zap.Int("max_switches", maxAccountSwitches),
-					)
-					continue
 				}
 				if result != nil && result.ClientDisconnect {
 					reqLog.Info("openai_messages.client_disconnected",
@@ -1714,65 +1699,8 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		h.usageRecordWorkerPool.Submit(task)
-		return
-	}
-	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.responses"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
-}
-
 func shouldContinueOpenAIUsageAfterForwardError(result *service.OpenAIForwardResult) bool {
 	return result != nil && service.HasBillableOpenAIUsage(result.Usage)
-}
-
-func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
-	if shouldContinueOpenAIUsageAfterForwardError(result) {
-		h.submitMandatoryUsageRecordTask(parent, task)
-		return
-	}
-	h.submitUsageRecordTask(parent, task)
-}
-
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
-			return
-		}
-		logger.L().With(
-			zap.String("component", "handler.openai_gateway.usage"),
-		).Warn("openai.usage_record_task_mandatory_sync_fallback")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.usage"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {
@@ -2281,10 +2209,8 @@ func (h *OpenAIGatewayHandler) enqueueCyberSessionBlockedOpsEntry(c *gin.Context
 	enqueueOpsErrorLog(h.opsService, buildCyberSessionBlockedOpsEntry(meta))
 }
 
-// recordCyberPolicyIfMarked 在 gateway forward 返回后检查 cyber 标记，异步写风控日志/邮件，
-// 并在 forward 返回错误时写一条 tokens=0 用量行。标记由 gateway 服务层在透传 cyber 后设置；
-// 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
-// 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
+// recordCyberPolicyIfMarked 在 gateway forward 返回后检查 cyber 标记。
+// 计费事实必须同步持久化，风控日志、邮件和会话封禁继续异步处理。
 func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockKey string, channelFields service.ChannelUsageFields, requestPayloadHash string) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
@@ -2360,6 +2286,34 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 		ClientIP:        clientIPStr,
 		CreatedAt:       time.Now(),
 	}
+	if forwardErrored && gwSvc != nil {
+		persistCtx, cancel := context.WithTimeout(context.Background(), usageFactPersistenceTimeout)
+		err := gwSvc.PersistCyberPolicyUsageFact(persistCtx, service.CyberPolicyUsageInput{
+			APIKey:             apiKey,
+			Account:            account,
+			Subscription:       subscription,
+			RequestID:          requestID,
+			Model:              model,
+			Stream:             stream,
+			InputTokens:        mark.UpstreamInTok,
+			OutputTokens:       mark.UpstreamOutTok,
+			InboundEndpoint:    inboundEndpoint,
+			UpstreamEndpoint:   upstreamEndpoint,
+			UserAgent:          userAgent,
+			IPAddress:          clientIPStr,
+			RequestPayloadHash: requestPayloadHash,
+			APIKeyService:      apiKeySvc,
+			ChannelUsageFields: channelFields,
+		})
+		cancel()
+		if err != nil {
+			logger.L().With(
+				zap.String("component", "handler.openai_gateway.cyber"),
+				zap.String("request_id", requestID),
+				zap.Int64("account_id", accountID),
+			).Error("openai.cyber_persist_usage_fact_failed", zap.Error(err))
+		}
+	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -2379,25 +2333,6 @@ func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey 
 				UpstreamStatus:  mark.UpstreamStatus,
 				UpstreamInTok:   mark.UpstreamInTok,
 				UpstreamOutTok:  mark.UpstreamOutTok,
-			})
-		}
-		if forwardErrored && gwSvc != nil {
-			gwSvc.RecordCyberPolicyUsageLog(ctx, service.CyberPolicyUsageInput{
-				APIKey:             apiKey,
-				Account:            account,
-				Subscription:       subscription,
-				RequestID:          requestID,
-				Model:              model,
-				Stream:             stream,
-				InputTokens:        mark.UpstreamInTok,
-				OutputTokens:       mark.UpstreamOutTok,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIPStr,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      apiKeySvc,
-				ChannelUsageFields: channelFields,
 			})
 		}
 		if gwSvc != nil && cyberBlockKey != "" {

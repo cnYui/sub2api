@@ -581,7 +581,6 @@ export interface SystemSettings {
   payment_max_pending_orders: number;
   payment_enabled_types: string[];
   payment_balance_disabled: boolean;
-  payment_balance_recharge_multiplier: number;
   payment_recharge_fee_rate: number;
   payment_load_balance_strategy: string;
   payment_product_name_prefix: string;
@@ -823,7 +822,6 @@ export interface UpdateSettingsRequest {
   payment_max_pending_orders?: number;
   payment_enabled_types?: string[];
   payment_balance_disabled?: boolean;
-  payment_balance_recharge_multiplier?: number;
   payment_recharge_fee_rate?: number;
   payment_load_balance_strategy?: string;
   payment_product_name_prefix?: string;

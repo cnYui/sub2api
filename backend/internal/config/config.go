@@ -20,13 +20,6 @@ const (
 	RunModeSimple   = "simple"
 )
 
-// 使用量记录队列溢出策略
-const (
-	UsageRecordOverflowPolicyDrop   = "drop"
-	UsageRecordOverflowPolicySample = "sample"
-	UsageRecordOverflowPolicySync   = "sync"
-)
-
 // DefaultCSPPolicy is the default Content-Security-Policy with nonce support
 // __CSP_NONCE__ will be replaced with actual nonce at request time by the SecurityHeaders middleware
 const DefaultCSPPolicy = "default-src 'self'; script-src 'self' __CSP_NONCE__ https://challenges.cloudflare.com https://static.cloudflareinsights.com https://*.stripe.com https://static.airwallex.com https://checkout.airwallex.com https://static-demo.airwallex.com https://checkout-demo.airwallex.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://static.airwallex.com https://checkout.airwallex.com https://static-demo.airwallex.com https://checkout-demo.airwallex.com; img-src 'self' data: https:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https:; frame-src https://challenges.cloudflare.com https://*.stripe.com https://checkout.airwallex.com https://checkout-demo.airwallex.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
@@ -799,9 +792,6 @@ type GatewayConfig struct {
 	// TLSFingerprint: TLS指纹伪装配置
 	TLSFingerprint TLSFingerprintConfig `mapstructure:"tls_fingerprint"`
 
-	// UsageRecord: 使用量记录异步队列配置（有界队列 + 固定 worker）
-	UsageRecord GatewayUsageRecordConfig `mapstructure:"usage_record"`
-
 	// UserGroupRateCacheTTLSeconds: 用户分组倍率热路径缓存 TTL（秒）
 	UserGroupRateCacheTTLSeconds int `mapstructure:"user_group_rate_cache_ttl_seconds"`
 	// ModelsListCacheTTLSeconds: /v1/models 模型列表短缓存 TTL（秒）
@@ -981,39 +971,6 @@ type GatewayOpenAISchedulerConfig struct {
 	StickyEscapeTTFTMs int `mapstructure:"sticky_escape_ttft_ms"`
 	// StickyEscapeErrorRate: 错误率 EWMA 超过该阈值时跳过 sticky
 	StickyEscapeErrorRate float64 `mapstructure:"sticky_escape_error_rate"`
-}
-
-// GatewayUsageRecordConfig 使用量记录异步队列配置
-type GatewayUsageRecordConfig struct {
-	// WorkerCount: worker 初始数量（自动扩缩容开启时作为初始并发上限）
-	WorkerCount int `mapstructure:"worker_count"`
-	// QueueSize: 队列容量（有界）
-	QueueSize int `mapstructure:"queue_size"`
-	// TaskTimeoutSeconds: 单个使用量记录任务超时（秒）
-	TaskTimeoutSeconds int `mapstructure:"task_timeout_seconds"`
-	// OverflowPolicy: 队列满时策略（drop/sample/sync）
-	OverflowPolicy string `mapstructure:"overflow_policy"`
-	// OverflowSamplePercent: sample 策略下，同步回写采样百分比（1-100）
-	OverflowSamplePercent int `mapstructure:"overflow_sample_percent"`
-
-	// AutoScaleEnabled: 是否启用 worker 自动扩缩容
-	AutoScaleEnabled bool `mapstructure:"auto_scale_enabled"`
-	// AutoScaleMinWorkers: 自动扩缩容最小 worker 数
-	AutoScaleMinWorkers int `mapstructure:"auto_scale_min_workers"`
-	// AutoScaleMaxWorkers: 自动扩缩容最大 worker 数
-	AutoScaleMaxWorkers int `mapstructure:"auto_scale_max_workers"`
-	// AutoScaleUpQueuePercent: 队列占用率达到该阈值时触发扩容
-	AutoScaleUpQueuePercent int `mapstructure:"auto_scale_up_queue_percent"`
-	// AutoScaleDownQueuePercent: 队列占用率低于该阈值时触发缩容
-	AutoScaleDownQueuePercent int `mapstructure:"auto_scale_down_queue_percent"`
-	// AutoScaleUpStep: 每次扩容步长
-	AutoScaleUpStep int `mapstructure:"auto_scale_up_step"`
-	// AutoScaleDownStep: 每次缩容步长
-	AutoScaleDownStep int `mapstructure:"auto_scale_down_step"`
-	// AutoScaleCheckIntervalSeconds: 自动扩缩容检测间隔（秒）
-	AutoScaleCheckIntervalSeconds int `mapstructure:"auto_scale_check_interval_seconds"`
-	// AutoScaleCooldownSeconds: 自动扩缩容冷却时间（秒）
-	AutoScaleCooldownSeconds int `mapstructure:"auto_scale_cooldown_seconds"`
 }
 
 // TLSFingerprintConfig TLS指纹伪装配置
@@ -1359,10 +1316,9 @@ type UsageCleanupConfig struct {
 }
 
 type UsageFactWorkerConfig struct {
-	Enabled            bool `mapstructure:"enabled"`
-	PollIntervalMS     int  `mapstructure:"poll_interval_ms"`
-	BatchSize          int  `mapstructure:"batch_size"`
-	TaskTimeoutSeconds int  `mapstructure:"task_timeout_seconds"`
+	PollIntervalMS     int `mapstructure:"poll_interval_ms"`
+	BatchSize          int `mapstructure:"batch_size"`
+	TaskTimeoutSeconds int `mapstructure:"task_timeout_seconds"`
 }
 
 func NormalizeRunMode(value string) string {
@@ -1832,7 +1788,6 @@ func setDefaults() {
 	viper.SetDefault("usage_cleanup.worker_interval_seconds", 10)
 	viper.SetDefault("usage_cleanup.task_timeout_seconds", 1800)
 
-	viper.SetDefault("usage_fact_worker.enabled", true)
 	viper.SetDefault("usage_fact_worker.poll_interval_ms", 250)
 	viper.SetDefault("usage_fact_worker.batch_size", 100)
 	viper.SetDefault("usage_fact_worker.task_timeout_seconds", 10)
@@ -1960,20 +1915,6 @@ func setDefaults() {
 	viper.SetDefault("gateway.scheduling.outbox_lag_rebuild_failures", 3)
 	viper.SetDefault("gateway.scheduling.outbox_backlog_rebuild_rows", 10000)
 	viper.SetDefault("gateway.scheduling.full_rebuild_interval_seconds", 300)
-	viper.SetDefault("gateway.usage_record.worker_count", 128)
-	viper.SetDefault("gateway.usage_record.queue_size", 16384)
-	viper.SetDefault("gateway.usage_record.task_timeout_seconds", 5)
-	viper.SetDefault("gateway.usage_record.overflow_policy", UsageRecordOverflowPolicySample)
-	viper.SetDefault("gateway.usage_record.overflow_sample_percent", 10)
-	viper.SetDefault("gateway.usage_record.auto_scale_enabled", true)
-	viper.SetDefault("gateway.usage_record.auto_scale_min_workers", 128)
-	viper.SetDefault("gateway.usage_record.auto_scale_max_workers", 512)
-	viper.SetDefault("gateway.usage_record.auto_scale_up_queue_percent", 70)
-	viper.SetDefault("gateway.usage_record.auto_scale_down_queue_percent", 15)
-	viper.SetDefault("gateway.usage_record.auto_scale_up_step", 32)
-	viper.SetDefault("gateway.usage_record.auto_scale_down_step", 16)
-	viper.SetDefault("gateway.usage_record.auto_scale_check_interval_seconds", 3)
-	viper.SetDefault("gateway.usage_record.auto_scale_cooldown_seconds", 10)
 	viper.SetDefault("gateway.user_group_rate_cache_ttl_seconds", 30)
 	viper.SetDefault("gateway.models_list_cache_ttl_seconds", 15)
 	// TLS指纹伪装配置（默认关闭，需要账号级别单独启用）
@@ -2731,64 +2672,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Gateway.MaxLineSize != 0 && c.Gateway.MaxLineSize < 1024*1024 {
 		return fmt.Errorf("gateway.max_line_size must be at least 1MB")
-	}
-	if c.Gateway.UsageRecord.WorkerCount <= 0 {
-		return fmt.Errorf("gateway.usage_record.worker_count must be positive")
-	}
-	if c.Gateway.UsageRecord.QueueSize <= 0 {
-		return fmt.Errorf("gateway.usage_record.queue_size must be positive")
-	}
-	if c.Gateway.UsageRecord.TaskTimeoutSeconds <= 0 {
-		return fmt.Errorf("gateway.usage_record.task_timeout_seconds must be positive")
-	}
-	switch strings.ToLower(strings.TrimSpace(c.Gateway.UsageRecord.OverflowPolicy)) {
-	case UsageRecordOverflowPolicyDrop, UsageRecordOverflowPolicySample, UsageRecordOverflowPolicySync:
-	default:
-		return fmt.Errorf("gateway.usage_record.overflow_policy must be one of: %s/%s/%s",
-			UsageRecordOverflowPolicyDrop, UsageRecordOverflowPolicySample, UsageRecordOverflowPolicySync)
-	}
-	if c.Gateway.UsageRecord.OverflowSamplePercent < 0 || c.Gateway.UsageRecord.OverflowSamplePercent > 100 {
-		return fmt.Errorf("gateway.usage_record.overflow_sample_percent must be between 0-100")
-	}
-	if strings.EqualFold(strings.TrimSpace(c.Gateway.UsageRecord.OverflowPolicy), UsageRecordOverflowPolicySample) &&
-		c.Gateway.UsageRecord.OverflowSamplePercent <= 0 {
-		return fmt.Errorf("gateway.usage_record.overflow_sample_percent must be positive when overflow_policy=sample")
-	}
-	if c.Gateway.UsageRecord.AutoScaleEnabled {
-		if c.Gateway.UsageRecord.AutoScaleMinWorkers <= 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_min_workers must be positive")
-		}
-		if c.Gateway.UsageRecord.AutoScaleMaxWorkers <= 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_max_workers must be positive")
-		}
-		if c.Gateway.UsageRecord.AutoScaleMaxWorkers < c.Gateway.UsageRecord.AutoScaleMinWorkers {
-			return fmt.Errorf("gateway.usage_record.auto_scale_max_workers must be >= auto_scale_min_workers")
-		}
-		if c.Gateway.UsageRecord.WorkerCount < c.Gateway.UsageRecord.AutoScaleMinWorkers ||
-			c.Gateway.UsageRecord.WorkerCount > c.Gateway.UsageRecord.AutoScaleMaxWorkers {
-			return fmt.Errorf("gateway.usage_record.worker_count must be between auto_scale_min_workers and auto_scale_max_workers")
-		}
-		if c.Gateway.UsageRecord.AutoScaleUpQueuePercent <= 0 || c.Gateway.UsageRecord.AutoScaleUpQueuePercent > 100 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_up_queue_percent must be between 1-100")
-		}
-		if c.Gateway.UsageRecord.AutoScaleDownQueuePercent < 0 || c.Gateway.UsageRecord.AutoScaleDownQueuePercent >= 100 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_down_queue_percent must be between 0-99")
-		}
-		if c.Gateway.UsageRecord.AutoScaleDownQueuePercent >= c.Gateway.UsageRecord.AutoScaleUpQueuePercent {
-			return fmt.Errorf("gateway.usage_record.auto_scale_down_queue_percent must be less than auto_scale_up_queue_percent")
-		}
-		if c.Gateway.UsageRecord.AutoScaleUpStep <= 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_up_step must be positive")
-		}
-		if c.Gateway.UsageRecord.AutoScaleDownStep <= 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_down_step must be positive")
-		}
-		if c.Gateway.UsageRecord.AutoScaleCheckIntervalSeconds <= 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_check_interval_seconds must be positive")
-		}
-		if c.Gateway.UsageRecord.AutoScaleCooldownSeconds < 0 {
-			return fmt.Errorf("gateway.usage_record.auto_scale_cooldown_seconds must be non-negative")
-		}
 	}
 	if c.Gateway.UserGroupRateCacheTTLSeconds <= 0 {
 		return fmt.Errorf("gateway.user_group_rate_cache_ttl_seconds must be positive")

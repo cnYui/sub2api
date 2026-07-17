@@ -13,14 +13,14 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/tool/offlinepaymentbackfill"
 	"github.com/stretchr/testify/require"
 )
 
 const offlinePaymentBackfillTestOperator = "integration:offline-payment-backfill"
 
 type offlinePaymentBackfillFixture struct {
-	batch    service.OfflinePaymentBackfillBatch
+	batch    offlinepaymentbackfill.OfflinePaymentBackfillBatch
 	groupIDs []int64
 	userIDs  []int64
 }
@@ -39,7 +39,7 @@ func TestOfflinePaymentBackfillCreatesFixedBatch(t *testing.T) {
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 	startedAt := time.Now().UTC()
 
-	result, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	result, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	finishedAt := time.Now().UTC()
 	require.NoError(t, err)
 	require.Equal(t, 5, result.Created)
@@ -73,7 +73,7 @@ func TestOfflinePaymentBackfillDryRunDoesNotWrite(t *testing.T) {
 	fixture := newOfflinePaymentBackfillFixture(t)
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 
-	result, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, false)
+	result, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, false)
 	require.NoError(t, err)
 	require.Zero(t, result.Created)
 	require.Equal(t, 5, result.Planned)
@@ -96,7 +96,7 @@ func TestOfflinePaymentBackfillDryRunDoesNotAdvanceOrderSequence(t *testing.T) {
 		SELECT nextval(pg_get_serial_sequence('payment_orders', 'id'))
 	`).Scan(&before))
 
-	result, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, false)
+	result, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, false)
 	require.NoError(t, err)
 	require.Equal(t, 5, result.Planned)
 
@@ -111,12 +111,12 @@ func TestOfflinePaymentBackfillExactRerunIsNoop(t *testing.T) {
 	ctx := context.Background()
 	fixture := newOfflinePaymentBackfillFixture(t)
 
-	first, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	first, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.NoError(t, err)
 	require.Equal(t, 5, first.Created)
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 
-	result, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, "another-authorized-operator", true)
+	result, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, "another-authorized-operator", true)
 	require.NoError(t, err)
 	require.Zero(t, result.Created)
 	require.Zero(t, result.Planned)
@@ -132,7 +132,7 @@ func TestOfflinePaymentBackfillRejectsEmptyOperator(t *testing.T) {
 	fixture := newOfflinePaymentBackfillFixture(t)
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 
-	_, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, "  ", true)
+	_, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, "  ", true)
 	require.Error(t, err)
 	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_OPERATOR_REQUIRED", infraerrors.Reason(err))
 	require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
@@ -209,7 +209,7 @@ func TestOfflinePaymentBackfillFailsClosedOnPreconditions(t *testing.T) {
 			tt.mutate(t, fixture)
 			before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 
-			_, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+			_, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 			require.Error(t, err)
 			require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_PRECONDITION_FAILED", infraerrors.Reason(err))
 			require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
@@ -271,12 +271,12 @@ func TestOfflinePaymentBackfillRejectsExistingOrderAndAuditMismatch(t *testing.T
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			fixture := newOfflinePaymentBackfillFixture(t)
-			_, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+			_, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 			require.NoError(t, err)
 			tt.mutate(t, fixture)
 			before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
 
-			_, err = service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+			_, err = offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 			require.Error(t, err)
 			require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_EXISTING_RECORD_MISMATCH", infraerrors.Reason(err))
 			require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
@@ -287,7 +287,7 @@ func TestOfflinePaymentBackfillRejectsExistingOrderAndAuditMismatch(t *testing.T
 func TestOfflinePaymentBackfillRejectsDuplicateOfflinePaymentAudit(t *testing.T) {
 	ctx := context.Background()
 	fixture := newOfflinePaymentBackfillFixture(t)
-	_, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	_, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.NoError(t, err)
 
 	entry := fixture.batch.Entries[0]
@@ -324,7 +324,7 @@ func TestOfflinePaymentBackfillRejectsDuplicateOfflinePaymentAudit(t *testing.T)
 	`, orderID, "OFFLINE_PAYMENT_RECORDED").Scan(&duplicateAuditID))
 
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
-	_, err = service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	_, err = offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.Error(t, err)
 	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
 	require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
@@ -333,7 +333,7 @@ func TestOfflinePaymentBackfillRejectsDuplicateOfflinePaymentAudit(t *testing.T)
 func TestOfflinePaymentBackfillRejectsDuplicateExistingOrder(t *testing.T) {
 	ctx := context.Background()
 	fixture := newOfflinePaymentBackfillFixture(t)
-	_, err := service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	_, err := offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.NoError(t, err)
 
 	entry := fixture.batch.Entries[0]
@@ -393,7 +393,7 @@ func TestOfflinePaymentBackfillRejectsDuplicateExistingOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	before := snapshotOfflinePaymentBackfill(t, ctx, fixture)
-	_, err = service.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
+	_, err = offlinepaymentbackfill.RunOfflinePaymentBackfillBatch(ctx, integrationDB, fixture.batch, offlinePaymentBackfillTestOperator, true)
 	require.Error(t, err)
 	require.Equal(t, "OFFLINE_PAYMENT_BACKFILL_SCHEMA_NOT_READY", infraerrors.Reason(err))
 	require.Equal(t, before, snapshotOfflinePaymentBackfill(t, ctx, fixture))
@@ -406,11 +406,11 @@ func newOfflinePaymentBackfillFixture(t *testing.T) *offlinePaymentBackfillFixtu
 	groupID := insertOfflinePaymentBackfillGroup(t, source+"-group")
 	planID := insertOfflinePaymentBackfillPlan(t, groupID, source+"-plan")
 	fixture := &offlinePaymentBackfillFixture{
-		batch: service.OfflinePaymentBackfillBatch{
+		batch: offlinepaymentbackfill.OfflinePaymentBackfillBatch{
 			Source:  source,
 			PlanID:  planID,
 			GroupID: groupID,
-			Entries: make([]service.OfflinePaymentBackfillEntry, 0, 5),
+			Entries: make([]offlinepaymentbackfill.OfflinePaymentBackfillEntry, 0, 5),
 		},
 		groupIDs: []int64{groupID},
 	}
@@ -421,7 +421,7 @@ func newOfflinePaymentBackfillFixture(t *testing.T) *offlinePaymentBackfillFixtu
 		userID := insertOfflinePaymentBackfillUser(t, fmt.Sprintf("%s-user-%d@example.test", source, i), float64(i)+10.25, float64(i)+100.5)
 		subscriptionID := insertOfflinePaymentBackfillSubscription(t, userID, groupID, paidAt.Add(-24*time.Hour), expectedExpiry)
 		fixture.userIDs = append(fixture.userIDs, userID)
-		fixture.batch.Entries = append(fixture.batch.Entries, service.OfflinePaymentBackfillEntry{
+		fixture.batch.Entries = append(fixture.batch.Entries, offlinepaymentbackfill.OfflinePaymentBackfillEntry{
 			SubscriptionID: subscriptionID,
 			UserID:         userID,
 			PaidAt:         paidAt,
@@ -483,7 +483,7 @@ func insertOfflinePaymentBackfillSubscription(t *testing.T, userID, groupID int6
 	return id
 }
 
-func insertOfflinePaymentBackfillOrder(t *testing.T, fixture *offlinePaymentBackfillFixture, entry service.OfflinePaymentBackfillEntry, outTradeNo string) int64 {
+func insertOfflinePaymentBackfillOrder(t *testing.T, fixture *offlinePaymentBackfillFixture, entry offlinepaymentbackfill.OfflinePaymentBackfillEntry, outTradeNo string) int64 {
 	t.Helper()
 	var email string
 	require.NoError(t, integrationDB.QueryRowContext(context.Background(), "SELECT email FROM users WHERE id = $1", entry.UserID).Scan(&email))
@@ -569,7 +569,7 @@ func snapshotOfflinePaymentBackfill(t *testing.T, ctx context.Context, fixture *
 	return snapshot
 }
 
-func assertOfflinePaymentBackfillOrder(t *testing.T, ctx context.Context, fixture *offlinePaymentBackfillFixture, entry service.OfflinePaymentBackfillEntry, startedAt, finishedAt time.Time) {
+func assertOfflinePaymentBackfillOrder(t *testing.T, ctx context.Context, fixture *offlinePaymentBackfillFixture, entry offlinepaymentbackfill.OfflinePaymentBackfillEntry, startedAt, finishedAt time.Time) {
 	t.Helper()
 	var order struct {
 		ID                  int64
@@ -632,7 +632,7 @@ func assertOfflinePaymentBackfillOrder(t *testing.T, ctx context.Context, fixtur
 	require.Equal(t, entry.SubscriptionID, order.SubscriptionID.Int64)
 	require.False(t, order.ProviderInstanceID.Valid)
 	require.False(t, order.ProviderKey.Valid)
-	require.Equal(t, service.OrderStatusCompleted, order.Status)
+	require.Equal(t, payment.OrderStatusCompleted, order.Status)
 	require.True(t, order.ExpiresAt.Equal(entry.PaidAt))
 	require.True(t, order.PaidAt.Valid)
 	require.True(t, order.PaidAt.Time.Equal(entry.PaidAt))
@@ -657,7 +657,7 @@ func assertOfflinePaymentBackfillOrder(t *testing.T, ctx context.Context, fixtur
 	assertOfflinePaymentBackfillAuditDetail(t, detail, fixture.batch.Source, entry)
 }
 
-func assertOfflinePaymentBackfillAuditDetail(t *testing.T, detail, source string, entry service.OfflinePaymentBackfillEntry) {
+func assertOfflinePaymentBackfillAuditDetail(t *testing.T, detail, source string, entry offlinepaymentbackfill.OfflinePaymentBackfillEntry) {
 	t.Helper()
 	decoder := json.NewDecoder(strings.NewReader(detail))
 	decoder.UseNumber()
@@ -672,7 +672,7 @@ func assertOfflinePaymentBackfillAuditDetail(t *testing.T, detail, source string
 	require.Equal(t, "manual_only", got["refund_policy"])
 }
 
-func assertOfflinePaymentBackfillEntitlementUnchanged(t *testing.T, ctx context.Context, fixture *offlinePaymentBackfillFixture, entry service.OfflinePaymentBackfillEntry) {
+func assertOfflinePaymentBackfillEntitlementUnchanged(t *testing.T, ctx context.Context, fixture *offlinePaymentBackfillFixture, entry offlinepaymentbackfill.OfflinePaymentBackfillEntry) {
 	t.Helper()
 	var expiresAt time.Time
 	var balance, totalRecharged float64

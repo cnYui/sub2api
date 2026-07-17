@@ -160,7 +160,6 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 		nil, // accountRepo (not used: scheduler snapshot hit)
 		&fakeGroupRepo{group: group},
 		nil, // usageLogRepo
-		nil, // usageBillingRepo
 		nil, // userRepo
 		nil, // userSubRepo
 		nil, // userGroupRateRepo
@@ -184,6 +183,7 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 		nil, // resolver
 		nil, // balanceNotifyService
 		nil, // userPlatformQuotaRepo
+		nil, // usageFactRepo
 	)
 
 	// RunModeSimple：跳过计费检查，避免引入 repo/cache 依赖。

@@ -1,4 +1,4 @@
-package service
+package offlinepaymentbackfill
 
 import (
 	"context"
@@ -637,7 +637,7 @@ func offlinePaymentBackfillOrderMatches(batch offlinePaymentBackfillBatch, entry
 		order.SubscriptionDays.Valid && order.SubscriptionDays.Int64 == offlinePaymentBackfillDays &&
 		order.SubscriptionID.Valid && order.SubscriptionID.Int64 == entry.SubscriptionID &&
 		!order.ProviderInstanceID.Valid && !order.ProviderKey.Valid && !order.ProviderSnapshot.Valid &&
-		order.Status == OrderStatusCompleted &&
+		order.Status == payment.OrderStatusCompleted &&
 		order.ExpiresAt.Equal(entry.PaidAt) &&
 		order.PaidAt.Valid && order.PaidAt.Time.Equal(entry.PaidAt) &&
 		order.CompletedAt.Valid && order.CompletedAt.Time.Equal(entry.PaidAt) &&

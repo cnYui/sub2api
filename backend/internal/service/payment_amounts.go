@@ -8,18 +8,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const defaultBalanceRechargeMultiplier = 1.0
-
 var refundBusinessLocation = time.FixedZone("UTC+8", 8*60*60)
 
-func normalizeBalanceRechargeMultiplier(multiplier float64) float64 {
-	if math.IsNaN(multiplier) || math.IsInf(multiplier, 0) || multiplier <= 0 {
-		return defaultBalanceRechargeMultiplier
-	}
-	return multiplier
-}
-
-func calculateCreditedBalance(paymentAmount, multiplier float64) float64 {
+func calculateCreditedBalance(paymentAmount float64) float64 {
 	return decimal.NewFromFloat(paymentAmount).
 		Round(2).
 		InexactFloat64()

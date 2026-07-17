@@ -12,7 +12,7 @@ type usageSettlementFinalizeFunc func(
 	result *UsageBillingApplyResult,
 )
 
-type OpenAIUsageSettlementEffects struct {
+type UsageSettlementEffectsHandler struct {
 	userRepo        UserRepository
 	apiKeyRepo      APIKeyRepository
 	accountRepo     AccountRepository
@@ -21,7 +21,7 @@ type OpenAIUsageSettlementEffects struct {
 	finalize        usageSettlementFinalizeFunc
 }
 
-func (s *OpenAIUsageSettlementEffects) Apply(
+func (s *UsageSettlementEffectsHandler) Apply(
 	ctx context.Context,
 	payload UsageSettlementEffectsPayload,
 	result *UsageBillingApplyResult,

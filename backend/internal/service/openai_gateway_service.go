@@ -6344,15 +6344,15 @@ type CyberPolicyUsageInput struct {
 	ChannelUsageFields
 }
 
-// RecordCyberPolicyUsageLog 为被上游 cyber_policy 拒绝、未走正常 RecordUsage 的请求
+// PersistCyberPolicyUsageFact 为被上游 cyber_policy 拒绝、未走正常 RecordUsage 的请求
 // （HTTP forward 返回错误路径）记录用量并按上游真实 token 计费，使其与 WS cyber 路径、
 // 与正常请求的计费口径统一（不再是 tokens=0 免费行）。token 取自上游 response.failed
 // 报告的 usage（非流式直接拒通常为 0，cost 随之为 0）。复用 RecordUsage 完成成本计算、
-// 扣费与用量行写入（request_type=cyber 由 CyberBlocked 置位）。仅 forward 返回错误的
+// 构建并持久化计费事实（request_type=cyber 由 CyberBlocked 置位）。仅 forward 返回错误的
 // 路径由 handler 调用，避免与成功路径的正常 RecordUsage 重复。
-func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in CyberPolicyUsageInput) {
+func (s *OpenAIGatewayService) PersistCyberPolicyUsageFact(ctx context.Context, in CyberPolicyUsageInput) error {
 	if s == nil || in.APIKey == nil || in.APIKey.User == nil || in.Account == nil || strings.TrimSpace(in.Model) == "" {
-		return
+		return nil
 	}
 	result := &OpenAIForwardResult{
 		RequestID: in.RequestID,
@@ -6363,7 +6363,7 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 			OutputTokens: in.OutputTokens,
 		},
 	}
-	if err := s.recordUsageLegacy(ctx, &OpenAIRecordUsageInput{
+	_, err := s.PersistUsageFact(ctx, &OpenAIRecordUsageInput{
 		Result:             result,
 		APIKey:             in.APIKey,
 		User:               in.APIKey.User,
@@ -6377,9 +6377,8 @@ func (s *OpenAIGatewayService) RecordCyberPolicyUsageLog(ctx context.Context, in
 		APIKeyService:      in.APIKeyService,
 		ChannelUsageFields: in.ChannelUsageFields,
 		CyberBlocked:       true,
-	}); err != nil {
-		logger.LegacyPrintf("service.openai_gateway", "cyber usage record failed: request_id=%s err=%v", in.RequestID, err)
-	}
+	})
+	return err
 }
 
 type openAIUsageRecordBuild struct {
