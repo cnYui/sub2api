@@ -95,6 +95,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	defer restoreUsageWriter()
 
 	failedAccountIDs := make(map[int64]struct{})
+	sameAccountRetryCount := make(map[int64]int)
 	var lastFailoverErr *service.UpstreamFailoverError
 	switchCount := 0
 	maxAccountSwitches := h.maxAccountSwitches
@@ -177,22 +178,26 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 					h.handleFailoverExhausted(c, failoverErr, true)
 					return
 				}
-				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
-				h.gatewayService.RecordOpenAIAccountSwitch()
-				failedAccountIDs[account.ID] = struct{}{}
-				lastFailoverErr = failoverErr
-				if switchCount >= maxAccountSwitches {
+				switch h.advanceOpenAIHTTPFailover(
+					c.Request.Context(),
+					account,
+					failoverErr,
+					failedAccountIDs,
+					sameAccountRetryCount,
+					&lastFailoverErr,
+					&switchCount,
+					maxAccountSwitches,
+					reqLog,
+					"openai_embeddings",
+				) {
+				case openAIHTTPFailoverContinue:
+					continue
+				case openAIHTTPFailoverCanceled:
+					return
+				default:
 					h.handleFailoverExhausted(c, failoverErr, false)
 					return
 				}
-				switchCount++
-				reqLog.Warn("openai_embeddings.upstream_failover_switching",
-					zap.Int64("account_id", account.ID),
-					zap.Int("upstream_status", failoverErr.StatusCode),
-					zap.Int("switch_count", switchCount),
-					zap.Int("max_switches", maxAccountSwitches),
-				)
-				continue
 			}
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
 			if c.Writer.Size() == writerSizeBeforeForward {
