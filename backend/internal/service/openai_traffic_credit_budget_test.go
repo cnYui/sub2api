@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -53,6 +54,22 @@ func TestOpenAITrafficCreditBudget_InjectsConfiguredOutputLimitField(t *testing.
 	require.NoError(t, err)
 	require.True(t, gjson.GetBytes(got.Body, "max_tokens").Exists())
 	require.False(t, gjson.GetBytes(got.Body, "max_output_tokens").Exists())
+}
+
+func TestOpenAITrafficCreditBudget_DoesNotPriceBase64ImageBytesAsTextTokens(t *testing.T) {
+	estimator := newTestTrafficBudgetEstimator(0.01, 256, 8192)
+	base64Image := strings.Repeat("A", 1_000_000)
+	body := []byte(`{"input":[{"role":"user","content":[{"type":"input_text","text":"draw a cat"},{"type":"input_image","image_url":"data:image/png;base64,` + base64Image + `"}]}]}`)
+
+	got, err := estimator.Estimate(context.Background(), OpenAITrafficBudgetInput{
+		Model:        "gpt-5.6-terra",
+		Body:         body,
+		AvailableUSD: 0.05,
+	})
+
+	require.NoError(t, err)
+	require.Less(t, got.InputTokenUpperBound, len(body)/10)
+	require.LessOrEqual(t, got.ReserveUSD, 0.05)
 }
 
 func TestOpenAITrafficCreditBudget_UsesExplicitMaxTokens(t *testing.T) {

@@ -145,6 +145,9 @@ func (s *apiKeyRepoStubForGroupUpdate) GetByKey(context.Context, string) (*APIKe
 func (s *apiKeyRepoStubForGroupUpdate) GetByKeyForAuth(context.Context, string) (*APIKey, error) {
 	panic("unexpected")
 }
+func (s *apiKeyRepoStubForGroupUpdate) GetActiveBySHA256Hash(context.Context, string) (*APIKey, error) {
+	panic("unexpected")
+}
 func (s *apiKeyRepoStubForGroupUpdate) Delete(context.Context, int64) error { panic("unexpected") }
 func (s *apiKeyRepoStubForGroupUpdate) DeleteWithAudit(context.Context, int64) error {
 	panic("unexpected")

@@ -92,6 +92,9 @@ func (s *quotaBaseAPIKeyRepoStub) GetKeyAndOwnerID(context.Context, int64) (stri
 func (s *quotaBaseAPIKeyRepoStub) GetByKey(context.Context, string) (*APIKey, error) {
 	panic("unexpected GetByKey call")
 }
+func (s *quotaBaseAPIKeyRepoStub) GetActiveBySHA256Hash(context.Context, string) (*APIKey, error) {
+	panic("unexpected GetActiveBySHA256Hash call")
+}
 func (s *quotaBaseAPIKeyRepoStub) GetByKeyForAuth(context.Context, string) (*APIKey, error) {
 	panic("unexpected GetByKeyForAuth call")
 }

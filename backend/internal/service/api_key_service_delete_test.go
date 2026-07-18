@@ -69,6 +69,10 @@ func (s *apiKeyRepoStub) GetByKey(ctx context.Context, key string) (*APIKey, err
 	panic("unexpected GetByKey call")
 }
 
+func (s *apiKeyRepoStub) GetActiveBySHA256Hash(ctx context.Context, hash string) (*APIKey, error) {
+	panic("unexpected GetActiveBySHA256Hash call")
+}
+
 func (s *apiKeyRepoStub) GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error) {
 	panic("unexpected GetByKeyForAuth call")
 }

@@ -182,7 +182,7 @@ func (e *OpenAITrafficCreditBudgetEstimator) buildBudget(
 	outputTokens int,
 	availableUSD float64,
 ) (*OpenAITrafficCreditBudget, error) {
-	inputTokens := len(body)
+	inputTokens := estimateOpenAIRequestTextTokenUpperBound(body)
 	mainTokens := UsageTokens{InputTokens: inputTokens, OutputTokens: outputTokens}
 	mainCost, err := e.billingService.CalculateCostWithServiceTier(
 		input.Model,
@@ -263,6 +263,61 @@ func (e *OpenAITrafficCreditBudgetEstimator) buildBudget(
 		ReserveUSD:                 reserveUSD,
 		PricingSnapshot:            snapshot,
 	}, nil
+}
+
+func estimateOpenAIRequestTextTokenUpperBound(body []byte) int {
+	if len(body) == 0 {
+		return 0
+	}
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return len(body)
+	}
+	return estimateOpenAIJSONTextTokenUpperBound(payload, "", false)
+}
+
+func estimateOpenAIJSONTextTokenUpperBound(value any, key string, insideImageRef bool) int {
+	switch v := value.(type) {
+	case map[string]any:
+		imageRef := insideImageRef || isOpenAIImageReferenceObject(v)
+		total := 0
+		for childKey, child := range v {
+			childImageRef := imageRef || strings.EqualFold(strings.TrimSpace(childKey), "image_url")
+			total += estimateOpenAIJSONTextTokenUpperBound(child, childKey, childImageRef)
+		}
+		return total
+	case []any:
+		total := 0
+		for _, item := range v {
+			total += estimateOpenAIJSONTextTokenUpperBound(item, key, insideImageRef)
+		}
+		return total
+	case string:
+		if insideImageRef || shouldSkipOpenAIStringInTextTokenBudget(key, v) {
+			return 0
+		}
+		return len(v)
+	default:
+		return 0
+	}
+}
+
+func isOpenAIImageReferenceObject(value map[string]any) bool {
+	typeValue, _ := value["type"].(string)
+	switch strings.TrimSpace(typeValue) {
+	case "input_image", "image_url":
+		return true
+	}
+	_, hasImageURL := value["image_url"]
+	return hasImageURL
+}
+
+func shouldSkipOpenAIStringInTextTokenBudget(key string, value string) bool {
+	k := strings.ToLower(strings.TrimSpace(key))
+	if k == "b64_json" || k == "file_id" {
+		return true
+	}
+	return k == "url" && strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "data:image/")
 }
 
 func resolveOpenAITrafficBudgetImageModel(mainModel, imageModel string) string {
