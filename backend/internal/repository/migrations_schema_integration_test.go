@@ -147,6 +147,7 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "subscription_entitlement_periods", "source_id", "character varying", 128, false)
 	requireColumn(t, tx, "subscription_entitlement_periods", "daily_limit_usd", "numeric", 0, true)
 	requireColumn(t, tx, "subscription_entitlement_periods", "period_days", "integer", 0, false)
+	requireColumn(t, tx, "subscription_entitlement_periods", "status", "character varying", 20, false)
 	requireIndex(t, tx, "subscription_entitlement_periods", "idx_subscription_entitlement_periods_source")
 	requirePartialUniqueIndexDefinition(
 		t,

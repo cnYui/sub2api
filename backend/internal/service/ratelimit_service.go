@@ -333,7 +333,6 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		s.handle529(ctx, account)
 		shouldDisable = false
 	default:
-		// 自定义错误码启用时：在列表中的错误码都应该停止调度
 		if customErrorCodesEnabled {
 			msg := "Custom error code triggered"
 			if upstreamMsg != "" {
@@ -342,7 +341,6 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			s.handleCustomErrorCode(ctx, account, statusCode, msg)
 			shouldDisable = true
 		} else if statusCode >= 500 {
-			// 未启用自定义错误码时：仅记录5xx错误
 			slog.Warn("account_upstream_error", "account_id", account.ID, "status_code", statusCode)
 			shouldDisable = false
 		}
@@ -1922,6 +1920,9 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
 		return false
 	}
 	if statusCode <= 0 || len(responseBody) == 0 {
+		return false
+	}
+	if account.Platform == PlatformOpenAI && (statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable || statusCode == http.StatusGatewayTimeout) {
 		return false
 	}
 

@@ -47,6 +47,9 @@ func (f fakeAPIKeyRepo) GetByKey(ctx context.Context, key string) (*service.APIK
 	}
 	return f.getByKey(ctx, key)
 }
+func (f fakeAPIKeyRepo) GetActiveBySHA256Hash(ctx context.Context, hash string) (*service.APIKey, error) {
+	return nil, errors.New("not implemented")
+}
 func (f fakeAPIKeyRepo) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
 	return f.GetByKey(ctx, key)
 }

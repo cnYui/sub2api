@@ -3,6 +3,8 @@
 package service
 
 import (
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -328,6 +330,29 @@ func TestTempUnschedState(t *testing.T) {
 	// 验证时间戳
 	require.Equal(t, until.Unix(), state.UntilUnix)
 	require.Equal(t, now.Unix(), state.TriggeredAtUnix)
+}
+
+func TestAccount_GetTempUnschedulableRules_IgnoresOpenAI5xxGatewayErrors(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Credentials: map[string]any{
+			"temp_unschedulable_enabled": true,
+			"temp_unschedulable_rules": []any{
+				map[string]any{
+					"error_code":       float64(502),
+					"keywords":         []any{"bad gateway"},
+					"duration_minutes": float64(10),
+				},
+			},
+		},
+	}
+
+	rules := account.GetTempUnschedulableRules()
+	require.Len(t, rules, 1)
+
+	rlSvc := &RateLimitService{}
+	matched := rlSvc.tryTempUnschedulable(context.Background(), account, http.StatusBadGateway, []byte("bad gateway"))
+	require.False(t, matched)
 }
 
 // TestAccount_TempUnschedulableUntil 测试临时限流时间字段

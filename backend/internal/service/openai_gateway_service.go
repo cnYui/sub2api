@@ -1430,6 +1430,10 @@ func isOpenAIInstructionsRequiredError(upstreamStatusCode int, upstreamMsg strin
 	return false
 }
 
+func isOpenAITransientGatewayStatus(statusCode int) bool {
+	return statusCode == http.StatusBadGateway || statusCode == http.StatusServiceUnavailable || statusCode == http.StatusGatewayTimeout
+}
+
 func isOpenAITransientProcessingError(upstreamStatusCode int, upstreamMsg string, upstreamBody []byte) bool {
 	if upstreamStatusCode != http.StatusBadRequest && upstreamStatusCode != http.StatusServiceUnavailable {
 		return false

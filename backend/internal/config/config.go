@@ -80,6 +80,7 @@ type Config struct {
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
 	UsageFactWorker         UsageFactWorkerConfig         `mapstructure:"usage_fact_worker"`
+	InternalUsageEvent      InternalUsageEventConfig      `mapstructure:"internal_usage_event"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -87,6 +88,13 @@ type Config struct {
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
+}
+
+type InternalUsageEventConfig struct {
+	Enabled        bool   `mapstructure:"enabled"`
+	Token          string `mapstructure:"token"`
+	HMACSecret     string `mapstructure:"hmac_secret"`
+	MaxSkewSeconds int    `mapstructure:"max_skew_seconds"`
 }
 
 type LogConfig struct {
@@ -1379,6 +1387,12 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config error: %w", err)
 	}
+	if cfg.InternalUsageEvent.Token == "" {
+		cfg.InternalUsageEvent.Token = strings.TrimSpace(os.Getenv("YUI_USAGE_EVENT_TOKEN"))
+	}
+	if cfg.InternalUsageEvent.HMACSecret == "" {
+		cfg.InternalUsageEvent.HMACSecret = strings.TrimSpace(os.Getenv("YUI_USAGE_EVENT_HMAC_SECRET"))
+	}
 	if cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs == 0 {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
 	}
@@ -1791,6 +1805,11 @@ func setDefaults() {
 	viper.SetDefault("usage_fact_worker.poll_interval_ms", 250)
 	viper.SetDefault("usage_fact_worker.batch_size", 100)
 	viper.SetDefault("usage_fact_worker.task_timeout_seconds", 10)
+
+	viper.SetDefault("internal_usage_event.enabled", true)
+	viper.SetDefault("internal_usage_event.token", "")
+	viper.SetDefault("internal_usage_event.hmac_secret", "")
+	viper.SetDefault("internal_usage_event.max_skew_seconds", 300)
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)

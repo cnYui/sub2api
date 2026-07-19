@@ -91,6 +91,41 @@ func (r *usageFactRepository) CreatePending(ctx context.Context, fact *service.U
 	return existing, false, nil
 }
 
+func (r *usageFactRepository) FindByRequestID(ctx context.Context, requestID string) ([]service.UsageFact, error) {
+	if r == nil || r.db == nil {
+		return nil, errors.New("usage fact repository db is nil")
+	}
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return []service.UsageFact{}, nil
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, request_id, api_key_id, user_id, account_id,
+			request_fingerprint, reservation_id, payload_version, payload, billing_status,
+			attempt_count, next_attempt_at, last_error, completed_at,
+			settled_at, created_at, updated_at
+		FROM usage_facts
+		WHERE request_id = $1
+		ORDER BY id
+	`, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	facts := make([]service.UsageFact, 0, 1)
+	for rows.Next() {
+		fact, err := scanUsageFact(rows)
+		if err != nil {
+			return nil, err
+		}
+		facts = append(facts, *fact)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return facts, nil
+}
+
 func (r *usageFactRepository) ClaimPending(ctx context.Context, limit int, now, leaseUntil time.Time) ([]service.UsageFact, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("usage fact repository db is nil")

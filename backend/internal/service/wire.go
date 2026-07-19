@@ -695,6 +695,7 @@ var ProviderSet = wire.NewSet(
 	ProvideUsageSettlementEffects,
 	ProvideUsageFactSettlementService,
 	ProvideUsageFactWorker,
+	NewInternalUsageEventService,
 	ProvideDeferredService,
 	NewAntigravityQuotaFetcher,
 	NewUserAttributeService,

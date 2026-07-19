@@ -52,6 +52,7 @@ type APIKeyRepository interface {
 	// GetKeyAndOwnerID 仅获取 API Key 的 key 与所有者 ID，用于删除等轻量场景
 	GetKeyAndOwnerID(ctx context.Context, id int64) (string, int64, error)
 	GetByKey(ctx context.Context, key string) (*APIKey, error)
+	GetActiveBySHA256Hash(ctx context.Context, hash string) (*APIKey, error)
 	// GetByKeyForAuth 认证专用查询，返回最小字段集
 	GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error)
 	Update(ctx context.Context, key *APIKey) error

@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -121,6 +123,31 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 		return nil, err
 	}
 	return apiKeyEntityToService(m), nil
+}
+
+func (r *apiKeyRepository) GetActiveBySHA256Hash(ctx context.Context, hash string) (*service.APIKey, error) {
+	hash = strings.ToLower(strings.TrimSpace(hash))
+	if hash == "" {
+		return nil, service.ErrAPIKeyNotFound
+	}
+	keys, err := r.activeQuery().
+		Where(apikey.StatusEQ(service.StatusActive)).
+		WithUser().
+		WithGroup().
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, candidate := range keys {
+		if candidate == nil {
+			continue
+		}
+		sum := sha256.Sum256([]byte(candidate.Key))
+		if hex.EncodeToString(sum[:]) == hash {
+			return apiKeyEntityToService(candidate), nil
+		}
+	}
+	return nil, service.ErrAPIKeyNotFound
 }
 
 func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
