@@ -5,6 +5,7 @@ import { useAuthStore as useUserStore } from '@/stores/auth'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/components/Guide/steps'
+import { normalizeOnboardingSteps } from '@/utils/onboardingContent'
 
 export interface OnboardingOptions {
   storageKey?: string
@@ -95,7 +96,8 @@ export function useOnboardingTour(options: OnboardingOptions) {
     // 动态获取当前用户角色和步骤
     const isAdmin = userStore.user?.role === 'admin'
     const isSimpleMode = userStore.isSimpleMode
-    const steps = isAdmin ? getAdminSteps(t, isSimpleMode) : getUserSteps(t)
+    const rawSteps = isAdmin ? getAdminSteps(t, isSimpleMode) : getUserSteps(t)
+    const steps = normalizeOnboardingSteps(rawSteps)
 
     // 确保 DOM 就绪
     await nextTick()
