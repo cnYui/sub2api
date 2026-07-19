@@ -129,14 +129,14 @@ func TestGatewayHandleErrorResponse_AppliesRuleFor422(t *testing.T) {
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
-	assert.Equal(t, http.StatusTeapot, rec.Code)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
 
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	errField, ok := payload["error"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "upstream_error", errField["type"])
-	assert.Equal(t, "上游请求失败", errField["message"])
+	assert.Equal(t, "Upstream request failed", errField["message"])
 }
 
 func TestOpenAIHandleErrorResponse_AppliesRuleFor422(t *testing.T) {
@@ -159,14 +159,14 @@ func TestOpenAIHandleErrorResponse_AppliesRuleFor422(t *testing.T) {
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil)
 	require.Error(t, err)
-	assert.Equal(t, http.StatusTeapot, rec.Code)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
 
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	errField, ok := payload["error"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "upstream_error", errField["type"])
-	assert.Equal(t, "OpenAI上游失败", errField["message"])
+	assert.Equal(t, "Upstream request failed", errField["message"])
 }
 
 func TestGeminiWriteGeminiMappedError_AppliesRuleFor422(t *testing.T) {
@@ -184,14 +184,14 @@ func TestGeminiWriteGeminiMappedError_AppliesRuleFor422(t *testing.T) {
 
 	err := svc.writeGeminiMappedError(c, account, http.StatusUnprocessableEntity, "req-1", respBody)
 	require.Error(t, err)
-	assert.Equal(t, http.StatusTeapot, rec.Code)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
 
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	errField, ok := payload["error"].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, "upstream_error", errField["type"])
-	assert.Equal(t, "Gemini上游失败", errField["message"])
+	assert.Equal(t, "Upstream request failed", errField["message"])
 }
 
 func TestApplyErrorPassthroughRule_SkipMonitoringSetsContextKey(t *testing.T) {
@@ -295,12 +295,12 @@ func TestHandleErrorResponse_PassthroughRuleSetsCommitted(t *testing.T) {
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
 	assert.True(t, IsResponseCommitted(c), "passthrough rule path must mark response committed")
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, http.StatusBadGateway, rec.Code)
 	var payload map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
 	errField, ok := payload["error"].(map[string]any)
 	require.True(t, ok, "payload[\"error\"] should be map[string]any")
-	assert.Equal(t, "参数错误", errField["message"])
+	assert.Equal(t, "Upstream request failed", errField["message"])
 }
 
 func TestOpenAIHandleErrorResponse_SetsResponseCommitted(t *testing.T) {

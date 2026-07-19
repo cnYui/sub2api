@@ -325,6 +325,7 @@ export default {
     settings: '设置',
     chooseFile: '选择文件',
     copy: '复制',
+    copyErrorReference: '复制错误引用',
     notAvailable: '不可用',
     now: '现在',
     today: '今天',
@@ -6680,17 +6681,13 @@ export default {
     // Error Passthrough Rules
     errorPassthrough: {
       title: '错误透传规则',
-      description: '配置上游错误如何返回给客户端',
+      description: '配置上游错误的分类与监控处理方式',
       createRule: '创建规则',
       editRule: '编辑规则',
       deleteRule: '删除规则',
       noRules: '暂无规则',
       createFirstRule: '创建第一条错误透传规则',
       allPlatforms: '所有平台',
-      passthrough: '透传',
-      custom: '自定义',
-      code: '状态码',
-      body: '消息体',
       skipMonitoring: '跳过监控',
 
       // Columns
@@ -6699,7 +6696,6 @@ export default {
         name: '名称',
         conditions: '匹配条件',
         platforms: '平台',
-        behavior: '响应行为',
         status: '状态',
         actions: '操作'
       },
@@ -6730,12 +6726,6 @@ export default {
         matchMode: '匹配模式',
         platforms: '适用平台',
         platformsHint: '不选择表示适用于所有平台',
-        responseBehavior: '响应行为',
-        passthroughCode: '透传上游状态码',
-        responseCode: '自定义状态码',
-        passthroughBody: '透传上游错误信息',
-        customMessage: '自定义错误信息',
-        customMessagePlaceholder: '返回给客户端的错误信息...',
         skipMonitoring: '跳过运维监控记录',
         skipMonitoringHint: '开启后，匹配此规则的错误不会被记录到运维监控中',
         enabled: '启用此规则'

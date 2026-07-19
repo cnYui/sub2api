@@ -27,7 +27,7 @@ func getBoundErrorPassthroughService(c *gin.Context) *ErrorPassthroughService {
 	return svc
 }
 
-// applyErrorPassthroughRule 按规则改写错误响应；未命中时返回默认响应参数。
+// applyErrorPassthroughRule 仅记录规则命中与运维标记，不改写公开错误语义。
 func applyErrorPassthroughRule(
 	c *gin.Context,
 	platform string,
@@ -51,22 +51,9 @@ func applyErrorPassthroughRule(
 		return status, errType, errMsg, false
 	}
 
-	status = upstreamStatus
-	if !rule.PassthroughCode && rule.ResponseCode != nil {
-		status = *rule.ResponseCode
-	}
-
-	errMsg = ExtractUpstreamErrorMessage(responseBody)
-	if !rule.PassthroughBody && rule.CustomMessage != nil {
-		errMsg = *rule.CustomMessage
-	}
-
 	// 命中 skip_monitoring 时在 context 中标记，供 ops_error_logger 跳过记录。
 	if rule.SkipMonitoring {
 		c.Set(OpsSkipPassthroughKey, true)
 	}
-
-	// 与现有 failover 场景保持一致：命中规则时统一返回 upstream_error。
-	errType = "upstream_error"
 	return status, errType, errMsg, true
 }

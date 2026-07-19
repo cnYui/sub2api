@@ -6,6 +6,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types'
 import { getLocale } from '@/i18n'
+import { normalizeErrorPayload } from '@/utils/apiError'
 
 // ==================== Axios Instance Configuration ====================
 
@@ -121,6 +122,7 @@ apiClient.interceptors.response.use(
 
       // Validate `data` shape to avoid HTML error pages breaking our error handling.
       const apiData = (typeof data === 'object' && data !== null ? data : {}) as Record<string, any>
+      const normalizedError = normalizeErrorPayload(apiData, error.response.headers)
 
       // Ops monitoring disabled: treat as feature-flagged 404, and proactively redirect away
       // from ops pages to avoid broken UI states.
@@ -290,8 +292,13 @@ apiClient.interceptors.response.use(
         code: apiData.code,
         reason: apiData.reason,
         error: apiData.error,
-        message: apiData.message || apiData.detail || error.message,
+        message: normalizedError.message || error.message,
         metadata: apiData.metadata,
+        errorId: normalizedError.errorId,
+        errorCode: normalizedError.errorCode,
+        retryable: normalizedError.retryable,
+        retryAfter: normalizedError.retryAfter,
+        requestId: normalizedError.requestId,
       })
     }
 

@@ -11,13 +11,76 @@ interface ApiErrorLike {
   message?: string
   error?: string
   reason?: string
+  errorId?: string
+  errorCode?: string
+  retryable?: boolean
+  retryAfter?: number
+  requestId?: string
   metadata?: Record<string, unknown>
   response?: {
-    data?: {
-      detail?: string
-      message?: string
-      code?: number | string
-    }
+    data?: unknown
+  }
+}
+
+export interface NormalizedErrorPayload {
+  message?: string
+  code?: number | string
+  reason?: string
+  metadata?: Record<string, unknown>
+  errorId?: string
+  errorCode?: string
+  retryable?: boolean
+  retryAfter?: number
+  requestId?: string
+}
+
+type HeaderLike = Record<string, unknown> & { get?: (name: string) => unknown }
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined
+}
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) return Number(value)
+  return undefined
+}
+
+function booleanValue(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value
+  if (value === 'true') return true
+  if (value === 'false') return false
+  return undefined
+}
+
+function readHeader(headers: unknown, name: string): unknown {
+  const headerLike = asRecord(headers) as HeaderLike | undefined
+  if (!headerLike) return undefined
+  const fromGetter = headerLike.get?.(name)
+  if (fromGetter != null) return fromGetter
+  const target = name.toLowerCase()
+  return Object.entries(headerLike).find(([key]) => key.toLowerCase() === target)?.[1]
+}
+
+export function normalizeErrorPayload(data: unknown, headers?: unknown): NormalizedErrorPayload {
+  const payload = asRecord(data)
+  const nestedError = asRecord(payload?.error)
+  const metadata = asRecord(payload?.metadata)
+
+  return {
+    message: stringValue(payload?.message) ?? stringValue(payload?.detail) ?? stringValue(nestedError?.message),
+    code: typeof payload?.code === 'number' || typeof payload?.code === 'string' ? payload.code : undefined,
+    reason: stringValue(payload?.reason),
+    metadata,
+    errorId: stringValue(payload?.error_id) ?? stringValue(nestedError?.error_id) ?? stringValue(readHeader(headers, 'X-Sub2API-Error-ID')),
+    errorCode: stringValue(payload?.error_code) ?? stringValue(nestedError?.sub2api_code) ?? stringValue(readHeader(headers, 'X-Sub2API-Error-Code')),
+    retryable: booleanValue(payload?.retryable) ?? booleanValue(nestedError?.retryable) ?? booleanValue(readHeader(headers, 'X-Sub2API-Retryable')),
+    retryAfter: numberValue(payload?.retry_after) ?? numberValue(nestedError?.retry_after) ?? numberValue(readHeader(headers, 'Retry-After')),
+    requestId: stringValue(payload?.request_id) ?? stringValue(nestedError?.request_id) ?? stringValue(readHeader(headers, 'X-Request-ID')),
   }
 }
 
@@ -31,7 +94,8 @@ interface ApiErrorLike {
 export function extractApiErrorCode(err: unknown): string | undefined {
   if (!err || typeof err !== 'object') return undefined
   const e = err as ApiErrorLike
-  const code = e.reason ?? e.code ?? e.response?.data?.code
+  const normalized = normalizeErrorPayload(e.response?.data)
+  const code = e.errorCode ?? normalized.errorCode ?? e.reason ?? normalized.reason ?? e.code ?? normalized.code
   return code != null ? String(code) : undefined
 }
 
@@ -42,7 +106,7 @@ export function extractApiErrorCode(err: unknown): string | undefined {
 export function extractApiErrorMetadata(err: unknown): Record<string, unknown> | undefined {
   if (!err || typeof err !== 'object') return undefined
   const e = err as ApiErrorLike
-  return e.metadata
+  return e.metadata ?? normalizeErrorPayload(e.response?.data).metadata
 }
 
 type TranslateFn = (key: string, params?: Record<string, unknown>) => string
@@ -139,9 +203,8 @@ export function extractApiErrorMessage(
     // Interceptor shape: { message, error }
     if (e.message) return e.message
     if (e.error) return e.error
-    // Legacy axios shape: { response.data.detail }
-    if (e.response?.data?.detail) return e.response.data.detail
-    if (e.response?.data?.message) return e.response.data.message
+    const normalized = normalizeErrorPayload(e.response?.data)
+    if (normalized.message) return normalized.message
   }
 
   // Standard Error

@@ -17,10 +17,6 @@ export interface ErrorPassthroughRule {
   keywords: string[]
   match_mode: 'any' | 'all'
   platforms: string[]
-  passthrough_code: boolean
-  response_code: number | null
-  passthrough_body: boolean
-  custom_message: string | null
   skip_monitoring: boolean
   description: string | null
   created_at: string
@@ -38,10 +34,6 @@ export interface CreateRuleRequest {
   keywords?: string[]
   match_mode?: 'any' | 'all'
   platforms?: string[]
-  passthrough_code?: boolean
-  response_code?: number | null
-  passthrough_body?: boolean
-  custom_message?: string | null
   skip_monitoring?: boolean
   description?: string | null
 }
@@ -57,10 +49,6 @@ export interface UpdateRuleRequest {
   keywords?: string[]
   match_mode?: 'any' | 'all'
   platforms?: string[]
-  passthrough_code?: boolean
-  response_code?: number | null
-  passthrough_body?: boolean
-  custom_message?: string | null
   skip_monitoring?: boolean
   description?: string | null
 }

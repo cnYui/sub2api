@@ -463,11 +463,18 @@ export interface PaginatedResponse<T> {
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
 
+export interface ToastErrorReference {
+  errorId?: string
+  errorCode?: string
+  requestId?: string
+}
+
 export interface Toast {
   id: string
   type: ToastType
   message: string
   title?: string
+  errorReference?: ToastErrorReference
   duration?: number // in milliseconds, undefined means no auto-dismiss
   startTime?: number // timestamp when toast was created, for progress bar
 }
