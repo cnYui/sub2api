@@ -111,9 +111,9 @@ RUN apk add --no-cache \
     libedit \
     && rm -rf /var/cache/apk/*
 
-# Import CLIProxy self-signed CA for upstream HTTPS
-COPY backend/resources/certs/tls.crt /tmp/cli-proxy-ca.crt
-RUN cat /tmp/cli-proxy-ca.crt >> /etc/ssl/certs/ca-certificates.crt
+# 将现有 CLIProxy 证书注册为标准信任锚，确保运行时更新 CA bundle 时不会丢失。
+COPY backend/resources/certs/tls.crt /usr/local/share/ca-certificates/cliproxy-legacy-ca.crt
+RUN update-ca-certificates
 
 # Copy pg_dump and psql from the same postgres image used in docker-compose
 # This ensures version consistency between backup tools and the database server

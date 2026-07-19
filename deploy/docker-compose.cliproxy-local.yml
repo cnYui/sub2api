@@ -1,0 +1,25 @@
+services:
+  sub2api:
+    environment:
+      CLIPROXY_CA_CERT_FILE: /run/secrets/cliproxy-ca.crt
+      INTERNAL_USAGE_EVENT_ENABLED: "true"
+      INTERNAL_USAGE_EVENT_TOKEN: ${LOCAL_USAGE_EVENT_TOKEN:?LOCAL_USAGE_EVENT_TOKEN is required}
+      INTERNAL_USAGE_EVENT_HMAC_SECRET: ${LOCAL_USAGE_EVENT_HMAC_SECRET:?LOCAL_USAGE_EVENT_HMAC_SECRET is required}
+      INTERNAL_USAGE_EVENT_MAX_SKEW_SECONDS: "300"
+      OPS_ENABLED: ${OPS_ENABLED:-false}
+      OPS_CLEANUP_ENABLED: ${OPS_CLEANUP_ENABLED:-false}
+      OPS_AGGREGATION_ENABLED: ${OPS_AGGREGATION_ENABLED:-false}
+      SECURITY_URL_ALLOWLIST_ENABLED: ${SECURITY_URL_ALLOWLIST_ENABLED:-false}
+      SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP: ${SECURITY_URL_ALLOWLIST_ALLOW_INSECURE_HTTP:-true}
+      SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS: ${SECURITY_URL_ALLOWLIST_ALLOW_PRIVATE_HOSTS:-true}
+    volumes:
+      - ${CLIPROXY_CA_CERT_PATH:-../../CLIProxyAPI-private/certs/runtime/ca.crt}:/run/secrets/cliproxy-ca.crt:ro
+    networks:
+      cliproxy-link:
+        aliases:
+          - sub2api
+
+networks:
+  cliproxy-link:
+    name: ${SUB2API_CLIPROXY_NETWORK:-sub2api-cliproxy-local}
+    external: true

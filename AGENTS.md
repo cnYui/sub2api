@@ -17,6 +17,7 @@
 
 ## 最高优先级定论
 
+- 2026-07-19 已完成本地 Sub2API/CLIProxyAPI 共享 Docker bridge 实施：`sub2api-dev` 保留 PostgreSQL/Redis 数据网络并额外加入 `sub2api-cliproxy-local`，`cliproxyapi-local-dev` 只加入该共享网络；账号 `cliproxy-local-openai` 已通过正式管理 API 切换为 `https://cliproxyapi:8317/v1`，数据库与 Redis 快照一致。新增内部 CA/叶子证书、可选运行时 CA 注入、两仓库本地 Compose 与回归测试；两个应用分别重建后 DNS、TLS、业务和 usage 回调仍有效，数据容器未替换。CLI 本地 `auths/` 为空，成功响应/成功 usage event 尚未验证；失败事件回调 200 且不产生计费事实。未改公网、未提交、未推送，结果见 `docs/ai/context/20260719-204112-sub2api-cliproxyapi-shared-network-implementation-result_CN.md`。
 - 2026-07-18 新增新人部署 Runbook：`docs/SUB2API_CLIPROXYAPI_DEPLOYMENT_RUNBOOK_CN.md`，并在 `deploy/README.md` 建入口。当前 CLIProxyAPI 8317 是 HTTPS/TLS，HTTP `Empty reply` 只是协议错；重新部署前空间不足要先按 Runbook 清理已停止旧容器和无用镜像，禁止删 DB/Redis volume；历史 `auth_unavailable`/502 根因是 Sub2API account 1 被临时失败状态/Redis 调度快照排除（日志 `excluded_account_count=1`），不是 CLIProxyAPI 调度器坏。
 - 2026-07-18 本地修复 OpenAI 预授权预算单位错误：旧逻辑把 JSON `len(body)` 当作 `input_tokens`，导致 24MB 请求体按 `gpt-5.6-terra` 长上下文倍率误估到约 121 USD，并把 active 套餐用户导向流量卡 402；新逻辑只估算 JSON 文本输入、跳过图片/base64 传输载荷，套餐仍按修正后的预算优先计费，预算真实超过套餐剩余时保留流量卡兜底。仅本地代码与文档，未部署、未改运行态。
 - 2026-07-17 独立 worktree `.worktrees/codex-code-redundancy-cleanup-phase2`、分支 `codex/code-redundancy-cleanup-phase2` 已完成代码冗余治理第二阶段：账号弹窗唯一化、设置响应 mapper 统一、旧直接计费链删除、失效 Makefile 目标清理；计划见 `docs/ai/context/20260717-153936-code-redundancy-cleanup-phase2-plan_CN.md`，结果见 `docs/ai/context/20260717-163551-code-redundancy-cleanup-phase2-result_CN.md`。未改运行态、未部署、未推送。
