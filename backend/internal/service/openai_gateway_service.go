@@ -1083,14 +1083,6 @@ func (s *OpenAIGatewayService) authorizeOpenAIForward(
 	if apiKey == nil || apiKey.User == nil {
 		return nil, nil, ErrBillingPreauthUnavailable
 	}
-	balanceEligible := apiKey.User.Balance > 0
-	if s.billingCacheService != nil {
-		balance, err := s.billingCacheService.GetUserBalance(ctx, apiKey.User.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		balanceEligible = !s.billingCacheService.balanceBelowEligibilityThreshold(balance)
-	}
 	rateMultiplier := 1.0
 	if s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
 		rateMultiplier = s.cfg.Default.RateMultiplier
@@ -1131,7 +1123,6 @@ func (s *OpenAIGatewayService) authorizeOpenAIForward(
 		Model:              strings.TrimSpace(model),
 		Group:              apiKey.Group,
 		Subscription:       getOpenAISubscriptionFromContext(c),
-		BalanceEligible:    balanceEligible,
 		ServiceTier:        serviceTier,
 		RateMultiplier:     rateMultiplier,
 		Body:               body,
@@ -6541,6 +6532,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 	quotaPlatform := PlatformFromAPIKey(apiKey)
 	useTrafficPack := false
+	skipBilling := false
 	var trafficReservationID *int64
 	requestFingerprint := ""
 	if authorization := result.BillingAuthorization; authorization != nil {
@@ -6551,7 +6543,8 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 			trafficReservationID = authorization.ReservationID
 			isSubscriptionBilling = false
 			subscription = nil
-		case BillingSourceBalance:
+		case BillingSourceShadow:
+			skipBilling = true
 			isSubscriptionBilling = false
 			subscription = nil
 		case BillingSourceSubscription:
@@ -6567,6 +6560,10 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	billingType := BillingTypeBalance
 	if isSubscriptionBilling {
 		billingType = BillingTypeSubscription
+	} else if useTrafficPack {
+		billingType = BillingTypeTrafficCredit
+	} else if skipBilling {
+		billingType = BillingTypeShadow
 	}
 
 	// Create usage log
@@ -6687,6 +6684,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		Platform:              quotaPlatform,
 		UseTrafficPack:        useTrafficPack,
 		TrafficReservationID:  trafficReservationID,
+		SkipBilling:           skipBilling,
 	}
 	return &openAIUsageRecordBuild{
 		usageLog:      usageLog,
@@ -6703,6 +6701,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 			AccountRateMultiplier: accountRateMultiplier,
 			IsSubscription:        isSubscriptionBilling,
 			IsTrafficCredit:       useTrafficPack,
+			SkipBilling:           skipBilling,
 		},
 	}, nil
 }

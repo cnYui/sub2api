@@ -38,6 +38,7 @@ type UsageSettlementEffectsPayload struct {
 	AccountRateMultiplier float64 `json:"account_rate_multiplier"`
 	IsSubscription        bool    `json:"is_subscription"`
 	IsTrafficCredit       bool    `json:"is_traffic_credit"`
+	SkipBilling           bool    `json:"skip_billing,omitempty"`
 }
 
 type UsageFact struct {

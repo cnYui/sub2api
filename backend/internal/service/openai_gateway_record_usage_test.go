@@ -313,8 +313,43 @@ func TestOpenAIGatewayServiceBuildUsageFact_UsesRequestBillingAuthorization(t *t
 	require.Greater(t, payload.BillingCommand.TrafficPackCost, 0.0)
 	require.Zero(t, payload.BillingCommand.BalanceCost)
 	require.Zero(t, payload.BillingCommand.SubscriptionCost)
+	require.Equal(t, int8(2), payload.UsageLog.BillingType)
 	require.True(t, payload.Effects.IsTrafficCredit)
 	require.False(t, payload.Effects.IsSubscription)
+}
+
+func TestOpenAIGatewayServiceBuildUsageFact_ShadowAuthorizationDoesNotCreateCharge(t *testing.T) {
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(
+		&openAIRecordUsageLogRepoStub{},
+		&openAIRecordUsageBillingRepoStub{},
+		&openAIRecordUsageUserRepoStub{},
+		&openAIRecordUsageSubRepoStub{},
+		nil,
+	)
+
+	payload := buildOpenAIUsageFactPayloadForTest(t, svc, context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "req-shadow-source",
+			Usage: OpenAIUsage{
+				InputTokens:  1000,
+				OutputTokens: 200,
+			},
+			Model:    "gpt-5.1",
+			Duration: time.Second,
+			BillingAuthorization: &OpenAIBillingAuthorization{
+				Source:             BillingSourceShadow,
+				RequestFingerprint: "shadow-fingerprint",
+			},
+		},
+		APIKey:  &APIKey{ID: 91, Group: &Group{RateMultiplier: 1}},
+		User:    &User{ID: 7, Balance: 100},
+		Account: &Account{ID: 5},
+	})
+
+	require.Zero(t, payload.BillingCommand.BalanceCost)
+	require.Zero(t, payload.BillingCommand.SubscriptionCost)
+	require.Zero(t, payload.BillingCommand.TrafficPackCost)
+	require.Equal(t, int8(3), payload.UsageLog.BillingType)
 }
 
 func TestPersistCyberPolicyUsageFact_StoresRealUpstreamTokens(t *testing.T) {

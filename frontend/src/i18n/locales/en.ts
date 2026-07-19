@@ -4660,6 +4660,7 @@ export default {
       allBillingTypes: 'All Billing Types',
       billingTypeBalance: 'Balance',
       billingTypeSubscription: 'Subscription',
+      billingTypeTrafficCredit: 'Traffic credit',
       billingMode: 'Billing Mode',
       billingModeToken: 'Token',
       billingModePerRequest: 'Per Request',

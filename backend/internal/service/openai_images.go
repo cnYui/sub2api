@@ -122,6 +122,45 @@ func (r *OpenAIImagesRequest) ModerationBody() []byte {
 	return body
 }
 
+func buildOpenAIImagesBudgetBody(r *OpenAIImagesRequest) []byte {
+	if r == nil {
+		return nil
+	}
+	payload := map[string]any{
+		"model": r.Model,
+		"n":     r.N,
+	}
+	for key, value := range map[string]string{
+		"prompt":          r.Prompt,
+		"size":            r.Size,
+		"quality":         r.Quality,
+		"background":      r.Background,
+		"output_format":   r.OutputFormat,
+		"moderation":      r.Moderation,
+		"input_fidelity":  r.InputFidelity,
+		"style":           r.Style,
+		"response_format": r.ResponseFormat,
+	} {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			payload[key] = trimmed
+		}
+	}
+	if r.HasMask {
+		payload["has_mask"] = true
+	}
+	if r.OutputCompression != nil {
+		payload["output_compression"] = *r.OutputCompression
+	}
+	if r.PartialImages != nil {
+		payload["partial_images"] = *r.PartialImages
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil
+	}
+	return body
+}
+
 func (r *OpenAIImagesRequest) moderationImages() []map[string]string {
 	if r == nil {
 		return nil
@@ -618,14 +657,6 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		}
 		return state.Authorization, append([]byte(nil), body...), nil
 	}
-	balanceEligible := apiKey.User.Balance > 0
-	if s.billingCacheService != nil {
-		balance, err := s.billingCacheService.GetUserBalance(ctx, apiKey.User.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		balanceEligible = !s.billingCacheService.balanceBelowEligibilityThreshold(balance)
-	}
 	rateMultiplier := 1.0
 	if s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
 		rateMultiplier = s.cfg.Default.RateMultiplier
@@ -647,9 +678,9 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		ImageModel:                 requestModel,
 		Group:                      apiKey.Group,
 		Subscription:               getOpenAISubscriptionFromContext(c),
-		BalanceEligible:            balanceEligible,
 		RateMultiplier:             rateMultiplier,
 		Body:                       body,
+		BudgetBody:                 buildOpenAIImagesBudgetBody(parsed),
 		ImageInputTokenUpperBound:  openAIImagesInputTokenUpperBound(parsed),
 		ImageOutputTokenUpperBound: openAIImagesOutputTokenUpperBound(parsed),
 		DoNotClampOutputLimit:      true,

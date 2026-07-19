@@ -4813,6 +4813,7 @@ export default {
       allBillingTypes: '全部计费类型',
       billingTypeBalance: '钱包余额',
       billingTypeSubscription: '订阅套餐',
+      billingTypeTrafficCredit: '流量卡',
       billingMode: '计费模式',
       billingModeToken: '按量',
       billingModePerRequest: '按次',

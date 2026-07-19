@@ -8846,6 +8846,7 @@ type usageSettlementParams struct {
 	Platform              string // 来自 APIKey 关联 Group 的平台标识
 	UseTrafficPack        bool
 	TrafficReservationID  *int64
+	SkipBilling           bool
 }
 
 // PlatformFromAPIKey 从 APIKey 关联的 Group 推导 platform 名称。
@@ -8965,6 +8966,10 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *usageSett
 			cmd.SubscriptionID = usageLog.SubscriptionID
 		}
 	}
+	if p.SkipBilling {
+		cmd.Normalize()
+		return cmd
+	}
 
 	// Record subscription / balance cost using ActualCost so the group (and any
 	// user-specific) rate multiplier consumes subscription quota at the expected
@@ -8996,6 +9001,9 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *usageSett
 
 func applyUsageSettlementEffects(ctx context.Context, p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || deps == nil {
+		return
+	}
+	if p.SkipBilling {
 		return
 	}
 

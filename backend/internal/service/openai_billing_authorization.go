@@ -14,8 +14,8 @@ type BillingSource string
 
 const (
 	BillingSourceSubscription  BillingSource = "subscription"
-	BillingSourceBalance       BillingSource = "balance"
 	BillingSourceTrafficCredit BillingSource = "traffic_credit"
+	BillingSourceShadow        BillingSource = "shadow"
 )
 
 type OpenAIBillingAuthorizationInput struct {
@@ -28,10 +28,10 @@ type OpenAIBillingAuthorizationInput struct {
 	ImageModel                 string
 	Group                      *Group
 	Subscription               *UserSubscription
-	BalanceEligible            bool
 	ServiceTier                string
 	RateMultiplier             float64
 	Body                       []byte
+	BudgetBody                 []byte
 	OutputLimitField           string
 	ImageInputTokenUpperBound  int
 	ImageOutputTokenUpperBound int
@@ -90,6 +90,14 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 	if s == nil || s.estimator == nil {
 		return nil, ErrBillingPreauthUnavailable
 	}
+	if !s.enabled && s.shadow {
+		recordTrafficCreditPreauthorizationSuccess()
+		return &OpenAIBillingAuthorization{
+			Source:             BillingSourceShadow,
+			RequestFingerprint: input.RequestFingerprint,
+			EffectiveBody:      append([]byte(nil), input.Body...),
+		}, nil
+	}
 
 	if input.Subscription != nil && input.Group != nil {
 		budget, err := s.estimate(ctx, input, math.MaxFloat64)
@@ -103,17 +111,10 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 				RequestFingerprint: input.RequestFingerprint,
 				ReserveUSD:         budget.ReserveUSD,
 				PricingSnapshot:    budget.PricingSnapshot,
-				EffectiveBody:      budget.Body,
+				EffectiveBody:      effectiveOpenAIBillingBody(input, budget.Body),
 				Enforced:           s.enabled,
 			}, nil
 		}
-	} else if input.BalanceEligible {
-		return &OpenAIBillingAuthorization{
-			Source:             BillingSourceBalance,
-			RequestFingerprint: input.RequestFingerprint,
-			EffectiveBody:      append([]byte(nil), input.Body...),
-			Enforced:           s.enabled,
-		}, nil
 	}
 
 	if s.reservationRepo == nil || !IsTrafficPackPlatform(input.Platform) {
@@ -144,7 +145,7 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 		RequestFingerprint: input.RequestFingerprint,
 		ReserveUSD:         budget.ReserveUSD,
 		PricingSnapshot:    budget.PricingSnapshot,
-		EffectiveBody:      budget.Body,
+		EffectiveBody:      effectiveOpenAIBillingBody(input, budget.Body),
 		Enforced:           s.enabled,
 	}
 	if !s.enabled {
@@ -205,6 +206,10 @@ func (s *OpenAIBillingAuthorizationService) estimate(
 	input OpenAIBillingAuthorizationInput,
 	availableUSD float64,
 ) (*OpenAITrafficCreditBudget, error) {
+	budgetBody := input.Body
+	if len(input.BudgetBody) > 0 {
+		budgetBody = input.BudgetBody
+	}
 	var groupID *int64
 	if input.Group != nil {
 		groupID = &input.Group.ID
@@ -217,11 +222,18 @@ func (s *OpenAIBillingAuthorizationService) estimate(
 		GroupID:                    groupID,
 		ServiceTier:                input.ServiceTier,
 		RateMultiplier:             input.RateMultiplier,
-		Body:                       input.Body,
+		Body:                       budgetBody,
 		AvailableUSD:               availableUSD,
 		OutputLimitField:           input.OutputLimitField,
 		ImageInputTokenUpperBound:  input.ImageInputTokenUpperBound,
 		ImageOutputTokenUpperBound: input.ImageOutputTokenUpperBound,
 		DoNotClampOutputLimit:      input.DoNotClampOutputLimit,
 	})
+}
+
+func effectiveOpenAIBillingBody(input OpenAIBillingAuthorizationInput, budgetBody []byte) []byte {
+	if len(input.BudgetBody) > 0 {
+		return append([]byte(nil), input.Body...)
+	}
+	return append([]byte(nil), budgetBody...)
 }
