@@ -8,13 +8,23 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
+	"github.com/tiktoken-go/tokenizer"
 )
 
 var ErrTrafficCreditInsufficient = errors.New("traffic credit is insufficient for request budget")
 var ErrBillingPreauthUnavailable = errors.New("billing preauthorization is unavailable")
+
+var openAIRequestTextTokenizer = sync.OnceValue(func() tokenizer.Codec {
+	codec, err := tokenizer.Get(tokenizer.O200kBase)
+	if err != nil {
+		return nil
+	}
+	return codec
+})
 
 type OpenAITrafficBudgetInput struct {
 	RequestID                  string
@@ -271,7 +281,7 @@ func estimateOpenAIRequestTextTokenUpperBound(body []byte) int {
 	}
 	var payload any
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return len(body)
+		return estimateOpenAITextTokenCount(string(body))
 	}
 	return estimateOpenAIJSONTextTokenUpperBound(payload, "", false)
 }
@@ -296,10 +306,22 @@ func estimateOpenAIJSONTextTokenUpperBound(value any, key string, insideImageRef
 		if insideImageRef || shouldSkipOpenAIStringInTextTokenBudget(key, v) {
 			return 0
 		}
-		return len(v)
+		return estimateOpenAITextTokenCount(v)
 	default:
 		return 0
 	}
+}
+
+func estimateOpenAITextTokenCount(text string) int {
+	if text == "" {
+		return 0
+	}
+	if codec := openAIRequestTextTokenizer(); codec != nil {
+		if count, err := codec.Count(text); err == nil {
+			return count
+		}
+	}
+	return len([]rune(text))
 }
 
 func isOpenAIImageReferenceObject(value map[string]any) bool {
@@ -314,7 +336,7 @@ func isOpenAIImageReferenceObject(value map[string]any) bool {
 
 func shouldSkipOpenAIStringInTextTokenBudget(key string, value string) bool {
 	k := strings.ToLower(strings.TrimSpace(key))
-	if k == "b64_json" || k == "file_id" {
+	if k == "b64_json" || k == "file_id" || k == "file_data" {
 		return true
 	}
 	return k == "url" && strings.HasPrefix(strings.ToLower(strings.TrimSpace(value)), "data:image/")

@@ -7,8 +7,10 @@ import (
 )
 
 const (
-	BillingTypeBalance      int8 = 0 // 钱包余额
-	BillingTypeSubscription int8 = 1 // 订阅套餐
+	BillingTypeBalance       int8 = 0 // 钱包余额
+	BillingTypeSubscription  int8 = 1 // 订阅套餐
+	BillingTypeTrafficCredit int8 = 2 // 流量卡
+	BillingTypeShadow        int8 = 3 // 仅观测，不扣费
 )
 
 type RequestType int16

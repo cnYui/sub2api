@@ -23,6 +23,7 @@ const messages: Record<string, string> = {
   'admin.usage.allBillingTypes': 'All Billing Types',
   'admin.usage.billingTypeBalance': 'Balance',
   'admin.usage.billingTypeSubscription': 'Subscription',
+	'admin.usage.billingTypeTrafficCredit': 'Traffic credit',
   'admin.usage.billingMode': 'Billing Mode',
   'admin.usage.allBillingModes': 'All Billing Modes',
   'admin.usage.billingModeToken': 'Token',
@@ -191,5 +192,15 @@ describe('UsageFilters — model options come from prop (no dup request)', () =>
 
     const opts = (wrapper.vm as any).modelOptions as Array<{ value: string | null; label: string }>
     expect(opts.map((o) => o.value)).toEqual([null, 'claude-3', 'gpt-4o'])
+  })
+})
+
+describe('UsageFilters — billing type options', () => {
+  it('includes the traffic credit option', () => {
+    const wrapper = mountFilters()
+
+    const options = (wrapper.vm as any).billingTypeOptions as Array<{ value: number | null; label: string }>
+
+    expect(options).toContainEqual({ value: 2, label: 'Traffic credit' })
   })
 })

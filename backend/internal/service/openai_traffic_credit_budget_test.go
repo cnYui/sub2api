@@ -72,6 +72,23 @@ func TestOpenAITrafficCreditBudget_DoesNotPriceBase64ImageBytesAsTextTokens(t *t
 	require.LessOrEqual(t, got.ReserveUSD, 0.05)
 }
 
+func TestOpenAITrafficCreditBudget_DoesNotPriceFileDataBytesAsTextTokens(t *testing.T) {
+	fileData := strings.Repeat("A", 1_000_000)
+	body := []byte(`{"input":[{"type":"input_file","file_data":"` + fileData + `"}],"prompt":"describe the uploaded document"}`)
+
+	inputTokens := estimateOpenAIRequestTextTokenUpperBound(body)
+
+	require.Less(t, inputTokens, 1_024)
+}
+
+func TestOpenAITrafficCreditBudget_UsesTokenizerForText(t *testing.T) {
+	body := []byte(`{"input":"hello world"}`)
+
+	inputTokens := estimateOpenAIRequestTextTokenUpperBound(body)
+
+	require.LessOrEqual(t, inputTokens, 4)
+}
+
 func TestOpenAITrafficCreditBudget_UsesExplicitMaxTokens(t *testing.T) {
 	estimator := newTestTrafficBudgetEstimator(0.01, 256, 8192)
 	got, err := estimator.Estimate(context.Background(), OpenAITrafficBudgetInput{

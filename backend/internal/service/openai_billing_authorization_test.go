@@ -64,16 +64,31 @@ func TestOpenAIBillingAuthorization_UsesSubscriptionWhenBudgetFits(t *testing.T)
 	require.Zero(t, repo.reserveCalls)
 }
 
-func TestOpenAIBillingAuthorization_UsesBalanceWhenNoSubscriptionAndBalanceEligible(t *testing.T) {
+func TestOpenAIBillingAuthorization_IgnoresBalanceAndReservesTrafficCreditWhenNoSubscription(t *testing.T) {
 	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)
 	input := newOpenAIBillingAuthorizationTestInput()
-	input.BalanceEligible = true
 
 	got, err := svc.Authorize(context.Background(), input)
 
 	require.NoError(t, err)
-	require.Equal(t, BillingSourceBalance, got.Source)
+	require.Equal(t, BillingSourceTrafficCredit, got.Source)
+	require.Equal(t, int64(91), *got.ReservationID)
+	require.Equal(t, 1, repo.reserveCalls)
+}
+
+func TestOpenAIBillingAuthorization_ShadowModeDoesNotRejectInsufficientTrafficCredit(t *testing.T) {
+	repo := &openAIBillingAuthorizationReservationRepoStub{availableUSD: 0}
+	estimator := &openAIBillingAuthorizationEstimatorStub{err: ErrTrafficCreditInsufficient}
+	svc := NewOpenAIBillingAuthorizationService(repo, estimator, 15*time.Minute, false, true)
+	input := newOpenAIBillingAuthorizationTestInput()
+
+	got, err := svc.Authorize(context.Background(), input)
+
+	require.NoError(t, err)
+	require.Equal(t, BillingSourceShadow, got.Source)
+	require.False(t, got.Enforced)
 	require.Nil(t, got.ReservationID)
+	require.Equal(t, input.Body, got.EffectiveBody)
 	require.Zero(t, repo.reserveCalls)
 }
 

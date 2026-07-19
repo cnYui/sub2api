@@ -35,6 +35,9 @@ func (s *UsageSettlementEffectsHandler) Apply(
 		}
 		return
 	}
+	if payload.SkipBilling {
+		return
+	}
 	user, err := s.userRepo.GetByID(ctx, payload.UserID)
 	if err != nil {
 		slog.Error("load usage settlement user failed", "user_id", payload.UserID, "error", err)
@@ -69,5 +72,6 @@ func (s *UsageSettlementEffectsHandler) Apply(
 		AccountRateMultiplier: payload.AccountRateMultiplier,
 		Platform:              payload.Platform,
 		UseTrafficPack:        payload.IsTrafficCredit,
+		SkipBilling:           payload.SkipBilling,
 	}, s.deps, result)
 }
