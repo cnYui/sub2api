@@ -20,17 +20,18 @@ describe('WorldMapBackground visual contract', () => {
     expect(source).toContain(':draggable="false"')
   })
 
-  it('fills the container vertically and scrolls one complete map tile', () => {
+  it('fills the container vertically with a static low-contrast map', () => {
     expect(source).toContain('height: 125%')
     expect(source).toContain('top: 50%')
-    expect(source).toContain('animation: world-map-scroll 75s linear infinite')
     expect(source).toContain('translate3d(0, -50%, 0)')
-    expect(source).toContain('translate3d(-33.333333%, -50%, 0)')
+    expect(source).toContain('opacity: 0.35')
+    expect(source).not.toContain('animation:')
+    expect(source).not.toContain('@keyframes world-map-scroll')
+    expect(source).not.toContain('will-change')
   })
 
   it('keeps the map vertically centered when reduced motion is enabled', () => {
     expect(source).toContain('@media (prefers-reduced-motion: reduce)')
-    expect(source).toContain('animation: none')
     expect(source).toContain('transform: translate3d(0, -50%, 0)')
   })
 })

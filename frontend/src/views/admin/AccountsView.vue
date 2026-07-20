@@ -27,7 +27,7 @@
                   class="btn btn-secondary px-2 md:px-3"
                   :title="t('admin.accounts.autoRefresh')"
                 >
-                  <Icon name="refresh" size="sm" :class="[autoRefreshEnabled ? 'animate-spin' : '']" />
+                  <Icon name="refresh" size="sm" :class="[autoRefreshFetching ? 'animate-spin' : '']" />
                   <span class="hidden md:inline">
                     {{
                       autoRefreshEnabled

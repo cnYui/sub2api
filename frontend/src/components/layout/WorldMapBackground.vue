@@ -27,8 +27,7 @@ import worldMapDotsUrl from '@/assets/auth/world-map-dots.webp'
   top: 50%;
   height: 125%;
   transform: translate3d(0, -50%, 0);
-  animation: world-map-scroll 75s linear infinite;
-  will-change: transform;
+  opacity: 0.35;
 }
 
 .world-map-tile {
@@ -39,21 +38,9 @@ import worldMapDotsUrl from '@/assets/auth/world-map-dots.webp'
   user-select: none;
 }
 
-@keyframes world-map-scroll {
-  from {
-    transform: translate3d(0, -50%, 0);
-  }
-
-  to {
-    transform: translate3d(-33.333333%, -50%, 0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .world-map-track {
-    animation: none;
     transform: translate3d(0, -50%, 0);
-    will-change: auto;
   }
 }
 </style>

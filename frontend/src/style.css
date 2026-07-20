@@ -938,3 +938,10 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* reduced-motion 必须覆盖 base 层的 scroll-smooth，但保留状态反馈与浮层契约。 */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

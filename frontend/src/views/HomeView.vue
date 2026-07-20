@@ -462,12 +462,18 @@ onMounted(() => {
     0 0 0 1px rgba(255, 255, 255, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg);
-  transition: transform 0.3s ease;
+  transform: none;
+  transition: transform 180ms var(--ease-out);
 }
 
-.terminal-window:hover {
-  transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-4px);
+@media (hover: hover) and (pointer: fine) {
+  .terminal-window {
+    transform: perspective(1000px) rotateX(1deg) rotateY(-1deg);
+  }
+
+  .terminal-window:hover {
+    transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-2px);
+  }
 }
 
 /* Terminal Header */
@@ -523,20 +529,20 @@ onMounted(() => {
   gap: 8px;
   flex-wrap: wrap;
   opacity: 0;
-  animation: line-appear 0.5s ease forwards;
+  animation: line-appear 180ms var(--ease-out) forwards;
 }
 
 .line-1 {
-  animation-delay: 0.3s;
+  animation-delay: 0ms;
 }
 .line-2 {
-  animation-delay: 1s;
+  animation-delay: 40ms;
 }
 .line-3 {
-  animation-delay: 1.8s;
+  animation-delay: 80ms;
 }
 .line-4 {
-  animation-delay: 2.5s;
+  animation-delay: 120ms;
 }
 
 @keyframes line-appear {
@@ -595,6 +601,27 @@ onMounted(() => {
   51%,
   100% {
     opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-line {
+    animation: none;
+    opacity: 1;
+  }
+
+  .terminal-window {
+    transform: none;
+    transition: none;
+  }
+
+  .terminal-window:hover {
+    transform: none;
+  }
+
+  .cursor {
+    animation: none;
+    opacity: 1;
   }
 }
 
