@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsAccountAvailabilityStatsResponse, type OpsConcurrencyStatsResponse, type OpsUserConcurrencyStatsResponse } from '@/api/admin/ops'
+import { meterScale } from '@/utils/meter'
 
 interface Props {
   platformFilter?: string
@@ -308,8 +309,8 @@ function getLoadBarClass(loadPct: number): string {
   return 'bg-green-500 dark:bg-green-600'
 }
 
-function getLoadBarStyle(loadPct: number): string {
-  return `width: ${Math.min(100, Math.max(0, loadPct))}%`
+function getLoadBarStyle(loadPct: number): Record<string, number> {
+  return { '--meter-value': meterScale(loadPct, 100) }
 }
 
 function getLoadTextClass(loadPct: number): string {
@@ -429,7 +430,7 @@ watch(
 
           <!-- 进度条 -->
           <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div class="h-full rounded-full transition-all duration-300" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
+            <div class="meter-fill meter-fill--realtime rounded-full" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
           </div>
 
           <!-- 等待队列 -->
@@ -463,7 +464,7 @@ watch(
           <!-- 进度条 -->
           <div class="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
             <div
-              class="h-full rounded-full transition-all duration-300"
+              class="meter-fill meter-fill--realtime rounded-full"
               :class="getLoadBarClass(row.concurrency_percentage)"
               :style="getLoadBarStyle(row.concurrency_percentage)"
             ></div>
@@ -584,7 +585,7 @@ watch(
 
           <!-- 进度条 -->
           <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700">
-            <div class="h-full rounded-full transition-all duration-300" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
+            <div class="meter-fill meter-fill--realtime rounded-full" :class="getLoadBarClass(row.load_percentage)" :style="getLoadBarStyle(row.load_percentage)"></div>
           </div>
 
           <!-- 等待队列 -->
