@@ -802,7 +802,7 @@ func TestErrorPassthroughRule_Validate(t *testing.T) {
 			errorField:  "conditions",
 		},
 		{
-			name: "自定义状态码但未提供值",
+			name: "不再要求自定义状态码",
 			rule: &model.ErrorPassthroughRule{
 				Name:            "Missing Code",
 				MatchMode:       model.MatchModeAny,
@@ -811,11 +811,10 @@ func TestErrorPassthroughRule_Validate(t *testing.T) {
 				ResponseCode:    nil,
 				PassthroughBody: true,
 			},
-			expectError: true,
-			errorField:  "response_code",
+			expectError: false,
 		},
 		{
-			name: "自定义消息但未提供值",
+			name: "不再要求自定义消息",
 			rule: &model.ErrorPassthroughRule{
 				Name:            "Missing Message",
 				MatchMode:       model.MatchModeAny,
@@ -824,11 +823,10 @@ func TestErrorPassthroughRule_Validate(t *testing.T) {
 				PassthroughBody: false,
 				CustomMessage:   nil,
 			},
-			expectError: true,
-			errorField:  "custom_message",
+			expectError: false,
 		},
 		{
-			name: "自定义消息为空字符串",
+			name: "允许空的历史自定义消息",
 			rule: &model.ErrorPassthroughRule{
 				Name:            "Empty Message",
 				MatchMode:       model.MatchModeAny,
@@ -837,8 +835,7 @@ func TestErrorPassthroughRule_Validate(t *testing.T) {
 				PassthroughBody: false,
 				CustomMessage:   testStrPtr(""),
 			},
-			expectError: true,
-			errorField:  "custom_message",
+			expectError: false,
 		},
 	}
 

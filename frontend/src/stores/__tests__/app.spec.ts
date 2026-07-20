@@ -48,6 +48,21 @@ describe('useAppStore', () => {
       expect(store.toasts[0].message).toBe('出错了')
     })
 
+    it('showError 可以附带规范错误引用且不影响既有字符串调用', () => {
+      const store = useAppStore()
+      store.showError('请求过于频繁', 5000, {
+        errorId: 'S2A-5004',
+        errorCode: 'UPSTREAM_RATE_LIMITED',
+        requestId: 'req_contract_1'
+      })
+
+      expect(store.toasts[0].errorReference).toEqual({
+        errorId: 'S2A-5004',
+        errorCode: 'UPSTREAM_RATE_LIMITED',
+        requestId: 'req_contract_1'
+      })
+    })
+
     it('showWarning 创建 warning 类型 toast', () => {
       const store = useAppStore()
       store.showWarning('警告信息')

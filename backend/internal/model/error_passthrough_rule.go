@@ -14,10 +14,10 @@ type ErrorPassthroughRule struct {
 	Keywords        []string  `json:"keywords"`         // 匹配的关键词列表（OR关系）
 	MatchMode       string    `json:"match_mode"`       // "any"(任一条件) 或 "all"(所有条件)
 	Platforms       []string  `json:"platforms"`        // 适用平台列表
-	PassthroughCode bool      `json:"passthrough_code"` // 是否透传原始状态码
-	ResponseCode    *int      `json:"response_code"`    // 自定义状态码（passthrough_code=false 时使用）
-	PassthroughBody bool      `json:"passthrough_body"` // 是否透传原始错误信息
-	CustomMessage   *string   `json:"custom_message"`   // 自定义错误信息（passthrough_body=false 时使用）
+	PassthroughCode bool      `json:"passthrough_code"` // 兼容历史存储，运行时不参与公开错误语义。
+	ResponseCode    *int      `json:"response_code"`    // 兼容历史存储，运行时不参与公开错误语义。
+	PassthroughBody bool      `json:"passthrough_body"` // 兼容历史存储，运行时不参与公开错误语义。
+	CustomMessage   *string   `json:"custom_message"`   // 兼容历史存储，运行时不参与公开错误语义。
 	SkipMonitoring  bool      `json:"skip_monitoring"`  // 是否跳过运维监控记录
 	Description     *string   `json:"description"`      // 规则描述
 	CreatedAt       time.Time `json:"created_at"`
@@ -54,12 +54,6 @@ func (r *ErrorPassthroughRule) Validate() error {
 	// 至少需要配置一个匹配条件（错误码或关键词）
 	if len(r.ErrorCodes) == 0 && len(r.Keywords) == 0 {
 		return &ValidationError{Field: "conditions", Message: "at least one error_code or keyword is required"}
-	}
-	if !r.PassthroughCode && (r.ResponseCode == nil || *r.ResponseCode <= 0) {
-		return &ValidationError{Field: "response_code", Message: "response_code is required when passthrough_code is false"}
-	}
-	if !r.PassthroughBody && (r.CustomMessage == nil || *r.CustomMessage == "") {
-		return &ValidationError{Field: "custom_message", Message: "custom_message is required when passthrough_body is false"}
 	}
 	return nil
 }

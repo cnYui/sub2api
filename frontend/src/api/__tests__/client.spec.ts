@@ -190,6 +190,44 @@ describe('API Client', () => {
 
       window.removeEventListener('admin-compliance-required', listener)
     })
+
+    it('归一化 OpenAI 错误体与错误契约响应头', async () => {
+      const adapter = vi.fn().mockRejectedValue({
+        response: {
+          status: 429,
+          data: {
+            error: {
+              type: 'rate_limit_error',
+              message: 'The upstream service is rate limited. Please retry later.',
+              error_id: 'S2A-5004',
+              sub2api_code: 'UPSTREAM_RATE_LIMITED',
+              retryable: true,
+              retry_after: 17,
+            },
+          },
+          headers: {
+            'x-sub2api-error-id': 'S2A-5004',
+            'x-sub2api-error-code': 'UPSTREAM_RATE_LIMITED',
+            'x-request-id': 'req_contract_1',
+          },
+        },
+        config: { url: '/v1/responses' },
+        code: 'ERR_BAD_REQUEST',
+      })
+      apiClient.defaults.adapter = adapter
+
+      await expect(apiClient.post('/v1/responses')).rejects.toEqual(
+        expect.objectContaining({
+          status: 429,
+          message: 'The upstream service is rate limited. Please retry later.',
+          errorId: 'S2A-5004',
+          errorCode: 'UPSTREAM_RATE_LIMITED',
+          retryable: true,
+          retryAfter: 17,
+          requestId: 'req_contract_1',
+        })
+      )
+    })
   })
 
   // --- 401 Token 刷新 ---

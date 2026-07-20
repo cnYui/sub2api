@@ -50,6 +50,24 @@
                 >
                   {{ toast.message }}
                 </p>
+                <div
+                  v-if="hasErrorReference(toast.errorReference)"
+                  class="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
+                >
+                  <code data-testid="toast-error-reference" class="min-w-0 break-all font-mono">
+                    {{ formatErrorReference(toast.errorReference) }}
+                  </code>
+                  <button
+                    type="button"
+                    data-testid="toast-copy-error-reference"
+                    class="flex-shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+                    :aria-label="t('common.copyErrorReference')"
+                    :title="t('common.copyErrorReference')"
+                    @click="copyErrorReference(toast.errorReference)"
+                  >
+                    <Icon name="copy" size="sm" />
+                  </button>
+                </div>
               </div>
 
               <!-- Close button -->
@@ -78,12 +96,35 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores/app'
+import type { ToastErrorReference } from '@/types'
 
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
+const { t } = useI18n()
 
 const toasts = computed(() => appStore.toasts)
+
+const hasErrorReference = (reference?: ToastErrorReference): boolean => {
+  return Boolean(reference?.errorId || reference?.errorCode || reference?.requestId)
+}
+
+const formatErrorReference = (reference?: ToastErrorReference): string => {
+  if (!reference) return ''
+
+  return [
+    reference.errorId,
+    reference.errorCode,
+    reference.requestId ? `Request ID: ${reference.requestId}` : undefined
+  ].filter((value): value is string => Boolean(value)).join('\n')
+}
+
+const copyErrorReference = async (reference?: ToastErrorReference): Promise<void> => {
+  await copyToClipboard(formatErrorReference(reference))
+}
 
 const getToastIconName = (type: string): 'checkCircle' | 'xCircle' | 'exclamationTriangle' | 'infoCircle' => {
   switch (type) {

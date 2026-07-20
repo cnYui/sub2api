@@ -174,9 +174,13 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 	handler.Images(c)
 
 	require.Equal(t, []int64{1, 2}, upstream.calls())
-	require.Equal(t, http.StatusBadGateway, rec.Code)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	require.Equal(t, "upstream_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-	require.Equal(t, "Upstream service temporarily unavailable", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
+	require.Equal(t, "The upstream service is temporarily overloaded. Please retry later.", gjson.GetBytes(rec.Body.Bytes(), "error.message").String())
+	require.Equal(t, "S2A-5006", gjson.GetBytes(rec.Body.Bytes(), "error.error_id").String())
+	require.Equal(t, "UPSTREAM_OVERLOADED", gjson.GetBytes(rec.Body.Bytes(), "error.sub2api_code").String())
+	require.Equal(t, "S2A-5006", rec.Header().Get("X-Sub2API-Error-ID"))
+	require.Equal(t, "UPSTREAM_OVERLOADED", rec.Header().Get("X-Sub2API-Error-Code"))
 
 	rawEvents, ok := c.Get(service.OpsUpstreamErrorsKey)
 	require.True(t, ok)

@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Toast, ToastType, PublicSettings } from '@/types'
+import type { Toast, ToastErrorReference, ToastType, PublicSettings } from '@/types'
 import { i18n } from '@/i18n'
 import {
   checkUpdates as checkUpdatesAPI,
@@ -105,12 +105,18 @@ export const useAppStore = defineStore('app', () => {
    * @param duration - Auto-dismiss duration in ms (undefined = no auto-dismiss)
    * @returns Toast ID for manual dismissal
    */
-  function showToast(type: ToastType, message: string, duration?: number): string {
+  function showToast(
+    type: ToastType,
+    message: string,
+    duration?: number,
+    errorReference?: ToastErrorReference
+  ): string {
     const id = `toast-${++toastIdCounter}`
     const toast: Toast = {
       id,
       type,
       message,
+      errorReference,
       duration,
       startTime: duration !== undefined ? Date.now() : undefined
     }
@@ -141,8 +147,12 @@ export const useAppStore = defineStore('app', () => {
    * @param message - Error message
    * @param duration - Auto-dismiss duration in ms (default: 5000)
    */
-  function showError(message: string, duration: number = 5000): string {
-    return showToast('error', message, duration)
+  function showError(
+    message: string,
+    duration: number = 5000,
+    errorReference?: ToastErrorReference
+  ): string {
+    return showToast('error', message, duration, errorReference)
   }
 
   /**

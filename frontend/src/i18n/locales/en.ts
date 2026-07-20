@@ -325,6 +325,7 @@ export default {
     settings: 'Settings',
     chooseFile: 'Choose File',
     copy: 'Copy',
+    copyErrorReference: 'Copy error reference',
     notAvailable: 'N/A',
     now: 'Now',
     today: 'Today',
@@ -6526,17 +6527,13 @@ export default {
     // Error Passthrough Rules
     errorPassthrough: {
       title: 'Error Passthrough Rules',
-      description: 'Configure how upstream errors are returned to clients',
+      description: 'Configure upstream error classification and monitoring handling',
       createRule: 'Create Rule',
       editRule: 'Edit Rule',
       deleteRule: 'Delete Rule',
       noRules: 'No rules configured',
       createFirstRule: 'Create your first error passthrough rule',
       allPlatforms: 'All Platforms',
-      passthrough: 'Passthrough',
-      custom: 'Custom',
-      code: 'Code',
-      body: 'Body',
       skipMonitoring: 'Skip Monitoring',
 
       // Columns
@@ -6545,7 +6542,6 @@ export default {
         name: 'Name',
         conditions: 'Conditions',
         platforms: 'Platforms',
-        behavior: 'Behavior',
         status: 'Status',
         actions: 'Actions'
       },
@@ -6576,12 +6572,6 @@ export default {
         matchMode: 'Match Mode',
         platforms: 'Platforms',
         platformsHint: 'Leave empty to apply to all platforms',
-        responseBehavior: 'Response Behavior',
-        passthroughCode: 'Passthrough upstream status code',
-        responseCode: 'Custom status code',
-        passthroughBody: 'Passthrough upstream error message',
-        customMessage: 'Custom error message',
-        customMessagePlaceholder: 'Error message to return to client...',
         skipMonitoring: 'Skip monitoring',
         skipMonitoringHint: 'When enabled, errors matching this rule will not be recorded in ops monitoring',
         enabled: 'Enable this rule'
