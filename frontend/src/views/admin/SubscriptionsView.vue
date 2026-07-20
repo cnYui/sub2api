@@ -217,13 +217,11 @@
               <div v-if="row.group?.daily_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.daily') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="meter-fill rounded-full"
                       :class="getProgressClass(row.daily_usage_usd, row.group?.daily_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.daily_usage_usd, row.group?.daily_limit_usd)
-                      }"
+                      :style="{ '--meter-value': getProgressScale(row.daily_usage_usd, row.group?.daily_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -254,13 +252,11 @@
               <div v-if="row.group?.weekly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.weekly') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="meter-fill rounded-full"
                       :class="getProgressClass(row.weekly_usage_usd, row.group?.weekly_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.weekly_usage_usd, row.group?.weekly_limit_usd)
-                      }"
+                      :style="{ '--meter-value': getProgressScale(row.weekly_usage_usd, row.group?.weekly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -291,13 +287,11 @@
               <div v-if="row.group?.monthly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.monthly') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="meter-fill rounded-full"
                       :class="getProgressClass(row.monthly_usage_usd, row.group?.monthly_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.monthly_usage_usd, row.group?.monthly_limit_usd)
-                      }"
+                      :style="{ '--meter-value': getProgressScale(row.monthly_usage_usd, row.group?.monthly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -736,6 +730,25 @@
     </teleport>
   </AppLayout>
 </template>
+
+<script lang="ts">
+export function getProgressScale(
+  used: number | null | undefined,
+  limit: number | null | undefined,
+): number {
+  if (
+    used == null ||
+    limit == null ||
+    !Number.isFinite(used) ||
+    !Number.isFinite(limit) ||
+    limit <= 0
+  ) {
+    return 0
+  }
+
+  return Math.min(Math.max(used / limit, 0), 1)
+}
+</script>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
@@ -1296,13 +1309,6 @@ const getDaysRemaining = (expiresAt: string): number | null => {
 const isExpiringSoon = (expiresAt: string): boolean => {
   const days = getDaysRemaining(expiresAt)
   return days !== null && days <= 7
-}
-
-const getProgressWidth = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return '0%'
-  const usedValue = used ?? 0
-  const percentage = Math.min((usedValue / limit) * 100, 100)
-  return `${percentage}%`
 }
 
 const getProgressClass = (used: number | null | undefined, limit: number | null): string => {

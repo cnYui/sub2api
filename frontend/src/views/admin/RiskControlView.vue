@@ -140,7 +140,10 @@
                     </div>
                   </div>
                   <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-white dark:bg-dark-900">
-                    <div class="h-full rounded-full bg-sky-500" :style="{ width: preBlockAPIKeyLoadWidth(item.total) }"></div>
+                    <div
+                      class="meter-fill rounded-full bg-sky-500 meter-fill--realtime"
+                      :style="{ '--meter-value': preBlockAPIKeyLoadScale(item.total) }"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -178,7 +181,10 @@
                   <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ queueUsagePercent }}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-                  <div class="h-full rounded-full bg-primary-500 transition-all duration-300" :style="queueUsageStyle"></div>
+                  <div
+                    class="meter-fill rounded-full bg-primary-500 meter-fill--realtime"
+                    :style="{ '--meter-value': queueUsageScale }"
+                  ></div>
                 </div>
               </div>
 
@@ -672,7 +678,11 @@
                         <span class="font-semibold text-gray-900 dark:text-white">{{ percent(moderationTestResult.composite_score) }}</span>
                       </div>
                       <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-                        <div class="h-full rounded-full" :class="moderationTestResult.flagged ? 'bg-red-500' : 'bg-emerald-500'" :style="{ width: percentWidth(moderationTestResult.composite_score) }"></div>
+                        <div
+                          class="meter-fill rounded-full"
+                          :class="moderationTestResult.flagged ? 'bg-red-500' : 'bg-emerald-500'"
+                          :style="{ '--meter-value': meterScale(moderationTestResult.composite_score, 1) }"
+                        ></div>
                       </div>
                     </div>
                     <div class="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
@@ -682,7 +692,11 @@
                           <span class="font-mono text-gray-500 dark:text-gray-400">{{ percent(score.score) }} / {{ percent(score.threshold) }}</span>
                         </div>
                         <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-                          <div class="h-full rounded-full" :class="score.hit ? 'bg-red-500' : 'bg-primary-500'" :style="{ width: percentWidth(score.score) }"></div>
+                          <div
+                            class="meter-fill rounded-full"
+                            :class="score.hit ? 'bg-red-500' : 'bg-primary-500'"
+                            :style="{ '--meter-value': meterScale(score.score, 1) }"
+                          ></div>
                         </div>
                       </div>
                     </div>
@@ -1105,6 +1119,25 @@
     </div>
   </AppLayout>
 </template>
+
+<script lang="ts">
+export function meterScale(
+  value: number | null | undefined,
+  limit: number | null | undefined,
+): number {
+  if (
+    value == null ||
+    limit == null ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(limit) ||
+    limit <= 0
+  ) {
+    return 0
+  }
+
+  return Math.min(Math.max(value / limit, 0), 1)
+}
+</script>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
@@ -1573,11 +1606,9 @@ const inputDetailText = computed(() => {
   return inputDetailRow.value.input_excerpt || inputDetailRow.value.error || '-'
 })
 
-const queueUsagePercent = computed(() => `${Math.min(100, Math.max(0, status.value?.queue_usage_percent ?? 0)).toFixed(1)}%`)
+const queueUsageScale = computed(() => meterScale(status.value?.queue_usage_percent ?? 0, 100))
 
-const queueUsageStyle = computed(() => ({
-  width: queueUsagePercent.value,
-}))
+const queueUsagePercent = computed(() => `${(queueUsageScale.value * 100).toFixed(1)}%`)
 
 const runtimeMode = computed<ModerationMode>(() => status.value?.mode ?? configForm.mode)
 
@@ -1650,8 +1681,8 @@ const preBlockAPIKeyLoadSummaryText = computed(() => t('admin.riskControl.preBlo
   workerTotal: formatNumber(status.value?.worker_count ?? configForm.worker_count),
 }))
 
-function preBlockAPIKeyLoadWidth(total: number): string {
-  return `${Math.min(100, Math.max(0, (total / preBlockAPIKeyMaxTotal.value) * 100)).toFixed(1)}%`
+function preBlockAPIKeyLoadScale(total: number): number {
+  return meterScale(total, preBlockAPIKeyMaxTotal.value)
 }
 
 const workerSlots = computed(() => {
@@ -2141,11 +2172,6 @@ function workerDotClass(state: WorkerSlotState): string {
 function percent(value: number): string {
   if (!Number.isFinite(value)) return '-'
   return `${(value * 100).toFixed(1)}%`
-}
-
-function percentWidth(value: number): string {
-  if (!Number.isFinite(value)) return '0%'
-  return `${Math.min(100, Math.max(0, value * 100)).toFixed(1)}%`
 }
 
 function latencyText(value: number | null): string {

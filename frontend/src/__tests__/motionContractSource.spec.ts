@@ -23,6 +23,18 @@ const subscriptionUsageCardSource = readFileSync(
   join(root, 'src/components/user/SubscriptionUsageCard.vue'),
   'utf8'
 )
+const adminSubscriptionsSource = readFileSync(
+  join(root, 'src/views/admin/SubscriptionsView.vue'),
+  'utf8'
+)
+const adminRiskControlSource = readFileSync(
+  join(root, 'src/views/admin/RiskControlView.vue'),
+  'utf8'
+)
+const adminSettingsSource = readFileSync(
+  join(root, 'src/views/admin/SettingsView.vue'),
+  'utf8'
+)
 
 const sharedBlock = (selector: string) => {
   const match = styleSource.match(new RegExp(`\\.${selector}\\s*\\{([\\s\\S]*?)\\n\\s*\\}`))
@@ -173,5 +185,41 @@ describe('共享动效契约源码守卫', () => {
     expect(subscriptionUsageCardSource).toContain('--meter-value')
     expect(subscriptionUsageCardSource).not.toContain('transition-all')
     expect(subscriptionUsageCardSource).not.toMatch(/:style="\{\s*width:/)
+  })
+
+  it('管理端订阅用量条使用共享 meter-fill 和安全比例', () => {
+    expect(adminSubscriptionsSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(3)
+    expect(adminSubscriptionsSource.match(/--meter-value/g) ?? []).toHaveLength(3)
+    expect(adminSubscriptionsSource).toContain('getProgressScale')
+    expect(adminSubscriptionsSource).not.toContain('getProgressWidth')
+    expect(adminSubscriptionsSource).not.toMatch(/:style="\{\s*width:/)
+    expect(adminSubscriptionsSource.match(/h-1\.5 flex-1 overflow-hidden/g) ?? []).toHaveLength(3)
+  })
+
+  it('管理端风控实时与评分条按 GPU meter 更新', () => {
+    expect(adminRiskControlSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(6)
+    expect(adminRiskControlSource.match(/--meter-value/g) ?? []).toHaveLength(4)
+    expect(adminRiskControlSource.match(/meter-fill--realtime/g) ?? []).toHaveLength(2)
+    expect(adminRiskControlSource).toContain('meterScale')
+    expect(adminRiskControlSource).not.toContain('preBlockAPIKeyLoadWidth')
+    expect(adminRiskControlSource).not.toContain('queueUsageStyle')
+    expect(adminRiskControlSource).not.toContain('percentWidth')
+    expect(adminRiskControlSource).not.toMatch(/:style="\{\s*width:/)
+    expect(adminRiskControlSource).not.toContain('transition-all duration-300')
+  })
+
+  it('管理端 Settings 仅迁移网页搜索配额条', () => {
+    const start = adminSettingsSource.indexOf('<!-- Usage display -->')
+    const end = adminSettingsSource.indexOf('<!-- Proxy + Test on same row -->')
+    const quotaBlock = adminSettingsSource.slice(start, end)
+
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(end).toBeGreaterThan(start)
+    expect(quotaBlock).toContain('meter-fill')
+    expect(quotaBlock).toContain('--meter-value')
+    expect(quotaBlock).toContain('overflow-hidden')
+    expect(quotaBlock).not.toContain('transition-all')
+    expect(quotaBlock).not.toMatch(/width\s*:/)
+    expect(adminSettingsSource).toContain("'rounded-lg border px-3 py-1.5 text-sm font-medium transition-all'")
   })
 })
