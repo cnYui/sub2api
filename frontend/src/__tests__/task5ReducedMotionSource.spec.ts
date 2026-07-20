@@ -10,6 +10,7 @@ const accountsSource = read('src/views/admin/AccountsView.vue')
 const homeSource = read('src/views/HomeView.vue')
 const worldMapSource = read('src/components/layout/WorldMapBackground.vue')
 const spinnerSource = read('src/components/common/LoadingSpinner.vue')
+const opsDashboardHeaderSource = read('src/views/admin/ops/components/OpsDashboardHeader.vue')
 
 describe('Task 5 reduced-motion 与静态背景源码契约', () => {
   it('在最终 reduced-motion 规则中关闭平滑滚动，但不把所有动效压成 1ms', () => {
@@ -57,5 +58,11 @@ describe('Task 5 reduced-motion 与静态背景源码契约', () => {
     expect(spinnerSource).toContain(':aria-label="t(\'common.loading\')"')
     expect(spinnerSource).toContain('animation: spin 0.75s linear infinite;')
     expect(spinnerSource).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.spinner\s*\{[\s\S]*?animation:\s*none;/)
+  })
+
+  it('Ops 仪表盘心跳线保持静态路径，不使用持续 SVG 动画', () => {
+    expect(opsDashboardHeaderSource).toContain('d="M0 16 Q 20 16, 40 16')
+    expect(opsDashboardHeaderSource).not.toContain('<animate')
+    expect(opsDashboardHeaderSource).not.toContain('repeatCount="indefinite"')
   })
 })
