@@ -44,10 +44,10 @@
         </div>
         <div class="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
           <div
-            class="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
+            class="meter-fill rounded-full"
             :class="row.progressClass"
             :data-testid="row.testId"
-            :style="{ width: row.progressWidth }"
+            :style="{ '--meter-value': progressWidthToScale(row.progressWidth) }"
           ></div>
         </div>
         <p v-if="row.footer" class="text-xs text-gray-500 dark:text-dark-400">
@@ -106,6 +106,16 @@ const props = defineProps<{
   unlimitedTitle: string
   unlimitedDescription: string
 }>()
+
+const progressWidthToScale = (progressWidth: string): number => {
+  const percentageMatch = progressWidth.trim().match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))%$/)
+  if (!percentageMatch) return 0
+
+  const percentage = Number(percentageMatch[1])
+  if (!Number.isFinite(percentage)) return 0
+
+  return Math.min(Math.max(percentage, 0), 100) / 100
+}
 
 const statusClass = computed(() => {
   if (props.status === 'active') {

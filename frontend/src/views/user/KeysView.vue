@@ -148,12 +148,12 @@
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       row.quota_used >= row.quota ? 'bg-red-500' :
                       row.quota_used >= row.quota * 0.8 ? 'bg-yellow-500' :
                       'bg-primary-500'
                     ]"
-                    :style="{ width: Math.min((row.quota_used / row.quota) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((row.quota_used / row.quota) * 100, 100) / 100 }"
                   />
                 </div>
               </div>
@@ -178,12 +178,12 @@
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       row.usage_5h >= row.rate_limit_5h ? 'bg-red-500' :
                       row.usage_5h >= row.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ width: Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) / 100 }"
                   />
                 </div>
                 <div v-if="row.reset_5h_at && formatResetTime(row.reset_5h_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -206,12 +206,12 @@
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       row.usage_1d >= row.rate_limit_1d ? 'bg-red-500' :
                       row.usage_1d >= row.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ width: Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) / 100 }"
                   />
                 </div>
                 <div v-if="row.reset_1d_at && formatResetTime(row.reset_1d_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -234,12 +234,12 @@
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       row.usage_7d >= row.rate_limit_7d ? 'bg-red-500' :
                       row.usage_7d >= row.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ width: Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) / 100 }"
                   />
                 </div>
                 <div v-if="row.reset_7d_at && formatResetTime(row.reset_7d_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -600,12 +600,12 @@
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h ? 'bg-red-500' :
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ width: Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) / 100 }"
                   />
                 </div>
               </div>
@@ -646,12 +646,12 @@
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d ? 'bg-red-500' :
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ width: Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) / 100 }"
                   />
                 </div>
               </div>
@@ -692,12 +692,12 @@
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                   <div
                     :class="[
-                      'h-full rounded-full transition-all',
+                      'meter-fill rounded-full',
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d ? 'bg-red-500' :
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ width: Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) + '%' }"
+                    :style="{ '--meter-value': Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) / 100 }"
                   />
                 </div>
               </div>

@@ -18,6 +18,11 @@ const overlaySources = [
   'components/common/HelpTooltip.vue',
   'components/common/Toast.vue',
 ].map((path) => ({ path, source: readFileSync(join(root, 'src', path), 'utf8') }))
+const keysViewSource = readFileSync(join(root, 'src/views/user/KeysView.vue'), 'utf8')
+const subscriptionUsageCardSource = readFileSync(
+  join(root, 'src/components/user/SubscriptionUsageCard.vue'),
+  'utf8'
+)
 
 const sharedBlock = (selector: string) => {
   const match = styleSource.match(new RegExp(`\\.${selector}\\s*\\{([\\s\\S]*?)\\n\\s*\\}`))
@@ -153,5 +158,20 @@ describe('共享动效契约源码守卫', () => {
       expect(source).not.toMatch(/\bhover:scale-105\b/)
       expect(source).not.toMatch(/\b(?:modal|popup)-fade\b/)
     }
+  })
+
+  it('用户端配额与限流进度条只通过 meter-fill 的 GPU 变换更新', () => {
+    expect(keysViewSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(7)
+    expect(keysViewSource.match(/--meter-value/g) ?? []).toHaveLength(7)
+    expect(keysViewSource.match(/:style="\{\s*width:/g) ?? []).toHaveLength(0)
+    expect(keysViewSource.match(/h-full rounded-full transition-all/g) ?? []).toHaveLength(0)
+    expect(keysViewSource).toContain('--meter-value')
+  })
+
+  it('订阅用量卡使用共享 meter-fill，不再绑定动态 width', () => {
+    expect(subscriptionUsageCardSource).toContain('meter-fill')
+    expect(subscriptionUsageCardSource).toContain('--meter-value')
+    expect(subscriptionUsageCardSource).not.toContain('transition-all')
+    expect(subscriptionUsageCardSource).not.toMatch(/:style="\{\s*width:/)
   })
 })
