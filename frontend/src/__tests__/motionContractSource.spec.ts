@@ -237,11 +237,13 @@ describe('共享动效契约源码守卫', () => {
 
     expect(start).toBeGreaterThanOrEqual(0)
     expect(end).toBeGreaterThan(start)
+    expect(adminSettingsSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(1)
     expect(quotaBlock.match(/\bmeter-fill\b/g) ?? []).toHaveLength(1)
     expect(quotaBlock).toContain('--meter-value')
     expect(quotaBlock).toContain('overflow-hidden')
     expect(quotaBlock).not.toContain('transition-all')
     expect(quotaBlock).not.toMatch(/width\s*:/)
     expect(adminSettingsSource).toContain("'rounded-lg border px-3 py-1.5 text-sm font-medium transition-all'")
+    expect(adminSettingsSource).toContain('after:transition-all dark:after:border-gray-500')
   })
 })
