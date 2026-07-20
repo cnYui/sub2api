@@ -77,7 +77,7 @@ describe('共享动效契约源码守卫', () => {
 
   it('Toast 与 meter 只使用 GPU 属性并支持 reduced-motion', () => {
     const toastSource = readFileSync(join(root, 'src/components/common/Toast.vue'), 'utf8')
-    const toastProgressBlock = styleSource.match(/\.toast-progress\s*\{\s*transform-origin:[\s\S]*?\n\s*\}/)?.[0] ?? ''
+    const toastProgressBlock = sharedBlock('toast-progress')
     const toastKeyframes = styleSource.match(/@keyframes\s+toast-progress-shrink\s*\{([\s\S]*?)\n\s*\}\s*\}/)?.[1] ?? ''
     const toastMotionEnterBlock = sharedBlock('toast-motion-enter-active')
     const toastMotionLeaveBlock = sharedBlock('toast-motion-leave-active')
@@ -96,6 +96,9 @@ describe('共享动效契约源码守卫', () => {
     expect(toastMotionLeaveBlock).toContain('right: 0')
     expect(toastMotionLeaveBlock).toContain('width: 100%')
     expect(toastSource).toContain('w-[min(28rem,calc(100vw-2rem))]')
+    expect(toastSource).toMatch(
+      /class="pointer-events-none[^\"]*\bflex\b[^\"]*\bflex-col\b[^\"]*\bgap-3\b/
+    )
     expect(toastSource).toContain("'pointer-events-auto w-full")
     expect(toastProgressBlock).toContain('transform-origin')
     expect(toastProgressBlock).toContain('transform: scaleX(1)')
