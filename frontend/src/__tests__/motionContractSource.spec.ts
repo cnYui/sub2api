@@ -24,12 +24,17 @@ describe('共享动效契约源码守卫', () => {
     expect(styleSource).toContain('--duration-drawer: 280ms')
   })
 
-  it('共享按钮、输入框和卡片只声明明确属性并引用 motion token', () => {
-    for (const selector of ['btn', 'input', 'card']) {
+  it('共享表面只声明明确属性并完整引用 motion token', () => {
+    for (const selector of ['btn', 'input', 'card', 'glass-card']) {
       const block = sharedBlock(selector)
 
-      expect(block).not.toContain('transition-all')
-      expect(block).toMatch(/var\(--(?:ease-out|duration-[a-z-]+)\)/)
+      expect(block).not.toMatch(/transition\s*:\s*all\b/)
+      expect(block).not.toMatch(/transition-property\s*:\s*all\b/)
+      expect(block).not.toMatch(/@apply[^;\n]*\btransition-all\b/)
+      expect(block).not.toMatch(/@apply[^;\n]*\stransition(?:\s|;)/)
+      expect(block).toMatch(/\btransition\s*:/)
+      expect(block).toMatch(/var\(--duration-[a-z-]+\)/)
+      expect(block).toContain('var(--ease-out)')
     }
   })
 })
