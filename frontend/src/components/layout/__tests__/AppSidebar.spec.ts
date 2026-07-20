@@ -75,6 +75,21 @@ describe('App shell motion contracts', () => {
     expect(brandBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*max-width/)
     expect(labelBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*max-width/)
   })
+
+  it('uses the Vue transition as the only AppHeader dropdown motion source', () => {
+    const scopedStyleBlock = headerSource.match(/<style scoped>[\s\S]*?<\/style>/)?.[0] ?? ''
+
+    expect(scopedStyleBlock).toContain('.dropdown {')
+    expect(scopedStyleBlock).toContain('animation: none;')
+  })
+
+  it('uses separate enter and leave durations for the mobile backdrop', () => {
+    const enterBlock = componentSource.match(/\.sidebar-backdrop-enter-active\s*\{[\s\S]*?\}/)?.[0] ?? ''
+    const leaveBlock = componentSource.match(/\.sidebar-backdrop-leave-active\s*\{[\s\S]*?\}/)?.[0] ?? ''
+
+    expect(enterBlock).toContain('--duration-overlay-enter')
+    expect(leaveBlock).toContain('--duration-overlay-exit')
+  })
 })
 
 describe('AppSidebar user channel monitor nav', () => {

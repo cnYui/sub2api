@@ -330,6 +330,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.dropdown {
+  animation: none;
+}
+
 .dropdown-enter-active {
   transition:
     opacity var(--duration-popover) var(--ease-out),

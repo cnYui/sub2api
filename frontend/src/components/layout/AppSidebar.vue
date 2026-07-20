@@ -1019,7 +1019,10 @@ onMounted(() => {
   height: 1.25rem;
 }
 
-.sidebar-backdrop-enter-active,
+.sidebar-backdrop-enter-active {
+  transition: opacity var(--duration-overlay-enter) var(--ease-out);
+}
+
 .sidebar-backdrop-leave-active {
   transition: opacity var(--duration-overlay-exit) var(--ease-out);
 }
