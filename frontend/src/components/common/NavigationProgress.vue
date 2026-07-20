@@ -51,7 +51,7 @@ const isVisible = computed(() => isLoading.value)
     theme('colors.gray.400') 80%,
     transparent 100%
   );
-  animation: progress-slide 1.5s ease-in-out infinite;
+  animation: none;
 }
 
 :root.dark .navigation-progress-bar {
@@ -65,23 +65,13 @@ const isVisible = computed(() => isLoading.value)
   );
 }
 
-/* 进度条滑动动画 */
-@keyframes progress-slide {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
 /* 淡入淡出过渡 */
 .progress-fade-enter-active {
-  transition: opacity 0.15s ease-out;
+  transition: opacity var(--duration-overlay-enter) var(--ease-out);
 }
 
 .progress-fade-leave-active {
-  transition: opacity 0.3s ease-out;
+  transition: opacity var(--duration-overlay-exit) var(--ease-out);
 }
 
 .progress-fade-enter-from,
@@ -92,17 +82,8 @@ const isVisible = computed(() => isLoading.value)
 /* 减少动画模式 */
 @media (prefers-reduced-motion: reduce) {
   .navigation-progress-bar {
-    animation: progress-pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes progress-pulse {
-    0%,
-    100% {
-      opacity: 0.4;
-    }
-    50% {
-      opacity: 1;
-    }
+    animation: none;
+    opacity: 0.85;
   }
 }
 </style>

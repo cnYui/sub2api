@@ -170,10 +170,10 @@
   </aside>
 
   <!-- Mobile Overlay -->
-  <transition name="fade">
+  <transition name="sidebar-backdrop">
     <div
       v-if="mobileOpen"
-      class="fixed inset-0 z-[35] bg-black/40 lg:hidden"
+      class="sidebar-backdrop fixed inset-0 z-[35] bg-black/40 lg:hidden"
       @click="closeMobile"
     ></div>
   </transition>
@@ -913,14 +913,11 @@ onMounted(() => {
   flex: 1 1 auto;
   white-space: nowrap;
   transition:
-    max-width 0.22s ease,
-    opacity 0.14s ease,
-    transform 0.14s ease;
-  max-width: 12rem;
+    opacity 140ms var(--ease-out),
+    transform 140ms var(--ease-out);
 }
 
 .sidebar-brand-collapsed {
-  max-width: 0;
   overflow: hidden;
   opacity: 0;
   transform: translateX(-4px);
@@ -993,10 +990,8 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition:
-    max-width 0.2s ease,
-    opacity 0.12s ease,
-    transform 0.12s ease;
-  max-width: 12rem;
+    opacity 120ms var(--ease-out),
+    transform 120ms var(--ease-out);
 }
 
 .sidebar-label-flex {
@@ -1022,5 +1017,22 @@ onMounted(() => {
   display: block;
   width: 1.25rem;
   height: 1.25rem;
+}
+
+.sidebar-backdrop-enter-active,
+.sidebar-backdrop-leave-active {
+  transition: opacity var(--duration-overlay-exit) var(--ease-out);
+}
+
+.sidebar-backdrop-enter-from,
+.sidebar-backdrop-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-backdrop-enter-active,
+  .sidebar-backdrop-leave-active {
+    transition-duration: 1ms;
+  }
 }
 </style>

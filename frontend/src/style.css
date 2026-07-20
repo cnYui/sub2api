@@ -533,17 +533,14 @@
 
   /* ============ 侧边栏 ============ */
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-300 dark:border-dark-800 dark:bg-dark-950;
-    transition-property: width, transform;
+    @apply fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-200 bg-white dark:border-dark-800 dark:bg-dark-950;
+    transition: transform var(--duration-drawer) var(--ease-drawer);
   }
 
   .sidebar-header {
     @apply h-16 px-6;
     @apply flex items-center gap-3;
     @apply border-b border-gray-100 dark:border-dark-800;
-    transition:
-      padding 0.2s ease,
-      gap 0.2s ease;
   }
 
   .sidebar-nav {

@@ -330,9 +330,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.dropdown-enter-active,
+.dropdown-enter-active {
+  transition:
+    opacity var(--duration-popover) var(--ease-out),
+    transform var(--duration-popover) var(--ease-out);
+  transform-origin: top right;
+}
+
 .dropdown-leave-active {
-  transition: all 0.2s ease;
+  transition:
+    opacity var(--duration-overlay-exit) var(--ease-out),
+    transform var(--duration-overlay-exit) var(--ease-out);
+  transform-origin: top right;
 }
 
 .dropdown-enter-from,

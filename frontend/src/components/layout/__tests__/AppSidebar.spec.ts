@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest'
 
 const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSidebar.vue')
 const componentSource = readFileSync(componentPath, 'utf8')
+const layoutPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppLayout.vue')
+const layoutSource = readFileSync(layoutPath, 'utf8')
 const headerPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppHeader.vue')
 const headerSource = readFileSync(headerPath, 'utf8')
 const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
@@ -48,8 +50,30 @@ describe('AppSidebar mobile overlay stacking', () => {
   it('keeps the mobile backdrop above the header and below the sidebar', () => {
     expect(headerSource).toContain('z-30')
     expect(styleSource).toContain('left-0 z-40 flex')
-    expect(componentSource).toContain('class="fixed inset-0 z-[35] bg-black/40 lg:hidden"')
+    expect(componentSource).toContain('sidebar-backdrop')
+    expect(componentSource).toContain('z-[35]')
     expect(componentSource).not.toContain('class="fixed inset-0 z-30 bg-black/40 lg:hidden"')
+  })
+})
+
+describe('App shell motion contracts', () => {
+  it('keeps content geometry and sidebar header geometry static', () => {
+    expect(layoutSource).not.toContain('transition-all')
+
+    const sidebarBlock = styleSource.match(/\.sidebar\s*\{[\s\S]*?\n  \}/)?.[0] ?? ''
+    const sidebarHeaderBlock = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n  \}/)?.[0] ?? ''
+
+    expect(sidebarBlock).not.toContain('transition-property: width')
+    expect(sidebarBlock).not.toContain('transition: width')
+    expect(sidebarHeaderBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*(padding|gap)/)
+  })
+
+  it('only animates sidebar labels and branding opacity/transform', () => {
+    const brandBlock = componentSource.match(/\.sidebar-brand\s*\{[\s\S]*?\n\}/)?.[0] ?? ''
+    const labelBlock = componentSource.match(/\.sidebar-label\s*\{[\s\S]*?\n\}/)?.[0] ?? ''
+
+    expect(brandBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*max-width/)
+    expect(labelBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*max-width/)
   })
 })
 

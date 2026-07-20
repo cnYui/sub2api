@@ -70,6 +70,24 @@ describe('NavigationProgress', () => {
     expect(source).not.toContain("theme('colors.primary.")
   })
 
+  it('使用静态不定状态条，不运行无限位移动画', () => {
+    expect(source).not.toContain('progress-slide')
+    expect(source).not.toContain('progress-pulse')
+    expect(source).not.toContain('infinite')
+  })
+
+  it('进入和退出只使用 opacity 与明确的 motion token', () => {
+    expect(source).toContain('transition: opacity var(--duration-overlay-enter) var(--ease-out);')
+    expect(source).toContain('transition: opacity var(--duration-overlay-exit) var(--ease-out);')
+    expect(source).not.toContain('transition: all')
+  })
+
+  it('减少动画模式下保持静态等价状态', () => {
+    expect(source).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(source).toContain('.navigation-progress-bar')
+    expect(source).toContain('animation: none;')
+  })
+
   it('应该正确响应 isLoading 状态变化', async () => {
     // 测试初始状态为 false
     mockIsLoading.value = false
