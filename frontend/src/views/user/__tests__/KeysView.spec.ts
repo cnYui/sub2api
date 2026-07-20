@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import KeysView from '../KeysView.vue'
+import KeysView, { meterScale } from '../KeysView.vue'
 
 const keysList = vi.hoisted(() => vi.fn())
 const keysCreate = vi.hoisted(() => vi.fn())
@@ -245,5 +245,22 @@ describe('KeysView 自动 API Key', () => {
         openSpy.mockRestore()
       }
     }
+  })
+})
+
+describe('KeysView meterScale', () => {
+  it.each([
+    ['正常比例', 5, 10, 0.5],
+    ['零值', 0, 10, 0],
+    ['负值', -1, 10, 0],
+    ['超过上限', 15, 10, 1],
+    ['零上限', 5, 0, 0],
+    ['负上限', 5, -10, 0],
+    ['空值', null, 10, 0],
+    ['NaN 用量', Number.NaN, 10, 0],
+    ['Infinity 用量', Number.POSITIVE_INFINITY, 10, 0],
+    ['Infinity 上限', 5, Number.POSITIVE_INFINITY, 0],
+  ])('%s返回稳定的 0..1 比例', (_label, value, limit, expected) => {
+    expect(meterScale(value, limit)).toBe(expected)
   })
 })

@@ -153,7 +153,7 @@
                       row.quota_used >= row.quota * 0.8 ? 'bg-yellow-500' :
                       'bg-primary-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((row.quota_used / row.quota) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(row.quota_used, row.quota) }"
                   />
                 </div>
               </div>
@@ -183,7 +183,7 @@
                       row.usage_5h >= row.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(row.usage_5h, row.rate_limit_5h) }"
                   />
                 </div>
                 <div v-if="row.reset_5h_at && formatResetTime(row.reset_5h_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -211,7 +211,7 @@
                       row.usage_1d >= row.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(row.usage_1d, row.rate_limit_1d) }"
                   />
                 </div>
                 <div v-if="row.reset_1d_at && formatResetTime(row.reset_1d_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -239,7 +239,7 @@
                       row.usage_7d >= row.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
                       'bg-emerald-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(row.usage_7d, row.rate_limit_7d) }"
                   />
                 </div>
                 <div v-if="row.reset_7d_at && formatResetTime(row.reset_7d_at)" class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
@@ -605,7 +605,7 @@
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(selectedKey.usage_5h, selectedKey.rate_limit_5h) }"
                   />
                 </div>
               </div>
@@ -651,7 +651,7 @@
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(selectedKey.usage_1d, selectedKey.rate_limit_1d) }"
                   />
                 </div>
               </div>
@@ -697,7 +697,7 @@
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
                       'bg-green-500'
                     ]"
-                    :style="{ '--meter-value': Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) / 100 }"
+                    :style="{ '--meter-value': meterScale(selectedKey.usage_7d, selectedKey.rate_limit_7d) }"
                   />
                 </div>
               </div>
@@ -929,6 +929,25 @@
   </AppLayout>
 </template>
 
+<script lang="ts">
+export function meterScale(
+  value: number | null | undefined,
+  limit: number | null | undefined
+): number {
+  if (
+    value == null ||
+    limit == null ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(limit) ||
+    limit <= 0
+  ) {
+    return 0
+  }
+
+  return Math.min(Math.max(value / limit, 0), 1)
+}
+</script>
+
 <script setup lang="ts">
 	import { ref, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
@@ -937,7 +956,6 @@
 	import { useClipboard } from '@/composables/useClipboard'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
-const { t } = useI18n()
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -961,6 +979,8 @@ import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
+
+const { t } = useI18n()
 
 // Helper to format date for datetime-local input
 const formatDateTimeLocal = (isoDate: string): string => {
