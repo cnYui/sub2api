@@ -4496,7 +4496,7 @@
                                 ? 'bg-yellow-500'
                                 : 'bg-green-500'
                           "
-                          :style="{ '--meter-value': quotaScale(provider.quota_used, provider.quota_limit) }"
+                          :style="{ '--meter-value': meterScale(provider.quota_used, provider.quota_limit) }"
                         />
                       </div>
                       <div v-else class="flex-1" />
@@ -6908,29 +6908,11 @@
   </AppLayout>
 </template>
 
-<script lang="ts">
-export function quotaScale(
-  used: number | null | undefined,
-  limit: number | null | undefined,
-): number {
-  if (
-    used == null ||
-    limit == null ||
-    !Number.isFinite(used) ||
-    !Number.isFinite(limit) ||
-    limit <= 0
-  ) {
-    return 0
-  }
-
-  return Math.min(Math.max(used / limit, 0), 1)
-}
-</script>
-
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
+import { meterScale } from "@/utils/meter";
 import {
   appendAuthSourceDefaultsToUpdateRequest,
   buildOpenAIFastPolicySettingsPayload,
@@ -7962,7 +7944,7 @@ function parseSubscribedAt(dateStr: string): number | null {
 }
 
 function quotaPercentage(provider: WebSearchProviderConfig): number {
-  return quotaScale(provider.quota_used, provider.quota_limit) * 100;
+  return meterScale(provider.quota_used, provider.quota_limit) * 100;
 }
 
 async function resetWebSearchUsage(idx: number) {

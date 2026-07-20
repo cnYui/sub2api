@@ -1120,25 +1120,6 @@
   </AppLayout>
 </template>
 
-<script lang="ts">
-export function meterScale(
-  value: number | null | undefined,
-  limit: number | null | undefined,
-): number {
-  if (
-    value == null ||
-    limit == null ||
-    !Number.isFinite(value) ||
-    !Number.isFinite(limit) ||
-    limit <= 0
-  ) {
-    return 0
-  }
-
-  return Math.min(Math.max(value / limit, 0), 1)
-}
-</script>
-
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -1167,6 +1148,7 @@ import type { AdminGroup, SelectOption } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime as formatDateTimeValue } from '@/utils/format'
+import { meterScale } from '@/utils/meter'
 
 type SettingsTab = 'basic' | 'scope' | 'runtime' | 'response' | 'riskThresholds' | 'retention' | 'keywords'
 type WorkerSlotState = 'active' | 'idle' | 'disabled'

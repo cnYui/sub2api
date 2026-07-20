@@ -929,25 +929,6 @@
   </AppLayout>
 </template>
 
-<script lang="ts">
-export function meterScale(
-  value: number | null | undefined,
-  limit: number | null | undefined
-): number {
-  if (
-    value == null ||
-    limit == null ||
-    !Number.isFinite(value) ||
-    !Number.isFinite(limit) ||
-    limit <= 0
-  ) {
-    return 0
-  }
-
-  return Math.min(Math.max(value / limit, 0), 1)
-}
-</script>
-
 <script setup lang="ts">
 	import { ref, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
@@ -975,6 +956,7 @@ import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { meterScale } from '@/utils/meter'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType

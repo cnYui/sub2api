@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
-import KeysView, { meterScale } from '../KeysView.vue'
+import KeysView from '../KeysView.vue'
+import { meterScale } from '@/utils/meter'
 
 const keysList = vi.hoisted(() => vi.fn())
 const keysCreate = vi.hoisted(() => vi.fn())

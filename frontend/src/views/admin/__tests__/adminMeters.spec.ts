@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getProgressScale } from '../SubscriptionsView.vue'
-import { meterScale as riskMeterScale } from '../RiskControlView.vue'
-import { quotaScale as webSearchQuotaScale } from '../SettingsView.vue'
+import { meterScale } from '@/utils/meter'
 
 describe('管理页 meter 比例函数', () => {
   it.each([
@@ -20,7 +18,7 @@ describe('管理页 meter 比例函数', () => {
     ['无效用量', Number.NaN, 10, 0],
     ['无限用量', Number.POSITIVE_INFINITY, 10, 0],
   ])('%s返回稳定的 0..1 比例', (_label, value, limit, expected) => {
-    expect(getProgressScale(value, limit)).toBe(expected)
+    expect(meterScale(value, limit)).toBe(expected)
   })
 
   it.each([
@@ -38,7 +36,7 @@ describe('管理页 meter 比例函数', () => {
     ['NaN 上限', 10, Number.NaN, 0],
     ['Infinity 上限', 10, Number.POSITIVE_INFINITY, 0],
   ])('风控 meter 对%s保持安全比例', (_label, value, limit, expected) => {
-    expect(riskMeterScale(value, limit)).toBe(expected)
+    expect(meterScale(value, limit)).toBe(expected)
   })
 
   it.each([
@@ -56,6 +54,6 @@ describe('管理页 meter 比例函数', () => {
     ['NaN 上限', 10, Number.NaN, 0],
     ['Infinity 上限', 10, Number.POSITIVE_INFINITY, 0],
   ])('网页搜索配额对%s保持安全比例', (_label, used, limit, expected) => {
-    expect(webSearchQuotaScale(used, limit)).toBe(expected)
+    expect(meterScale(used, limit)).toBe(expected)
   })
 })

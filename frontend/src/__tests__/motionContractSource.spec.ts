@@ -183,6 +183,8 @@ describe('共享动效契约源码守卫', () => {
   it('订阅用量卡使用共享 meter-fill，不再绑定动态 width', () => {
     expect(subscriptionUsageCardSource).toContain('meter-fill')
     expect(subscriptionUsageCardSource).toContain('--meter-value')
+    expect(subscriptionUsageCardSource).toContain("import { meterScale } from '@/utils/meter'")
+    expect(subscriptionUsageCardSource).toContain('return meterScale(Number(percentageMatch[1]), 100)')
     expect(subscriptionUsageCardSource).not.toContain('transition-all')
     expect(subscriptionUsageCardSource).not.toMatch(/:style="\{\s*width:/)
   })
@@ -190,7 +192,8 @@ describe('共享动效契约源码守卫', () => {
   it('管理端订阅用量条使用共享 meter-fill 和安全比例', () => {
     expect(adminSubscriptionsSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(3)
     expect(adminSubscriptionsSource.match(/--meter-value/g) ?? []).toHaveLength(3)
-    expect(adminSubscriptionsSource).toContain('getProgressScale')
+    expect(adminSubscriptionsSource).toContain("import { meterScale } from '@/utils/meter'")
+    expect(adminSubscriptionsSource).not.toContain('getProgressScale')
     expect(adminSubscriptionsSource).not.toContain('getProgressWidth')
     expect(adminSubscriptionsSource).not.toMatch(/:style="\{\s*width:/)
     expect(adminSubscriptionsSource.match(/h-1\.5 flex-1 overflow-hidden/g) ?? []).toHaveLength(3)
@@ -222,7 +225,7 @@ describe('共享动效契约源码守卫', () => {
       expect(meter).not.toContain('width:')
     }
 
-    expect(adminRiskControlSource).toContain('meterScale')
+    expect(adminRiskControlSource).toContain("import { meterScale } from '@/utils/meter'")
     expect(adminRiskControlSource).not.toContain('preBlockAPIKeyLoadWidth')
     expect(adminRiskControlSource).not.toContain('queueUsageStyle')
     expect(adminRiskControlSource).not.toContain('percentWidth')
@@ -243,6 +246,8 @@ describe('共享动效契约源码守卫', () => {
     expect(quotaBlock).toContain('overflow-hidden')
     expect(quotaBlock).not.toContain('transition-all')
     expect(quotaBlock).not.toMatch(/width\s*:/)
+    expect(adminSettingsSource).toContain('import { meterScale } from "@/utils/meter";')
+    expect(adminSettingsSource).not.toContain('quotaScale')
     expect(adminSettingsSource).toContain("'rounded-lg border px-3 py-1.5 text-sm font-medium transition-all'")
     expect(adminSettingsSource).toContain('after:transition-all dark:after:border-gray-500')
   })

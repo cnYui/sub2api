@@ -83,6 +83,7 @@ import {
   platformBorderClass,
   platformLabel,
 } from '@/utils/platformColors'
+import { meterScale } from '@/utils/meter'
 
 export interface SubscriptionUsageRow {
   label: string
@@ -111,10 +112,7 @@ const progressWidthToScale = (progressWidth: string): number => {
   const percentageMatch = progressWidth.trim().match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+))%$/)
   if (!percentageMatch) return 0
 
-  const percentage = Number(percentageMatch[1])
-  if (!Number.isFinite(percentage)) return 0
-
-  return Math.min(Math.max(percentage, 0), 100) / 100
+  return meterScale(Number(percentageMatch[1]), 100)
 }
 
 const statusClass = computed(() => {

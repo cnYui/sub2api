@@ -221,7 +221,7 @@
                     <div
                       class="meter-fill rounded-full"
                       :class="getProgressClass(row.daily_usage_usd, row.group?.daily_limit_usd)"
-                      :style="{ '--meter-value': getProgressScale(row.daily_usage_usd, row.group?.daily_limit_usd) }"
+                      :style="{ '--meter-value': meterScale(row.daily_usage_usd, row.group?.daily_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -256,7 +256,7 @@
                     <div
                       class="meter-fill rounded-full"
                       :class="getProgressClass(row.weekly_usage_usd, row.group?.weekly_limit_usd)"
-                      :style="{ '--meter-value': getProgressScale(row.weekly_usage_usd, row.group?.weekly_limit_usd) }"
+                      :style="{ '--meter-value': meterScale(row.weekly_usage_usd, row.group?.weekly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -291,7 +291,7 @@
                     <div
                       class="meter-fill rounded-full"
                       :class="getProgressClass(row.monthly_usage_usd, row.group?.monthly_limit_usd)"
-                      :style="{ '--meter-value': getProgressScale(row.monthly_usage_usd, row.group?.monthly_limit_usd) }"
+                      :style="{ '--meter-value': meterScale(row.monthly_usage_usd, row.group?.monthly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
@@ -731,25 +731,6 @@
   </AppLayout>
 </template>
 
-<script lang="ts">
-export function getProgressScale(
-  used: number | null | undefined,
-  limit: number | null | undefined,
-): number {
-  if (
-    used == null ||
-    limit == null ||
-    !Number.isFinite(used) ||
-    !Number.isFinite(limit) ||
-    limit <= 0
-  ) {
-    return 0
-  }
-
-  return Math.min(Math.max(used / limit, 0), 1)
-}
-</script>
-
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -759,6 +740,7 @@ import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@
 import type { SimpleUser } from '@/api/admin/usage'
 import type { Column } from '@/components/common/types'
 import { formatDateOnly } from '@/utils/format'
+import { meterScale } from '@/utils/meter'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
