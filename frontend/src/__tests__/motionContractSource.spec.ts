@@ -12,6 +12,8 @@ const overlaySources = [
   'components/common/LocaleSwitcher.vue',
   'components/common/VersionBadge.vue',
   'components/common/SubscriptionProgressMini.vue',
+  'components/common/AnnouncementBell.vue',
+  'components/common/AnnouncementPopup.vue',
   'components/account/AccountGroupsCell.vue',
   'components/common/HelpTooltip.vue',
 ].map((path) => ({ path, source: readFileSync(join(root, 'src', path), 'utf8') }))
@@ -70,5 +72,29 @@ describe('共享动效契约源码守卫', () => {
     expect(overlayBlock).toContain('var(--duration-overlay-enter)')
     expect(styleSource).toContain('var(--duration-overlay-exit)')
     expect(styleSource).toContain('transform-origin: center')
+  })
+
+  it('公告浮层统一复用 overlay motion contract', () => {
+    const announcementBellSource = readFileSync(
+      join(root, 'src/components/common/AnnouncementBell.vue'),
+      'utf8'
+    )
+    const announcementPopupSource = readFileSync(
+      join(root, 'src/components/common/AnnouncementPopup.vue'),
+      'utf8'
+    )
+
+    expect(announcementBellSource.match(/<Transition name="overlay-motion">/g)).toHaveLength(2)
+    expect(announcementBellSource.match(/class="[^"]*overlay-motion[^"]*"/g)).toHaveLength(4)
+    expect(announcementBellSource.match(/\boverlay-motion-content\b/g)).toHaveLength(2)
+    expect(announcementPopupSource).toContain('<Transition name="overlay-motion">')
+    expect(announcementPopupSource).toMatch(/class="[^"]*overlay-motion[^"]*"/)
+    expect(announcementPopupSource).toContain('overlay-motion-content')
+
+    for (const source of [announcementBellSource, announcementPopupSource]) {
+      expect(source).not.toMatch(/\banimate-ping\b/)
+      expect(source).not.toMatch(/\bhover:scale-105\b/)
+      expect(source).not.toMatch(/\b(?:modal|popup)-fade\b/)
+    }
   })
 })
