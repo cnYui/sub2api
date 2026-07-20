@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-20 已批准全前端 Material Relay 重设计：范围覆盖公开页、认证页、用户端、管理端和通用组件；目标是信息效率、品牌辨识度、交互手感同等重要。视觉基线为通透但克制的浮动材质，半透明只用于浮动层，内容面使用实色高可读表面；动效遵循 `Press / Tap feedback`、`Origin-aware animation`、`Continuity transition`、`Stagger` 词汇与统一 easing/时长契约。设计文档见 `docs/ai/context/20260720-102228-sub2api-material-relay-frontend-redesign-design_CN.md`，尚未改业务代码、未部署。
+
 - 2026-07-19 已完成本地 Sub2API/CLIProxyAPI 共享 Docker bridge 实施：`sub2api-dev` 保留 PostgreSQL/Redis 数据网络并额外加入 `sub2api-cliproxy-local`，`cliproxyapi-local-dev` 只加入该共享网络；账号 `cliproxy-local-openai` 已通过正式管理 API 切换为 `https://cliproxyapi:8317/v1`，数据库与 Redis 快照一致。新增内部 CA/叶子证书、可选运行时 CA 注入、两仓库本地 Compose 与回归测试；两个应用分别重建后 DNS、TLS、业务和 usage 回调仍有效，数据容器未替换。CLI 本地 `auths/` 为空，成功响应/成功 usage event 尚未验证；失败事件回调 200 且不产生计费事实。未改公网、未提交、未推送，结果见 `docs/ai/context/20260719-204112-sub2api-cliproxyapi-shared-network-implementation-result_CN.md`。
 - 2026-07-19 已完成全项目错误契约只读调查：429 偶发显示为 502 的根因是错误语义在账号池调度和 failover 聚合时丢失，CLIProxyAPI 可把账号级 429 折叠为 `auth_unavailable`/503，Sub2API 又把上游 500/502/503/504 统一映射为 502；项目同时存在至少六套错误响应结构，前端还有约 121 处手写解析且未覆盖 OpenAI `error.message`。建议建立 Sub2API/CLIProxyAPI 跨服务结构化错误契约、协议 renderer 和统一前端 normalizer，并采用 `S2A-四位数字 + 英文符号码` 双码；本轮未改业务代码和运行态，结果见 `docs/ai/context/20260719-202238-project-error-contract-investigation-result_CN.md`。
 - 2026-07-19 已完成计费来源顺序与生图预算只读调查：历史 100+ USD 现象是请求前预算把 JSON/base64 字节误当 Token 后产生的错误预算和 402，不是成功后的实际扣款；修复提交 `e16a67a5` 已于 2026-07-18 部署。当前仍有四个根问题：套餐预算不通过会跳过余额直接尝试流量卡、无授权快照入口仍会响应后重新选来源、套餐没有并发 reservation、图片编辑输入预算按每张 `23719` Token 粗估。另有未启用的 CLIProxy usage event 路径硬编码余额并使用独立 `cliproxy:` 请求 ID，存在错来源和双计费风险。建议统一为单一预授权决策器，按“套餐 -> 余额 -> 流量卡”选择完整请求唯一来源，结算层禁止改源；结果见 `docs/ai/context/20260719-201010-billing-source-priority-and-image-budget-investigation_CN.md`。
