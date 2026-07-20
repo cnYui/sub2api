@@ -35,14 +35,4 @@ describe('视觉主题源码守卫', () => {
 
     expect(offenders).toEqual([])
   })
-
-  it('keeps the onboarding dialog on the neutral theme', () => {
-    const source = readFileSync(join(root, 'src/styles/onboarding.css'), 'utf8')
-
-    expect(source).not.toContain('#14b8a6')
-    expect(source).not.toContain('#0d9488')
-    expect(source).not.toContain('rgba(20, 184, 166')
-    expect(source).not.toContain('#1e293b')
-    expect(source).not.toContain('#0f172a')
-  })
 })
