@@ -97,19 +97,18 @@ services:
     restart: "no"
     volumes:
       - ./candidate/redis_data:/data:Z
-    command: >
-      sh -c '
-        redis-server
-        --save ""
-        --appendonly no
-        ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}'
+    command:
+      - sh
+      - -c
+      - 'exec redis-server --save "" --appendonly no $${REDIS_PASSWORD:+--requirepass "$$REDIS_PASSWORD"}'
     environment:
       - TZ=${TZ:-Asia/Shanghai}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDISCLI_AUTH=${REDIS_PASSWORD:-}
     networks:
       - sub2api-candidate-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping; else env -u REDISCLI_AUTH redis-cli ping; fi"]
       interval: 5s
       timeout: 5s
       retries: 12
