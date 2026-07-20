@@ -633,6 +633,9 @@
   }
 
   .toast-motion-leave-active {
+    position: absolute;
+    right: 0;
+    width: 100%;
     transition:
       transform var(--duration-overlay-exit) var(--ease-out),
       opacity var(--duration-overlay-exit) var(--ease-out);
@@ -671,10 +674,10 @@
     }
   }
 
-  /* 进度填充层通过绝对定位占满父容器，避免依赖可动画布局宽度。 */
+  /* 静态尺寸让填充层直接适配现有容器，变化值只由 transform 表达。 */
   .meter-fill {
-    position: absolute;
-    inset: 0;
+    width: 100%;
+    height: 100%;
     transform-origin: left;
     transform: scaleX(var(--meter-value, 0));
     transition: transform var(--duration-popover) var(--ease-out);

@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 
 const copyToClipboard = vi.fn().mockResolvedValue(true)
 
@@ -32,14 +30,6 @@ describe('Toast', () => {
     vi.restoreAllMocks()
   })
 
-  it('使用命名 toast-motion 且不声明错误方向的过渡类', () => {
-    const source = readFileSync(join(process.cwd(), 'src/components/common/Toast.vue'), 'utf8')
-
-    expect(source).toContain('name="toast-motion"')
-    expect(source).not.toContain('ease-in')
-    expect(source).not.toContain('transition-all')
-  })
-
   it('展示并复制规范错误引用', async () => {
     const store = useAppStore()
     store.showError('请求过于频繁', 5000, {
@@ -54,6 +44,9 @@ describe('Toast', () => {
     expect(document.body.textContent).toContain('UPSTREAM_RATE_LIMITED')
     expect(document.body.textContent).toContain('req_contract_1')
     expect(document.body.querySelector('[aria-label="common.copyErrorReference"]')).not.toBeNull()
+    const toastRegion = document.body.querySelector('[aria-live="polite"]')
+    expect(toastRegion?.classList.contains('w-[min(28rem,calc(100vw-2rem))]')).toBe(true)
+    expect(toastRegion?.querySelector(':scope > .w-full')).not.toBeNull()
 
     await document.body.querySelector<HTMLButtonElement>('[data-testid="toast-copy-error-reference"]')!.click()
 

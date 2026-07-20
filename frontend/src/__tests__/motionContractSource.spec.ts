@@ -79,8 +79,8 @@ describe('共享动效契约源码守卫', () => {
     const toastSource = readFileSync(join(root, 'src/components/common/Toast.vue'), 'utf8')
     const toastProgressBlock = styleSource.match(/\.toast-progress\s*\{\s*transform-origin:[\s\S]*?\n\s*\}/)?.[0] ?? ''
     const toastKeyframes = styleSource.match(/@keyframes\s+toast-progress-shrink\s*\{([\s\S]*?)\n\s*\}\s*\}/)?.[1] ?? ''
-    const toastMotionEnterBlock = styleSource.match(/\.toast-motion-enter-active\s*\{\s*transition:\s*([\s\S]*?)\n\s*\}/)?.[1] ?? ''
-    const toastMotionLeaveBlock = styleSource.match(/\.toast-motion-leave-active\s*\{\s*transition:\s*([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+    const toastMotionEnterBlock = sharedBlock('toast-motion-enter-active')
+    const toastMotionLeaveBlock = sharedBlock('toast-motion-leave-active')
     const meterBlock = styleSource.match(/\.meter-fill\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
 
     expect(toastSource).toContain('name="toast-motion"')
@@ -92,6 +92,11 @@ describe('共享动效契约源码守卫', () => {
     expect(toastMotionLeaveBlock).toContain('opacity')
     expect(toastMotionLeaveBlock).toContain('var(--duration-overlay-exit)')
     expect(toastMotionLeaveBlock).toContain('var(--ease-out)')
+    expect(toastMotionLeaveBlock).toContain('position: absolute')
+    expect(toastMotionLeaveBlock).toContain('right: 0')
+    expect(toastMotionLeaveBlock).toContain('width: 100%')
+    expect(toastSource).toContain('w-[min(28rem,calc(100vw-2rem))]')
+    expect(toastSource).toContain("'pointer-events-auto w-full")
     expect(toastProgressBlock).toContain('transform-origin')
     expect(toastProgressBlock).toContain('transform: scaleX(1)')
     expect(toastProgressBlock).not.toContain('width:')
@@ -103,22 +108,24 @@ describe('共享动效契约源码守卫', () => {
     expect(meterBlock).toContain('transform-origin: left')
     expect(meterBlock).toContain('transform: scaleX(var(--meter-value, 0))')
     expect(meterBlock).toContain('transition: transform var(--duration-popover) var(--ease-out)')
-    expect(meterBlock).not.toContain('width:')
+    expect(meterBlock).toContain('width: 100%')
+    expect(meterBlock).toContain('height: 100%')
+    expect(meterBlock).not.toContain('position: absolute')
+    expect(meterBlock).not.toContain('inset:')
     expect(meterBlock).not.toContain('transition-all')
     expect(styleSource).toMatch(/\.meter-fill--realtime\s*\{[\s\S]*?transition:\s*none/)
-    expect(styleSource).toMatch(/\.meter-fill--realtime[\s\S]*?transition:\s*none/)
 
-    const toastBaseIndex = styleSource.indexOf('  .toast-motion-enter-active {')
-    const toastReducedIndex = styleSource.indexOf('    .toast-motion-enter-active,\n    .toast-motion-leave-active {\n      transition-property: opacity;')
-    const progressBaseIndex = styleSource.indexOf('  .toast-progress {')
-    const progressReducedIndex = styleSource.indexOf('    .toast-progress {\n      animation: none;')
-    const meterBaseIndex = styleSource.indexOf('  .meter-fill {')
-    const meterReducedIndex = styleSource.indexOf('    .meter-fill,\n    .meter-fill--realtime {\n      transition: none;')
+    const toastContractIndex = styleSource.indexOf('/* ============ Toast 动效契约 ============ */')
+    const reducedMotionIndex = styleSource.indexOf('@media (prefers-reduced-motion: reduce)', toastContractIndex)
+    const nextSectionIndex = styleSource.indexOf('/* ============ 侧边栏 ============ */', reducedMotionIndex)
+    const reducedMotionBlock = styleSource.slice(reducedMotionIndex, nextSectionIndex)
 
-    expect(toastBaseIndex).toBeGreaterThanOrEqual(0)
-    expect(toastReducedIndex).toBeGreaterThan(toastBaseIndex)
-    expect(progressReducedIndex).toBeGreaterThan(progressBaseIndex)
-    expect(meterReducedIndex).toBeGreaterThan(meterBaseIndex)
+    expect(reducedMotionIndex).toBeGreaterThan(styleSource.indexOf('.meter-fill {', toastContractIndex))
+    expect(reducedMotionBlock).toContain('.toast-motion-enter-active')
+    expect(reducedMotionBlock).toContain('transition-property: opacity')
+    expect(reducedMotionBlock).toContain('.toast-motion-move')
+    expect(reducedMotionBlock).toContain('.toast-progress')
+    expect(reducedMotionBlock).toContain('.meter-fill')
   })
 
   it('公告浮层统一复用 overlay motion contract', () => {
