@@ -45,11 +45,11 @@
 
     <!-- Teleport dropdown to body to escape stacking context -->
     <Teleport to="body">
-      <Transition name="select-dropdown">
+      <Transition name="popover-motion">
         <div
           v-if="isOpen"
           ref="dropdownRef"
-          class="select-dropdown-portal"
+          class="select-dropdown-portal popover-motion"
           :class="[instanceId]"
           :style="dropdownStyle"
           role="listbox"
@@ -198,7 +198,9 @@ const dropdownStyle = computed(() => {
     position: 'fixed',
     left: `${rect.left}px`,
     minWidth: `${rect.width}px`,
-    zIndex: '100000020'
+    zIndex: '100000020',
+    '--popover-origin': dropdownPosition.value === 'top' ? 'bottom left' : 'top left',
+    '--popover-offset-y': dropdownPosition.value === 'top' ? '4px' : '-4px'
   }
 
   if (dropdownPosition.value === 'top') {
@@ -460,7 +462,11 @@ onUnmounted(() => {
   @apply bg-white dark:bg-dark-800;
   @apply border border-gray-200 dark:border-dark-600;
   @apply text-gray-900 dark:text-gray-100;
-  @apply transition-all duration-200;
+  transition:
+    background-color var(--duration-press) var(--ease-out),
+    border-color var(--duration-press) var(--ease-out),
+    color var(--duration-press) var(--ease-out),
+    box-shadow var(--duration-press) var(--ease-out);
   @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
   @apply hover:border-gray-300 dark:hover:border-dark-500;
   @apply cursor-pointer;
@@ -562,14 +568,4 @@ onUnmounted(() => {
   @apply text-gray-500 dark:text-dark-400;
 }
 
-.select-dropdown-enter-active,
-.select-dropdown-leave-active {
-  transition: all 0.2s ease;
-}
-
-.select-dropdown-enter-from,
-.select-dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
 </style>

@@ -25,18 +25,11 @@
 
     <!-- Popover 显示完整列表 -->
     <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-150 ease-out"
-        enter-from-class="opacity-0 scale-95"
-        enter-to-class="opacity-100 scale-100"
-        leave-active-class="transition duration-100 ease-in"
-        leave-from-class="opacity-100 scale-100"
-        leave-to-class="opacity-0 scale-95"
-      >
+      <Transition name="popover-motion">
         <div
           v-if="showPopover"
           ref="popoverRef"
-          class="fixed z-50 min-w-48 max-w-96 rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+          class="popover-motion fixed z-50 min-w-48 max-w-96 rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-dark-600 dark:bg-dark-800"
           :style="popoverStyle"
         >
           <div class="mb-2 flex items-center justify-between">
@@ -124,9 +117,10 @@ const popoverStyle = computed(() => {
 
   let top = rect.bottom + 8
   let left = rect.left
+  const opensAbove = top + 280 > viewportHeight
 
   // 如果下方空间不足，显示在上方
-  if (top + 280 > viewportHeight) {
+  if (opensAbove) {
     top = Math.max(8, rect.top - 280)
   }
 
@@ -137,7 +131,9 @@ const popoverStyle = computed(() => {
 
   return {
     top: `${top}px`,
-    left: `${left}px`
+    left: `${left}px`,
+    transformOrigin: opensAbove ? 'bottom left' : 'top left',
+    '--popover-offset-y': opensAbove ? '4px' : '-4px'
   }
 })
 

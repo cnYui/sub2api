@@ -25,13 +25,28 @@ function closeTooltip() {
 }
 
 function onEnter() {
-  if (props.trigger !== 'hover') return
+  if (props.trigger !== 'hover' || !supportsHoverMotion()) return
   openTooltip()
 }
 
 function onLeave() {
   if (props.trigger !== 'hover') return
   closeTooltip()
+}
+
+function onFocus() {
+  if (props.trigger !== 'hover') return
+  openTooltip()
+}
+
+function onBlur() {
+  if (props.trigger !== 'hover') return
+  closeTooltip()
+}
+
+function supportsHoverMotion() {
+  if (typeof window.matchMedia !== 'function') return true
+  return window.matchMedia('(hover: hover) and (pointer: fine)').matches
 }
 
 function onClick(event: MouseEvent) {
@@ -53,7 +68,6 @@ function onDocumentClick(event: MouseEvent) {
 }
 
 function onDocumentKeydown(event: KeyboardEvent) {
-  if (props.trigger !== 'click') return
   if (event.key === 'Escape') {
     closeTooltip()
   }
@@ -93,8 +107,11 @@ onBeforeUnmount(() => {
   <div
     ref="trigger"
     class="group relative ml-1 inline-flex items-center align-middle"
+    tabindex="0"
     @mouseenter="onEnter"
     @mouseleave="onLeave"
+    @focus="onFocus"
+    @blur="onBlur"
     @click="onClick"
   >
     <!-- Trigger Icon -->
@@ -116,30 +133,38 @@ onBeforeUnmount(() => {
 
     <!-- Teleport to body to escape modal overflow clipping -->
     <Teleport to="body">
-      <div
-        ref="tooltip"
-        v-show="show"
-        role="tooltip"
-        :class="[
-          'fixed z-[99999] -translate-x-1/2 -translate-y-full rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 dark:bg-gray-800',
-          props.widthClass,
-        ]"
-        :style="{ top: `calc(${tooltipStyle.top} - 8px)`, left: tooltipStyle.left }"
-      >
-        <button
-          v-if="props.trigger === 'click'"
-          type="button"
-          class="absolute right-1.5 top-1.5 rounded p-1 text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
-          aria-label="Close"
-          @click.stop="closeTooltip"
+      <Transition name="popover-motion">
+        <div
+          ref="tooltip"
+          v-show="show"
+          role="tooltip"
+          :class="[
+            'popover-motion fixed z-[99999] rounded-lg bg-gray-900 p-3 text-xs leading-relaxed text-white shadow-xl ring-1 ring-white/10 dark:bg-gray-800',
+            props.widthClass,
+          ]"
+          :style="{
+            top: `calc(${tooltipStyle.top} - 8px)`,
+            left: tooltipStyle.left,
+            '--popover-origin': 'bottom center',
+            '--popover-rest-x': '-50%',
+            '--popover-rest-y': '-100%',
+          }"
         >
-          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-        <slot>{{ content }}</slot>
-        <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
-      </div>
+          <button
+            v-if="props.trigger === 'click'"
+            type="button"
+            class="absolute right-1.5 top-1.5 rounded p-1 text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+            aria-label="Close"
+            @click.stop="closeTooltip"
+          >
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <slot>{{ content }}</slot>
+          <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800"></div>
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>

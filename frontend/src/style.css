@@ -371,7 +371,43 @@
     @apply border border-gray-200 dark:border-dark-700;
     @apply shadow-lg;
     @apply py-1;
-    @apply origin-top-right animate-scale-in;
+    transform-origin: var(--popover-origin, top right);
+  }
+
+  .popover-motion {
+    transform: translate3d(
+      var(--popover-rest-x, 0px),
+      var(--popover-rest-y, 0px),
+      0
+    ) scale(1);
+    transform-origin: var(--popover-origin, top right);
+  }
+
+  .popover-motion-enter-active {
+    transition:
+      transform var(--duration-popover) var(--ease-out),
+      opacity var(--duration-popover) var(--ease-out);
+  }
+
+  .popover-motion-leave-active {
+    transition:
+      transform var(--duration-overlay-exit) var(--ease-out),
+      opacity var(--duration-overlay-exit) var(--ease-out);
+  }
+
+  .popover-motion-enter-from,
+  .popover-motion-leave-to {
+    opacity: 0;
+    transform: translate3d(
+      var(--popover-rest-x, 0px),
+      calc(var(--popover-rest-y, 0px) + var(--popover-offset-y, -4px)),
+      0
+    ) scale(0.97);
+  }
+
+  .popover-motion-enter-to,
+  .popover-motion-leave-from {
+    opacity: 1;
   }
 
   .dropdown-item {
@@ -396,6 +432,7 @@
     @apply rounded-2xl shadow-2xl;
     @apply border border-gray-200 dark:border-dark-700;
     @apply flex flex-col;
+    transform-origin: center;
   }
 
   .modal-header {
@@ -428,11 +465,11 @@
   }
 
   .modal-enter-active {
-    transition: opacity 250ms ease-out;
+    transition: opacity var(--duration-overlay-enter) var(--ease-out);
   }
 
   .modal-leave-active {
-    transition: opacity 200ms ease-in;
+    transition: opacity var(--duration-overlay-exit) var(--ease-out);
   }
 
   .modal-enter-from,
@@ -441,16 +478,20 @@
   }
 
   .modal-enter-active .modal-content {
-    transition: transform 250ms ease-out, opacity 250ms ease-out;
+    transition:
+      transform var(--duration-overlay-enter) var(--ease-out),
+      opacity var(--duration-overlay-enter) var(--ease-out);
   }
 
   .modal-leave-active .modal-content {
-    transition: transform 200ms ease-in, opacity 200ms ease-in;
+    transition:
+      transform var(--duration-overlay-exit) var(--ease-out),
+      opacity var(--duration-overlay-exit) var(--ease-out);
   }
 
   .modal-enter-from .modal-content,
   .modal-leave-to .modal-content {
-    transform: scale(0.95);
+    transform: scale(0.97);
     opacity: 0;
   }
 
@@ -460,18 +501,70 @@
     opacity: 1;
   }
 
+  .overlay-motion-enter-active {
+    transition: opacity var(--duration-overlay-enter) var(--ease-out);
+  }
+
+  .overlay-motion-leave-active {
+    transition: opacity var(--duration-overlay-exit) var(--ease-out);
+  }
+
+  .overlay-motion-enter-active > .overlay-motion-content,
+  .overlay-motion-leave-active > .overlay-motion-content {
+    transform-origin: center;
+  }
+
+  .overlay-motion-enter-active > .overlay-motion-content {
+    transition:
+      transform var(--duration-overlay-enter) var(--ease-out),
+      opacity var(--duration-overlay-enter) var(--ease-out);
+  }
+
+  .overlay-motion-leave-active > .overlay-motion-content {
+    transition:
+      transform var(--duration-overlay-exit) var(--ease-out),
+      opacity var(--duration-overlay-exit) var(--ease-out);
+  }
+
+  .overlay-motion-enter-from,
+  .overlay-motion-leave-to {
+    opacity: 0;
+  }
+
+  .overlay-motion-enter-from > .overlay-motion-content,
+  .overlay-motion-leave-to > .overlay-motion-content {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .modal-enter-active,
     .modal-leave-active,
     .modal-enter-active .modal-content,
-    .modal-leave-active .modal-content {
-      transition-duration: 1ms;
-      transition-delay: 0ms;
+    .modal-leave-active .modal-content,
+    .popover-motion-enter-active,
+    .popover-motion-leave-active,
+    .overlay-motion-enter-active,
+    .overlay-motion-leave-active,
+    .overlay-motion-enter-active > .overlay-motion-content,
+    .overlay-motion-leave-active > .overlay-motion-content {
+      transition-property: opacity;
     }
 
     .modal-enter-from .modal-content,
-    .modal-leave-to .modal-content {
+    .modal-leave-to .modal-content,
+    .overlay-motion-enter-from > .overlay-motion-content,
+    .overlay-motion-leave-to > .overlay-motion-content {
       transform: none;
+    }
+
+    .popover-motion-enter-from,
+    .popover-motion-leave-to {
+      transform: translate3d(
+        var(--popover-rest-x, 0px),
+        var(--popover-rest-y, 0px),
+        0
+      ) scale(1);
     }
   }
 
