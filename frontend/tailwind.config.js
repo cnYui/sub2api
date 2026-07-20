@@ -6,50 +6,57 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#fafafa',
-          100: '#f5f5f5',
-          200: '#e5e5e5',
-          300: '#d4d4d4',
-          400: '#a3a3a3',
-          500: '#737373',
-          600: '#525252',
-          700: '#404040',
-          800: '#262626',
-          900: '#171717',
-          950: '#0a0a0a'
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+          950: '#172554'
         },
         accent: {
-          50: '#faf9f6',
-          100: '#f1eee8',
-          200: '#e0d8d0',
-          300: '#c9a227',
-          400: '#8a8a8a',
-          500: '#666666',
-          600: '#525252',
-          700: '#3f3f3f',
-          800: '#292929',
-          900: '#1f1f1f',
-          950: '#111111'
+          50: '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          950: '#042f2e'
         },
         dark: {
-          50: '#f5f5f5',
-          100: '#e5e5e5',
-          200: '#d4d4d4',
-          300: '#a3a3a3',
-          400: '#737373',
-          500: '#525252',
-          600: '#404040',
-          700: '#333333',
-          800: '#242424',
-          900: '#1a1a1a',
-          950: '#0f0f0f'
+          50: '#fafafa',
+          100: '#f4f4f5',
+          200: '#e4e4e7',
+          300: '#d4d4d8',
+          400: '#a1a1aa',
+          500: '#71717a',
+          600: '#52525b',
+          700: '#3f3f46',
+          800: '#27272a',
+          900: '#18181b',
+          950: '#09090b'
         }
       },
       fontFamily: {
-        display: ['Playfair Display', 'Georgia', 'serif'],
-        serif: ['Playfair Display', 'Georgia', 'serif'],
+        display: [
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'sans-serif'
+        ],
+        serif: ['ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'serif'],
         sans: [
-          'Inter',
+          'ui-sans-serif',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -63,7 +70,7 @@ export default {
           'sans-serif'
         ],
         body: [
-          'Inter',
+          'ui-sans-serif',
           'system-ui',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -79,24 +86,19 @@ export default {
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
       },
       boxShadow: {
-        soft: '0 4px 20px rgba(0, 0, 0, 0.03)',
-        'soft-dark': '0 4px 20px rgba(0, 0, 0, 0.3)',
-        card: '0 1px 2px rgba(0, 0, 0, 0.04)',
-        'card-hover': '0 8px 24px rgba(0, 0, 0, 0.08)',
-        glass: '0 4px 20px rgba(0, 0, 0, 0.04)',
-        'glass-sm': '0 2px 12px rgba(0, 0, 0, 0.04)'
-      },
-      backgroundImage: {
-        'gradient-primary': 'linear-gradient(135deg, #222222 0%, #333333 100%)',
-        'gradient-dark': 'linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%)',
-        'mesh-gradient': 'linear-gradient(180deg, rgba(250,250,250,0.9) 0%, rgba(255,255,255,1) 100%)'
+        soft: '0 8px 24px rgb(15 23 42 / 0.06)',
+        'soft-dark': '0 8px 24px rgb(0 0 0 / 0.24)',
+        card: '0 1px 2px rgb(15 23 42 / 0.06)',
+        'card-hover': '0 6px 18px rgb(15 23 42 / 0.1)',
+        glass: '0 12px 32px rgb(15 23 42 / 0.08)',
+        'glass-sm': '0 4px 16px rgb(15 23 42 / 0.06)'
       },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-out',
-        'slide-up': 'slideUp 0.3s ease-out',
-        'slide-down': 'slideDown 0.3s ease-out',
-        'slide-in-right': 'slideInRight 0.3s ease-out',
-        'scale-in': 'scaleIn 0.2s ease-out',
+        'fade-in': 'fadeIn var(--duration-overlay-enter) var(--ease-out)',
+        'slide-up': 'slideUp var(--duration-overlay-enter) var(--ease-out)',
+        'slide-down': 'slideDown var(--duration-overlay-enter) var(--ease-out)',
+        'slide-in-right': 'slideInRight var(--duration-overlay-enter) var(--ease-out)',
+        'scale-in': 'scaleIn var(--duration-popover) var(--ease-out)',
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         shimmer: 'shimmer 2s linear infinite'
       },
@@ -130,7 +132,8 @@ export default {
         xs: '2px'
       },
       borderRadius: {
-        '4xl': '2rem'
+        control: '6px',
+        surface: '8px'
       }
     }
   },

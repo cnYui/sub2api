@@ -3,6 +3,17 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --duration-press: 160ms;
+    --duration-popover: 180ms;
+    --duration-overlay-enter: 220ms;
+    --duration-overlay-exit: 160ms;
+    --duration-drawer: 280ms;
+  }
+
   * {
     @apply border-gray-200 dark:border-dark-700;
   }
@@ -65,9 +76,18 @@
   /* ============ 按钮样式 ============ */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium;
-    @apply transition-colors duration-200 ease-out;
+    transition:
+      transform var(--duration-press) var(--ease-out),
+      background-color var(--duration-press) var(--ease-out),
+      border-color var(--duration-press) var(--ease-out),
+      color var(--duration-press) var(--ease-out),
+      box-shadow var(--duration-press) var(--ease-out);
     @apply focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-2 dark:focus:ring-gray-100/30 dark:focus:ring-offset-dark-950;
     @apply disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
   }
 
   .btn-primary {
@@ -146,7 +166,11 @@
   /* ============ 输入框样式 ============ */
   .input {
     @apply w-full rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900;
-    @apply placeholder:text-gray-400 transition-colors duration-200;
+    @apply placeholder:text-gray-400;
+    transition:
+      border-color var(--duration-press) var(--ease-out),
+      background-color var(--duration-press) var(--ease-out),
+      box-shadow var(--duration-press) var(--ease-out);
     @apply focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/10;
     @apply disabled:cursor-not-allowed disabled:bg-gray-100;
     @apply dark:border-dark-600 dark:bg-dark-900 dark:text-gray-100 dark:placeholder:text-dark-400 dark:focus:border-gray-100 dark:focus:ring-gray-100/15;
@@ -195,7 +219,11 @@
 
   /* ============ 卡片样式 ============ */
   .card {
-    @apply rounded-lg border border-gray-200 bg-white shadow-card transition-colors duration-200;
+    @apply rounded-lg border border-gray-200 bg-white shadow-card;
+    transition:
+      border-color var(--duration-press) var(--ease-out),
+      background-color var(--duration-press) var(--ease-out),
+      box-shadow var(--duration-press) var(--ease-out);
     @apply dark:border-dark-700 dark:bg-dark-900;
   }
 
