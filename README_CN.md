@@ -182,6 +182,10 @@ Nginx 默认会丢弃名称中含下划线的请求头（如 `session_id`），�
 
 ## 部署方式
 
+如果你要在 macOS 服务器上把 Sub2API 和 CLIProxyAPI-private 通过独立 bridge 网络一起部署，先看这份指南：
+
+- [macOS 服务器 Docker 部署指南：CLIProxyAPI + Sub2API](docs/sub2api-docker-deployment-macos_CN.md)
+
 ### 方式一：脚本安装（推荐）
 
 一键安装脚本，自动从 GitHub Releases 下载预编译的二进制文件。

@@ -2,7 +2,9 @@
 
 This directory contains files for deploying Sub2API on Linux servers.
 
-当前生产链路的中文部署 Runbook 见：`docs/SUB2API_CLIPROXYAPI_DEPLOYMENT_RUNBOOK_CN.md`。新人重新部署前应先阅读该文档，尤其是 `sub2api-candidate` / 18084 目标、CLIProxyAPI 8317 HTTPS/TLS、备份和 `auth_unavailable` 排障章节。
+当前生产链路的中文部署 Runbook 见：[docs/SUB2API_CLIPROXYAPI_DEPLOYMENT_RUNBOOK_CN.md](../docs/SUB2API_CLIPROXYAPI_DEPLOYMENT_RUNBOOK_CN.md)。新人重新部署前应先阅读该文档，尤其是 `sub2api-candidate` / 18084 目标、CLIProxyAPI 8317 HTTPS/TLS、备份和 `auth_unavailable` 排障章节。
+
+macOS 服务器上通过 Docker bridge 连接 Sub2API 与 CLIProxyAPI-private 的完整指南见：[docs/sub2api-docker-deployment-macos_CN.md](../docs/sub2api-docker-deployment-macos_CN.md)。
 
 ## Deployment Methods
 
