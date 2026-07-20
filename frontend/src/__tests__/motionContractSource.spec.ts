@@ -16,6 +16,7 @@ const overlaySources = [
   'components/common/AnnouncementPopup.vue',
   'components/account/AccountGroupsCell.vue',
   'components/common/HelpTooltip.vue',
+  'components/common/Toast.vue',
 ].map((path) => ({ path, source: readFileSync(join(root, 'src', path), 'utf8') }))
 
 const sharedBlock = (selector: string) => {
@@ -72,6 +73,40 @@ describe('共享动效契约源码守卫', () => {
     expect(overlayBlock).toContain('var(--duration-overlay-enter)')
     expect(styleSource).toContain('var(--duration-overlay-exit)')
     expect(styleSource).toContain('transform-origin: center')
+  })
+
+  it('Toast 与 meter 只使用 GPU 属性并支持 reduced-motion', () => {
+    const toastSource = readFileSync(join(root, 'src/components/common/Toast.vue'), 'utf8')
+    const toastProgressBlock = styleSource.match(/\.toast-progress\s*\{\s*transform-origin:[\s\S]*?\n\s*\}/)?.[0] ?? ''
+    const toastKeyframes = styleSource.match(/@keyframes\s+toast-progress-shrink\s*\{([\s\S]*?)\n\s*\}\s*\}/)?.[1] ?? ''
+    const toastMotionEnterBlock = styleSource.match(/\.toast-motion-enter-active\s*\{\s*transition:\s*([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+    const toastMotionLeaveBlock = styleSource.match(/\.toast-motion-leave-active\s*\{\s*transition:\s*([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+    const meterBlock = styleSource.match(/\.meter-fill\s*\{([\s\S]*?)\n\s*\}/)?.[1] ?? ''
+
+    expect(toastSource).toContain('name="toast-motion"')
+    expect(toastMotionEnterBlock).toContain('transform')
+    expect(toastMotionEnterBlock).toContain('opacity')
+    expect(toastMotionEnterBlock).toContain('var(--duration-overlay-enter)')
+    expect(toastMotionEnterBlock).toContain('var(--ease-out)')
+    expect(toastMotionLeaveBlock).toContain('transform')
+    expect(toastMotionLeaveBlock).toContain('opacity')
+    expect(toastMotionLeaveBlock).toContain('var(--duration-overlay-exit)')
+    expect(toastMotionLeaveBlock).toContain('var(--ease-out)')
+    expect(toastProgressBlock).toContain('transform-origin')
+    expect(toastProgressBlock).toContain('transform: scaleX(1)')
+    expect(toastProgressBlock).not.toContain('width:')
+    expect(toastKeyframes).toContain('transform: scaleX(1)')
+    expect(toastKeyframes).toContain('transform: scaleX(0)')
+    expect(toastKeyframes).not.toContain('width:')
+    expect(styleSource).toContain('@media (prefers-reduced-motion: reduce)')
+    expect(styleSource).toMatch(/\.toast-motion-enter-active[\s\S]*?transition-property:\s*opacity/)
+    expect(meterBlock).toContain('transform-origin: left')
+    expect(meterBlock).toContain('transform: scaleX(var(--meter-value, 0))')
+    expect(meterBlock).toContain('transition: transform var(--duration-popover) var(--ease-out)')
+    expect(meterBlock).not.toContain('width:')
+    expect(meterBlock).not.toContain('transition-all')
+    expect(styleSource).toMatch(/\.meter-fill--realtime\s*\{[\s\S]*?transition:\s*none/)
+    expect(styleSource).toMatch(/\.meter-fill--realtime[\s\S]*?transition:\s*none/)
   })
 
   it('公告浮层统一复用 overlay motion contract', () => {

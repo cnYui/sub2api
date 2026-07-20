@@ -566,6 +566,30 @@
         0
       ) scale(1);
     }
+
+    .toast-motion-enter-active,
+    .toast-motion-leave-active {
+      transition-property: opacity;
+    }
+
+    .toast-motion-move {
+      transition: none;
+    }
+
+    .toast-motion-enter-from,
+    .toast-motion-leave-to {
+      transform: none;
+    }
+
+    .toast-progress {
+      animation: none;
+      transform: scaleX(1);
+    }
+
+    .meter-fill,
+    .meter-fill--realtime {
+      transition: none;
+    }
   }
 
   /* ============ Dialog ============ */
@@ -622,6 +646,65 @@
 
   .toast-info {
     @apply border-l-gray-500;
+  }
+
+  /* ============ Toast 动效契约 ============ */
+  .toast-motion-enter-active {
+    transition:
+      transform var(--duration-overlay-enter) var(--ease-out),
+      opacity var(--duration-overlay-enter) var(--ease-out);
+  }
+
+  .toast-motion-leave-active {
+    transition:
+      transform var(--duration-overlay-exit) var(--ease-out),
+      opacity var(--duration-overlay-exit) var(--ease-out);
+  }
+
+  .toast-motion-move {
+    transition: transform var(--duration-overlay-enter) var(--ease-out);
+  }
+
+  .toast-motion-enter-from,
+  .toast-motion-leave-to {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0) scale(0.97);
+  }
+
+  .toast-motion-enter-to,
+  .toast-motion-leave-from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .toast-progress {
+    transform-origin: left;
+    transform: scaleX(1);
+    animation-name: toast-progress-shrink;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes toast-progress-shrink {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
+  }
+
+  /* 进度填充层通过绝对定位占满父容器，避免依赖可动画布局宽度。 */
+  .meter-fill {
+    position: absolute;
+    inset: 0;
+    transform-origin: left;
+    transform: scaleX(var(--meter-value, 0));
+    transition: transform var(--duration-popover) var(--ease-out);
+  }
+
+  .meter-fill--realtime {
+    transition: none;
   }
 
   /* ============ 侧边栏 ============ */

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const copyToClipboard = vi.fn().mockResolvedValue(true)
 
@@ -28,6 +30,14 @@ describe('Toast', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     vi.restoreAllMocks()
+  })
+
+  it('使用命名 toast-motion 且不声明错误方向的过渡类', () => {
+    const source = readFileSync(join(process.cwd(), 'src/components/common/Toast.vue'), 'utf8')
+
+    expect(source).toContain('name="toast-motion"')
+    expect(source).not.toContain('ease-in')
+    expect(source).not.toContain('transition-all')
   })
 
   it('展示并复制规范错误引用', async () => {

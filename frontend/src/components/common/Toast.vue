@@ -5,14 +5,7 @@
       aria-live="polite"
       aria-atomic="true"
     >
-      <TransitionGroup
-        enter-active-class="transition ease-out duration-300"
-        enter-from-class="opacity-0 translate-x-full"
-        enter-to-class="opacity-100 translate-x-0"
-        leave-active-class="transition ease-in duration-200"
-        leave-from-class="opacity-100 translate-x-0"
-        leave-to-class="opacity-0 translate-x-full"
-      >
+      <TransitionGroup name="toast-motion">
         <div
           v-for="toast in toasts"
           :key="toast.id"
@@ -174,21 +167,3 @@ const removeToast = (id: string) => {
   appStore.hideToast(id)
 }
 </script>
-
-<style scoped>
-.toast-progress {
-  width: 100%;
-  animation-name: toast-progress-shrink;
-  animation-timing-function: linear;
-  animation-fill-mode: forwards;
-}
-
-@keyframes toast-progress-shrink {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
-</style>
