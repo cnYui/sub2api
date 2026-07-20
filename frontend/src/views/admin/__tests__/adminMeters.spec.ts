@@ -20,20 +20,37 @@ describe('管理页 meter 比例函数', () => {
   })
 
   it.each([
-    ['负队列值', -1, 100, 0],
-    ['超过队列上限', 120, 100, 1],
-    ['非有限值', Number.NaN, 100, 0],
-    ['无限值', Number.POSITIVE_INFINITY, 100, 0],
+    ['正常比例', 25, 100, 0.25],
+    ['空用量', null, 100, 0],
+    ['未定义用量', undefined, 100, 0],
+    ['负用量', -1, 100, 0],
+    ['超过上限', 120, 100, 1],
+    ['空上限', 10, null, 0],
+    ['未定义上限', 10, undefined, 0],
+    ['零上限', 10, 0, 0],
+    ['负上限', 10, -100, 0],
+    ['NaN 用量', Number.NaN, 100, 0],
+    ['Infinity 用量', Number.POSITIVE_INFINITY, 100, 0],
+    ['NaN 上限', 10, Number.NaN, 0],
+    ['Infinity 上限', 10, Number.POSITIVE_INFINITY, 0],
   ])('风控 meter 对%s保持安全比例', (_label, value, limit, expected) => {
     expect(riskMeterScale(value, limit)).toBe(expected)
   })
 
   it.each([
     ['正常配额', 25, 100, 0.25],
+    ['空用量', null, 100, 0],
+    ['未定义用量', undefined, 100, 0],
     ['负用量', -1, 100, 0],
     ['超限用量', 120, 100, 1],
-    ['无效上限', 10, Number.NaN, 0],
+    ['空上限', 10, null, 0],
+    ['未定义上限', 10, undefined, 0],
+    ['零上限', 10, 0, 0],
+    ['负上限', 10, -100, 0],
+    ['NaN 用量', Number.NaN, 100, 0],
     ['无限用量', Number.POSITIVE_INFINITY, 100, 0],
+    ['NaN 上限', 10, Number.NaN, 0],
+    ['Infinity 上限', 10, Number.POSITIVE_INFINITY, 0],
   ])('网页搜索配额对%s保持安全比例', (_label, used, limit, expected) => {
     expect(webSearchQuotaScale(used, limit)).toBe(expected)
   })

@@ -197,9 +197,31 @@ describe('共享动效契约源码守卫', () => {
   })
 
   it('管理端风控实时与评分条按 GPU meter 更新', () => {
-    expect(adminRiskControlSource.match(/\bmeter-fill\b/g) ?? []).toHaveLength(6)
-    expect(adminRiskControlSource.match(/--meter-value/g) ?? []).toHaveLength(4)
-    expect(adminRiskControlSource.match(/meter-fill--realtime/g) ?? []).toHaveLength(2)
+    const preBlockMeter = adminRiskControlSource.match(
+      /<div class="mt-3 h-1\.5 overflow-hidden[\s\S]*?meter-fill--realtime[\s\S]*?<\/div>/,
+    )?.[0] ?? ''
+    const queueMeter = adminRiskControlSource.match(
+      /<div class="mt-4 h-2 overflow-hidden[\s\S]*?meter-fill--realtime[\s\S]*?<\/div>/,
+    )?.[0] ?? ''
+    const compositeMeter = adminRiskControlSource.match(
+      /<div class="h-2 overflow-hidden[\s\S]*?meterScale\(moderationTestResult\.composite_score, 1\)[\s\S]*?<\/div>/,
+    )?.[0] ?? ''
+    const scoreMeter = adminRiskControlSource.match(
+      /<div class="h-1\.5 overflow-hidden[\s\S]*?meterScale\(score\.score, 1\)[\s\S]*?<\/div>/,
+    )?.[0] ?? ''
+
+    for (const meter of [preBlockMeter, queueMeter]) {
+      expect(meter).toContain('meter-fill--realtime')
+      expect(meter).toContain('--meter-value')
+      expect(meter).not.toContain('transition-all')
+    }
+    for (const meter of [compositeMeter, scoreMeter]) {
+      expect(meter).toContain('meter-fill')
+      expect(meter).toContain('--meter-value')
+      expect(meter).not.toContain('meter-fill--realtime')
+      expect(meter).not.toContain('width:')
+    }
+
     expect(adminRiskControlSource).toContain('meterScale')
     expect(adminRiskControlSource).not.toContain('preBlockAPIKeyLoadWidth')
     expect(adminRiskControlSource).not.toContain('queueUsageStyle')
@@ -215,7 +237,7 @@ describe('共享动效契约源码守卫', () => {
 
     expect(start).toBeGreaterThanOrEqual(0)
     expect(end).toBeGreaterThan(start)
-    expect(quotaBlock).toContain('meter-fill')
+    expect(quotaBlock.match(/\bmeter-fill\b/g) ?? []).toHaveLength(1)
     expect(quotaBlock).toContain('--meter-value')
     expect(quotaBlock).toContain('overflow-hidden')
     expect(quotaBlock).not.toContain('transition-all')
