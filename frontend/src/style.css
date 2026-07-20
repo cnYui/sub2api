@@ -567,29 +567,6 @@
       ) scale(1);
     }
 
-    .toast-motion-enter-active,
-    .toast-motion-leave-active {
-      transition-property: opacity;
-    }
-
-    .toast-motion-move {
-      transition: none;
-    }
-
-    .toast-motion-enter-from,
-    .toast-motion-leave-to {
-      transform: none;
-    }
-
-    .toast-progress {
-      animation: none;
-      transform: scaleX(1);
-    }
-
-    .meter-fill,
-    .meter-fill--realtime {
-      transition: none;
-    }
   }
 
   /* ============ Dialog ============ */
@@ -705,6 +682,32 @@
 
   .meter-fill--realtime {
     transition: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast-motion-enter-active,
+    .toast-motion-leave-active {
+      transition-property: opacity;
+    }
+
+    .toast-motion-move {
+      transition: none;
+    }
+
+    .toast-motion-enter-from,
+    .toast-motion-leave-to {
+      transform: none;
+    }
+
+    .toast-progress {
+      animation: none;
+      transform: scaleX(1);
+    }
+
+    .meter-fill,
+    .meter-fill--realtime {
+      transition: none;
+    }
   }
 
   /* ============ 侧边栏 ============ */

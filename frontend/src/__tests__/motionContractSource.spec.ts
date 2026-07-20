@@ -107,6 +107,18 @@ describe('共享动效契约源码守卫', () => {
     expect(meterBlock).not.toContain('transition-all')
     expect(styleSource).toMatch(/\.meter-fill--realtime\s*\{[\s\S]*?transition:\s*none/)
     expect(styleSource).toMatch(/\.meter-fill--realtime[\s\S]*?transition:\s*none/)
+
+    const toastBaseIndex = styleSource.indexOf('  .toast-motion-enter-active {')
+    const toastReducedIndex = styleSource.indexOf('    .toast-motion-enter-active,\n    .toast-motion-leave-active {\n      transition-property: opacity;')
+    const progressBaseIndex = styleSource.indexOf('  .toast-progress {')
+    const progressReducedIndex = styleSource.indexOf('    .toast-progress {\n      animation: none;')
+    const meterBaseIndex = styleSource.indexOf('  .meter-fill {')
+    const meterReducedIndex = styleSource.indexOf('    .meter-fill,\n    .meter-fill--realtime {\n      transition: none;')
+
+    expect(toastBaseIndex).toBeGreaterThanOrEqual(0)
+    expect(toastReducedIndex).toBeGreaterThan(toastBaseIndex)
+    expect(progressReducedIndex).toBeGreaterThan(progressBaseIndex)
+    expect(meterReducedIndex).toBeGreaterThan(meterBaseIndex)
   })
 
   it('公告浮层统一复用 overlay motion contract', () => {
