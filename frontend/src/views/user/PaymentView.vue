@@ -5,36 +5,38 @@
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-900 border-t-transparent dark:border-gray-100 dark:border-t-transparent"></div>
       </div>
       <template v-else>
-        <!-- Payment in progress -->
-        <template v-if="paymentPhase === 'paying'">
-          <PaymentStatusPanel
-            :order-id="paymentState.orderId"
-            :qr-code="paymentState.qrCode"
-            :qr-image-url="paymentState.qrImageUrl"
-            :expires-at="paymentState.expiresAt"
-            :payment-type="paymentState.paymentType"
-            :pay-url="paymentState.payUrl"
-            :order-type="paymentState.orderType"
-            :currency="paymentState.currency || selectedCurrency"
-            @done="onPaymentDone"
-            @success="onPaymentSuccess"
-            @settled="onPaymentSettled"
-          />
-        </template>
-        <!-- Subscription and traffic pack purchases -->
-        <template v-else>
-          <div v-if="paymentPhase === 'recharge' || currentPurchaseProduct" class="mb-1">
-            <button
-              type="button"
-              class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              @click="backToSubscriptionList"
-            >
-              <Icon name="arrowLeft" size="sm" />
-              {{ t('common.back') }}
-            </button>
-          </div>
-          <!-- Traffic pack confirm (inline, reuses subscription payment flow) -->
-          <template v-if="paymentPhase === 'recharge'">
+        <Transition name="payment-phase">
+          <div :key="paymentPhase" class="space-y-6">
+            <!-- Payment in progress -->
+            <template v-if="paymentPhase === 'paying'">
+              <PaymentStatusPanel
+                :order-id="paymentState.orderId"
+                :qr-code="paymentState.qrCode"
+                :qr-image-url="paymentState.qrImageUrl"
+                :expires-at="paymentState.expiresAt"
+                :payment-type="paymentState.paymentType"
+                :pay-url="paymentState.payUrl"
+                :order-type="paymentState.orderType"
+                :currency="paymentState.currency || selectedCurrency"
+                @done="onPaymentDone"
+                @success="onPaymentSuccess"
+                @settled="onPaymentSettled"
+              />
+            </template>
+            <!-- Subscription and traffic pack purchases -->
+            <template v-else>
+              <div v-if="paymentPhase === 'recharge' || currentPurchaseProduct" class="mb-1">
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition-colors hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  @click="backToSubscriptionList"
+                >
+                  <Icon name="arrowLeft" size="sm" />
+                  {{ t('common.back') }}
+                </button>
+              </div>
+              <!-- Traffic pack confirm (inline, reuses subscription payment flow) -->
+              <template v-if="paymentPhase === 'recharge'">
             <div class="card p-5">
               <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.recharge.title') }}</h3>
               <label class="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payment.recharge.amount') }}</label>
@@ -72,8 +74,8 @@
               <span v-else>{{ t('payment.recharge.confirm', { amount: validRechargeAmount.toFixed(0) }) }}</span>
             </button>
             <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
-          </template>
-          <template v-else-if="currentPurchaseProduct">
+              </template>
+              <template v-else-if="currentPurchaseProduct">
             <template v-if="selectedTrafficPack">
               <div class="card p-5">
                 <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -187,8 +189,8 @@
               <span v-else>{{ t('payment.createOrder') }} {{ purchaseSubmitAmountText }}</span>
             </button>
             <button class="btn btn-secondary w-full" @click="backToSubscriptionList">{{ t('common.back') }}</button>
-          </template>
-          <template v-else>
+              </template>
+              <template v-else>
             <div v-if="purchaseProducts.length === 0" class="card py-16 text-center">
               <Icon name="gift" size="xl" class="mx-auto mb-3 text-gray-300 dark:text-dark-600" />
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
@@ -201,16 +203,18 @@
                 @select="selectPurchaseProduct(item)"
               />
             </div>
-          </template>
-        </template>
-        <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !currentPurchaseProduct" class="card p-4">
-          <div class="flex flex-col items-center gap-3">
-            <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
-              class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
-              @click="previewImage = checkout.help_image_url" />
-            <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
+              </template>
+            </template>
+            <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !currentPurchaseProduct" class="card p-4">
+              <div class="flex flex-col items-center gap-3">
+                <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
+                  class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
+                  @click="previewImage = checkout.help_image_url" />
+                <p v-if="checkout.help_text" class="text-center text-sm text-gray-500 dark:text-gray-400">{{ checkout.help_text }}</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </Transition>
       </template>
     </div>
     <!-- Renewal Plan Selection Modal -->
@@ -1338,3 +1342,28 @@ onMounted(async () => {
   subscriptionStore.fetchActiveSubscriptions().catch(() => {})
 })
 </script>
+
+<style scoped>
+.payment-phase-enter-active,
+.payment-phase-leave-active {
+  transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out);
+}
+
+.payment-phase-enter-from,
+.payment-phase-leave-to {
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-phase-enter-active,
+  .payment-phase-leave-active {
+    transition-property: opacity;
+  }
+
+  .payment-phase-enter-from,
+  .payment-phase-leave-to {
+    transform: none;
+  }
+}
+</style>

@@ -96,8 +96,8 @@
                 <span v-if="column.sortable" class="text-gray-400 dark:text-dark-500">
                   <svg
                     v-if="sortKey === column.key"
-                    class="h-4 w-4"
-                    :class="{ 'rotate-180 transform': sortOrder === 'desc' }"
+                    class="data-table-sort-arrow h-4 w-4"
+                    :class="{ 'rotate-180': sortOrder === 'desc' }"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -107,7 +107,7 @@
                       clip-rule="evenodd"
                     />
                   </svg>
-                  <svg v-else class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                  <svg v-else class="data-table-sort-arrow h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
                     />
@@ -732,6 +732,16 @@ defineExpose({
 </script>
 
 <style scoped>
+.data-table-sort-arrow {
+  transition: transform 120ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-table-sort-arrow {
+    transition: none;
+  }
+}
+
 /* 表格横向滚动 */
 .table-wrapper {
   --select-col-width: 52px; /* 勾选列宽度：px-6 (24px*2) + checkbox (16px) */
