@@ -37,6 +37,8 @@ describe('Task 5 reduced-motion 与静态背景源码契约', () => {
     expect(homeSource).toContain('animation-delay: 120ms;')
     expect(homeSource).not.toContain('animation-delay: 2.5s;')
     expect(homeSource).toMatch(/@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]*?\.terminal-window:hover\s*\{/)
+    expect(homeSource).toMatch(/@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]*?transform:\s*translateY\(0\);/)
+    expect(homeSource).toMatch(/\.terminal-window:hover\s*\{[\s\S]*?transform:\s*translateY\(-2px\);/)
     expect(homeSource).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.code-line\s*\{[\s\S]*?animation:\s*none;[\s\S]*?opacity:\s*1;/)
     expect(homeSource).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?\.terminal-window\s*\{[\s\S]*?transform:\s*none;/)
   })

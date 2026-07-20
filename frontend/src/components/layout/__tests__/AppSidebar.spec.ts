@@ -60,8 +60,8 @@ describe('App shell motion contracts', () => {
   it('keeps content geometry and sidebar header geometry static', () => {
     expect(layoutSource).not.toContain('transition-all')
 
-    const sidebarBlock = styleSource.match(/\.sidebar\s*\{[\s\S]*?\n  \}/)?.[0] ?? ''
-    const sidebarHeaderBlock = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n  \}/)?.[0] ?? ''
+    const sidebarBlock = styleSource.match(/\.sidebar\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? ''
+    const sidebarHeaderBlock = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? ''
 
     expect(sidebarBlock).not.toContain('transition-property: width')
     expect(sidebarBlock).not.toContain('transition: width')
@@ -76,11 +76,16 @@ describe('App shell motion contracts', () => {
     expect(labelBlock).not.toMatch(/transition(?:-property)?\s*:[\s\S]*max-width/)
   })
 
-  it('uses the Vue transition as the only AppHeader dropdown motion source', () => {
-    const scopedStyleBlock = headerSource.match(/<style scoped>[\s\S]*?<\/style>/)?.[0] ?? ''
+  it('uses the global popover transition as the only AppHeader dropdown motion source', () => {
+    const dropdownBlock = styleSource.match(/\.dropdown\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? ''
+    const enterBlock = styleSource.match(/\.popover-motion-enter-active\s*\{[\s\S]*?\n {2}\}/)?.[0] ?? ''
 
-    expect(scopedStyleBlock).toContain('.dropdown {')
-    expect(scopedStyleBlock).toContain('animation: none;')
+    expect(headerSource).toContain('<transition name="popover-motion">')
+    expect(headerSource).toContain('class="dropdown popover-motion')
+    expect(dropdownBlock).toContain('transform-origin: var(--popover-origin, top right);')
+    expect(dropdownBlock).not.toContain('animation:')
+    expect(enterBlock).toContain('transform var(--duration-popover) var(--ease-out)')
+    expect(enterBlock).toContain('opacity var(--duration-popover) var(--ease-out)')
   })
 
   it('uses separate enter and leave durations for the mobile backdrop', () => {

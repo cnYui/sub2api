@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 
 const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
@@ -194,6 +195,34 @@ describe('PaymentResultView', () => {
     expect(wrapper.text()).toContain('103.00')
     expect(wrapper.text()).toContain('100.00')
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toBeNull()
+  })
+
+  it('renders the payment result status inside a fixed 80px track with absolute overlays', async () => {
+    routeState.query = {
+      resume_token: 'resume-track',
+    }
+    resolveOrderPublicByResumeToken.mockResolvedValue({
+      data: orderFactory('PENDING'),
+    })
+
+    const wrapper = mount(PaymentResultView, {
+      global: {
+        stubs: {
+          OrderStatusBadge: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await nextTick()
+
+    const track = wrapper.get('.relative.mx-auto.h-20.w-20')
+    const pending = wrapper.get('[data-testid="payment-result-pending"]')
+
+    expect(track.element.contains(pending.element)).toBe(true)
+    expect(pending.classes()).toContain('absolute')
+    expect(pending.classes()).toContain('inset-0')
+    expect(pending.find('.payment-result-pending-spinner').exists()).toBe(true)
   })
 
   it('refreshes a pending resume-token result until the order becomes paid', async () => {

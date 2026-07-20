@@ -8,25 +8,27 @@
       <template v-else>
         <!-- Status Icon -->
         <div class="text-center">
-          <Transition name="payment-result-status" mode="out-in">
-            <div v-if="isSuccess" key="success"
-              class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <svg class="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <div v-else-if="isPending" key="pending"
-              class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
-              <div class="h-10 w-10 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent"></div>
-            </div>
-            <div v-else key="failed"
-              class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-              <svg class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          </Transition>
+          <div class="relative mx-auto h-20 w-20">
+            <Transition name="payment-result-status">
+              <div v-if="isSuccess" key="success" data-testid="payment-result-success"
+                class="absolute inset-0 flex items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                <svg class="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                  stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div v-else-if="isPending" key="pending" data-testid="payment-result-pending"
+                class="absolute inset-0 flex items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30">
+                <div class="payment-result-pending-spinner h-10 w-10 animate-spin rounded-full border-4 border-yellow-500 border-t-transparent"></div>
+              </div>
+              <div v-else key="failed" data-testid="payment-result-failed"
+                class="absolute inset-0 flex items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <svg class="h-10 w-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            </Transition>
+          </div>
           <h2 class="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
             {{ statusTitle }}
           </h2>
@@ -448,6 +450,10 @@ onBeforeUnmount(() => {
   .payment-result-status-enter-from,
   .payment-result-status-leave-to {
     transform: none;
+  }
+
+  .payment-result-pending-spinner {
+    animation: none;
   }
 }
 </style>

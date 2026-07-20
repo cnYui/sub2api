@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, shallowMount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 
@@ -429,6 +430,41 @@ describe('PaymentView tab defaults', () => {
     authState.userBalance = 0
     bridgeInvoke.mockReset()
     window.localStorage.clear()
+  })
+
+  it('切换支付阶段时让新旧阶段共享同一布局轨道', async () => {
+    const wrapper = mount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          Icon: { template: '<span />' },
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentStatusPanel: {
+            name: 'PaymentStatusPanel',
+            template: '<div data-testid="payment-status-panel">paying</div>',
+          },
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const phaseTrack = wrapper.get('[data-testid="payment-phase-track"]')
+    const initialPhase = wrapper.get('[data-testid="payment-phase-state"]').element
+    expect(phaseTrack.classes()).toContain('relative')
+
+    ;(wrapper.vm as unknown as { paymentPhase: 'paying' }).paymentPhase = 'paying'
+    await nextTick()
+
+    const phaseStates = wrapper.findAll('[data-testid="payment-phase-state"]')
+    expect(phaseStates).toHaveLength(2)
+    expect(phaseStates.some(node => node.element === initialPhase)).toBe(true)
+    expect(phaseStates.some(node => node.classes().includes('payment-phase-leave-active'))).toBe(true)
+    expect(wrapper.find('[data-testid="payment-status-panel"]').exists()).toBe(true)
   })
 
   it('renders only subscription purchases and hides the balance recharge page', async () => {

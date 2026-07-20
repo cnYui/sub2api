@@ -13,12 +13,12 @@
     <div class="relative z-10 w-full max-w-md">
       <div class="mb-8 text-center">
         <template v-if="settingsLoaded">
-          <div class="mb-5 inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white shadow-soft dark:border-dark-700 dark:bg-dark-900 dark:shadow-soft-dark">
+          <div class="mb-5 inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white shadow-card dark:border-dark-700 dark:bg-dark-900 dark:shadow-card">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
           <h1
             data-testid="auth-brand-title"
-            class="mb-2 font-display text-4xl font-semibold italic"
+            class="mb-2 font-display text-4xl font-semibold"
             :class="worldMapBackground ? 'text-gray-100' : 'text-gray-950 dark:text-gray-100'"
           >
             {{ siteName }}
@@ -32,7 +32,7 @@
         </template>
       </div>
 
-      <div class="rounded-lg border border-gray-200 bg-white p-8 shadow-soft dark:border-dark-700 dark:bg-dark-900 dark:shadow-soft-dark">
+      <div class="rounded-md border border-gray-200 bg-white p-6 shadow-card dark:border-dark-700 dark:bg-dark-900 dark:shadow-card">
         <slot />
       </div>
 

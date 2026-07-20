@@ -1,8 +1,8 @@
 <template>
   <!-- Row 1: Core Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
     <!-- Balance -->
-    <div v-if="!isSimple" class="card p-4">
+    <div v-if="!isSimple" class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <svg class="h-5 w-5 text-gray-900 dark:text-gray-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -18,7 +18,7 @@
     </div>
 
     <!-- API Keys -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="key" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Today Requests -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="chart" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -46,7 +46,7 @@
     </div>
 
     <!-- Subscription Quota -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="dollar" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -67,9 +67,9 @@
   </div>
 
   <!-- Row 2: Token Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
     <!-- Today Tokens -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="cube" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -83,7 +83,7 @@
     </div>
 
     <!-- Total Tokens -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="database" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -97,7 +97,7 @@
     </div>
 
     <!-- Performance (RPM/TPM) -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="bolt" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -117,7 +117,7 @@
     </div>
 
     <!-- Avg Response Time -->
-    <div class="card p-4">
+    <div class="card p-3">
       <div class="flex items-center gap-3">
         <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
           <Icon name="clock" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -132,7 +132,7 @@
   </div>
 
   <!-- Row 3: Available models -->
-  <div class="card p-4">
+  <div class="card p-3">
     <div class="mb-3 flex items-center justify-between">
       <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('dashboard.availableModels') }}</h3>
       <span class="text-xs text-gray-500 dark:text-gray-400">

@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <div class="space-y-5">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
@@ -8,9 +8,9 @@
 
       <template v-else-if="stats">
         <!-- Row 1: Core Stats -->
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <!-- Total API Keys -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="key" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -30,7 +30,7 @@
           </div>
 
           <!-- Service Accounts -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="server" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -55,7 +55,7 @@
           </div>
 
           <!-- Today Requests -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="chart" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -75,7 +75,7 @@
           </div>
 
           <!-- New Users Today -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="userPlus" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -96,9 +96,9 @@
         </div>
 
         <!-- Row 2: Token Stats -->
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <!-- Today Tokens -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="cube" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -134,7 +134,7 @@
           </div>
 
           <!-- Total Tokens -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="database" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -170,7 +170,7 @@
           </div>
 
           <!-- Performance (RPM/TPM) -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="bolt" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -196,7 +196,7 @@
           </div>
 
           <!-- Avg Response Time -->
-          <div class="card p-4">
+          <div class="card p-3">
             <div class="flex items-center gap-3">
               <div class="rounded-md border border-gray-200 bg-gray-100 p-2 text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-200">
                 <Icon name="clock" size="md" class="text-gray-900 dark:text-gray-100" :stroke-width="2" />
@@ -217,10 +217,10 @@
         </div>
 
         <!-- Charts Section -->
-        <div class="space-y-6">
+        <div class="space-y-4">
           <!-- Date Range Filter -->
-          <div class="card p-4">
-            <div class="flex flex-wrap items-center gap-4">
+          <div class="card p-3">
+            <div class="flex flex-wrap items-center gap-3">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >{{ t('admin.dashboard.timeRange') }}:</span
@@ -250,7 +250,7 @@
           </div>
 
           <!-- Charts Grid -->
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ModelDistributionChart
               :model-stats="modelStats"
               :enable-ranking-view="true"
@@ -269,7 +269,7 @@
           </div>
 
           <!-- User Usage Trend (Full Width) -->
-          <div class="card p-4">
+          <div class="card p-3">
             <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
               {{ t('admin.dashboard.recentUsage') }} (Top 12)
             </h3>

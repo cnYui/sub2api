@@ -130,7 +130,7 @@ describe('SubscriptionsView traffic packs', () => {
     expect(pageText).toContain('当前可用 $2.50')
     expect(pageText).toContain('当前可用 $0.00')
     expect(pageText).toContain('2027')
-    expect(wrapper.find('[data-testid="traffic-credit-progress-20"]').attributes('style')).toContain('width: 40%')
+    expect(wrapper.find('[data-testid="traffic-credit-progress-20"]').attributes('style')).toContain('--meter-value: 0.4')
     expect(wrapper.text()).not.toContain('2027/6/26')
     expect(wrapper.text()).not.toContain('GPT 流量包 10 刀')
     expect(wrapper.text()).not.toContain('¥3')

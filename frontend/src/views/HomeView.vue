@@ -22,7 +22,7 @@
       <nav class="mx-auto flex max-w-6xl items-center justify-between">
         <!-- Logo -->
         <div class="flex items-center">
-          <div class="h-10 w-10 overflow-hidden rounded-md border border-gray-200 bg-white shadow-soft dark:border-dark-700 dark:bg-dark-900">
+          <div class="h-10 w-10 overflow-hidden rounded-md border border-gray-200 bg-white shadow-card dark:border-dark-700 dark:bg-dark-900 dark:shadow-card">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
         </div>
@@ -92,7 +92,7 @@
           <!-- Left: Text Content -->
           <div class="flex-1 text-center lg:text-left">
             <h1
-              class="mb-4 font-display text-5xl font-semibold italic leading-tight text-gray-950 dark:text-gray-100 md:text-6xl lg:text-7xl"
+              class="mb-4 font-display text-5xl font-semibold leading-tight text-gray-950 dark:text-gray-100 md:text-6xl lg:text-7xl"
             >
               {{ siteName }}
             </h1>
@@ -455,12 +455,12 @@ onMounted(() => {
 /* Terminal Window */
 .terminal-window {
   width: 420px;
-  background: linear-gradient(145deg, #242424 0%, #0f0f0f 100%);
-  border-radius: 14px;
+  background: #111827;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.4),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 18px 36px -18px rgba(15, 23, 42, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   overflow: hidden;
   transform: none;
   transition: transform 180ms var(--ease-out);
@@ -468,11 +468,11 @@ onMounted(() => {
 
 @media (hover: hover) and (pointer: fine) {
   .terminal-window {
-    transform: perspective(1000px) rotateX(1deg) rotateY(-1deg);
+    transform: translateY(0);
   }
 
   .terminal-window:hover {
-    transform: perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(-2px);
+    transform: translateY(-2px);
   }
 }
 
@@ -481,8 +481,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(36, 36, 36, 0.9);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(17, 24, 39, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .terminal-buttons {

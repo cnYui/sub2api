@@ -126,7 +126,7 @@ describe('ModelDistributionChart', () => {
     expect(label).toBe('model-b: $1.40 (87.5%)')
   })
 
-  it('renders Others in the spending ranking table and uses a dedicated chart color', async () => {
+  it('renders Others in the spending ranking table and uses the gray chart palette', async () => {
     const wrapper = mount(ModelDistributionChart, {
       props: {
         modelStats: [],
@@ -157,7 +157,7 @@ describe('ModelDistributionChart', () => {
       'Others',
     ])
     expect(chartData.datasets[0].data).toEqual([12, 8, 10])
-    expect(chartData.datasets[0].backgroundColor[0]).toBe('#3b82f6')
+    expect(chartData.datasets[0].backgroundColor[0]).toBe('#111827')
     expect(chartData.datasets[0].backgroundColor[2]).toBe('#94a3b8')
     expect(chartData.datasets[0].backgroundColor[2]).not.toBe(chartData.datasets[0].backgroundColor[0])
 

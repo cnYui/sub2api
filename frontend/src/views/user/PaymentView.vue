@@ -1,12 +1,15 @@
 <template>
   <AppLayout>
-    <div :class="['mx-auto space-y-6', paymentPhase === 'select' && !currentPurchaseProduct ? 'max-w-7xl' : 'max-w-4xl']">
+    <div
+      data-testid="payment-phase-track"
+      :class="['relative mx-auto space-y-6', paymentPhase === 'select' && !currentPurchaseProduct ? 'max-w-7xl' : 'max-w-4xl']"
+    >
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-900 border-t-transparent dark:border-gray-100 dark:border-t-transparent"></div>
       </div>
       <template v-else>
         <Transition name="payment-phase">
-          <div :key="paymentPhase" class="space-y-6">
+          <div :key="paymentPhase" data-testid="payment-phase-state" class="space-y-6">
             <!-- Payment in progress -->
             <template v-if="paymentPhase === 'paying'">
               <PaymentStatusPanel
@@ -1347,6 +1350,13 @@ onMounted(async () => {
 .payment-phase-enter-active,
 .payment-phase-leave-active {
   transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out);
+}
+
+.payment-phase-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
 }
 
 .payment-phase-enter-from,
