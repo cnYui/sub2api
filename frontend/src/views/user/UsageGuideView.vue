@@ -156,6 +156,27 @@
               </table>
             </div>
 
+            <div v-if="section.errorRows" class="usage-guide-table-wrap">
+              <table class="usage-guide-endpoint-table usage-guide-error-table">
+                <thead>
+                  <tr>
+                    <th>编号</th>
+                    <th>英文代码</th>
+                    <th>HTTP / 事件</th>
+                    <th>规范英文提示</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in section.errorRows" :key="row.id">
+                    <td><code>{{ row.id }}</code></td>
+                    <td><code>{{ row.code }}</code></td>
+                    <td>{{ row.http }}</td>
+                    <td>{{ row.message }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <pre v-if="section.code" class="usage-guide-code"><code>{{ section.code }}</code></pre>
           </section>
         </div>
@@ -204,11 +225,19 @@ type GuideLegacyRow = {
   useInstead: string
 }
 
+type GuideErrorRow = {
+  id: string
+  code: string
+  http: string
+  message: string
+}
+
 type GuideSection = {
   title: string
   paragraphs: string[]
   endpointRows?: GuideEndpointRow[]
   legacyRows?: GuideLegacyRow[]
+  errorRows?: GuideErrorRow[]
   code?: string
 }
 
@@ -412,6 +441,47 @@ const legacyAPIPathRows: GuideLegacyRow[] = [
   },
 ]
 
+const errorCatalogRows: GuideErrorRow[] = [
+  { id: 'S2A-1001', code: 'INVALID_REQUEST', http: '400', message: 'The request is invalid.' },
+  { id: 'S2A-1002', code: 'REQUEST_BODY_INVALID', http: '400', message: 'The request body is invalid.' },
+  { id: 'S2A-1003', code: 'REQUEST_TOO_LARGE', http: '413', message: 'The request body is too large.' },
+  { id: 'S2A-1004', code: 'MODEL_NOT_SUPPORTED', http: '400', message: 'The requested model is not supported.' },
+  { id: 'S2A-1005', code: 'CONTENT_POLICY_VIOLATION', http: '400', message: 'The request was blocked by the content policy.' },
+  { id: 'S2A-1006', code: 'ENDPOINT_NOT_FOUND', http: '404', message: 'The requested endpoint was not found.' },
+  { id: 'S2A-2001', code: 'API_KEY_REQUIRED', http: '401', message: 'An API key is required.' },
+  { id: 'S2A-2002', code: 'API_KEY_INVALID', http: '401', message: 'The API key is invalid.' },
+  { id: 'S2A-2003', code: 'API_KEY_INACTIVE', http: '403', message: 'This API key is inactive.' },
+  { id: 'S2A-2004', code: 'ACCESS_DENIED', http: '403', message: 'You do not have permission to perform this action.' },
+  { id: 'S2A-2005', code: 'SESSION_EXPIRED', http: '401', message: 'Your session has expired. Please sign in again.' },
+  { id: 'S2A-2006', code: 'ACCOUNT_SUSPENDED', http: '403', message: 'This account is unavailable. Please contact support.' },
+  { id: 'S2A-3001', code: 'RATE_LIMIT_EXCEEDED', http: '429', message: 'The request rate limit has been exceeded. Please retry later.' },
+  { id: 'S2A-3002', code: 'CONCURRENCY_LIMIT_EXCEEDED', http: '429', message: 'The concurrent request limit has been exceeded. Please retry later.' },
+  { id: 'S2A-3003', code: 'SUBSCRIPTION_QUOTA_EXCEEDED', http: '429', message: 'The subscription quota has been exceeded. Please retry later.' },
+  { id: 'S2A-3004', code: 'BALANCE_INSUFFICIENT', http: '402', message: 'Insufficient balance to process this request.' },
+  { id: 'S2A-3005', code: 'BILLING_RESERVATION_REJECTED', http: '402', message: 'The available balance cannot authorize this request.' },
+  { id: 'S2A-3006', code: 'BILLING_SERVICE_UNAVAILABLE', http: '503', message: 'The billing service is temporarily unavailable. Please retry later.' },
+  { id: 'S2A-4001', code: 'RESOURCE_NOT_FOUND', http: '404', message: 'The requested resource was not found.' },
+  { id: 'S2A-4002', code: 'RESOURCE_CONFLICT', http: '409', message: 'The requested operation conflicts with the current resource state.' },
+  { id: 'S2A-4003', code: 'OPERATION_NOT_ALLOWED', http: '409', message: 'This operation is not allowed in the current state.' },
+  { id: 'S2A-4004', code: 'OPERATION_IN_PROGRESS', http: '409', message: 'The requested operation is already in progress.' },
+  { id: 'S2A-4005', code: 'FEATURE_UNAVAILABLE', http: '503', message: 'This feature is temporarily unavailable. Please retry later.' },
+  { id: 'S2A-5001', code: 'NO_AVAILABLE_UPSTREAM', http: '503', message: 'No upstream service is currently available. Please retry later.' },
+  { id: 'S2A-5002', code: 'UPSTREAM_CREDENTIALS_UNAVAILABLE', http: '503', message: 'No upstream credentials are currently available. Please retry later.' },
+  { id: 'S2A-5003', code: 'UPSTREAM_AUTHENTICATION_FAILED', http: '502', message: 'The upstream service rejected its credentials.' },
+  { id: 'S2A-5004', code: 'UPSTREAM_RATE_LIMITED', http: '429', message: 'The upstream service is rate limited. Please retry later.' },
+  { id: 'S2A-5005', code: 'UPSTREAM_MODEL_UNAVAILABLE', http: '503', message: 'The requested model is not currently available from the upstream service.' },
+  { id: 'S2A-5006', code: 'UPSTREAM_OVERLOADED', http: '503', message: 'The upstream service is temporarily overloaded. Please retry later.' },
+  { id: 'S2A-5007', code: 'UPSTREAM_TIMEOUT', http: '504', message: 'The upstream service did not respond in time. Please retry later.' },
+  { id: 'S2A-5008', code: 'UPSTREAM_CONNECTION_FAILED', http: '502', message: 'The gateway could not connect to the upstream service.' },
+  { id: 'S2A-5009', code: 'UPSTREAM_INVALID_RESPONSE', http: '502', message: 'The upstream service returned an invalid response.' },
+  { id: 'S2A-5010', code: 'UPSTREAM_ACCESS_DENIED', http: '502', message: 'The upstream service denied the request.' },
+  { id: 'S2A-6001', code: 'STREAM_INTERRUPTED', http: 'stream event', message: 'The response stream was interrupted. Please retry the request.' },
+  { id: 'S2A-6002', code: 'STREAM_PROTOCOL_ERROR', http: 'stream event', message: 'The response stream returned an invalid event.' },
+  { id: 'S2A-6003', code: 'WEBSOCKET_CONNECTION_CLOSED', http: 'WebSocket event', message: 'The WebSocket connection was closed before the request completed.' },
+  { id: 'S2A-9001', code: 'INTERNAL_ERROR', http: '500', message: 'An internal error occurred. Please retry later.' },
+  { id: 'S2A-9002', code: 'PLATFORM_DEPENDENCY_UNAVAILABLE', http: '503', message: 'A required platform service is temporarily unavailable. Please retry later.' },
+]
+
 const codexFormalConfigExample = `# Codex config.toml 推荐写法
 base_url = "https://api.aaccx.pw/v1"
 wire_api = "responses"
@@ -563,6 +633,28 @@ const guideTopics: GuideTopic[] = [
           '如果模型没有出现，先执行 Chat: Manage Language Models，确认 AACCX provider 和 GPT-5.5 可见。',
           '如果仍然走 /v1/chat/completions，说明 apiType 或 url 仍是旧配置；如果报 API key is required，说明 Authorization header 没有写到对应模型的 requestHeaders 里。',
         ],
+      },
+    ],
+  },
+  {
+    id: 'error-codes',
+    title: '错误编号参考',
+    description: '查询 S2A 错误编号、英文机器码和规范英文提示。',
+    kind: 'sections',
+    sections: [
+      {
+        title: '先看响应位置',
+        paragraphs: [
+          '标准错误响应会带 X-Sub2API-Error-ID 和 X-Sub2API-Error-Code；可重试错误会带 X-Sub2API-Retryable，已知等待时间会额外带 Retry-After。',
+          'OpenAI 和 Anthropic 兼容响应会在 error 对象里包含 error_id、sub2api_code、retryable、retry_after 和 request_id。排查时优先看 S2A 编号，不要只看 HTTP 状态。',
+        ],
+      },
+      {
+        title: '错误编号总览',
+        paragraphs: [
+          '下面这些英文提示是对外规范文案。展示给用户、写进排查文档或做客户端映射时，以这一组编号和英文代码为准。',
+        ],
+        errorRows: errorCatalogRows,
       },
     ],
   },
@@ -834,6 +926,10 @@ const activeTopic = computed(() => (
 
 .dark .usage-guide-endpoint-table {
   color: rgb(209 213 219);
+}
+
+.usage-guide-error-table {
+  min-width: 58rem;
 }
 
 .usage-guide-endpoint-table th,

@@ -9,9 +9,26 @@ const viewPath = resolve(currentDir, '../UsageGuideView.vue')
 const routerPath = resolve(currentDir, '../../../router/index.ts')
 const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
 const publicUsageGuideDir = resolve(currentDir, '../../../../public/usage-guide')
+const errorContractPath = resolve(currentDir, '../../../../../docs/ERROR_CONTRACT.md')
+
+const parseErrorContractCatalog = () => {
+  const source = readFileSync(errorContractPath, 'utf8')
+
+  return source
+    .split('\n')
+    .filter((line) => line.startsWith('| S2A-'))
+    .map((line) => {
+      const [id, code, http, message] = line
+        .split('|')
+        .slice(1, -1)
+        .map((cell) => cell.trim())
+
+      return { id, code, http, message }
+    })
+}
 
 describe('UsageGuideView', () => {
-  it('声明使用方法控制台和六个教程栏目', () => {
+  it('声明使用方法控制台和七个教程栏目', () => {
     expect(existsSync(viewPath)).toBe(true)
     if (!existsSync(viewPath)) return
 
@@ -28,6 +45,8 @@ describe('UsageGuideView', () => {
     expect(source).toContain("title: 'VS Code Copilot 接入'")
     expect(source).toContain("id: 'image-generation'")
     expect(source).toContain("title: '生图方法'")
+    expect(source).toContain("id: 'error-codes'")
+    expect(source).toContain("title: '错误编号参考'")
     expect(source).toContain("id: 'trae'")
     expect(source).toContain("title: 'Trae 接入'")
     expect(source).toContain('activeTopicId')
@@ -172,6 +191,30 @@ describe('UsageGuideView', () => {
     }
 
     expect(source).not.toContain('base_url = "https://api.aaccx.pw/responses"')
+  })
+
+  it('错误编号参考栏目完整展示错误契约 catalog', () => {
+    expect(existsSync(viewPath)).toBe(true)
+    expect(existsSync(errorContractPath)).toBe(true)
+    if (!existsSync(viewPath) || !existsSync(errorContractPath)) return
+
+    const source = readFileSync(viewPath, 'utf8')
+    const catalogRows = parseErrorContractCatalog()
+
+    expect(catalogRows.length).toBeGreaterThan(0)
+    expect(source).toContain("id: 'error-codes'")
+    expect(source).toContain("title: '错误编号参考'")
+    expect(source).toContain('查询 S2A 错误编号、英文机器码和规范英文提示。')
+    expect(source).toContain("title: '错误编号总览'")
+    expect(source).toContain('X-Sub2API-Error-ID')
+    expect(source).toContain('Retry-After')
+
+    for (const row of catalogRows) {
+      expect(source, `缺少错误编号：${row.id}`).toContain(`id: '${row.id}'`)
+      expect(source, `缺少错误代码：${row.code}`).toContain(`code: '${row.code}'`)
+      expect(source, `缺少错误状态：${row.http}`).toContain(`http: '${row.http}'`)
+      expect(source, `缺少英文提示：${row.message}`).toContain(`message: '${row.message}'`)
+    }
   })
 
   it('VS Code Copilot 接入栏目说明自定义端点、配置文件和 xhigh 思考程度', () => {
