@@ -5,10 +5,11 @@ export interface PurchaseProductCardRow {
 
 export interface PurchaseProductCardModel {
   testId?: string
+  eyebrowText: string
   title: string
+  priceLabel: string
   priceText: string
   detailRows: PurchaseProductCardRow[]
   buttonText: string
   active?: boolean
 }
-

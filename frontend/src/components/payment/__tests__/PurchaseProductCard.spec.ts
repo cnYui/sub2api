@@ -5,13 +5,16 @@ import type { PurchaseProductCardModel } from '../purchaseProductCard'
 
 const productFixture = (overrides: Partial<PurchaseProductCardModel> = {}): PurchaseProductCardModel => ({
   testId: 'purchase-product-card',
-  title: '月度订阅套餐A',
+  eyebrowText: '订阅',
+  title: '28 天订阅套餐A',
+  priceLabel: '价格',
   priceText: '¥29.29',
   buttonText: '立即开通',
   active: false,
   detailRows: [
-    { label: '日限额', value: '19刀' },
-    { label: '刷新时间', value: '24点刷新' },
+    { label: '周额度', value: '72刀' },
+    { label: '28 天总额度', value: '288刀' },
+    { label: '刷新时间', value: '每 7 天刷新' },
     { label: '手续费详情', value: '¥29元 + 1%' },
   ],
   ...overrides,
@@ -39,12 +42,13 @@ describe('PurchaseProductCard', () => {
       'dark:from-black',
       'dark:to-black',
     ]))
-    expect(text).toContain('PLAN')
-    expect(text).toContain('月度订阅套餐A')
-    expect(text).toContain('Price')
+    expect(text).toContain('订阅')
+    expect(text).toContain('28 天订阅套餐A')
+    expect(text).toContain('价格')
     expect(text).toContain('¥29.29')
-    expect(text).toContain('日限额19刀')
-    expect(text).toContain('刷新时间24点刷新')
+    expect(text).toContain('周额度72刀')
+    expect(text).toContain('28 天总额度288刀')
+    expect(text).toContain('刷新时间每 7 天刷新')
     expect(text).toContain('手续费详情¥29元 + 1%')
     expect(button.classes()).toEqual(expect.arrayContaining([
       'rounded-full',
@@ -60,16 +64,18 @@ describe('PurchaseProductCard', () => {
     expect(wrapper.emitted('select')?.[0]).toEqual([product])
   })
 
-  it('renders traffic cards with the same component and refresh-time row', () => {
+  it('renders traffic cards with the same component and validity row', () => {
     const wrapper = mount(PurchaseProductCard, {
       props: {
         product: productFixture({
+          eyebrowText: '流量卡',
           title: '5刀流量卡',
+          priceLabel: '价格',
           priceText: '¥2.02',
           buttonText: '立即购买',
           detailRows: [
             { label: '可用额度', value: '5刀' },
-            { label: '刷新时间', value: '365天' },
+            { label: '有效期', value: '365天' },
             { label: '手续费详情', value: '¥2元 + 1%' },
           ],
         }),
@@ -79,7 +85,7 @@ describe('PurchaseProductCard', () => {
 
     expect(text).toContain('5刀流量卡')
     expect(text).toContain('可用额度5刀')
-    expect(text).toContain('刷新时间365天')
+    expect(text).toContain('有效期365天')
     expect(text).not.toContain('可用范围')
     expect(text).not.toContain('一次性流量包-有效期')
   })

@@ -132,7 +132,7 @@
             <span class="text-sm font-medium text-gray-900 dark:text-white">
               <template v-if="row.type === 'balance'">¥{{ value.toFixed(2) }}</template>
               <template v-else-if="row.type === 'subscription'">
-                {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
+                {{ redeemCodeValidityDays(row) }} {{ t('admin.redeem.days') }}
                 <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
                   >({{ row.group.name }})</span
                 >
@@ -353,7 +353,14 @@
                   max="365"
                   required
                   class="input"
+                  :disabled="isSelectedPublicCodexSubscriptionGroup"
                 />
+                <p
+                  v-if="isSelectedPublicCodexSubscriptionGroup"
+                  class="mt-1.5 text-xs text-gray-500 dark:text-gray-400"
+                >
+                  {{ t('admin.redeem.publicCodex28DayHint') }}
+                </p>
               </div>
             </template>
             <div>
@@ -634,6 +641,10 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import {
+  PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  isPublicCodexSubscriptionGroupName,
+} from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -647,6 +658,8 @@ interface GroupOption {
   subscriptionType: SubscriptionType
   rate: number
 }
+
+const publicCodexSubscriptionValidityDays = PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS
 
 const showGenerateDialog = ref(false)
 const showResultDialog = ref(false)
@@ -836,6 +849,38 @@ const generateForm = reactive({
   expiry_option: 'never' as RedeemCodeExpiryOption,
   custom_expiry_days: 7
 })
+
+const selectedSubscriptionGroup = computed(() =>
+  subscriptionGroups.value.find((group) => group.id === generateForm.group_id)
+)
+
+const isPublicCodexSubscriptionGroup = (group: Pick<Group, 'name' | 'subscription_type'> | null | undefined) =>
+  Boolean(
+    group &&
+      group.subscription_type === 'subscription' &&
+      isPublicCodexSubscriptionGroupName(group.name)
+  )
+
+const isSelectedPublicCodexSubscriptionGroup = computed(() =>
+  isPublicCodexSubscriptionGroup(selectedSubscriptionGroup.value)
+)
+
+const redeemCodeValidityDays = (row: RedeemCode) => {
+  if (isPublicCodexSubscriptionGroup(row.group)) {
+    return publicCodexSubscriptionValidityDays
+  }
+  return row.validity_days || 30
+}
+
+watch(
+  isSelectedPublicCodexSubscriptionGroup,
+  (isPublicCodex) => {
+    if (isPublicCodex) {
+      generateForm.validity_days = publicCodexSubscriptionValidityDays
+    }
+  },
+  { immediate: true }
+)
 
 // 监听类型变化，邀请码类型时自动设置 value 为 0
 watch(
@@ -1037,7 +1082,11 @@ const handleGenerateCodes = async () => {
       generateForm.type,
       generateForm.value,
       generateForm.type === 'subscription' ? generateForm.group_id : undefined,
-      generateForm.type === 'subscription' ? generateForm.validity_days : undefined,
+      generateForm.type === 'subscription'
+        ? isSelectedPublicCodexSubscriptionGroup.value
+          ? publicCodexSubscriptionValidityDays
+          : generateForm.validity_days
+        : undefined,
       expiresInDays
     )
     showGenerateDialog.value = false

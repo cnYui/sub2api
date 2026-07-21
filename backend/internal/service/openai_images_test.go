@@ -1001,6 +1001,59 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyGenerationUsesConfiguredV1BaseU
 	require.Equal(t, "aGVsbG8=", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIKeyNonStreamOutputTokensBillAsImageWhenDetailsMissing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","response_format":"b64_json"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{
+		cfg: &config.Config{},
+		httpUpstream: &httpUpstreamRecorder{
+			resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header: http.Header{
+					"Content-Type": []string{"application/json"},
+					"X-Request-Id": []string{"req_img_no_output_details"},
+				},
+				Body: io.NopCloser(strings.NewReader(`{
+					"created":1710000011,
+					"usage":{
+						"input_tokens":1097,
+						"output_tokens":2058,
+						"total_tokens":3155,
+						"input_tokens_details":{"image_tokens":992,"text_tokens":105}
+					},
+					"data":[{"b64_json":"aGVsbG8=","revised_prompt":"draw a cat"}]
+				}`)),
+			},
+		},
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       7,
+		Name:     "openai-apikey",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key": "test-api-key",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, result.ImageCount)
+	require.Equal(t, 992, result.Usage.ImageInputTokens)
+	require.Equal(t, 2058, result.Usage.ImageOutputTokens)
+}
+
 func TestOpenAIGatewayServiceForwardImages_APIKeyStreamJSONResponseBillsImage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","stream":true,"response_format":"b64_json"}`)

@@ -39,6 +39,8 @@ type UserSubscription struct {
 	DailyWindowStart *time.Time `json:"daily_window_start,omitempty"`
 	// WeeklyWindowStart holds the value of the "weekly_window_start" field.
 	WeeklyWindowStart *time.Time `json:"weekly_window_start,omitempty"`
+	// WeeklyAnchorAt holds the value of the "weekly_anchor_at" field.
+	WeeklyAnchorAt *time.Time `json:"weekly_anchor_at,omitempty"`
 	// MonthlyWindowStart holds the value of the "monthly_window_start" field.
 	MonthlyWindowStart *time.Time `json:"monthly_window_start,omitempty"`
 	// DailyUsageUsd holds the value of the "daily_usage_usd" field.
@@ -71,9 +73,11 @@ type UserSubscriptionEdges struct {
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
 	// EntitlementPeriods holds the value of the entitlement_periods edge.
 	EntitlementPeriods []*SubscriptionEntitlementPeriod `json:"entitlement_periods,omitempty"`
+	// QuotaDebtAdjustments holds the value of the quota_debt_adjustments edge.
+	QuotaDebtAdjustments []*SubscriptionQuotaDebtAdjustment `json:"quota_debt_adjustments,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [5]bool
+	loadedTypes [6]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -127,6 +131,15 @@ func (e UserSubscriptionEdges) EntitlementPeriodsOrErr() ([]*SubscriptionEntitle
 	return nil, &NotLoadedError{edge: "entitlement_periods"}
 }
 
+// QuotaDebtAdjustmentsOrErr returns the QuotaDebtAdjustments value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) QuotaDebtAdjustmentsOrErr() ([]*SubscriptionQuotaDebtAdjustment, error) {
+	if e.loadedTypes[5] {
+		return e.QuotaDebtAdjustments, nil
+	}
+	return nil, &NotLoadedError{edge: "quota_debt_adjustments"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*UserSubscription) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -138,7 +151,7 @@ func (*UserSubscription) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case usersubscription.FieldStatus, usersubscription.FieldNotes:
 			values[i] = new(sql.NullString)
-		case usersubscription.FieldCreatedAt, usersubscription.FieldUpdatedAt, usersubscription.FieldDeletedAt, usersubscription.FieldStartsAt, usersubscription.FieldExpiresAt, usersubscription.FieldDailyWindowStart, usersubscription.FieldWeeklyWindowStart, usersubscription.FieldMonthlyWindowStart, usersubscription.FieldAssignedAt:
+		case usersubscription.FieldCreatedAt, usersubscription.FieldUpdatedAt, usersubscription.FieldDeletedAt, usersubscription.FieldStartsAt, usersubscription.FieldExpiresAt, usersubscription.FieldDailyWindowStart, usersubscription.FieldWeeklyWindowStart, usersubscription.FieldWeeklyAnchorAt, usersubscription.FieldMonthlyWindowStart, usersubscription.FieldAssignedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -224,6 +237,13 @@ func (_m *UserSubscription) assignValues(columns []string, values []any) error {
 				_m.WeeklyWindowStart = new(time.Time)
 				*_m.WeeklyWindowStart = value.Time
 			}
+		case usersubscription.FieldWeeklyAnchorAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field weekly_anchor_at", values[i])
+			} else if value.Valid {
+				_m.WeeklyAnchorAt = new(time.Time)
+				*_m.WeeklyAnchorAt = value.Time
+			}
 		case usersubscription.FieldMonthlyWindowStart:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field monthly_window_start", values[i])
@@ -307,6 +327,11 @@ func (_m *UserSubscription) QueryEntitlementPeriods() *SubscriptionEntitlementPe
 	return NewUserSubscriptionClient(_m.config).QueryEntitlementPeriods(_m)
 }
 
+// QueryQuotaDebtAdjustments queries the "quota_debt_adjustments" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryQuotaDebtAdjustments() *SubscriptionQuotaDebtAdjustmentQuery {
+	return NewUserSubscriptionClient(_m.config).QueryQuotaDebtAdjustments(_m)
+}
+
 // Update returns a builder for updating this UserSubscription.
 // Note that you need to call UserSubscription.Unwrap() before calling this method if this UserSubscription
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -363,6 +388,11 @@ func (_m *UserSubscription) String() string {
 	builder.WriteString(", ")
 	if v := _m.WeeklyWindowStart; v != nil {
 		builder.WriteString("weekly_window_start=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.WeeklyAnchorAt; v != nil {
+		builder.WriteString("weekly_anchor_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")

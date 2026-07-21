@@ -34,11 +34,19 @@ export interface UserDashboardQuota {
   period_mode: DashboardQuotaPeriodMode
   today_usage_usd: number
   today_limit_usd: number
+  today_limit_unlimited: boolean
   period_usage_usd: number
   period_limit_usd: number
+  period_limit_unlimited: boolean
   period_days: number
   period_starts_at?: string
   period_expires_at?: string
+  quota_window_unit?: 'day' | 'week' | 'month' | 'period' | 'none'
+  window_usage_usd?: number
+  window_limit_usd?: number
+  window_limit_unlimited?: boolean
+  window_starts_at?: string
+  window_resets_at?: string
 }
 
 export interface UserDashboardStats {

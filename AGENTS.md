@@ -17,6 +17,14 @@
 
 ## 最高优先级定论
 
+- 2026-07-22 已在本地代码层完成公共 Codex 订阅“28 天有效 + 按订阅锚点每 7 天滚动刷新额度”补齐：schema/Ent、周窗口计算器、订单不可变快照、权益段周额度/周期总额度、usage_facts 归属、退款 quote/二次计算、Dashboard/Key/订阅/API 字段和前端整数 USD 文案均已接入；`go test ./...`、前端 typecheck/lint/test/build 通过。未执行 cutover `--apply`，本地 dry-run 仍阻塞 51 个历史对象；未碰公网、未提交、未推送。结果见 `docs/ai/context/20260722-035013-weekly-rolling-subscription-quota-28day-gap-fix-result_CN.md`。
+
+- 2026-07-21 已在本地开发态完成订阅日额度超额顺延：跨自然日时新日窗口写入 `max(旧日用量 - 日额度 × 已跨天数, 0)`，请求前限额判断、成功结算落库、每日校准和 Dashboard quota 均使用该 carryover；管理员手动重置仍清零，无限额订阅不产生 carryover。已备份并重建本地 `sub2api-dev:8080`，172/173 本地回填迁移已应用，当前 64 个有限额 active 订阅里有 2 个超额，合计约 424.15 USD 将逐日抵扣；未触碰公网。结果见 `docs/ai/context/20260721-212052-subscription-daily-overage-carryover-result_CN.md`。
+
+- 2026-07-21 已在本地开发态完成额度削减、用户用量/错误请求可见性与图片扣费修复：Codex 订阅日额度统一为 15/25/39/53/66/100/133 USD，`/api/v1/payment/plans` 返回 group 限额字段，默认启用 `allow_user_view_error_requests=true`，图片 usage 解析兼容 `image_tokens.*` 并在图片端点缺少拆分时把输出 token 归入图片输出 token；本地 `sub2api-dev:8080` 已重建健康，未触碰公网。结果见 `docs/ai/context/20260721-181826-billing-quota-usage-image-result_CN.md`。
+
+- 2026-07-21 已创建个人 Codex 排查 skill `diagnose-sub2api-cpa`：位置 `C:\Users\yui\.codex\skills\diagnose-sub2api-cpa`，用于 Sub2API/CPA 部署后公网 `/v1/models`、`/v1/responses`、`/v1/chat/completions`、图片生成、`usage_facts`、用户面板扣费、TLS/x509、CPA 凭证和 `auth_unavailable`/429/502/503/504 分段排查；脚本只从环境变量读取 Key，不记录完整密钥。结果见 `docs/ai/context/20260721-173923-diagnose-sub2api-cpa-skill-result_CN.md`。
+
 - 2026-07-20 已批准全前端 Material Relay 重设计：范围覆盖公开页、认证页、用户端、管理端和通用组件；目标是信息效率、品牌辨识度、交互手感同等重要。视觉基线为通透但克制的浮动材质，半透明只用于浮动层，内容面使用实色高可读表面；动效遵循 `Press / Tap feedback`、`Origin-aware animation`、`Continuity transition`、`Stagger` 词汇与统一 easing/时长契约。设计文档见 `docs/ai/context/20260720-102228-sub2api-material-relay-frontend-redesign-design_CN.md`，尚未改业务代码、未部署。
 
 - 2026-07-19 已完成本地 Sub2API/CLIProxyAPI 共享 Docker bridge 实施：`sub2api-dev` 保留 PostgreSQL/Redis 数据网络并额外加入 `sub2api-cliproxy-local`，`cliproxyapi-local-dev` 只加入该共享网络；账号 `cliproxy-local-openai` 已通过正式管理 API 切换为 `https://cliproxyapi:8317/v1`，数据库与 Redis 快照一致。新增内部 CA/叶子证书、可选运行时 CA 注入、两仓库本地 Compose 与回归测试；两个应用分别重建后 DNS、TLS、业务和 usage 回调仍有效，数据容器未替换。CLI 本地 `auths/` 为空，成功响应/成功 usage event 尚未验证；失败事件回调 200 且不产生计费事实。未改公网、未提交、未推送，结果见 `docs/ai/context/20260719-204112-sub2api-cliproxyapi-shared-network-implementation-result_CN.md`。

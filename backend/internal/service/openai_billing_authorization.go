@@ -28,6 +28,7 @@ type OpenAIBillingAuthorizationInput struct {
 	ImageModel                 string
 	Group                      *Group
 	Subscription               *UserSubscription
+	EntitlementPeriod          *SubscriptionEntitlementPeriod
 	ServiceTier                string
 	RateMultiplier             float64
 	Body                       []byte
@@ -39,13 +40,14 @@ type OpenAIBillingAuthorizationInput struct {
 }
 
 type OpenAIBillingAuthorization struct {
-	Source             BillingSource
-	ReservationID      *int64
-	RequestFingerprint string
-	ReserveUSD         float64
-	PricingSnapshot    json.RawMessage
-	EffectiveBody      []byte
-	Enforced           bool
+	Source              BillingSource
+	ReservationID       *int64
+	RequestFingerprint  string
+	ReserveUSD          float64
+	EntitlementPeriodID *int64
+	PricingSnapshot     json.RawMessage
+	EffectiveBody       []byte
+	Enforced            bool
 }
 
 type OpenAIBillingAuthorizer interface {
@@ -103,6 +105,34 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 		budget, err := s.estimate(ctx, input, math.MaxFloat64)
 		if err != nil {
 			return nil, err
+		}
+		if input.Group.UsesRollingWeeklyQuota() {
+			period := input.EntitlementPeriod
+			if period == nil {
+				period = input.Subscription.CurrentEntitlementPeriod
+			}
+			window, ok := input.Subscription.RollingWeeklyWindowForEntitlement(input.Group, period, time.Now())
+			if ok && period != nil && period.WeeklyLimitUSD != nil && *period.WeeklyLimitUSD > 0 {
+				weeklyUsage := input.Subscription.RollingWeeklyUsageUSD(window)
+				if !window.Allows(weeklyUsage, budget.ReserveUSD) {
+					return nil, ErrWeeklyLimitExceeded.WithMetadata(map[string]string{
+						"window_resets_at": window.ResetsAt.UTC().Format(time.RFC3339),
+					})
+				}
+				periodID := period.ID
+				return &OpenAIBillingAuthorization{
+					Source:              BillingSourceSubscription,
+					RequestFingerprint:  input.RequestFingerprint,
+					ReserveUSD:          budget.ReserveUSD,
+					EntitlementPeriodID: &periodID,
+					PricingSnapshot:     budget.PricingSnapshot,
+					EffectiveBody:       effectiveOpenAIBillingBody(input, budget.Body),
+					Enforced:            s.enabled,
+				}, nil
+			}
+			if !input.Group.HasDailyLimit() {
+				return nil, ErrSubscriptionInvalid
+			}
 		}
 		daily, weekly, monthly := input.Subscription.CheckAllLimits(input.Group, budget.ReserveUSD)
 		if daily && weekly && monthly {

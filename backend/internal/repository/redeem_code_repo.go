@@ -310,6 +310,9 @@ func (r *redeemCodeRepository) batchUpdate(ctx context.Context, client *dbent.Cl
 			up.ClearGroupID()
 		}
 	}
+	if fields.ValidityDays != nil {
+		up.SetValidityDays(*fields.ValidityDays)
+	}
 
 	affected, err := up.Save(ctx)
 	if err != nil {

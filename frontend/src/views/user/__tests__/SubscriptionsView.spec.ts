@@ -24,6 +24,12 @@ vi.mock('vue-i18n', async () => {
     useI18n: () => ({
       t: (key: string, params?: Record<string, unknown>) => {
         if (key === 'userSubscriptions.daysRemaining') return `剩余 ${params?.days} 天`
+        if (key === 'userSubscriptions.trafficPack.title') return `GPT 流量卡 #${params?.id}`
+        if (key === 'userSubscriptions.trafficPack.description') return `剩余额度 ${params?.remaining}，当前可用 ${params?.available}。`
+        if (key === 'userSubscriptions.trafficPack.settledUsage') return '已结算用量'
+        if (key === 'userSubscriptions.trafficPack.currentAvailable') return `当前可用 ${params?.amount}`
+        if (key === 'userSubscriptions.expires') return '到期时间'
+        if (key === 'userSubscriptions.weeklyWindowNotActive') return '当前周额度窗口尚未激活'
         return key
       },
     }),
@@ -237,10 +243,10 @@ describe('SubscriptionsView traffic packs', () => {
           id: 2,
           name: 'codex-pool-19-usd',
           platform: 'openai',
-          description: 'yui.web 29 元订阅池迁移：每日 19 USD',
+          description: '29 元订阅池，每周 72 USD，28 天有效期',
           rate_multiplier: 1,
-          daily_limit_usd: 19,
-          weekly_limit_usd: null,
+          daily_limit_usd: null,
+          weekly_limit_usd: 72,
           monthly_limit_usd: null,
         },
       },
@@ -276,5 +282,124 @@ describe('SubscriptionsView traffic packs', () => {
     expect(wrapper.text()).not.toContain('payment.renewNow')
     expect(wrapper.findAll('button').some(button => button.text().includes('续费'))).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
+  })
+
+  it('公共 Codex 周订阅没有后端 reset 字段时明确展示窗口未激活', async () => {
+    getMySubscriptions.mockResolvedValue([
+      {
+        id: 8,
+        group_id: 2,
+        status: 'active',
+        starts_at: '2026-07-20T00:00:00+08:00',
+        expires_at: '2099-01-01T00:00:00+08:00',
+        daily_usage_usd: 0,
+        weekly_usage_usd: 0,
+        monthly_usage_usd: 0,
+        daily_window_start: null,
+        weekly_window_start: '2026-07-20T00:00:00+08:00',
+        weekly_window_resets_at: null,
+        effective_weekly_limit_usd: null,
+        monthly_window_start: null,
+        group: {
+          id: 2,
+          name: 'codex-pool-19-usd',
+          platform: 'openai',
+          description: '29 元订阅池，每周 72 USD，28 天有效期',
+          rate_multiplier: 1,
+          daily_limit_usd: null,
+          weekly_limit_usd: 72,
+          monthly_limit_usd: null,
+        },
+      },
+    ])
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        methods: {},
+        global_min: 0,
+        global_max: 0,
+        plans: [],
+        traffic_packs: [],
+        traffic_credit_summary: null,
+        traffic_credits: [],
+        balance_disabled: false,
+        recharge_fee_rate: 0,
+        help_text: '',
+        help_image_url: '',
+        stripe_publishable_key: '',
+      },
+    })
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('当前周额度窗口尚未激活')
+    expect(wrapper.text()).not.toContain('后重置')
+    expect(wrapper.text()).not.toContain('$0 / $72')
+  })
+
+  it('公共 Codex 订阅即使 group 仍是旧日额度也展示有效周额度', async () => {
+    getMySubscriptions.mockResolvedValue([
+      {
+        id: 9,
+        group_id: 2,
+        status: 'active',
+        starts_at: '2026-07-20T00:00:00+08:00',
+        expires_at: '2026-07-21T00:00:00+08:00',
+        daily_usage_usd: 0,
+        weekly_usage_usd: 1.2,
+        monthly_usage_usd: 0,
+        daily_window_start: '2026-07-20T00:00:00+08:00',
+        weekly_window_start: '2026-07-20T00:00:00+08:00',
+        weekly_window_resets_at: '2026-07-21T00:00:00+08:00',
+        effective_weekly_limit_usd: 72 / 7,
+        monthly_window_start: null,
+        group: {
+          id: 2,
+          name: 'codex-pool-19-usd',
+          platform: 'openai',
+          description: '历史旧 group 行',
+          rate_multiplier: 1,
+          daily_limit_usd: 15,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+        },
+      },
+    ])
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        methods: {},
+        global_min: 0,
+        global_max: 0,
+        plans: [],
+        traffic_packs: [],
+        traffic_credit_summary: null,
+        traffic_credits: [],
+        balance_disabled: false,
+        recharge_fee_rate: 0,
+        help_text: '',
+        help_image_url: '',
+        stripe_publishable_key: '',
+      },
+    })
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('$1 / $10')
+    expect(wrapper.text()).not.toContain('$0 / $15')
   })
 })

@@ -319,6 +319,8 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyAuthorizesBeforeUpstream(t *tes
 	require.Equal(t, []int64{reservationID}, authorizer.dispatchedIDs)
 	require.JSONEq(t, string(authorizer.authorization.EffectiveBody), string(upstream.lastBody))
 	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+	require.Equal(t, 3, result.Usage.ImageInputTokens)
+	require.Equal(t, 1756, result.Usage.ImageOutputTokens)
 }
 
 func newOpenAIBillingAuthorizationTestAccount() *Account {

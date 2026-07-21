@@ -9,7 +9,8 @@ import type {
   PaymentOrder,
   PaymentChannel,
   SubscriptionPlan,
-  ProviderInstance
+  ProviderInstance,
+  SubscriptionRefundQuote
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -45,6 +46,14 @@ export interface UpdatePaymentConfigRequest {
   product_name_suffix?: string
   help_image_url?: string
   help_text?: string
+}
+
+export interface AdminRefundResult {
+  success: boolean
+  warning?: string
+  require_force?: boolean
+  balance_deducted?: number
+  subscription_days_deducted?: number
 }
 
 export const adminPaymentAPI = {
@@ -101,9 +110,14 @@ export const adminPaymentAPI = {
     return apiClient.post(`/admin/payment/orders/${id}/retry`)
   },
 
-  /** Process a refund */
+  /** 处理退款 */
   refundOrder(id: number, data: { amount: number; reason: string; deduct_balance?: boolean; force?: boolean }) {
-    return apiClient.post(`/admin/payment/orders/${id}/refund`, data)
+    return apiClient.post<AdminRefundResult>(`/admin/payment/orders/${id}/refund`, data)
+  },
+
+  /** 获取管理员只读订阅额度退款报价 */
+  getRefundQuote(id: number) {
+    return apiClient.get<SubscriptionRefundQuote>(`/admin/payment/orders/${id}/refund-quote`)
   },
 
   // ==================== Channels ====================

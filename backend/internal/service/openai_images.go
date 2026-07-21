@@ -668,6 +668,11 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		}
 		rateMultiplier = resolver.Resolve(ctx, apiKey.User.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
 	}
+	subscription := getOpenAISubscriptionFromContext(c)
+	var entitlementPeriod *SubscriptionEntitlementPeriod
+	if subscription != nil {
+		entitlementPeriod = subscription.CurrentEntitlementPeriod
+	}
 	authorization, err := s.billingAuthorizationService.Authorize(ctx, OpenAIBillingAuthorizationInput{
 		RequestID:                  resolveUsageBillingRequestID(ctx, ""),
 		RequestFingerprint:         fingerprint,
@@ -677,7 +682,8 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		Model:                      requestModel,
 		ImageModel:                 requestModel,
 		Group:                      apiKey.Group,
-		Subscription:               getOpenAISubscriptionFromContext(c),
+		Subscription:               subscription,
+		EntitlementPeriod:          entitlementPeriod,
 		RateMultiplier:             rateMultiplier,
 		Body:                       body,
 		BudgetBody:                 buildOpenAIImagesBudgetBody(parsed),
@@ -1054,7 +1060,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesNonStreamingResponse(resp *http
 	c.Data(resp.StatusCode, contentType, body)
 
 	usage, _ := extractOpenAIUsageFromJSONBytes(body)
-	return usage, extractOpenAIImageCountFromJSONBytes(body), collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
+	imageCount := extractOpenAIImageCountFromJSONBytes(body)
+	inferOpenAIImagesOutputTokenUsage(&usage, imageCount)
+	return usage, imageCount, collectOpenAIResponseImageOutputSizesFromJSONBytes(body), nil
 }
 
 func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
@@ -1162,7 +1170,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 		}
 		flushSSEEvent()
 		finalizeFallbackBody()
-		return usage, imageCounter.Count(), imageCounter.Sizes(), firstTokenMs, nil
+		imageCount := imageCounter.Count()
+		inferOpenAIImagesOutputTokenUsage(&usage, imageCount)
+		return usage, imageCount, imageCounter.Sizes(), firstTokenMs, nil
 	}
 
 	type readEvent struct {
@@ -1229,7 +1239,9 @@ func (s *OpenAIGatewayService) handleOpenAIImagesStreamingResponse(
 			if !ok {
 				flushSSEEvent()
 				finalizeFallbackBody()
-				return usage, imageCounter.Count(), imageCounter.Sizes(), firstTokenMs, nil
+				imageCount := imageCounter.Count()
+				inferOpenAIImagesOutputTokenUsage(&usage, imageCount)
+				return usage, imageCount, imageCounter.Sizes(), firstTokenMs, nil
 			}
 			if ev.err != nil {
 				flushSSEEvent()
@@ -1297,6 +1309,14 @@ func extractOpenAIImagesBillableCountFromJSONBytes(body []byte) int {
 		return 1
 	}
 	return 0
+}
+
+func inferOpenAIImagesOutputTokenUsage(usage *OpenAIUsage, imageCount int) {
+	if usage == nil || imageCount <= 0 || usage.ImageOutputTokens > 0 || usage.OutputTokens <= 0 {
+		return
+	}
+	// 图片端点没有文本输出；上游缺少 image token 拆分时，output_tokens 就是图片输出 token。
+	usage.ImageOutputTokens = usage.OutputTokens
 }
 
 func mergeOpenAIUsage(dst *OpenAIUsage, body []byte) {

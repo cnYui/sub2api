@@ -270,14 +270,22 @@ const (
 
 // UserDashboardQuota 表示 Dashboard 上“使用 / 额度”的轻量读模型。
 type UserDashboardQuota struct {
-	PeriodMode      string     `json:"period_mode"`
-	TodayUsageUSD   float64    `json:"today_usage_usd"`
-	TodayLimitUSD   float64    `json:"today_limit_usd"`
-	PeriodUsageUSD  float64    `json:"period_usage_usd"`
-	PeriodLimitUSD  float64    `json:"period_limit_usd"`
-	PeriodDays      int        `json:"period_days"`
-	PeriodStartsAt  *time.Time `json:"period_starts_at,omitempty"`
-	PeriodExpiresAt *time.Time `json:"period_expires_at,omitempty"`
+	PeriodMode           string     `json:"period_mode"`
+	TodayUsageUSD        float64    `json:"today_usage_usd"`
+	TodayLimitUSD        float64    `json:"today_limit_usd"`
+	TodayLimitUnlimited  bool       `json:"today_limit_unlimited"`
+	PeriodUsageUSD       float64    `json:"period_usage_usd"`
+	PeriodLimitUSD       float64    `json:"period_limit_usd"`
+	PeriodLimitUnlimited bool       `json:"period_limit_unlimited"`
+	PeriodDays           int        `json:"period_days"`
+	PeriodStartsAt       *time.Time `json:"period_starts_at,omitempty"`
+	PeriodExpiresAt      *time.Time `json:"period_expires_at,omitempty"`
+	QuotaWindowUnit      string     `json:"quota_window_unit,omitempty"`
+	WindowUsageUSD       float64    `json:"window_usage_usd,omitempty"`
+	WindowLimitUSD       float64    `json:"window_limit_usd,omitempty"`
+	WindowLimitUnlimited bool       `json:"window_limit_unlimited,omitempty"`
+	WindowStartsAt       *time.Time `json:"window_starts_at,omitempty"`
+	WindowResetsAt       *time.Time `json:"window_resets_at,omitempty"`
 }
 
 // UsageLogFilters represents filters for usage log queries

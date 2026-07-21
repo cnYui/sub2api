@@ -34,6 +34,30 @@ func TestGroupEntityToService_PreservesMessagesDispatchModelConfig(t *testing.T)
 	require.Equal(t, group.MessagesDispatchModelConfig, got.MessagesDispatchModelConfig)
 }
 
+func TestGroupEntityToService_NormalizesPublicCodexSubscriptionQuota(t *testing.T) {
+	dailyLimit := 15.0
+	monthlyLimit := 450.0
+	group := &dbent.Group{
+		ID:                  2,
+		Name:                "codex-pool-19-usd",
+		Platform:            service.PlatformOpenAI,
+		Status:              service.StatusActive,
+		SubscriptionType:    service.SubscriptionTypeSubscription,
+		RateMultiplier:      1,
+		DailyLimitUsd:       &dailyLimit,
+		MonthlyLimitUsd:     &monthlyLimit,
+		DefaultValidityDays: 30,
+	}
+
+	got := groupEntityToService(group)
+	require.NotNil(t, got)
+	require.Nil(t, got.DailyLimitUSD)
+	require.Nil(t, got.MonthlyLimitUSD)
+	require.NotNil(t, got.WeeklyLimitUSD)
+	require.InDelta(t, 72, *got.WeeklyLimitUSD, 1e-9)
+	require.Equal(t, 28, got.DefaultValidityDays)
+}
+
 func TestAPIKeyRepository_GetByKeyForAuth_PreservesMessagesDispatchModelConfig_SQLite(t *testing.T) {
 	repo, client := newAPIKeyRepoSQLite(t)
 	ctx := context.Background()

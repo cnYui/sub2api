@@ -259,6 +259,7 @@ func ProvideSubscriptionService(
 ) *SubscriptionService {
 	svc := NewSubscriptionService(groupRepo, userSubRepo, billingCacheService, entClient, cfg)
 	svc.entitlementPeriodRepo = entitlementPeriodRepo
+	svc.StartSubscriptionCacheInvalidationSubscriber(context.Background())
 	return svc
 }
 

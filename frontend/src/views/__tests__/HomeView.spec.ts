@@ -110,18 +110,18 @@ describe('HomeView', () => {
     expect(wrapper.text()).not.toContain('AI API Gateway')
   })
 
-  it('中文首页文案展示精简套餐、时长、日限额和刷新规则', () => {
+  it('中文首页文案展示 28 天订阅、周额度和刷新规则', () => {
     const source = readSource('src/i18n/locales/zh.ts')
 
     expect(source).toContain("getStarted: '立即登录'")
     expect(source).toContain("unifiedGateway: '29 元套餐'")
-    expect(source).toContain('月度订阅-时间 30天，日限额 19刀，24点刷新')
+    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 72 刀')
     expect(source).toContain("multiAccount: '39 元套餐'")
-    expect(source).toContain('月度订阅-时间 30天，日限额 29刀，24点刷新')
+    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 97 刀')
     expect(source).toContain("balanceQuota: '59 元套餐'")
-    expect(source).toContain('月度订阅-时间 30天，日限额 49刀，24点刷新')
+    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 148 刀')
     expect(source).toContain("premiumQuota: '99 元套餐'")
-    expect(source).toContain('月度订阅-时间 30天，日限额 89刀，24点刷新')
+    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 248 刀')
     expect(source).not.toContain("getStarted: '立即开始'")
     expect(source).not.toContain("realtimeBilling: '按量计费'")
     expect(source).not.toContain('使用 cc-switch 项目，一键接入 API 到 Codex')

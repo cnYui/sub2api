@@ -99,6 +99,9 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
+		field.JSON("subscription_snapshot", map[string]any{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.String("provider_instance_id").
 			Optional().
 			Nillable().
@@ -194,6 +197,9 @@ func (PaymentOrder) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			MaxLen(128),
+		field.JSON("refund_basis", map[string]any{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 
 		// 时间节点
 		field.Time("expires_at").

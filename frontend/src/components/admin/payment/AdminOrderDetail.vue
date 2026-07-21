@@ -86,6 +86,79 @@
         </div>
       </div>
 
+      <div
+        v-if="hasSubscriptionSnapshot"
+        class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20"
+      >
+        <h4 class="mb-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
+          {{ t('payment.admin.subscriptionSnapshot') }}
+        </h4>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div v-if="snapshotString('plan_name')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.admin.planName') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">{{ snapshotString('plan_name') }}</span>
+          </div>
+          <div v-if="snapshotNumber('group_id')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.admin.groupId') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">#{{ snapshotNumber('group_id') }}</span>
+          </div>
+          <div v-if="snapshotNumber('validity_days')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.admin.validityDays') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">{{ snapshotNumber('validity_days') }}</span>
+          </div>
+          <div v-if="snapshotNumber('weekly_limit_usd')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.planCard.weeklyLimit') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">{{ formatSubscriptionQuotaUSD(snapshotNumber('weekly_limit_usd')) }}</span>
+          </div>
+          <div v-if="snapshotNumber('period_total_quota_usd')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.admin.periodTotalQuota') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">{{ formatSubscriptionQuotaUSD(snapshotNumber('period_total_quota_usd')) }}</span>
+          </div>
+          <div v-if="snapshotString('quota_window_unit')">
+            <span class="text-blue-600 dark:text-blue-400">{{ t('payment.admin.quotaWindow') }}:</span>
+            <span class="ml-1 text-blue-800 dark:text-blue-200">{{ snapshotString('quota_window_unit') }} / {{ snapshotNumber('quota_window_days') || '-' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        v-if="hasRefundBasis"
+        class="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20"
+      >
+        <h4 class="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
+          {{ t('payment.admin.refundBasis') }}
+        </h4>
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div v-if="basisNumber('entitlement_period_id')">
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.admin.entitlementPeriod') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">#{{ basisNumber('entitlement_period_id') }}</span>
+          </div>
+          <div>
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.purchaseBase') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">{{ creditedAmountSymbol }}{{ basisNumber('purchase_base_amount').toFixed(2) }}</span>
+          </div>
+          <div>
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.nonRefundableFee') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">{{ paymentAmountSymbol }}{{ basisNumber('non_refundable_fee').toFixed(2) }}</span>
+          </div>
+          <div>
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.periodQuotaUsage') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">{{ formatSubscriptionQuotaUSD(basisNumber('used_quota_usd')) }} / {{ formatSubscriptionQuotaUSD(basisNumber('period_total_quota_usd')) }}</span>
+          </div>
+          <div>
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.usageRatio') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">{{ Math.round(basisNumber('usage_ratio') * 100) }}%</span>
+          </div>
+          <div v-if="basisString('calculated_at')" class="col-span-2">
+            <span class="text-amber-600 dark:text-amber-400">{{ t('payment.admin.calculatedAt') }}:</span>
+            <span class="ml-1 text-amber-800 dark:text-amber-200">{{ formatDateTime(basisString('calculated_at')) }}</span>
+          </div>
+          <div v-if="order.force_refund" class="col-span-2 text-red-700 dark:text-red-300">
+            {{ t('payment.admin.forceRefundAudit') }}
+          </div>
+        </div>
+      </div>
+
       <div class="flex items-center justify-end gap-2 border-t border-gray-200 pt-4 dark:border-dark-700">
         <button
           v-if="order.status === 'PENDING'"
@@ -120,6 +193,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
 import { statusBadgeClass, canRefund as canRefundStatus, isAutomaticRefundAllowed, formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
+import { formatSubscriptionQuotaUSD } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 
@@ -148,6 +222,10 @@ const feeAmount = computed(() => {
   return props.order.pay_amount - baseAmount.value
 })
 
+const hasSubscriptionSnapshot = computed(() => !!props.order?.subscription_snapshot && Object.keys(props.order.subscription_snapshot).length > 0)
+
+const hasRefundBasis = computed(() => !!props.order?.refund_basis && Object.keys(props.order.refund_basis).length > 0)
+
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'cancel', order: PaymentOrder): void
@@ -161,5 +239,28 @@ function canRefund(order: PaymentOrder): boolean {
 
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
+}
+
+function snapshotString(key: string): string {
+  const value = props.order?.subscription_snapshot?.[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function snapshotNumber(key: string): number {
+  return toFiniteNumber(props.order?.subscription_snapshot?.[key])
+}
+
+function basisString(key: string): string {
+  const value = props.order?.refund_basis?.[key]
+  return typeof value === 'string' ? value : ''
+}
+
+function basisNumber(key: string): number {
+  return toFiniteNumber(props.order?.refund_basis?.[key])
+}
+
+function toFiniteNumber(value: unknown): number {
+  const num = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(num) ? num : 0
 }
 </script>

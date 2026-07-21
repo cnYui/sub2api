@@ -42,6 +42,14 @@ type SubscriptionEntitlementPeriod struct {
 	PeriodDays int `json:"period_days,omitempty"`
 	// DailyLimitUsd holds the value of the "daily_limit_usd" field.
 	DailyLimitUsd *float64 `json:"daily_limit_usd,omitempty"`
+	// WeeklyLimitUsd holds the value of the "weekly_limit_usd" field.
+	WeeklyLimitUsd *float64 `json:"weekly_limit_usd,omitempty"`
+	// PeriodTotalQuotaUsd holds the value of the "period_total_quota_usd" field.
+	PeriodTotalQuotaUsd *float64 `json:"period_total_quota_usd,omitempty"`
+	// QuotaWindowUnit holds the value of the "quota_window_unit" field.
+	QuotaWindowUnit string `json:"quota_window_unit,omitempty"`
+	// QuotaWindowDays holds the value of the "quota_window_days" field.
+	QuotaWindowDays int `json:"quota_window_days,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// RevokedAt holds the value of the "revoked_at" field.
@@ -105,11 +113,11 @@ func (*SubscriptionEntitlementPeriod) scanValues(columns []string) ([]any, error
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case subscriptionentitlementperiod.FieldDailyLimitUsd:
+		case subscriptionentitlementperiod.FieldDailyLimitUsd, subscriptionentitlementperiod.FieldWeeklyLimitUsd, subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd:
 			values[i] = new(sql.NullFloat64)
-		case subscriptionentitlementperiod.FieldID, subscriptionentitlementperiod.FieldUserID, subscriptionentitlementperiod.FieldSubscriptionID, subscriptionentitlementperiod.FieldGroupID, subscriptionentitlementperiod.FieldPeriodDays:
+		case subscriptionentitlementperiod.FieldID, subscriptionentitlementperiod.FieldUserID, subscriptionentitlementperiod.FieldSubscriptionID, subscriptionentitlementperiod.FieldGroupID, subscriptionentitlementperiod.FieldPeriodDays, subscriptionentitlementperiod.FieldQuotaWindowDays:
 			values[i] = new(sql.NullInt64)
-		case subscriptionentitlementperiod.FieldSourceType, subscriptionentitlementperiod.FieldSourceID, subscriptionentitlementperiod.FieldStatus, subscriptionentitlementperiod.FieldRevokedReason:
+		case subscriptionentitlementperiod.FieldSourceType, subscriptionentitlementperiod.FieldSourceID, subscriptionentitlementperiod.FieldQuotaWindowUnit, subscriptionentitlementperiod.FieldStatus, subscriptionentitlementperiod.FieldRevokedReason:
 			values[i] = new(sql.NullString)
 		case subscriptionentitlementperiod.FieldCreatedAt, subscriptionentitlementperiod.FieldUpdatedAt, subscriptionentitlementperiod.FieldStartsAt, subscriptionentitlementperiod.FieldExpiresAt, subscriptionentitlementperiod.FieldRevokedAt:
 			values[i] = new(sql.NullTime)
@@ -200,6 +208,32 @@ func (_m *SubscriptionEntitlementPeriod) assignValues(columns []string, values [
 			} else if value.Valid {
 				_m.DailyLimitUsd = new(float64)
 				*_m.DailyLimitUsd = value.Float64
+			}
+		case subscriptionentitlementperiod.FieldWeeklyLimitUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field weekly_limit_usd", values[i])
+			} else if value.Valid {
+				_m.WeeklyLimitUsd = new(float64)
+				*_m.WeeklyLimitUsd = value.Float64
+			}
+		case subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field period_total_quota_usd", values[i])
+			} else if value.Valid {
+				_m.PeriodTotalQuotaUsd = new(float64)
+				*_m.PeriodTotalQuotaUsd = value.Float64
+			}
+		case subscriptionentitlementperiod.FieldQuotaWindowUnit:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field quota_window_unit", values[i])
+			} else if value.Valid {
+				_m.QuotaWindowUnit = value.String
+			}
+		case subscriptionentitlementperiod.FieldQuotaWindowDays:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field quota_window_days", values[i])
+			} else if value.Valid {
+				_m.QuotaWindowDays = int(value.Int64)
 			}
 		case subscriptionentitlementperiod.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -305,6 +339,22 @@ func (_m *SubscriptionEntitlementPeriod) String() string {
 		builder.WriteString("daily_limit_usd=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	if v := _m.WeeklyLimitUsd; v != nil {
+		builder.WriteString("weekly_limit_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.PeriodTotalQuotaUsd; v != nil {
+		builder.WriteString("period_total_quota_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("quota_window_unit=")
+	builder.WriteString(_m.QuotaWindowUnit)
+	builder.WriteString(", ")
+	builder.WriteString("quota_window_days=")
+	builder.WriteString(fmt.Sprintf("%v", _m.QuotaWindowDays))
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)

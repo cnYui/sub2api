@@ -1114,6 +1114,11 @@ func (s *OpenAIGatewayService) authorizeOpenAIForward(
 	if value := extractOpenAIServiceTierFromBody(body); value != nil {
 		serviceTier = strings.TrimSpace(*value)
 	}
+	subscription := getOpenAISubscriptionFromContext(c)
+	var entitlementPeriod *SubscriptionEntitlementPeriod
+	if subscription != nil {
+		entitlementPeriod = subscription.CurrentEntitlementPeriod
+	}
 	authorization, err := s.billingAuthorizationService.Authorize(ctx, OpenAIBillingAuthorizationInput{
 		RequestID:          resolveUsageBillingRequestID(ctx, ""),
 		RequestFingerprint: fingerprint,
@@ -1122,7 +1127,8 @@ func (s *OpenAIGatewayService) authorizeOpenAIForward(
 		Platform:           PlatformFromAPIKey(apiKey),
 		Model:              strings.TrimSpace(model),
 		Group:              apiKey.Group,
-		Subscription:       getOpenAISubscriptionFromContext(c),
+		Subscription:       subscription,
+		EntitlementPeriod:  entitlementPeriod,
 		ServiceTier:        serviceTier,
 		RateMultiplier:     rateMultiplier,
 		Body:               body,
@@ -5688,11 +5694,17 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, OpenAIUsagePresence,
 	if !imageInputValue.Exists() {
 		imageInputValue = value.Get("prompt_tokens_details.image_tokens")
 	}
+	if !imageInputValue.Exists() {
+		imageInputValue = value.Get("image_tokens.input_tokens")
+	}
 	presence.ImageInput = imageInputValue.Exists()
 
 	imageOutputValue := value.Get("output_tokens_details.image_tokens")
 	if !imageOutputValue.Exists() {
 		imageOutputValue = value.Get("completion_tokens_details.image_tokens")
+	}
+	if !imageOutputValue.Exists() {
+		imageOutputValue = value.Get("image_tokens.output_tokens")
 	}
 	presence.ImageOutput = imageOutputValue.Exists()
 
@@ -6661,6 +6673,12 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 	if subscription != nil {
 		usageLog.SubscriptionID = &subscription.ID
 	}
+	var entitlementPeriodID *int64
+	if authorization := result.BillingAuthorization; authorization != nil && authorization.EntitlementPeriodID != nil {
+		entitlementPeriodID = cloneInt64ForUsageCommand(authorization.EntitlementPeriodID)
+	} else if subscription != nil {
+		entitlementPeriodID = subscription.CurrentEntitlementPeriodID()
+	}
 
 	// 计算账号统计定价费用（使用最终上游模型匹配自定义规则）
 	if apiKey.GroupID != nil {
@@ -6676,6 +6694,7 @@ func (s *OpenAIGatewayService) buildOpenAIUsageRecord(ctx context.Context, input
 		APIKey:                apiKey,
 		Account:               account,
 		Subscription:          subscription,
+		EntitlementPeriodID:   entitlementPeriodID,
 		RequestFingerprint:    requestFingerprint,
 		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
 		IsSubscriptionBill:    isSubscriptionBilling,

@@ -18,6 +18,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -596,6 +597,21 @@ func (_u *GroupUpdate) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEntit
 	return _u.AddSubscriptionEntitlementPeriodIDs(ids...)
 }
 
+// AddSubscriptionQuotaDebtAdjustmentIDs adds the "subscription_quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_u *GroupUpdate) AddSubscriptionQuotaDebtAdjustmentIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionQuotaDebtAdjustments adds the "subscription_quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *GroupUpdate) AddSubscriptionQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_u *GroupUpdate) AddUsageLogIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddUsageLogIDs(ids...)
@@ -728,6 +744,27 @@ func (_u *GroupUpdate) RemoveSubscriptionEntitlementPeriods(v ...*SubscriptionEn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubscriptionEntitlementPeriodIDs(ids...)
+}
+
+// ClearSubscriptionQuotaDebtAdjustments clears all "subscription_quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *GroupUpdate) ClearSubscriptionQuotaDebtAdjustments() *GroupUpdate {
+	_u.mutation.ClearSubscriptionQuotaDebtAdjustments()
+	return _u
+}
+
+// RemoveSubscriptionQuotaDebtAdjustmentIDs removes the "subscription_quota_debt_adjustments" edge to SubscriptionQuotaDebtAdjustment entities by IDs.
+func (_u *GroupUpdate) RemoveSubscriptionQuotaDebtAdjustmentIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveSubscriptionQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionQuotaDebtAdjustments removes "subscription_quota_debt_adjustments" edges to SubscriptionQuotaDebtAdjustment entities.
+func (_u *GroupUpdate) RemoveSubscriptionQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionQuotaDebtAdjustmentIDs(ids...)
 }
 
 // ClearUsageLogs clears all "usage_logs" edges to the UsageLog entity.
@@ -1193,6 +1230,51 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionQuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionQuotaDebtAdjustmentsIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionQuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionQuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1938,6 +2020,21 @@ func (_u *GroupUpdateOne) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEn
 	return _u.AddSubscriptionEntitlementPeriodIDs(ids...)
 }
 
+// AddSubscriptionQuotaDebtAdjustmentIDs adds the "subscription_quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_u *GroupUpdateOne) AddSubscriptionQuotaDebtAdjustmentIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionQuotaDebtAdjustments adds the "subscription_quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *GroupUpdateOne) AddSubscriptionQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
+}
+
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_u *GroupUpdateOne) AddUsageLogIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddUsageLogIDs(ids...)
@@ -2070,6 +2167,27 @@ func (_u *GroupUpdateOne) RemoveSubscriptionEntitlementPeriods(v ...*Subscriptio
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveSubscriptionEntitlementPeriodIDs(ids...)
+}
+
+// ClearSubscriptionQuotaDebtAdjustments clears all "subscription_quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *GroupUpdateOne) ClearSubscriptionQuotaDebtAdjustments() *GroupUpdateOne {
+	_u.mutation.ClearSubscriptionQuotaDebtAdjustments()
+	return _u
+}
+
+// RemoveSubscriptionQuotaDebtAdjustmentIDs removes the "subscription_quota_debt_adjustments" edge to SubscriptionQuotaDebtAdjustment entities by IDs.
+func (_u *GroupUpdateOne) RemoveSubscriptionQuotaDebtAdjustmentIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveSubscriptionQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionQuotaDebtAdjustments removes "subscription_quota_debt_adjustments" edges to SubscriptionQuotaDebtAdjustment entities.
+func (_u *GroupUpdateOne) RemoveSubscriptionQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionQuotaDebtAdjustmentIDs(ids...)
 }
 
 // ClearUsageLogs clears all "usage_logs" edges to the UsageLog entity.
@@ -2565,6 +2683,51 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionQuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionQuotaDebtAdjustmentsIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionQuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionQuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{group.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

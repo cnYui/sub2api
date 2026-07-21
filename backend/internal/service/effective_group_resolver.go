@@ -101,7 +101,11 @@ func (r *EffectiveGroupResolver) resolveOpenAISubscription(ctx context.Context, 
 	}
 
 	now := r.now()
-	candidates := make([]UserSubscription, 0, len(subs))
+	type subscriptionCandidate struct {
+		sub  UserSubscription
+		rank float64
+	}
+	candidates := make([]subscriptionCandidate, 0, len(subs))
 	for _, sub := range subs {
 		if sub.Status != SubscriptionStatusActive || !sub.ExpiresAt.After(now) || sub.Group == nil {
 			continue
@@ -109,25 +113,48 @@ func (r *EffectiveGroupResolver) resolveOpenAISubscription(ctx context.Context, 
 		if sub.Group.Platform != PlatformOpenAI || !sub.Group.IsActive() || !sub.Group.IsSubscriptionType() {
 			continue
 		}
-		candidates = append(candidates, sub)
+		rank, ok := subscriptionEntitlementLimitRank(&sub, now)
+		if !ok {
+			continue
+		}
+		candidates = append(candidates, subscriptionCandidate{sub: sub, rank: rank})
 	}
 	if len(candidates) == 0 {
 		return nil, nil
 	}
 
 	sort.SliceStable(candidates, func(i, j int) bool {
-		li, lj := subscriptionDailyLimitRank(candidates[i].Group), subscriptionDailyLimitRank(candidates[j].Group)
-		if li != lj {
-			return li > lj
+		if candidates[i].rank != candidates[j].rank {
+			return candidates[i].rank > candidates[j].rank
 		}
-		if !candidates[i].CreatedAt.Equal(candidates[j].CreatedAt) {
-			return candidates[i].CreatedAt.After(candidates[j].CreatedAt)
+		if !candidates[i].sub.CreatedAt.Equal(candidates[j].sub.CreatedAt) {
+			return candidates[i].sub.CreatedAt.After(candidates[j].sub.CreatedAt)
 		}
-		return candidates[i].ID > candidates[j].ID
+		return candidates[i].sub.ID > candidates[j].sub.ID
 	})
 
-	selected := candidates[0]
+	selected := candidates[0].sub
 	return &EffectiveGroupResult{Group: selected.Group, Subscription: &selected, Source: EffectiveGroupSourceSubscription}, nil
+}
+
+func subscriptionEntitlementLimitRank(sub *UserSubscription, now time.Time) (float64, bool) {
+	if sub == nil || sub.Group == nil {
+		return 0, false
+	}
+	if sub.Group.UsesRollingWeeklyQuota() {
+		period := sub.CurrentEntitlementPeriod
+		if _, ok := sub.CurrentRollingWeeklyWindow(sub.Group, now); !ok {
+			if sub.Group.HasDailyLimit() {
+				return subscriptionDailyLimitRank(sub.Group), true
+			}
+			return 0, false
+		}
+		if period == nil || period.WeeklyLimitUSD == nil || *period.WeeklyLimitUSD <= 0 {
+			return 0, false
+		}
+		return *period.WeeklyLimitUSD, true
+	}
+	return subscriptionDailyLimitRank(sub.Group), true
 }
 
 func subscriptionDailyLimitRank(group *Group) float64 {

@@ -87,19 +87,19 @@
                 </div>
                 <div class="flex items-baseline gap-2">
                   <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ formatSelectedPaymentAmount(selectedTrafficPack.price) }}</span>
-                  <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ selectedTrafficPack.credit_usd }} 刀额度</span>
+                  <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ trafficPackCreditAmount(selectedTrafficPack.credit_usd) }}</span>
                 </div>
                 <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                  {{ selectedTrafficPack.description || `有效期 ${selectedTrafficPack.validity_days} 天，可用于 GPT 写代码和生图。` }}
+                  {{ selectedTrafficPack.description || trafficPackDefaultDescription(selectedTrafficPack.validity_days) }}
                 </p>
                 <div class="mt-3 grid grid-cols-2 gap-3">
                   <div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">刷新时间</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.validity_days }} 天</div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.validity') }}</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.validity_days }} {{ t('payment.days') }}</div>
                   </div>
                   <div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">可用额度</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.credit_usd }} 刀</div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.trafficPack.availableQuota') }}</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ trafficPackUSDAmount(selectedTrafficPack.credit_usd) }}</div>
                   </div>
                 </div>
               </div>
@@ -119,8 +119,8 @@
                   <span :class="['text-3xl font-bold', planTextClass]">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ {{ planValiditySuffix }}</span>
                 </div>
-                <p v-if="selectedPlan.description" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-                  {{ selectedPlan.description }}
+                <p v-if="selectedPlanDescription" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                  {{ selectedPlanDescription }}
                 </p>
                 <div class="mt-3 grid grid-cols-2 gap-3">
                   <div>
@@ -129,21 +129,9 @@
                       <span :class="['text-lg font-bold', planTextClass]">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
                     </div>
                   </div>
-                  <div v-if="selectedPlan.daily_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.daily_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.weekly_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.weeklyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.weekly_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.monthly_limit_usd != null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.monthlyLimit') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.monthly_limit_usd }}</div>
-                  </div>
-                  <div v-if="selectedPlan.daily_limit_usd == null && selectedPlan.weekly_limit_usd == null && selectedPlan.monthly_limit_usd == null">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</span>
-                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</div>
+                  <div v-for="row in selectedPlanQuotaRows" :key="row.label">
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ row.label }}</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ row.value }}</div>
                   </div>
                 </div>
               </div>
@@ -281,6 +269,11 @@ import {
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
 import { platformBadgeClass, platformTextClass, platformLabel } from '@/utils/platformColors'
+import {
+  PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  formatSubscriptionQuotaUSD,
+  publicCodexSubscriptionWeeklyLimitUSD,
+} from '@/utils/subscriptionQuota'
 import PurchaseProductCard from '@/components/payment/PurchaseProductCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -594,6 +587,9 @@ const formatCardPrice = (value: number) => `¥${formatCompactNumber(value)}`
 const formatCardBasePrice = (value: number) => `¥${formatCompactNumber(value)}元`
 const cardFeeDetail = (price: number) =>
   feeRate.value > 0 ? `${formatCardBasePrice(price)} + ${formatCompactNumber(feeRate.value)}%` : formatCardBasePrice(price)
+const trafficPackUSDAmount = (value: number) => t('payment.trafficPack.usdAmount', { amount: formatCompactNumber(value) })
+const trafficPackCreditAmount = (value: number) => t('payment.trafficPack.creditAmount', { amount: formatCompactNumber(value) })
+const trafficPackDefaultDescription = (days: number) => t('payment.trafficPack.defaultDescription', { days })
 
 const planTitleSuffix = (index: number) => {
   if (index >= 0 && index < 26) return String.fromCharCode(65 + index)
@@ -602,6 +598,73 @@ const planTitleSuffix = (index: number) => {
 
 const isPlanActive = (plan: SubscriptionPlan) =>
   activeSubscriptions.value.some(s => s.group_id === plan.group_id && s.status === 'active')
+
+type PlanDetailRow = { label: string; value: string }
+
+function planEffectiveValidityDays(plan: SubscriptionPlan): number {
+  if (publicCodexSubscriptionWeeklyLimitUSD(plan.group_name) != null) {
+    return PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS
+  }
+  return plan.effective_validity_days ?? plan.validity_days
+}
+
+function planWeeklyLimitUSD(plan: SubscriptionPlan): number | null {
+  return plan.weekly_limit_usd ?? publicCodexSubscriptionWeeklyLimitUSD(plan.group_name)
+}
+
+function planDisplayDescription(plan: SubscriptionPlan): string {
+  if (publicCodexSubscriptionWeeklyLimitUSD(plan.group_name) != null) {
+    return t('payment.planCard.weeklyDescription')
+  }
+  return plan.description || ''
+}
+
+function planPeriodTotalQuotaUSD(plan: SubscriptionPlan): number | null {
+  if (plan.period_total_quota_usd != null) return plan.period_total_quota_usd
+  const weeklyLimit = publicCodexSubscriptionWeeklyLimitUSD(plan.group_name)
+  return weeklyLimit == null ? null : weeklyLimit * 4
+}
+
+function isWeeklyQuotaPlan(plan: SubscriptionPlan): boolean {
+  return plan.quota_window_unit === 'week' || planWeeklyLimitUSD(plan) != null
+}
+
+function planQuotaRows(plan: SubscriptionPlan): PlanDetailRow[] {
+  const validity = `${planEffectiveValidityDays(plan)} ${t('payment.days')}`
+
+  if (isWeeklyQuotaPlan(plan)) {
+    const weeklyLimit = planWeeklyLimitUSD(plan)
+    const periodTotalQuota = planPeriodTotalQuotaUSD(plan)
+    return [
+      { label: t('payment.planCard.weeklyLimit'), value: formatSubscriptionQuotaUSD(weeklyLimit) },
+      ...(periodTotalQuota == null ? [] : [
+        { label: t('payment.planCard.periodTotalQuota'), value: formatSubscriptionQuotaUSD(periodTotalQuota) },
+      ]),
+      { label: t('payment.planCard.refreshTime'), value: t('payment.planCard.weeklyRefresh') },
+      { label: t('payment.planCard.validity'), value: validity },
+    ]
+  }
+
+  if (plan.daily_limit_usd != null) {
+    return [
+      { label: t('payment.planCard.dailyLimit'), value: formatSubscriptionQuotaUSD(plan.daily_limit_usd) },
+      { label: t('payment.planCard.refreshTime'), value: t('payment.planCard.dailyRefresh') },
+      { label: t('payment.planCard.validity'), value: validity },
+    ]
+  }
+
+  if (plan.monthly_limit_usd != null) {
+    return [
+      { label: t('payment.planCard.monthlyLimit'), value: formatSubscriptionQuotaUSD(plan.monthly_limit_usd) },
+      { label: t('payment.planCard.validity'), value: validity },
+    ]
+  }
+
+  return [
+    { label: t('payment.planCard.quota'), value: t('payment.planCard.unlimited') },
+    { label: t('payment.planCard.validity'), value: validity },
+  ]
+}
 
 async function refreshAndBlockDifferentActiveSubscription(plan: SubscriptionPlan): Promise<boolean> {
   try {
@@ -623,7 +686,9 @@ function buildBalanceRechargeProduct(): BalanceRechargePurchaseProduct {
     type: 'balance_recharge',
     product: {
       testId: 'purchase-product-card',
+      eyebrowText: t('payment.productCard.balanceRecharge'),
       title: t('payment.recharge.title'),
+      priceLabel: t('payment.productCard.price'),
       priceText: '¥1 起',
       buttonText: t('payment.recharge.button'),
       detailRows: [
@@ -637,21 +702,21 @@ function buildBalanceRechargeProduct(): BalanceRechargePurchaseProduct {
 
 function buildSubscriptionProduct(plan: SubscriptionPlan, index: number): SubscriptionPurchaseProduct {
   const active = isPlanActive(plan)
-  const dailyLimit = plan.daily_limit_usd == null ? '0' : formatCompactNumber(plan.daily_limit_usd)
   return {
     id: `subscription-${plan.id}`,
     type: 'subscription',
     plan,
     product: {
       testId: 'purchase-product-card',
-      title: `月度订阅套餐${planTitleSuffix(index)}`,
+      eyebrowText: t('payment.productCard.subscription'),
+      title: plan.name || `订阅套餐${planTitleSuffix(index)}`,
+      priceLabel: t('payment.productCard.price'),
       priceText: formatCardPrice(calculatePayableAmount(plan.price, feeRate.value)),
       buttonText: active ? t('payment.renewNow') : t('payment.subscribeNow'),
       active,
       detailRows: [
-        { label: '日限额', value: `${dailyLimit}刀` },
-        { label: '刷新时间', value: '24点刷新' },
-        { label: '手续费详情', value: cardFeeDetail(plan.price) },
+        ...planQuotaRows(plan),
+        { label: t('payment.planCard.feeDetail'), value: cardFeeDetail(plan.price) },
       ],
     },
   }
@@ -664,13 +729,15 @@ function buildTrafficPackProduct(pack: TrafficPack): TrafficPackPurchaseProduct 
     pack,
     product: {
       testId: 'purchase-product-card',
-      title: `${formatCompactNumber(pack.credit_usd)}刀流量卡`,
+      eyebrowText: t('payment.trafficPack.eyebrow'),
+      title: t('payment.trafficPack.title', { amount: formatCompactNumber(pack.credit_usd) }),
+      priceLabel: t('payment.productCard.price'),
       priceText: formatCardPrice(calculatePayableAmount(pack.price, feeRate.value)),
-      buttonText: '立即购买',
+      buttonText: t('payment.trafficPack.buyNow'),
       detailRows: [
-        { label: '可用额度', value: `${formatCompactNumber(pack.credit_usd)}刀` },
-        { label: '刷新时间', value: `${pack.validity_days}天` },
-        { label: '手续费详情', value: cardFeeDetail(pack.price) },
+        { label: t('payment.trafficPack.availableQuota'), value: trafficPackUSDAmount(pack.credit_usd) },
+        { label: t('payment.planCard.validity'), value: `${pack.validity_days} ${t('payment.days')}` },
+        { label: t('payment.planCard.feeDetail'), value: cardFeeDetail(pack.price) },
       ],
     },
   }
@@ -785,13 +852,18 @@ const renewalPlans = computed(() => {
   return checkout.value.plans.filter(p => p.group_id === renewGroupId.value)
 })
 const renewalProducts = computed(() => renewalPlans.value.map((plan, index) => buildSubscriptionProduct(plan, index)))
+const selectedPlanQuotaRows = computed(() => selectedPlan.value ? planQuotaRows(selectedPlan.value) : [])
+const selectedPlanDescription = computed(() => selectedPlan.value ? planDisplayDescription(selectedPlan.value) : '')
 
 const planValiditySuffix = computed(() => {
   if (!selectedPlan.value) return ''
+  if (isWeeklyQuotaPlan(selectedPlan.value)) {
+    return `${planEffectiveValidityDays(selectedPlan.value)}${t('payment.days')}`
+  }
   const u = selectedPlan.value.validity_unit || 'day'
   if (u === 'month') return t('payment.perMonth')
   if (u === 'year') return t('payment.perYear')
-  return `${selectedPlan.value.validity_days}${t('payment.days')}`
+  return `${planEffectiveValidityDays(selectedPlan.value)}${t('payment.days')}`
 })
 
 async function selectPlan(plan: SubscriptionPlan) {

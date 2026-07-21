@@ -419,6 +419,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatSubscriptionQuotaUSD, isRollingWeeklySubscription } from '@/utils/subscriptionQuota'
 import { useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -545,6 +546,14 @@ interface RingItem {
   resetAt?: string | null
 }
 
+interface SubscriptionQuotaLimit {
+  label: string
+  usage: number
+  limit: number | null | undefined
+  formatter: (value: number) => string
+  resetAt?: string | null
+}
+
 function getRingOffset(ring: RingItem): number {
   if (!ringAnimated.value) return CIRCUMFERENCE
   if (ring.isBalance) return 0
@@ -633,15 +642,19 @@ const ringItems = computed<RingItem[]>(() => {
   } else {
     if (data.subscription) {
       const sub = data.subscription
-      const limits = [
-        { label: t('keyUsage.limitDaily'), usage: sub.daily_usage_usd, limit: sub.daily_limit_usd },
-        { label: t('keyUsage.limitWeekly'), usage: sub.weekly_usage_usd, limit: sub.weekly_limit_usd },
-        { label: t('keyUsage.limitMonthly'), usage: sub.monthly_usage_usd, limit: sub.monthly_limit_usd },
-      ]
+      const weeklyLimit = subscriptionWeeklyLimit(sub)
+      const weeklyQuota = { label: t('keyUsage.limitWeekly'), usage: sub.weekly_usage_usd, limit: weeklyLimit, formatter: formatSubscriptionQuotaUSD, resetAt: sub.weekly_window_resets_at }
+      const limits: SubscriptionQuotaLimit[] = weeklyLimit > 0
+        ? [weeklyQuota]
+        : [
+            { label: t('keyUsage.limitDaily'), usage: sub.daily_usage_usd, limit: sub.daily_limit_usd, formatter: formatSubscriptionQuotaUSD },
+            weeklyQuota,
+            { label: t('keyUsage.limitMonthly'), usage: sub.monthly_usage_usd, limit: sub.monthly_limit_usd, formatter: formatSubscriptionQuotaUSD },
+          ]
       for (const l of limits) {
         if (l.limit != null && l.limit > 0) {
           const pct = Math.min(Math.round((l.usage / l.limit) * 100), 100)
-          items.push({ title: l.label, pct, amount: `${usd(l.usage)} / ${usd(l.limit)}`, iconType: 'calendar' })
+          items.push({ title: l.label, pct, amount: `${l.formatter(l.usage)} / ${l.formatter(l.limit)}`, iconType: 'calendar', resetAt: l.resetAt })
         }
       }
     }
@@ -731,25 +744,36 @@ const detailRows = computed<DetailRow[]>(() => {
 
     if (data.subscription) {
       const sub = data.subscription
-      if (sub.daily_limit_usd > 0) {
+      const weeklyLimit = subscriptionWeeklyLimit(sub)
+      if (sub.daily_limit_usd > 0 && weeklyLimit <= 0) {
         const pct = (sub.daily_usage_usd / sub.daily_limit_usd) * 100
         rows.push({
           iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconSvg: ICON_DOLLAR,
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`, value: `${usd(sub.daily_usage_usd)} / ${usd(sub.daily_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`, value: `${formatSubscriptionQuotaUSD(sub.daily_usage_usd)} / ${formatSubscriptionQuotaUSD(sub.daily_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
-      if (sub.weekly_limit_usd > 0) {
-        const pct = (sub.weekly_usage_usd / sub.weekly_limit_usd) * 100
+      if (weeklyLimit > 0) {
+        const pct = (sub.weekly_usage_usd / weeklyLimit) * 100
         rows.push({
           iconBg: 'bg-indigo-500/10', iconColor: 'text-indigo-500', iconSvg: ICON_DOLLAR,
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '周' : 'W'})`, value: `${usd(sub.weekly_usage_usd)} / ${usd(sub.weekly_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '本周' : 'This week'})`,
+          value: `${formatSubscriptionQuotaUSD(sub.weekly_usage_usd)} / ${formatSubscriptionQuotaUSD(weeklyLimit)}${subscriptionWeeklyResetSuffix(sub)}`,
+          valueClass: getUsageColor(pct),
+        })
+      }
+      if (subscriptionWeeklyWindowInactive(sub)) {
+        rows.push({
+          iconBg: 'bg-amber-500/10', iconColor: 'text-amber-500', iconSvg: ICON_DOLLAR,
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '本周' : 'This week'})`,
+          value: t('keyUsage.weeklyWindowNotActive'),
+          valueClass: 'text-amber-500',
         })
       }
       if (sub.monthly_limit_usd > 0) {
         const pct = (sub.monthly_usage_usd / sub.monthly_limit_usd) * 100
         rows.push({
           iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_DOLLAR,
-          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`, value: `${usd(sub.monthly_usage_usd)} / ${usd(sub.monthly_limit_usd)}`, valueClass: getUsageColor(pct),
+          label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`, value: `${formatSubscriptionQuotaUSD(sub.monthly_usage_usd)} / ${formatSubscriptionQuotaUSD(sub.monthly_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.expires_at) {
@@ -765,7 +789,7 @@ const detailRows = computed<DetailRow[]>(() => {
       : ''
     rows.push({
       iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_SHIELD,
-      label: t('keyUsage.remainingQuota'), value: data.remaining != null ? usd(data.remaining) : '-', valueClass: remainColor,
+      label: t('keyUsage.remainingQuota'), value: data.remaining != null ? (data.subscription ? formatSubscriptionQuotaUSD(data.remaining) : usd(data.remaining)) : '-', valueClass: remainColor,
     })
   }
 
@@ -775,6 +799,30 @@ const detailRows = computed<DetailRow[]>(() => {
 interface StatCell {
   label: string
   value: string
+}
+
+function subscriptionWeeklyLimit(subscription: any): number {
+  if (subscriptionWeeklyWindowInactive(subscription)) return 0
+  return subscription?.effective_weekly_limit_usd ?? subscription?.weekly_limit_usd ?? 0
+}
+
+function subscriptionWeeklyResetSuffix(subscription: any): string {
+  const resetAt = subscription?.weekly_window_resets_at
+  const value = resetAt ? formatResetTime(resetAt) : ''
+  if (value) return ` (⟳ ${value})`
+  return subscriptionWeeklyWindowInactive(subscription) ? ` (${t('keyUsage.weeklyWindowNotActive')})` : ''
+}
+
+function subscriptionWeeklyWindowInactive(subscription: any): boolean {
+  const hasKnownNonRollingGroup = subscription?.group && !isRollingWeeklySubscription(subscription)
+  if (hasKnownNonRollingGroup) return false
+
+  return Boolean(
+    !subscription?.weekly_window_resets_at &&
+      subscription?.effective_weekly_limit_usd == null &&
+      (subscription?.weekly_limit_usd ?? 0) > 0 &&
+      (isRollingWeeklySubscription(subscription) || !(subscription?.daily_limit_usd > 0)),
+  )
 }
 
 const usageStatCells = computed<StatCell[]>(() => {

@@ -16,7 +16,7 @@ export default {
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
-      realtimeBilling: 'Daily Refresh'
+      realtimeBilling: '7-Day Refresh'
     },
     // Pain points section
     painPoints: {
@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 RMB Plan',
-      unifiedGatewayDesc: 'Monthly subscription - duration 30 days, daily limit 19 USD, refreshes at 24:00',
+      unifiedGatewayDesc: '28-day subscription, 72 USD weekly quota, refreshes every 7 days',
       multiAccount: '39 RMB Plan',
-      multiAccountDesc: 'Monthly subscription - duration 30 days, daily limit 29 USD, refreshes at 24:00',
+      multiAccountDesc: '28-day subscription, 97 USD weekly quota, refreshes every 7 days',
       balanceQuota: '59 RMB Plan',
-      balanceQuotaDesc: 'Monthly subscription - duration 30 days, daily limit 49 USD, refreshes at 24:00',
+      balanceQuotaDesc: '28-day subscription, 148 USD weekly quota, refreshes every 7 days',
       premiumQuota: '99 RMB Plan',
-      premiumQuotaDesc: 'Monthly subscription - duration 30 days, daily limit 89 USD, refreshes at 24:00'
+      premiumQuotaDesc: '28-day subscription, 248 USD weekly quota, refreshes every 7 days'
     },
     // Comparison section
     comparison: {
@@ -160,6 +160,7 @@ export default {
     daysLeft: '({days} days)',
     usedQuota: 'Used Quota',
     resetNow: 'Resetting soon',
+    weeklyWindowNotActive: 'Weekly quota window inactive',
     subscriptionType: 'Subscription Type',
     subscriptionExpires: 'Subscription Expires',
     // Usage stat cells
@@ -657,8 +658,11 @@ export default {
     todayCost: 'Today Cost',
     subscriptionQuota: 'Subscription Quota',
     todayQuota: 'Today',
+	weeklyQuota: 'Weekly quota',
+	resetsAt: 'Resets at',
     periodQuota: 'Period',
     last30DaysQuota: 'Last 30 Days',
+    unlimitedQuota: 'Unlimited',
     todayTokens: 'Today Tokens',
     totalTokens: 'Total Tokens',
     cacheToday: 'Cache (Today)',
@@ -2258,7 +2262,9 @@ export default {
         monthlyLimit: 'Monthly Limit (USD)',
         defaultValidityDays: 'Default Validity (Days)',
         validityHint: 'Number of days the subscription is valid when assigned to a user',
-        noLimit: 'No limit'
+        noLimit: 'No limit',
+        publicCodexWeeklyWindow: '${quota}/week · 28 days · refreshes every 7 days',
+        publicCodexFixedQuotaHint: 'Public Codex groups use fixed weekly quota and 28-day validity; daily/monthly quota is cleared on save.'
       },
       imagePricing: {
         title: 'Image Generation Pricing',
@@ -2996,7 +3002,7 @@ export default {
       revoke: 'Revoke',
       resetQuota: 'Reset Quota',
       resetQuotaTitle: 'Reset Usage Quota',
-      resetQuotaConfirm: "Reset the daily, weekly, and monthly usage quota for '{user}'? Usage will be zeroed and windows restarted from today.",
+      resetQuotaConfirm: "Reset the current usage window for '{user}'? Public Codex subscriptions reset the current rolling weekly window; other subscriptions keep daily/weekly/monthly behavior.",
       quotaResetSuccess: 'Quota reset successfully',
       failedToResetQuota: 'Failed to reset quota',
       noSubscriptionsYet: 'No subscriptions yet',
@@ -3039,7 +3045,7 @@ export default {
           adjust: 'Adjust',
           adjustDesc: 'Extend or shorten the subscription validity period',
           resetQuota: 'Reset Quota',
-          resetQuotaDesc: 'Reset daily/weekly/monthly usage to zero',
+          resetQuotaDesc: 'Reset the current subscription usage window; Public Codex uses the current rolling weekly window',
           revoke: 'Revoke',
           revokeDesc: 'Immediately terminate the subscription (irreversible)'
         },
@@ -4479,6 +4485,7 @@ export default {
       selectGroup: 'Select Group',
       selectGroupPlaceholder: 'Choose a subscription group',
       validityDays: 'Validity Days',
+      publicCodex28DayHint: 'Public Codex redeem codes grant a fixed 28-day subscription with weekly quota refreshes.',
       codeExpiry: 'Code Expiry',
       neverExpires: 'Never expires',
       expiryPresetDays: '{days} days',
@@ -5736,6 +5743,7 @@ export default {
           'Duplicate subscription group: {groupId}. Each group can only appear once.',
         subscriptionGroup: 'Subscription Group',
         subscriptionValidityDays: 'Validity (days)',
+        publicCodex28DayHint: 'Public Codex subscriptions are fixed to 28 days and refresh weekly quota every 7 days.',
         defaultPlatformQuotas: 'Default Platform Quotas (on signup)',
         defaultPlatformQuotasHint: 'Automatically assigned to new users on signup; existing users are not affected. Leave blank = unlimited.',
         platformQuotaNotice: 'Monthly quota uses a 30-day rolling window, not a calendar month.',
@@ -6659,6 +6667,8 @@ export default {
     expired: 'Expired',
     expiresToday: 'Expires today',
     expiresTomorrow: 'Expires tomorrow',
+    resetsAt: 'Resets at {time}',
+    weeklyWindowNotActive: 'Weekly quota window is not active',
     viewAll: 'View all subscriptions',
     noSubscriptions: 'No active subscriptions',
     unlimited: 'Unlimited'
@@ -6759,7 +6769,14 @@ export default {
     resetIn: 'Resets in {time}',
     quotaEndsIn: 'Quota ends in {time}',
     windowNotActive: 'Awaiting first use',
-    usageOf: '{used} of {limit}'
+    weeklyWindowNotActive: 'Current weekly quota window is not active; later entitlement keeps its scheduled start',
+    usageOf: '{used} of {limit}',
+    trafficPack: {
+      title: 'GPT traffic card #{id}',
+      description: 'Remaining {remaining}, currently available {available}.',
+      settledUsage: 'Settled usage',
+      currentAvailable: 'Currently available {amount}',
+    }
   },
 
   // Onboarding Tour
@@ -7038,6 +7055,15 @@ export default {
     rechargeRatePreview: 'RMB balance is credited 1:1',
     refundReason: 'Refund Reason',
     refundReasonPlaceholder: 'Please describe your refund reason',
+    refundQuote: {
+      purchaseBase: 'Purchase base',
+      nonRefundableFee: 'Fee (non-refundable)',
+      periodQuotaUsage: 'Used / 28-day quota',
+      usageRatio: 'Usage ratio',
+      estimatedRefund: 'Estimated refund',
+      manualReviewRequired: 'Historical usage cannot be allocated unambiguously. This order requires manual refund review.',
+      loading: 'Calculating quota-based refund quote…',
+    },
     stripeLoadFailed: 'Failed to load payment component. Please refresh and try again.',
     stripeMissingParams: 'Missing order ID or client secret',
     stripeNotConfigured: 'Stripe is not configured',
@@ -7115,11 +7141,32 @@ export default {
     planCard: {
       rate: 'Rate',
       dailyLimit: 'Daily',
-      weeklyLimit: 'Weekly',
+      weeklyLimit: 'Weekly quota',
+      periodTotalQuota: '28-day quota',
       monthlyLimit: 'Monthly',
       quota: 'Quota',
       unlimited: 'Unlimited',
       models: 'Models',
+      refreshTime: 'Refresh',
+      weeklyRefresh: 'Every 7 days',
+      weeklyDescription: '28-day subscription with weekly quota refreshing every 7 days from purchase time.',
+      dailyRefresh: 'At 24:00',
+      validity: 'Validity',
+      feeDetail: 'Fee detail',
+    },
+    productCard: {
+      balanceRecharge: 'Top-up',
+      subscription: 'Subscription',
+      price: 'Price',
+    },
+    trafficPack: {
+      eyebrow: 'Traffic pack',
+      title: '{amount} USD traffic pack',
+      usdAmount: '{amount} USD',
+      creditAmount: '{amount} USD quota',
+      availableQuota: 'Available quota',
+      defaultDescription: 'Valid for {days} days. Usable for GPT coding and image generation.',
+      buyNow: 'Buy now',
     },
     days: 'days',
     months: 'months',
@@ -7167,6 +7214,8 @@ export default {
       refundOrder: 'Refund Order',
       refundAmount: 'Refund Amount',
       maxRefundable: 'Max Refundable',
+      ruleBasedRefundHint: 'Normal subscription refunds use the server quota quote and are recalculated under lock on submit',
+      refundQuoteUnavailable: 'Unable to load the quota refund quote. Continue only via forced manual refund.',
       refundReason: 'Refund Reason',
       refundReasonPlaceholder: 'Please enter refund reason',
       confirmRefund: 'Confirm Refund',
@@ -7181,7 +7230,8 @@ export default {
       orderAmount: 'Order Amount',
       insufficientBalance: 'Insufficient balance — will deduct to $0',
       noDeduction: 'Will NOT deduct user balance',
-      forceRefund: 'Force refund (ignore balance check)',
+      forceRefund: 'Forced manual refund (audited reason required)',
+      forceRefundAudit: 'This order used a forced manual refund; review the audit log reason.',
       orderCancelled: 'Order Cancelled',
       retry: 'Retry',
       retrySuccess: 'Retry successful',
@@ -7191,6 +7241,12 @@ export default {
       refundRequestedAt: 'Requested At',
       refundRequestedBy: 'Requested By',
       refundRequestReason: 'Request Reason',
+      subscriptionSnapshot: 'Subscription Snapshot',
+      refundBasis: 'Refund Basis',
+      entitlementPeriod: 'Entitlement Period',
+      periodTotalQuota: 'Period Total Quota',
+      quotaWindow: 'Quota Window',
+      calculatedAt: 'Calculated At',
       auditLogs: 'Audit Logs',
       operator: 'Operator',
       channelName: 'Channel Name',
@@ -7246,6 +7302,7 @@ export default {
       groupRequired: 'Please select a subscription group',
       priceRequired: 'Price must be greater than 0',
       validityDaysRequired: 'Validity days must be greater than 0',
+      publicCodex28DayHint: 'Public Codex subscription plans are fixed to 28 days with weekly quota refreshes; the backend snapshot revalidates this on save.',
       groupMissing: 'Missing',
       groupInfo: 'Group Info',
       platform: 'Platform',

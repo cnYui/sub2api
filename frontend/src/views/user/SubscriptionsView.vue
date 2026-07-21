@@ -29,12 +29,12 @@
             <SubscriptionUsageCard
               v-for="credit in trafficCredits"
               :key="credit.id"
-              :title="`GPT 流量卡 #${credit.id}`"
+              :title="t('userSubscriptions.trafficPack.title', { id: credit.id })"
               platform="openai"
               :description="trafficCreditDescription(credit)"
               status="active"
               :status-label="t('userSubscriptions.status.active')"
-              expiration-label="到期时间"
+              :expiration-label="t('userSubscriptions.expires')"
               :expiration-value="formatExpirationDate(credit.expires_at)"
               expiration-value-class="text-gray-700 dark:text-gray-300"
               :usage-rows="trafficCreditUsageRows(credit)"
@@ -80,7 +80,7 @@ import Icon from '@/components/icons/Icon.vue'
 import SubscriptionUsageCard from '@/components/user/SubscriptionUsageCard.vue'
 import { formatDateOnly } from '@/utils/format'
 import { grayProgressBarClass } from '@/utils/grayTheme'
-import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import { formatSubscriptionQuotaUSD, getRemainingDurationParts, isOneTimeDailyQuota, isRollingWeeklySubscription, type RemainingDurationParts } from '@/utils/subscriptionQuota'
 
 interface SubscriptionUsageRow {
   label: string
@@ -106,20 +106,27 @@ const trafficCredits = computed(() => checkout.value.traffic_credits ?? [])
 const hasTrafficPackContent = computed(() => trafficCredits.value.length > 0)
 
 function trafficCreditDescription(credit: TrafficCredit): string {
-  return `剩余额度 $${credit.remaining_usd.toFixed(2)}，当前可用 $${credit.available_usd.toFixed(2)}。`
+  return t('userSubscriptions.trafficPack.description', {
+    remaining: formatTrafficPackUSD(credit.remaining_usd),
+    available: formatTrafficPackUSD(credit.available_usd),
+  })
 }
 
 function trafficCreditUsageRows(credit: TrafficCredit): SubscriptionUsageRow[] {
   const total = credit.initial_usd
   const used = Math.max(total - credit.remaining_usd, 0)
   return [{
-    label: '已结算用量',
+    label: t('userSubscriptions.trafficPack.settledUsage'),
     value: `$${used.toFixed(2)} / $${total.toFixed(2)}`,
     progressWidth: getProgressWidth(used, total),
     progressClass: getProgressBarClass(used, total),
-    footer: `当前可用 $${credit.available_usd.toFixed(2)}`,
+    footer: t('userSubscriptions.trafficPack.currentAvailable', { amount: formatTrafficPackUSD(credit.available_usd) }),
     testId: `traffic-credit-progress-${credit.id}`,
   }]
+}
+
+function formatTrafficPackUSD(value: number): string {
+  return `$${value.toFixed(2)}`
 }
 
 async function loadSubscriptions() {
@@ -203,7 +210,7 @@ function buildUsageRow(
 ): SubscriptionUsageRow {
   return {
     label,
-    value: `$${(used || 0).toFixed(2)} / $${limit.toFixed(2)}`,
+    value: `${formatSubscriptionQuotaUSD(used || 0)} / ${formatSubscriptionQuotaUSD(limit)}`,
     progressWidth: getProgressWidth(used, limit),
     progressClass: getProgressBarClass(used, limit),
     footer,
@@ -212,7 +219,12 @@ function buildUsageRow(
 
 function subscriptionUsageRows(subscription: UserSubscription): SubscriptionUsageRow[] {
   const rows: SubscriptionUsageRow[] = []
-  if (subscription.group?.daily_limit_usd) {
+  const rollingWeekly = isRollingWeeklySubscription(subscription)
+  const weeklyLimit = rollingWeekly
+    ? subscription.effective_weekly_limit_usd
+    : subscription.effective_weekly_limit_usd ?? subscription.group?.weekly_limit_usd
+
+  if (!rollingWeekly && subscription.group?.daily_limit_usd && !weeklyLimit) {
     rows.push(buildUsageRow(
       t('userSubscriptions.daily'),
       subscription.daily_usage_usd,
@@ -220,15 +232,21 @@ function subscriptionUsageRows(subscription: UserSubscription): SubscriptionUsag
       subscription.daily_window_start ? formatDailyUsageWindow(subscription) : undefined,
     ))
   }
-  if (subscription.group?.weekly_limit_usd) {
+  if (weeklyLimit != null && weeklyLimit > 0) {
     rows.push(buildUsageRow(
       t('userSubscriptions.weekly'),
       subscription.weekly_usage_usd,
-      subscription.group.weekly_limit_usd,
-      subscription.weekly_window_start
-        ? t('userSubscriptions.resetIn', { time: formatResetTime(subscription.weekly_window_start, 168) })
-        : undefined,
+      weeklyLimit,
+      weeklyUsageFooter(subscription),
     ))
+  } else if (rollingWeekly) {
+    rows.push({
+      label: t('userSubscriptions.weekly'),
+      value: t('userSubscriptions.weeklyWindowNotActive'),
+      progressWidth: '0%',
+      progressClass: 'bg-gray-400',
+      footer: weeklyUsageFooter(subscription),
+    })
   }
   if (subscription.group?.monthly_limit_usd) {
     rows.push(buildUsageRow(
@@ -241,6 +259,16 @@ function subscriptionUsageRows(subscription: UserSubscription): SubscriptionUsag
     ))
   }
   return rows
+}
+
+function weeklyUsageFooter(subscription: UserSubscription): string | undefined {
+  if (subscription.weekly_window_resets_at) {
+    return t('userSubscriptions.resetIn', { time: formatRemainingTime(subscription.weekly_window_resets_at) })
+  }
+  if (isRollingWeeklySubscription(subscription)) {
+    return t('userSubscriptions.weeklyWindowNotActive')
+  }
+  return undefined
 }
 
 function formatDurationParts(parts: RemainingDurationParts): string {
@@ -274,6 +302,11 @@ function formatResetTime(windowStart: string | null, windowHours: number): strin
   const end = new Date(start.getTime() + windowHours * 60 * 60 * 1000)
   const parts = getRemainingDurationParts(end)
 
+  return parts ? formatDurationParts(parts) : t('userSubscriptions.windowNotActive')
+}
+
+function formatRemainingTime(resetsAt: string): string {
+  const parts = getRemainingDurationParts(resetsAt)
   return parts ? formatDurationParts(parts) : t('userSubscriptions.windowNotActive')
 }
 

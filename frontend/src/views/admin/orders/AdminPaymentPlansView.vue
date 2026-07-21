@@ -33,8 +33,8 @@
             <span v-if="row.original_price" class="ml-1 text-xs text-gray-400 line-through">¥{{ row.original_price.toFixed(2) }}</span>
           </div>
         </template>
-        <template #cell-validity_days="{ value, row }">
-          <span class="text-sm">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
+        <template #cell-validity_days="{ row }">
+          <span class="text-sm">{{ displayPlanValidityDays(row) }} {{ t('payment.admin.' + displayPlanValidityUnit(row)) }}</span>
         </template>
         <template #cell-for_sale="{ value, row }">
           <button
@@ -90,6 +90,7 @@ import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
 import { platformTextClass } from '@/utils/platformColors'
+import { PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS, isPublicCodexSubscriptionGroupName } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -115,6 +116,19 @@ function isGroupMissing(id: number): boolean {
 function getPlanNameClass(groupId: number): string {
   const group = getGroup(groupId)
   return group ? platformTextClass(group.platform) : 'text-gray-900 dark:text-white'
+}
+
+function isPublicCodexPlan(plan: SubscriptionPlan): boolean {
+  const group = getGroup(plan.group_id)
+  return isPublicCodexSubscriptionGroupName(group?.name)
+}
+
+function displayPlanValidityDays(plan: SubscriptionPlan): number {
+  return isPublicCodexPlan(plan) ? PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS : plan.validity_days
+}
+
+function displayPlanValidityUnit(plan: SubscriptionPlan): string {
+  return isPublicCodexPlan(plan) ? 'days' : (plan.validity_unit || 'days')
 }
 
 
@@ -180,7 +194,8 @@ async function handleDeletePlan() {
 // ==================== Lifecycle ====================
 
 onMounted(() => {
-  loadGroups()
-  loadPlans()
+  loadGroups().finally(() => {
+    loadPlans()
+  })
 })
 </script>

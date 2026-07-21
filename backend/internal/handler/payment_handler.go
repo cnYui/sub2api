@@ -52,30 +52,55 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	// Enrich plans with group platform for frontend color coding
-	type planWithPlatform struct {
-		ID            int64    `json:"id"`
-		GroupID       int64    `json:"group_id"`
-		GroupPlatform string   `json:"group_platform"`
-		Name          string   `json:"name"`
-		Description   string   `json:"description"`
-		Price         float64  `json:"price"`
-		OriginalPrice *float64 `json:"original_price,omitempty"`
-		ValidityDays  int      `json:"validity_days"`
-		ValidityUnit  string   `json:"validity_unit"`
-		Features      string   `json:"features"`
-		ProductName   string   `json:"product_name"`
-		ForSale       bool     `json:"for_sale"`
-		SortOrder     int      `json:"sort_order"`
+	type planWithGroup struct {
+		ID                    int64    `json:"id"`
+		GroupID               int64    `json:"group_id"`
+		GroupPlatform         string   `json:"group_platform"`
+		GroupName             string   `json:"group_name"`
+		RateMultiplier        float64  `json:"rate_multiplier"`
+		DailyLimitUSD         *float64 `json:"daily_limit_usd"`
+		WeeklyLimitUSD        *float64 `json:"weekly_limit_usd"`
+		MonthlyLimitUSD       *float64 `json:"monthly_limit_usd"`
+		PeriodTotalQuotaUSD   *float64 `json:"period_total_quota_usd,omitempty"`
+		QuotaWindowUnit       string   `json:"quota_window_unit"`
+		QuotaWindowDays       int      `json:"quota_window_days"`
+		EffectiveValidityDays int      `json:"effective_validity_days"`
+		ModelScopes           []string `json:"supported_model_scopes"`
+		Name                  string   `json:"name"`
+		Description           string   `json:"description"`
+		Price                 float64  `json:"price"`
+		OriginalPrice         *float64 `json:"original_price,omitempty"`
+		ValidityDays          int      `json:"validity_days"`
+		ValidityUnit          string   `json:"validity_unit"`
+		Features              string   `json:"features"`
+		ProductName           string   `json:"product_name"`
+		ForSale               bool     `json:"for_sale"`
+		SortOrder             int      `json:"sort_order"`
 	}
-	platformMap := h.configService.GetGroupPlatformMap(c.Request.Context(), plans)
-	result := make([]planWithPlatform, 0, len(plans))
+	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
+	result := make([]planWithGroup, 0, len(plans))
 	for _, p := range plans {
-		result = append(result, planWithPlatform{
-			ID: int64(p.ID), GroupID: p.GroupID, GroupPlatform: platformMap[p.GroupID],
-			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
-			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
+		gi := groupInfo[p.GroupID]
+		quota := service.BuildPlanQuotaSnapshot(gi.Name, gi.DailyLimitUSD, gi.WeeklyLimitUSD, gi.MonthlyLimitUSD, p.ValidityDays, p.ValidityUnit)
+		display := paymentPlanDisplayFields(p, gi.Name, quota)
+		validityDays := p.ValidityDays
+		validityUnit := p.ValidityUnit
+		if _, ok := service.PublicCodexSubscriptionWeeklyLimitUSD(gi.Name); ok {
+			validityDays = quota.EffectiveValidityDays
+			validityUnit = "day"
+		}
+		result = append(result, planWithGroup{
+			ID: int64(p.ID), GroupID: p.GroupID,
+			GroupPlatform: gi.Platform, GroupName: gi.Name,
+			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: quota.DailyLimitUSD,
+			WeeklyLimitUSD: quota.WeeklyLimitUSD, MonthlyLimitUSD: quota.MonthlyLimitUSD,
+			PeriodTotalQuotaUSD: quota.PeriodTotalQuotaUSD,
+			QuotaWindowUnit:     quota.QuotaWindowUnit, QuotaWindowDays: quota.QuotaWindowDays,
+			EffectiveValidityDays: quota.EffectiveValidityDays,
+			ModelScopes:           gi.ModelScopes,
+			Name:                  display.Name, Description: display.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			ValidityDays: validityDays, ValidityUnit: validityUnit, Features: display.Features,
+			ProductName: display.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
 		})
 	}
 	response.Success(c, result)
@@ -118,15 +143,26 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	planList := make([]checkoutPlan, 0, len(plans))
 	for _, p := range plans {
 		gi := groupInfo[p.GroupID]
+		quota := service.BuildPlanQuotaSnapshot(gi.Name, gi.DailyLimitUSD, gi.WeeklyLimitUSD, gi.MonthlyLimitUSD, p.ValidityDays, p.ValidityUnit)
+		display := paymentPlanDisplayFields(p, gi.Name, quota)
+		validityDays := p.ValidityDays
+		validityUnit := p.ValidityUnit
+		if _, ok := service.PublicCodexSubscriptionWeeklyLimitUSD(gi.Name); ok {
+			validityDays = quota.EffectiveValidityDays
+			validityUnit = "day"
+		}
 		planList = append(planList, checkoutPlan{
 			ID: int64(p.ID), GroupID: p.GroupID,
 			GroupPlatform: gi.Platform, GroupName: gi.Name,
-			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: gi.DailyLimitUSD,
-			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
-			ModelScopes: gi.ModelScopes,
-			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
-			ProductName: p.ProductName,
+			RateMultiplier: gi.RateMultiplier, DailyLimitUSD: quota.DailyLimitUSD,
+			WeeklyLimitUSD: quota.WeeklyLimitUSD, MonthlyLimitUSD: quota.MonthlyLimitUSD,
+			PeriodTotalQuotaUSD: quota.PeriodTotalQuotaUSD,
+			QuotaWindowUnit:     quota.QuotaWindowUnit, QuotaWindowDays: quota.QuotaWindowDays,
+			EffectiveValidityDays: quota.EffectiveValidityDays,
+			ModelScopes:           gi.ModelScopes,
+			Name:                  display.Name, Description: display.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
+			ValidityDays: validityDays, ValidityUnit: validityUnit, Features: parseFeatures(display.Features),
+			ProductName: display.ProductName,
 		})
 	}
 	trafficPacks := []service.TrafficPack{}
@@ -176,23 +212,31 @@ type checkoutInfoResponse struct {
 }
 
 type checkoutPlan struct {
-	ID              int64    `json:"id"`
-	GroupID         int64    `json:"group_id"`
-	GroupPlatform   string   `json:"group_platform"`
-	GroupName       string   `json:"group_name"`
-	RateMultiplier  float64  `json:"rate_multiplier"`
-	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
-	ModelScopes     []string `json:"supported_model_scopes"`
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	Price           float64  `json:"price"`
-	OriginalPrice   *float64 `json:"original_price,omitempty"`
-	ValidityDays    int      `json:"validity_days"`
-	ValidityUnit    string   `json:"validity_unit"`
-	Features        []string `json:"features"`
-	ProductName     string   `json:"product_name"`
+	ID                    int64    `json:"id"`
+	GroupID               int64    `json:"group_id"`
+	GroupPlatform         string   `json:"group_platform"`
+	GroupName             string   `json:"group_name"`
+	RateMultiplier        float64  `json:"rate_multiplier"`
+	DailyLimitUSD         *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD        *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD       *float64 `json:"monthly_limit_usd"`
+	PeriodTotalQuotaUSD   *float64 `json:"period_total_quota_usd,omitempty"`
+	QuotaWindowUnit       string   `json:"quota_window_unit"`
+	QuotaWindowDays       int      `json:"quota_window_days"`
+	EffectiveValidityDays int      `json:"effective_validity_days"`
+	ModelScopes           []string `json:"supported_model_scopes"`
+	Name                  string   `json:"name"`
+	Description           string   `json:"description"`
+	Price                 float64  `json:"price"`
+	OriginalPrice         *float64 `json:"original_price,omitempty"`
+	ValidityDays          int      `json:"validity_days"`
+	ValidityUnit          string   `json:"validity_unit"`
+	Features              []string `json:"features"`
+	ProductName           string   `json:"product_name"`
+}
+
+func paymentPlanDisplayFields(p *dbent.SubscriptionPlan, groupName string, quota service.PlanQuotaSnapshot) service.PlanDisplaySnapshot {
+	return service.BuildPlanDisplaySnapshot(p.Name, p.Description, p.Features, p.ProductName, p.Price, groupName, quota)
 }
 
 // parseFeatures splits a newline-separated features string into a string slice.
@@ -443,6 +487,26 @@ func (h *PaymentHandler) CancelOrder(c *gin.Context) {
 // RefundRequestBody is the request body for requesting a refund.
 type RefundRequestBody struct {
 	Reason string `json:"reason"`
+}
+
+// GetRefundQuote 返回只读退款报价；实际提交时服务端会重新锁定并计算。
+// GET /api/v1/payment/orders/:id/refund-quote
+func (h *PaymentHandler) GetRefundQuote(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	orderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid order ID")
+		return
+	}
+	quote, err := h.paymentService.GetSubscriptionRefundQuote(c.Request.Context(), orderID, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, quote)
 }
 
 // RequestRefund submits a refund request for a completed order.

@@ -43,6 +43,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/tlsfingerprintprofile"
 	"github.com/Wei-Shaw/sub2api/ent/usagecleanuptask"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -117,6 +118,8 @@ type Client struct {
 	SubscriptionEntitlementPeriod *SubscriptionEntitlementPeriodClient
 	// SubscriptionPlan is the client for interacting with the SubscriptionPlan builders.
 	SubscriptionPlan *SubscriptionPlanClient
+	// SubscriptionQuotaDebtAdjustment is the client for interacting with the SubscriptionQuotaDebtAdjustment builders.
+	SubscriptionQuotaDebtAdjustment *SubscriptionQuotaDebtAdjustmentClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
 	TLSFingerprintProfile *TLSFingerprintProfileClient
 	// UsageCleanupTask is the client for interacting with the UsageCleanupTask builders.
@@ -174,6 +177,7 @@ func (c *Client) init() {
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionEntitlementPeriod = NewSubscriptionEntitlementPeriodClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
+	c.SubscriptionQuotaDebtAdjustment = NewSubscriptionQuotaDebtAdjustmentClient(c.config)
 	c.TLSFingerprintProfile = NewTLSFingerprintProfileClient(c.config)
 	c.UsageCleanupTask = NewUsageCleanupTaskClient(c.config)
 	c.UsageLog = NewUsageLogClient(c.config)
@@ -273,45 +277,46 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:                           ctx,
-		config:                        cfg,
-		APIKey:                        NewAPIKeyClient(cfg),
-		Account:                       NewAccountClient(cfg),
-		AccountGroup:                  NewAccountGroupClient(cfg),
-		Announcement:                  NewAnnouncementClient(cfg),
-		AnnouncementRead:              NewAnnouncementReadClient(cfg),
-		AuthIdentity:                  NewAuthIdentityClient(cfg),
-		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
-		ChannelMonitor:                NewChannelMonitorClient(cfg),
-		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
-		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
-		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
-		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
-		Group:                         NewGroupClient(cfg),
-		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
-		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
-		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
-		PaymentBalanceHold:            NewPaymentBalanceHoldClient(cfg),
-		PaymentOrder:                  NewPaymentOrderClient(cfg),
-		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
-		PendingAuthSession:            NewPendingAuthSessionClient(cfg),
-		PromoCode:                     NewPromoCodeClient(cfg),
-		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
-		Proxy:                         NewProxyClient(cfg),
-		RedeemCode:                    NewRedeemCodeClient(cfg),
-		SecuritySecret:                NewSecuritySecretClient(cfg),
-		Setting:                       NewSettingClient(cfg),
-		SubscriptionEntitlementPeriod: NewSubscriptionEntitlementPeriodClient(cfg),
-		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
-		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
-		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
-		UsageLog:                      NewUsageLogClient(cfg),
-		User:                          NewUserClient(cfg),
-		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
-		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
-		UserAttributeValue:            NewUserAttributeValueClient(cfg),
-		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
-		UserSubscription:              NewUserSubscriptionClient(cfg),
+		ctx:                             ctx,
+		config:                          cfg,
+		APIKey:                          NewAPIKeyClient(cfg),
+		Account:                         NewAccountClient(cfg),
+		AccountGroup:                    NewAccountGroupClient(cfg),
+		Announcement:                    NewAnnouncementClient(cfg),
+		AnnouncementRead:                NewAnnouncementReadClient(cfg),
+		AuthIdentity:                    NewAuthIdentityClient(cfg),
+		AuthIdentityChannel:             NewAuthIdentityChannelClient(cfg),
+		ChannelMonitor:                  NewChannelMonitorClient(cfg),
+		ChannelMonitorDailyRollup:       NewChannelMonitorDailyRollupClient(cfg),
+		ChannelMonitorHistory:           NewChannelMonitorHistoryClient(cfg),
+		ChannelMonitorRequestTemplate:   NewChannelMonitorRequestTemplateClient(cfg),
+		ErrorPassthroughRule:            NewErrorPassthroughRuleClient(cfg),
+		Group:                           NewGroupClient(cfg),
+		IdempotencyRecord:               NewIdempotencyRecordClient(cfg),
+		IdentityAdoptionDecision:        NewIdentityAdoptionDecisionClient(cfg),
+		PaymentAuditLog:                 NewPaymentAuditLogClient(cfg),
+		PaymentBalanceHold:              NewPaymentBalanceHoldClient(cfg),
+		PaymentOrder:                    NewPaymentOrderClient(cfg),
+		PaymentProviderInstance:         NewPaymentProviderInstanceClient(cfg),
+		PendingAuthSession:              NewPendingAuthSessionClient(cfg),
+		PromoCode:                       NewPromoCodeClient(cfg),
+		PromoCodeUsage:                  NewPromoCodeUsageClient(cfg),
+		Proxy:                           NewProxyClient(cfg),
+		RedeemCode:                      NewRedeemCodeClient(cfg),
+		SecuritySecret:                  NewSecuritySecretClient(cfg),
+		Setting:                         NewSettingClient(cfg),
+		SubscriptionEntitlementPeriod:   NewSubscriptionEntitlementPeriodClient(cfg),
+		SubscriptionPlan:                NewSubscriptionPlanClient(cfg),
+		SubscriptionQuotaDebtAdjustment: NewSubscriptionQuotaDebtAdjustmentClient(cfg),
+		TLSFingerprintProfile:           NewTLSFingerprintProfileClient(cfg),
+		UsageCleanupTask:                NewUsageCleanupTaskClient(cfg),
+		UsageLog:                        NewUsageLogClient(cfg),
+		User:                            NewUserClient(cfg),
+		UserAllowedGroup:                NewUserAllowedGroupClient(cfg),
+		UserAttributeDefinition:         NewUserAttributeDefinitionClient(cfg),
+		UserAttributeValue:              NewUserAttributeValueClient(cfg),
+		UserPlatformQuota:               NewUserPlatformQuotaClient(cfg),
+		UserSubscription:                NewUserSubscriptionClient(cfg),
 	}, nil
 }
 
@@ -329,45 +334,46 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:                           ctx,
-		config:                        cfg,
-		APIKey:                        NewAPIKeyClient(cfg),
-		Account:                       NewAccountClient(cfg),
-		AccountGroup:                  NewAccountGroupClient(cfg),
-		Announcement:                  NewAnnouncementClient(cfg),
-		AnnouncementRead:              NewAnnouncementReadClient(cfg),
-		AuthIdentity:                  NewAuthIdentityClient(cfg),
-		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
-		ChannelMonitor:                NewChannelMonitorClient(cfg),
-		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
-		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
-		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
-		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
-		Group:                         NewGroupClient(cfg),
-		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
-		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
-		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
-		PaymentBalanceHold:            NewPaymentBalanceHoldClient(cfg),
-		PaymentOrder:                  NewPaymentOrderClient(cfg),
-		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
-		PendingAuthSession:            NewPendingAuthSessionClient(cfg),
-		PromoCode:                     NewPromoCodeClient(cfg),
-		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
-		Proxy:                         NewProxyClient(cfg),
-		RedeemCode:                    NewRedeemCodeClient(cfg),
-		SecuritySecret:                NewSecuritySecretClient(cfg),
-		Setting:                       NewSettingClient(cfg),
-		SubscriptionEntitlementPeriod: NewSubscriptionEntitlementPeriodClient(cfg),
-		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
-		TLSFingerprintProfile:         NewTLSFingerprintProfileClient(cfg),
-		UsageCleanupTask:              NewUsageCleanupTaskClient(cfg),
-		UsageLog:                      NewUsageLogClient(cfg),
-		User:                          NewUserClient(cfg),
-		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
-		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
-		UserAttributeValue:            NewUserAttributeValueClient(cfg),
-		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
-		UserSubscription:              NewUserSubscriptionClient(cfg),
+		ctx:                             ctx,
+		config:                          cfg,
+		APIKey:                          NewAPIKeyClient(cfg),
+		Account:                         NewAccountClient(cfg),
+		AccountGroup:                    NewAccountGroupClient(cfg),
+		Announcement:                    NewAnnouncementClient(cfg),
+		AnnouncementRead:                NewAnnouncementReadClient(cfg),
+		AuthIdentity:                    NewAuthIdentityClient(cfg),
+		AuthIdentityChannel:             NewAuthIdentityChannelClient(cfg),
+		ChannelMonitor:                  NewChannelMonitorClient(cfg),
+		ChannelMonitorDailyRollup:       NewChannelMonitorDailyRollupClient(cfg),
+		ChannelMonitorHistory:           NewChannelMonitorHistoryClient(cfg),
+		ChannelMonitorRequestTemplate:   NewChannelMonitorRequestTemplateClient(cfg),
+		ErrorPassthroughRule:            NewErrorPassthroughRuleClient(cfg),
+		Group:                           NewGroupClient(cfg),
+		IdempotencyRecord:               NewIdempotencyRecordClient(cfg),
+		IdentityAdoptionDecision:        NewIdentityAdoptionDecisionClient(cfg),
+		PaymentAuditLog:                 NewPaymentAuditLogClient(cfg),
+		PaymentBalanceHold:              NewPaymentBalanceHoldClient(cfg),
+		PaymentOrder:                    NewPaymentOrderClient(cfg),
+		PaymentProviderInstance:         NewPaymentProviderInstanceClient(cfg),
+		PendingAuthSession:              NewPendingAuthSessionClient(cfg),
+		PromoCode:                       NewPromoCodeClient(cfg),
+		PromoCodeUsage:                  NewPromoCodeUsageClient(cfg),
+		Proxy:                           NewProxyClient(cfg),
+		RedeemCode:                      NewRedeemCodeClient(cfg),
+		SecuritySecret:                  NewSecuritySecretClient(cfg),
+		Setting:                         NewSettingClient(cfg),
+		SubscriptionEntitlementPeriod:   NewSubscriptionEntitlementPeriodClient(cfg),
+		SubscriptionPlan:                NewSubscriptionPlanClient(cfg),
+		SubscriptionQuotaDebtAdjustment: NewSubscriptionQuotaDebtAdjustmentClient(cfg),
+		TLSFingerprintProfile:           NewTLSFingerprintProfileClient(cfg),
+		UsageCleanupTask:                NewUsageCleanupTaskClient(cfg),
+		UsageLog:                        NewUsageLogClient(cfg),
+		User:                            NewUserClient(cfg),
+		UserAllowedGroup:                NewUserAllowedGroupClient(cfg),
+		UserAttributeDefinition:         NewUserAttributeDefinitionClient(cfg),
+		UserAttributeValue:              NewUserAttributeValueClient(cfg),
+		UserPlatformQuota:               NewUserPlatformQuotaClient(cfg),
+		UserSubscription:                NewUserSubscriptionClient(cfg),
 	}, nil
 }
 
@@ -405,9 +411,10 @@ func (c *Client) Use(hooks ...Hook) {
 		c.PaymentBalanceHold, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionEntitlementPeriod,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.SubscriptionPlan, c.SubscriptionQuotaDebtAdjustment, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -425,9 +432,10 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.PaymentBalanceHold, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionEntitlementPeriod,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.SubscriptionPlan, c.SubscriptionQuotaDebtAdjustment, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserPlatformQuota,
+		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -492,6 +500,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.SubscriptionEntitlementPeriod.mutate(ctx, m)
 	case *SubscriptionPlanMutation:
 		return c.SubscriptionPlan.mutate(ctx, m)
+	case *SubscriptionQuotaDebtAdjustmentMutation:
+		return c.SubscriptionQuotaDebtAdjustment.mutate(ctx, m)
 	case *TLSFingerprintProfileMutation:
 		return c.TLSFingerprintProfile.mutate(ctx, m)
 	case *UsageCleanupTaskMutation:
@@ -2583,6 +2593,22 @@ func (c *GroupClient) QuerySubscriptionEntitlementPeriods(_m *Group) *Subscripti
 			sqlgraph.From(group.Table, group.FieldID, id),
 			sqlgraph.To(subscriptionentitlementperiod.Table, subscriptionentitlementperiod.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, group.SubscriptionEntitlementPeriodsTable, group.SubscriptionEntitlementPeriodsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySubscriptionQuotaDebtAdjustments queries the subscription_quota_debt_adjustments edge of a Group.
+func (c *GroupClient) QuerySubscriptionQuotaDebtAdjustments(_m *Group) *SubscriptionQuotaDebtAdjustmentQuery {
+	query := (&SubscriptionQuotaDebtAdjustmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.SubscriptionQuotaDebtAdjustmentsTable, group.SubscriptionQuotaDebtAdjustmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4982,6 +5008,187 @@ func (c *SubscriptionPlanClient) mutate(ctx context.Context, m *SubscriptionPlan
 	}
 }
 
+// SubscriptionQuotaDebtAdjustmentClient is a client for the SubscriptionQuotaDebtAdjustment schema.
+type SubscriptionQuotaDebtAdjustmentClient struct {
+	config
+}
+
+// NewSubscriptionQuotaDebtAdjustmentClient returns a client for the SubscriptionQuotaDebtAdjustment from the given config.
+func NewSubscriptionQuotaDebtAdjustmentClient(c config) *SubscriptionQuotaDebtAdjustmentClient {
+	return &SubscriptionQuotaDebtAdjustmentClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `subscriptionquotadebtadjustment.Hooks(f(g(h())))`.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Use(hooks ...Hook) {
+	c.hooks.SubscriptionQuotaDebtAdjustment = append(c.hooks.SubscriptionQuotaDebtAdjustment, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `subscriptionquotadebtadjustment.Intercept(f(g(h())))`.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Intercept(interceptors ...Interceptor) {
+	c.inters.SubscriptionQuotaDebtAdjustment = append(c.inters.SubscriptionQuotaDebtAdjustment, interceptors...)
+}
+
+// Create returns a builder for creating a SubscriptionQuotaDebtAdjustment entity.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Create() *SubscriptionQuotaDebtAdjustmentCreate {
+	mutation := newSubscriptionQuotaDebtAdjustmentMutation(c.config, OpCreate)
+	return &SubscriptionQuotaDebtAdjustmentCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of SubscriptionQuotaDebtAdjustment entities.
+func (c *SubscriptionQuotaDebtAdjustmentClient) CreateBulk(builders ...*SubscriptionQuotaDebtAdjustmentCreate) *SubscriptionQuotaDebtAdjustmentCreateBulk {
+	return &SubscriptionQuotaDebtAdjustmentCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *SubscriptionQuotaDebtAdjustmentClient) MapCreateBulk(slice any, setFunc func(*SubscriptionQuotaDebtAdjustmentCreate, int)) *SubscriptionQuotaDebtAdjustmentCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &SubscriptionQuotaDebtAdjustmentCreateBulk{err: fmt.Errorf("calling to SubscriptionQuotaDebtAdjustmentClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*SubscriptionQuotaDebtAdjustmentCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &SubscriptionQuotaDebtAdjustmentCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Update() *SubscriptionQuotaDebtAdjustmentUpdate {
+	mutation := newSubscriptionQuotaDebtAdjustmentMutation(c.config, OpUpdate)
+	return &SubscriptionQuotaDebtAdjustmentUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *SubscriptionQuotaDebtAdjustmentClient) UpdateOne(_m *SubscriptionQuotaDebtAdjustment) *SubscriptionQuotaDebtAdjustmentUpdateOne {
+	mutation := newSubscriptionQuotaDebtAdjustmentMutation(c.config, OpUpdateOne, withSubscriptionQuotaDebtAdjustment(_m))
+	return &SubscriptionQuotaDebtAdjustmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *SubscriptionQuotaDebtAdjustmentClient) UpdateOneID(id int64) *SubscriptionQuotaDebtAdjustmentUpdateOne {
+	mutation := newSubscriptionQuotaDebtAdjustmentMutation(c.config, OpUpdateOne, withSubscriptionQuotaDebtAdjustmentID(id))
+	return &SubscriptionQuotaDebtAdjustmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Delete() *SubscriptionQuotaDebtAdjustmentDelete {
+	mutation := newSubscriptionQuotaDebtAdjustmentMutation(c.config, OpDelete)
+	return &SubscriptionQuotaDebtAdjustmentDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *SubscriptionQuotaDebtAdjustmentClient) DeleteOne(_m *SubscriptionQuotaDebtAdjustment) *SubscriptionQuotaDebtAdjustmentDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *SubscriptionQuotaDebtAdjustmentClient) DeleteOneID(id int64) *SubscriptionQuotaDebtAdjustmentDeleteOne {
+	builder := c.Delete().Where(subscriptionquotadebtadjustment.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &SubscriptionQuotaDebtAdjustmentDeleteOne{builder}
+}
+
+// Query returns a query builder for SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Query() *SubscriptionQuotaDebtAdjustmentQuery {
+	return &SubscriptionQuotaDebtAdjustmentQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeSubscriptionQuotaDebtAdjustment},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a SubscriptionQuotaDebtAdjustment entity by its id.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Get(ctx context.Context, id int64) (*SubscriptionQuotaDebtAdjustment, error) {
+	return c.Query().Where(subscriptionquotadebtadjustment.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *SubscriptionQuotaDebtAdjustmentClient) GetX(ctx context.Context, id int64) *SubscriptionQuotaDebtAdjustment {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySubscription queries the subscription edge of a SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) QuerySubscription(_m *SubscriptionQuotaDebtAdjustment) *UserSubscriptionQuery {
+	query := (&UserSubscriptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID, id),
+			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, subscriptionquotadebtadjustment.SubscriptionTable, subscriptionquotadebtadjustment.SubscriptionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) QueryUser(_m *SubscriptionQuotaDebtAdjustment) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, subscriptionquotadebtadjustment.UserTable, subscriptionquotadebtadjustment.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroup queries the group edge of a SubscriptionQuotaDebtAdjustment.
+func (c *SubscriptionQuotaDebtAdjustmentClient) QueryGroup(_m *SubscriptionQuotaDebtAdjustment) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, subscriptionquotadebtadjustment.GroupTable, subscriptionquotadebtadjustment.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Hooks() []Hook {
+	return c.hooks.SubscriptionQuotaDebtAdjustment
+}
+
+// Interceptors returns the client interceptors.
+func (c *SubscriptionQuotaDebtAdjustmentClient) Interceptors() []Interceptor {
+	return c.inters.SubscriptionQuotaDebtAdjustment
+}
+
+func (c *SubscriptionQuotaDebtAdjustmentClient) mutate(ctx context.Context, m *SubscriptionQuotaDebtAdjustmentMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&SubscriptionQuotaDebtAdjustmentCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&SubscriptionQuotaDebtAdjustmentUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&SubscriptionQuotaDebtAdjustmentUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&SubscriptionQuotaDebtAdjustmentDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown SubscriptionQuotaDebtAdjustment mutation op: %q", m.Op())
+	}
+}
+
 // TLSFingerprintProfileClient is a client for the TLSFingerprintProfile schema.
 type TLSFingerprintProfileClient struct {
 	config
@@ -5626,6 +5833,22 @@ func (c *UserClient) QuerySubscriptionEntitlementPeriods(_m *User) *Subscription
 			sqlgraph.From(user.Table, user.FieldID, id),
 			sqlgraph.To(subscriptionentitlementperiod.Table, subscriptionentitlementperiod.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.SubscriptionEntitlementPeriodsTable, user.SubscriptionEntitlementPeriodsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySubscriptionQuotaDebtAdjustments queries the subscription_quota_debt_adjustments edge of a User.
+func (c *UserClient) QuerySubscriptionQuotaDebtAdjustments(_m *User) *SubscriptionQuotaDebtAdjustmentQuery {
+	query := (&SubscriptionQuotaDebtAdjustmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.SubscriptionQuotaDebtAdjustmentsTable, user.SubscriptionQuotaDebtAdjustmentsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -6623,6 +6846,22 @@ func (c *UserSubscriptionClient) QueryEntitlementPeriods(_m *UserSubscription) *
 	return query
 }
 
+// QueryQuotaDebtAdjustments queries the quota_debt_adjustments edge of a UserSubscription.
+func (c *UserSubscriptionClient) QueryQuotaDebtAdjustments(_m *UserSubscription) *SubscriptionQuotaDebtAdjustmentQuery {
+	query := (&SubscriptionQuotaDebtAdjustmentClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, id),
+			sqlgraph.To(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.QuotaDebtAdjustmentsTable, usersubscription.QuotaDebtAdjustmentsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserSubscriptionClient) Hooks() []Hook {
 	hooks := c.hooks.UserSubscription
@@ -6659,9 +6898,10 @@ type (
 		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
 		PaymentBalanceHold, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionEntitlementPeriod, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Hook
+		SubscriptionEntitlementPeriod, SubscriptionPlan,
+		SubscriptionQuotaDebtAdjustment, TLSFingerprintProfile, UsageCleanupTask,
+		UsageLog, User, UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
@@ -6670,9 +6910,10 @@ type (
 		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
 		PaymentBalanceHold, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionEntitlementPeriod, SubscriptionPlan, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserPlatformQuota, UserSubscription []ent.Interceptor
+		SubscriptionEntitlementPeriod, SubscriptionPlan,
+		SubscriptionQuotaDebtAdjustment, TLSFingerprintProfile, UsageCleanupTask,
+		UsageLog, User, UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

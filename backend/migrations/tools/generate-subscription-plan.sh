@@ -8,9 +8,9 @@ usage() {
     --price-cny 109 \
     --plan-label "109 元订阅池" \
     --group-name codex-pool-99-usd \
-    --daily-limit-usd 99 \
+    --weekly-limit-usd 99 \
     --sort-order 109 \
-    --validity-days 30 \
+    --validity-days 28 \
     --template-group codex-pool-49-usd \
     [--bind-openai-accounts]
 USAGE
@@ -53,7 +53,7 @@ require_int() {
 price_cny=""
 plan_label=""
 group_name=""
-daily_limit_usd=""
+weekly_limit_usd=""
 sort_order=""
 validity_days=""
 template_group=""
@@ -73,8 +73,12 @@ while [[ $# -gt 0 ]]; do
       group_name="${2:-}"
       shift 2
       ;;
+    --weekly-limit-usd)
+      weekly_limit_usd="${2:-}"
+      shift 2
+      ;;
     --daily-limit-usd)
-      daily_limit_usd="${2:-}"
+      weekly_limit_usd="${2:-}"
       shift 2
       ;;
     --sort-order)
@@ -108,24 +112,30 @@ done
 require_value "--price-cny" "${price_cny}"
 require_value "--plan-label" "${plan_label}"
 require_value "--group-name" "${group_name}"
-require_value "--daily-limit-usd" "${daily_limit_usd}"
+require_value "--weekly-limit-usd" "${weekly_limit_usd}"
 require_value "--sort-order" "${sort_order}"
 require_value "--validity-days" "${validity_days}"
 require_value "--template-group" "${template_group}"
 
 require_number "--price-cny" "${price_cny}"
-require_number "--daily-limit-usd" "${daily_limit_usd}"
+require_number "--weekly-limit-usd" "${weekly_limit_usd}"
 require_int "--sort-order" "${sort_order}"
 require_int "--validity-days" "${validity_days}"
+if [[ "${validity_days}" != "28" ]]; then
+  echo "公共 Codex 订阅有效期必须固定为 28 天" >&2
+  exit 2
+fi
 
 price_fmt="$(LC_ALL=C printf '%.2f' "${price_cny}")"
 plan_label_sql="$(sql_quote "${plan_label}")"
 group_name_sql="$(sql_quote "${group_name}")"
 template_group_sql="$(sql_quote "${template_group}")"
-group_description="${plan_label}，每日 ${daily_limit_usd} USD，${validity_days} 天有效期"
+group_description="${plan_label}，每 7 天 ${weekly_limit_usd} USD，28 天有效期"
 group_description_sql="$(sql_quote "${group_description}")"
-plan_description="月度订阅-时间 ${validity_days}天，日限额 ${daily_limit_usd}刀，24点刷新"
+plan_description="28 天订阅，每 7 天刷新周额度，购买时间起滚动计算"
 plan_description_sql="$(sql_quote "${plan_description}")"
+plan_features="$(printf '周额度 %s USD\n28 天有效期\n购买时间起每 7 天刷新' "${weekly_limit_usd}")"
+plan_features_sql="$(sql_quote "${plan_features}")"
 
 cat <<SQL
 -- 自动生成订阅套餐 seed：${plan_label} / ${group_name}
@@ -169,10 +179,10 @@ BEGIN
         'active',
         'openai',
         'subscription',
-        ${daily_limit_usd},
         NULL,
         NULL,
-        ${validity_days},
+        NULL,
+        28,
         TRUE,
         COALESCE((SELECT allow_messages_dispatch FROM groups WHERE name = ${template_group_sql} AND deleted_at IS NULL ORDER BY id LIMIT 1), FALSE),
         COALESCE((SELECT require_oauth_only FROM groups WHERE name = ${template_group_sql} AND deleted_at IS NULL ORDER BY id LIMIT 1), FALSE),
@@ -205,10 +215,10 @@ BEGIN
         status = 'active',
         platform = 'openai',
         subscription_type = 'subscription',
-        daily_limit_usd = ${daily_limit_usd},
-        weekly_limit_usd = NULL,
+        daily_limit_usd = NULL,
+        weekly_limit_usd = ${weekly_limit_usd},
         monthly_limit_usd = NULL,
-        default_validity_days = ${validity_days},
+        default_validity_days = 28,
         allow_image_generation = TRUE,
         allow_messages_dispatch = COALESCE((SELECT allow_messages_dispatch FROM groups WHERE name = ${template_group_sql} AND deleted_at IS NULL ORDER BY id LIMIT 1), FALSE),
         require_oauth_only = COALESCE((SELECT require_oauth_only FROM groups WHERE name = ${template_group_sql} AND deleted_at IS NULL ORDER BY id LIMIT 1), FALSE),
@@ -230,9 +240,9 @@ BEGIN
         description = ${plan_description_sql},
         price = ${price_fmt},
         original_price = NULL,
-        validity_days = ${validity_days},
+        validity_days = 28,
         validity_unit = 'day',
-        features = '',
+        features = ${plan_features_sql},
         product_name = ${plan_label_sql},
         for_sale = TRUE,
         sort_order = ${sort_order},
@@ -262,9 +272,9 @@ BEGIN
         ${plan_description_sql},
         ${price_fmt},
         NULL,
-        ${validity_days},
+        28,
         'day',
-        '',
+        ${plan_features_sql},
         ${plan_label_sql},
         TRUE,
         ${sort_order},

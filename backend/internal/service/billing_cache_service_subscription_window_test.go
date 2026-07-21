@@ -240,6 +240,41 @@ func TestCheckBillingEligibility_CurrentDailyWindowStillRejectsRealExhaustion(t 
 	require.Zero(t, repo.refreshCalls)
 }
 
+func TestCheckBillingEligibility_ExpiredDailyWindowRejectsExhaustedCarryover(t *testing.T) {
+	today := timezone.StartOfDay(time.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	now := time.Now()
+	limit := 19.0
+
+	repo := &subscriptionWindowRepoStub{sub: &UserSubscription{
+		ID:                 105,
+		UserID:             60,
+		GroupID:            4,
+		Status:             SubscriptionStatusActive,
+		ExpiresAt:          now.Add(time.Hour),
+		DailyWindowStart:   &yesterday,
+		WeeklyWindowStart:  &today,
+		MonthlyWindowStart: &now,
+		DailyUsageUSD:      39.5,
+	}}
+	svc := NewBillingCacheService(nil, nil, repo, nil, nil, nil, &config.Config{}, nil)
+	t.Cleanup(svc.Stop)
+
+	err := svc.CheckBillingEligibility(
+		context.Background(),
+		&User{ID: 60},
+		nil,
+		&Group{ID: 4, SubscriptionType: SubscriptionTypeSubscription, DailyLimitUSD: &limit},
+		repo.sub,
+		PlatformOpenAI,
+	)
+
+	require.ErrorIs(t, err, ErrDailyLimitExceeded)
+	require.Zero(t, repo.refreshCalls)
+	require.InDelta(t, 39.5, repo.sub.DailyUsageUSD, 0.000001)
+	require.True(t, repo.sub.DailyWindowStart.Equal(yesterday))
+}
+
 func cloneSubscriptionForWindowTest(in *UserSubscription) *UserSubscription {
 	if in == nil {
 		return nil

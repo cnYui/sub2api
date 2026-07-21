@@ -1885,6 +1885,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ModelsListConfig:                normalizeGroupModelsListConfig(input.ModelsListConfig),
 		RPMLimit:                        input.RPMLimit,
 	}
+	NormalizePublicCodexSubscriptionQuota(group)
 	sanitizeGroupMessagesDispatchFields(group)
 	if err := s.groupRepo.Create(ctx, group); err != nil {
 		return nil, err
@@ -2110,6 +2111,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.RPMLimit != nil {
 		group.RPMLimit = *input.RPMLimit
 	}
+	NormalizePublicCodexSubscriptionQuota(group)
 	sanitizeGroupMessagesDispatchFields(group)
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
@@ -3201,6 +3203,7 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		return nil, ErrRedeemCodeExpired
 	}
 
+	var subscriptionGroup *Group
 	// 如果是订阅类型，验证必须有 GroupID
 	if input.Type == RedeemTypeSubscription {
 		if input.GroupID == nil {
@@ -3214,6 +3217,7 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		if !group.IsSubscriptionType() {
 			return nil, errors.New("group must be subscription type")
 		}
+		subscriptionGroup = group
 	}
 
 	codes := make([]RedeemCode, 0, input.Count)
@@ -3233,8 +3237,11 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		if input.Type == RedeemTypeSubscription {
 			code.GroupID = input.GroupID
 			code.ValidityDays = input.ValidityDays
-			if code.ValidityDays <= 0 {
-				code.ValidityDays = 30 // 默认30天
+			if subscriptionGroup != nil && subscriptionGroup.UsesRollingWeeklyQuota() {
+				// 公共 Codex 兑换码必须和权益窗口一致，避免兑换码列表显示成旧的 30 天事实。
+				code.ValidityDays = publicCodexSubscriptionValidityDays
+			} else if code.ValidityDays <= 0 {
+				code.ValidityDays = 30
 			}
 		}
 		if err := s.redeemCodeRepo.Create(ctx, &code); err != nil {

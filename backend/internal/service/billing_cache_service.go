@@ -50,7 +50,15 @@ type subscriptionCacheData struct {
 
 	DailyWindowStart   *time.Time
 	WeeklyWindowStart  *time.Time
+	WeeklyAnchorAt     *time.Time
 	MonthlyWindowStart *time.Time
+
+	EntitlementPeriodID       *int64
+	EntitlementWeeklyLimitUSD *float64
+	PeriodTotalQuotaUSD       *float64
+	EntitlementExpiresAt      *time.Time
+	QuotaWindowUnit           string
+	QuotaWindowDays           int
 }
 
 // 缓存写入任务类型
@@ -453,29 +461,43 @@ func (s *BillingCacheService) GetSubscriptionStatus(ctx context.Context, userID,
 
 func (s *BillingCacheService) convertFromPortsData(data *SubscriptionCacheData) *subscriptionCacheData {
 	return &subscriptionCacheData{
-		Status:             data.Status,
-		ExpiresAt:          data.ExpiresAt,
-		DailyUsage:         data.DailyUsage,
-		WeeklyUsage:        data.WeeklyUsage,
-		MonthlyUsage:       data.MonthlyUsage,
-		Version:            data.Version,
-		DailyWindowStart:   cloneTimePtr(data.DailyWindowStart),
-		WeeklyWindowStart:  cloneTimePtr(data.WeeklyWindowStart),
-		MonthlyWindowStart: cloneTimePtr(data.MonthlyWindowStart),
+		Status:                    data.Status,
+		ExpiresAt:                 data.ExpiresAt,
+		DailyUsage:                data.DailyUsage,
+		WeeklyUsage:               data.WeeklyUsage,
+		MonthlyUsage:              data.MonthlyUsage,
+		Version:                   data.Version,
+		DailyWindowStart:          cloneTimePtr(data.DailyWindowStart),
+		WeeklyWindowStart:         cloneTimePtr(data.WeeklyWindowStart),
+		WeeklyAnchorAt:            cloneTimePtr(data.WeeklyAnchorAt),
+		MonthlyWindowStart:        cloneTimePtr(data.MonthlyWindowStart),
+		EntitlementPeriodID:       cloneBillingInt64Ptr(data.EntitlementPeriodID),
+		EntitlementWeeklyLimitUSD: cloneFloat64Ptr(data.EntitlementWeeklyLimitUSD),
+		PeriodTotalQuotaUSD:       cloneFloat64Ptr(data.PeriodTotalQuotaUSD),
+		EntitlementExpiresAt:      cloneTimePtr(data.EntitlementExpiresAt),
+		QuotaWindowUnit:           data.QuotaWindowUnit,
+		QuotaWindowDays:           data.QuotaWindowDays,
 	}
 }
 
 func (s *BillingCacheService) convertToPortsData(data *subscriptionCacheData) *SubscriptionCacheData {
 	return &SubscriptionCacheData{
-		Status:             data.Status,
-		ExpiresAt:          data.ExpiresAt,
-		DailyUsage:         data.DailyUsage,
-		WeeklyUsage:        data.WeeklyUsage,
-		MonthlyUsage:       data.MonthlyUsage,
-		Version:            data.Version,
-		DailyWindowStart:   cloneTimePtr(data.DailyWindowStart),
-		WeeklyWindowStart:  cloneTimePtr(data.WeeklyWindowStart),
-		MonthlyWindowStart: cloneTimePtr(data.MonthlyWindowStart),
+		Status:                    data.Status,
+		ExpiresAt:                 data.ExpiresAt,
+		DailyUsage:                data.DailyUsage,
+		WeeklyUsage:               data.WeeklyUsage,
+		MonthlyUsage:              data.MonthlyUsage,
+		Version:                   data.Version,
+		DailyWindowStart:          cloneTimePtr(data.DailyWindowStart),
+		WeeklyWindowStart:         cloneTimePtr(data.WeeklyWindowStart),
+		WeeklyAnchorAt:            cloneTimePtr(data.WeeklyAnchorAt),
+		MonthlyWindowStart:        cloneTimePtr(data.MonthlyWindowStart),
+		EntitlementPeriodID:       cloneBillingInt64Ptr(data.EntitlementPeriodID),
+		EntitlementWeeklyLimitUSD: cloneFloat64Ptr(data.EntitlementWeeklyLimitUSD),
+		PeriodTotalQuotaUSD:       cloneFloat64Ptr(data.PeriodTotalQuotaUSD),
+		EntitlementExpiresAt:      cloneTimePtr(data.EntitlementExpiresAt),
+		QuotaWindowUnit:           data.QuotaWindowUnit,
+		QuotaWindowDays:           data.QuotaWindowDays,
 	}
 }
 
@@ -494,6 +516,22 @@ func cloneTimePtr(in *time.Time) *time.Time {
 	return &out
 }
 
+func cloneBillingInt64Ptr(in *int64) *int64 {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
+func cloneFloat64Ptr(in *float64) *float64 {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
 // getSubscriptionFromDB 从数据库获取订阅数据
 func (s *BillingCacheService) getSubscriptionFromDB(ctx context.Context, userID, groupID int64) (*subscriptionCacheData, error) {
 	if s.subRepo == nil {
@@ -504,7 +542,7 @@ func (s *BillingCacheService) getSubscriptionFromDB(ctx context.Context, userID,
 		return nil, fmt.Errorf("get subscription: %w", err)
 	}
 
-	return &subscriptionCacheData{
+	data := &subscriptionCacheData{
 		Status:             sub.Status,
 		ExpiresAt:          sub.ExpiresAt,
 		DailyUsage:         sub.DailyUsageUSD,
@@ -513,8 +551,18 @@ func (s *BillingCacheService) getSubscriptionFromDB(ctx context.Context, userID,
 		Version:            sub.UpdatedAt.Unix(),
 		DailyWindowStart:   cloneTimePtr(sub.DailyWindowStart),
 		WeeklyWindowStart:  cloneTimePtr(sub.WeeklyWindowStart),
+		WeeklyAnchorAt:     cloneTimePtr(sub.WeeklyAnchorAt),
 		MonthlyWindowStart: cloneTimePtr(sub.MonthlyWindowStart),
-	}, nil
+	}
+	if sub.CurrentEntitlementPeriod != nil {
+		data.EntitlementPeriodID = sub.CurrentEntitlementPeriodID()
+		data.EntitlementWeeklyLimitUSD = cloneFloat64Ptr(sub.CurrentEntitlementPeriod.WeeklyLimitUSD)
+		data.PeriodTotalQuotaUSD = cloneFloat64Ptr(sub.CurrentEntitlementPeriod.PeriodTotalQuotaUSD)
+		data.EntitlementExpiresAt = cloneTimePtr(&sub.CurrentEntitlementPeriod.ExpiresAt)
+		data.QuotaWindowUnit = sub.CurrentEntitlementPeriod.QuotaWindowUnit
+		data.QuotaWindowDays = sub.CurrentEntitlementPeriod.QuotaWindowDays
+	}
+	return data, nil
 }
 
 // setSubscriptionCache 设置订阅缓存
@@ -565,7 +613,24 @@ func (s *BillingCacheService) InvalidateSubscription(ctx context.Context, userID
 		logger.LegacyPrintf("service.billing_cache", "Warning: invalidate subscription cache failed for user %d group %d: %v", userID, groupID, err)
 		return err
 	}
+	if broker, ok := s.cache.(SubscriptionCacheInvalidationBroker); ok {
+		if err := broker.PublishSubscriptionCacheInvalidation(ctx, userID, groupID); err != nil {
+			logger.LegacyPrintf("service.billing_cache", "Warning: publish subscription cache invalidation failed for user %d group %d: %v", userID, groupID, err)
+			return err
+		}
+	}
 	return nil
+}
+
+func (s *BillingCacheService) SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(userID, groupID int64)) error {
+	if s == nil || s.cache == nil {
+		return nil
+	}
+	broker, ok := s.cache.(SubscriptionCacheInvalidationBroker)
+	if !ok {
+		return nil
+	}
+	return broker.SubscribeSubscriptionCacheInvalidation(ctx, handler)
 }
 
 // InvalidateAPIKeyRateLimit invalidates the Redis rate-limit usage cache for an API key.
@@ -959,16 +1024,51 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	if time.Now().After(subData.ExpiresAt) {
 		return ErrSubscriptionInvalid
 	}
+	if group.UsesRollingWeeklyQuota() && !subscriptionCacheHasRollingWeeklyQuotaFacts(subData, group) && !group.HasDailyLimit() && s.subRepo != nil {
+		if s.cache != nil {
+			_ = s.cache.InvalidateSubscriptionCache(ctx, userID, group.ID)
+		}
+		reloaded, reloadErr := s.getSubscriptionFromDB(ctx, userID, group.ID)
+		if reloadErr != nil {
+			return ErrSubscriptionInvalid
+		}
+		subData = reloaded
+		_ = s.enqueueCacheWrite(cacheWriteTask{
+			kind:             cacheWriteSetSubscription,
+			userID:           userID,
+			groupID:          group.ID,
+			subscriptionData: subData,
+		})
+	}
 
-	normalized := normalizeSubscriptionCacheForEligibility(subData, timezone.Now())
+	normalized := normalizeSubscriptionCacheForEligibility(subData, group, timezone.Now())
 	subData = &normalized
+	usesRollingWeeklyWindow := subscriptionCacheHasRollingWeeklyQuotaFacts(subData, group)
 
 	// 检查限额（使用传入的Group限额配置）
-	if group.HasDailyLimit() && subData.DailyUsage >= *group.DailyLimitUSD {
+	if !usesRollingWeeklyWindow && group.HasDailyLimit() && subData.DailyUsage >= *group.DailyLimitUSD {
 		return ErrDailyLimitExceeded
 	}
 
-	if group.HasWeeklyLimit() && subData.WeeklyUsage >= *group.WeeklyLimitUSD {
+	if group.UsesRollingWeeklyQuota() {
+		if !usesRollingWeeklyWindow {
+			if !group.HasDailyLimit() {
+				return ErrSubscriptionInvalid
+			}
+		} else {
+			anchor := subData.WeeklyAnchorAt
+			if anchor == nil {
+				anchor = subData.WeeklyWindowStart
+			}
+			window := CalculateSubscriptionWeeklyWindow(derefCacheTime(anchor), subData.WeeklyWindowStart, derefCacheTime(subData.EntitlementExpiresAt), timezone.Now(), *subData.EntitlementWeeklyLimitUSD)
+			if window.Expired {
+				return ErrSubscriptionInvalid
+			}
+			if !window.Allows(subData.WeeklyUsage, 0) {
+				return ErrWeeklyLimitExceeded.WithMetadata(map[string]string{"window_resets_at": window.ResetsAt.UTC().Format(time.RFC3339)})
+			}
+		}
+	} else if group.HasWeeklyLimit() && subData.WeeklyUsage >= *group.WeeklyLimitUSD {
 		return ErrWeeklyLimitExceeded
 	}
 
@@ -979,7 +1079,17 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	return nil
 }
 
-func normalizeSubscriptionCacheForEligibility(subData *subscriptionCacheData, now time.Time) subscriptionCacheData {
+func subscriptionCacheHasRollingWeeklyQuotaFacts(subData *subscriptionCacheData, group *Group) bool {
+	return subData != nil &&
+		group != nil &&
+		group.UsesRollingWeeklyQuota() &&
+		subData.EntitlementPeriodID != nil &&
+		subData.EntitlementExpiresAt != nil &&
+		subData.EntitlementWeeklyLimitUSD != nil &&
+		*subData.EntitlementWeeklyLimitUSD > 0
+}
+
+func normalizeSubscriptionCacheForEligibility(subData *subscriptionCacheData, group *Group, now time.Time) subscriptionCacheData {
 	if subData == nil {
 		return subscriptionCacheData{}
 	}
@@ -988,15 +1098,36 @@ func normalizeSubscriptionCacheForEligibility(subData *subscriptionCacheData, no
 	weeklyStart := timezone.StartOfWeek(now)
 
 	if normalized.DailyWindowStart == nil || normalized.DailyWindowStart.Before(dailyStart) {
-		normalized.DailyUsage = 0
+		var dailyLimit *float64
+		if group != nil {
+			dailyLimit = group.DailyLimitUSD
+		}
+		normalized.DailyUsage = subscriptionDailyCarryoverUsageUSD(normalized.DailyUsage, dailyLimit, normalized.DailyWindowStart, now)
 	}
-	if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
+	if subscriptionCacheHasRollingWeeklyQuotaFacts(&normalized, group) {
+		anchor := normalized.WeeklyAnchorAt
+		if anchor == nil {
+			anchor = normalized.WeeklyWindowStart
+		}
+		window := CalculateSubscriptionWeeklyWindow(derefCacheTime(anchor), normalized.WeeklyWindowStart, derefCacheTime(normalized.EntitlementExpiresAt), now, *normalized.EntitlementWeeklyLimitUSD)
+		if !window.Expired && (normalized.WeeklyWindowStart == nil || !normalized.WeeklyWindowStart.Equal(window.Start)) {
+			normalized.WeeklyWindowStart = &window.Start
+			normalized.WeeklyUsage = 0
+		}
+	} else if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
 		normalized.WeeklyUsage = 0
 	}
 	if normalized.MonthlyWindowStart == nil || !normalized.MonthlyWindowStart.Add(30*24*time.Hour).After(now) {
 		normalized.MonthlyUsage = 0
 	}
 	return normalized
+}
+
+func derefCacheTime(value *time.Time) time.Time {
+	if value == nil {
+		return time.Time{}
+	}
+	return *value
 }
 
 type billingCircuitBreakerState int

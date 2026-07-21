@@ -101,8 +101,10 @@ func TestUsageLogRepository_GetUserDashboardQuota_UsesCurrentPrecisePeriodAndDed
 	require.Equal(t, usagestats.UserDashboardQuotaModeEntitlementPeriod, quota.PeriodMode)
 	require.InDelta(t, 1.60, quota.TodayUsageUSD, 0.0000001)
 	require.InDelta(t, periodLimit, quota.TodayLimitUSD, 0.0000001)
+	require.False(t, quota.TodayLimitUnlimited)
 	require.InDelta(t, 2.70, quota.PeriodUsageUSD, 0.0000001)
 	require.InDelta(t, periodLimit*30, quota.PeriodLimitUSD, 0.0000001)
+	require.False(t, quota.PeriodLimitUnlimited)
 	require.Equal(t, 30, quota.PeriodDays)
 	require.NotNil(t, quota.PeriodStartsAt)
 	require.NotNil(t, quota.PeriodExpiresAt)
@@ -155,8 +157,88 @@ func TestUsageLogRepository_GetUserDashboardQuota_FallsBackToRolling30LegacyForA
 	require.Equal(t, usagestats.UserDashboardQuotaModeRolling30Legacy, quota.PeriodMode)
 	require.InDelta(t, 0.45, quota.TodayUsageUSD, 0.0000001)
 	require.InDelta(t, dailyLimit, quota.TodayLimitUSD, 0.0000001)
+	require.False(t, quota.TodayLimitUnlimited)
 	require.InDelta(t, 1.00, quota.PeriodUsageUSD, 0.0000001)
 	require.InDelta(t, dailyLimit*30, quota.PeriodLimitUSD, 0.0000001)
+	require.False(t, quota.PeriodLimitUnlimited)
+	require.Equal(t, 30, quota.PeriodDays)
+}
+
+func TestUsageLogRepository_GetUserDashboardQuota_IncludesSubscriptionDailyCarryover(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	client := tx.Client()
+	repo := newUsageLogRepositoryWithSQL(client, tx)
+
+	user := mustCreateUser(t, client, &service.User{Email: "quota-carryover@example.com"})
+	dailyLimit := 15.0
+	group := mustCreateGroup(t, client, &service.Group{
+		Name:             "quota-carryover-group",
+		SubscriptionType: service.SubscriptionTypeSubscription,
+		DailyLimitUSD:    &dailyLimit,
+	})
+	now := time.Now().UTC()
+	sub := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:    user.ID,
+		GroupID:   group.ID,
+		StartsAt:  now.Add(-48 * time.Hour),
+		ExpiresAt: now.Add(28 * 24 * time.Hour),
+	})
+	todayStart := timezone.Today()
+	yesterday := todayStart.Add(-24 * time.Hour)
+	_, err := tx.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET daily_usage_usd = $1,
+			daily_window_start = $2
+		WHERE id = $3
+	`, 25.0, yesterday, sub.ID)
+	require.NoError(t, err)
+
+	quota, err := repo.GetUserDashboardQuota(ctx, user.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, usagestats.UserDashboardQuotaModeRolling30Legacy, quota.PeriodMode)
+	require.InDelta(t, 10.0, quota.TodayUsageUSD, 0.0000001)
+	require.InDelta(t, dailyLimit, quota.TodayLimitUSD, 0.0000001)
+	require.False(t, quota.TodayLimitUnlimited)
+}
+
+func TestUsageLogRepository_GetUserDashboardQuota_ActiveUnlimitedSubscriptionDisplaysUsage(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	client := tx.Client()
+	repo := newUsageLogRepositoryWithSQL(client, tx)
+
+	user := mustCreateUser(t, client, &service.User{Email: "quota-unlimited@example.com"})
+	group := mustCreateGroup(t, client, &service.Group{
+		Name:             "quota-unlimited-group",
+		SubscriptionType: service.SubscriptionTypeSubscription,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, GroupID: &group.ID, Key: "sk-quota-unlimited"})
+	account := mustCreateAccount(t, client, &service.Account{Name: "quota-unlimited-account"})
+	now := time.Now().UTC()
+	sub := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:    user.ID,
+		GroupID:   group.ID,
+		StartsAt:  now.Add(-24 * time.Hour),
+		ExpiresAt: now.Add(29 * 24 * time.Hour),
+	})
+	todayAt := now.Add(-time.Second)
+	insertDashboardQuotaUsageLog(t, ctx, repo, dashboardQuotaUsageLogInput{
+		UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, GroupID: group.ID, SubscriptionID: sub.ID,
+		RequestID: "quota-unlimited-" + uuid.NewString(), ActualCost: 1.23, CreatedAt: todayAt,
+	})
+
+	quota, err := repo.GetUserDashboardQuota(ctx, user.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, usagestats.UserDashboardQuotaModeRolling30Legacy, quota.PeriodMode)
+	require.InDelta(t, 1.23, quota.TodayUsageUSD, 0.0000001)
+	require.Zero(t, quota.TodayLimitUSD)
+	require.True(t, quota.TodayLimitUnlimited)
+	require.InDelta(t, 1.23, quota.PeriodUsageUSD, 0.0000001)
+	require.Zero(t, quota.PeriodLimitUSD)
+	require.True(t, quota.PeriodLimitUnlimited)
 	require.Equal(t, 30, quota.PeriodDays)
 }
 
@@ -189,8 +271,10 @@ func TestUsageLogRepository_GetUserDashboardQuota_NoSubscriptionUsesZeroLimitsAn
 	require.Equal(t, usagestats.UserDashboardQuotaModeNoSubscription, quota.PeriodMode)
 	require.InDelta(t, 0.80, quota.TodayUsageUSD, 0.0000001)
 	require.Zero(t, quota.TodayLimitUSD)
+	require.False(t, quota.TodayLimitUnlimited)
 	require.InDelta(t, 1.20, quota.PeriodUsageUSD, 0.0000001)
 	require.Zero(t, quota.PeriodLimitUSD)
+	require.False(t, quota.PeriodLimitUnlimited)
 	require.Equal(t, 30, quota.PeriodDays)
 }
 

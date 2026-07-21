@@ -1580,6 +1580,16 @@ func SubscriptionIDNotNil() predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldNotNull(FieldSubscriptionID))
 }
 
+// SubscriptionSnapshotIsNil applies the IsNil predicate on the "subscription_snapshot" field.
+func SubscriptionSnapshotIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldSubscriptionSnapshot))
+}
+
+// SubscriptionSnapshotNotNil applies the NotNil predicate on the "subscription_snapshot" field.
+func SubscriptionSnapshotNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldSubscriptionSnapshot))
+}
+
 // ProviderInstanceIDEQ applies the EQ predicate on the "provider_instance_id" field.
 func ProviderInstanceIDEQ(v string) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldProviderInstanceID, v))
@@ -3023,6 +3033,16 @@ func RefundProviderRefEqualFold(v string) predicate.PaymentOrder {
 // RefundProviderRefContainsFold applies the ContainsFold predicate on the "refund_provider_ref" field.
 func RefundProviderRefContainsFold(v string) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldContainsFold(FieldRefundProviderRef, v))
+}
+
+// RefundBasisIsNil applies the IsNil predicate on the "refund_basis" field.
+func RefundBasisIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldRefundBasis))
+}
+
+// RefundBasisNotNil applies the NotNil predicate on the "refund_basis" field.
+func RefundBasisNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldRefundBasis))
 }
 
 // ExpiresAtEQ applies the EQ predicate on the "expires_at" field.

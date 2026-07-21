@@ -142,6 +142,22 @@ export interface PaymentOrder {
   refund_balance_amount?: number
   refund_gateway_amount?: number
   refund_balance_status?: string
+  force_refund?: boolean
+  subscription_snapshot?: Record<string, unknown>
+  refund_basis?: Record<string, unknown>
+}
+
+export interface SubscriptionRefundQuote {
+  eligible: boolean
+  manual_review_required: boolean
+  entitlement_period_id?: number
+  purchase_base_amount: number
+  non_refundable_fee: number
+  period_total_quota_usd: number
+  used_quota_usd: number
+  usage_ratio: number
+  estimated_refund_amount: number
+  calculated_at: string
 }
 
 // ==================== Plans & Channels ====================
@@ -155,6 +171,10 @@ export interface SubscriptionPlan {
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
+  period_total_quota_usd?: number | null
+  quota_window_unit?: 'day' | 'week' | 'month' | 'none' | string
+  quota_window_days?: number
+  effective_validity_days?: number
   supported_model_scopes?: string[]
   name: string
   description: string

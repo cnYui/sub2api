@@ -734,7 +734,7 @@ func UserSubscriptionFromServiceAdmin(sub *service.UserSubscription) *AdminUserS
 }
 
 func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscription {
-	return UserSubscription{
+	out := UserSubscription{
 		ID:                 sub.ID,
 		UserID:             sub.UserID,
 		GroupID:            sub.GroupID,
@@ -743,6 +743,7 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		Status:             sub.Status,
 		DailyWindowStart:   sub.DailyWindowStart,
 		WeeklyWindowStart:  sub.WeeklyWindowStart,
+		WeeklyAnchorAt:     sub.WeeklyAnchorAt,
 		MonthlyWindowStart: sub.MonthlyWindowStart,
 		DailyUsageUSD:      sub.DailyUsageUSD,
 		WeeklyUsageUSD:     sub.WeeklyUsageUSD,
@@ -752,6 +753,22 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		User:               UserFromServiceShallow(sub.User),
 		Group:              GroupFromServiceShallow(sub.Group),
 	}
+	if sub.Group != nil && sub.Group.UsesRollingWeeklyQuota() {
+		window, ok := sub.CurrentRollingWeeklyWindow(sub.Group, time.Now())
+		if ok {
+			weeklyUsage := sub.RollingWeeklyUsageUSD(window)
+			limit := window.EffectiveLimitUSD
+			remaining := window.RemainingUSD(weeklyUsage)
+			windowStart := window.Start
+			resetsAt := window.ResetsAt
+			out.WeeklyUsageUSD = weeklyUsage
+			out.EffectiveWeeklyLimitUSD = &limit
+			out.WeeklyRemainingUSD = &remaining
+			out.WeeklyWindowStart = &windowStart
+			out.WeeklyWindowResetsAt = &resetsAt
+		}
+	}
+	return out
 }
 
 func BulkAssignResultFromService(r *service.BulkAssignResult) *BulkAssignResult {

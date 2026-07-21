@@ -87,6 +87,13 @@ type BillingCache interface {
 	BatchGetUserPlatformQuotaCache(ctx context.Context, keys []UserPlatformQuotaKey) ([]*UserPlatformQuotaCacheEntry, error)
 }
 
+// SubscriptionCacheInvalidationBroker 是可选的跨进程订阅缓存失效通道。
+// BillingCache 基础契约不强制实现，避免单测和无 Redis 部署被迫接入 Pub/Sub。
+type SubscriptionCacheInvalidationBroker interface {
+	PublishSubscriptionCacheInvalidation(ctx context.Context, userID, groupID int64) error
+	SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(userID, groupID int64)) error
+}
+
 // ModelPricing 模型价格配置（per-token价格，与LiteLLM格式一致）
 type ModelPricing struct {
 	InputPricePerToken             float64 // 每token输入价格 (USD)

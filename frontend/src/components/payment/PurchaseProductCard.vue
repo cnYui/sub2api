@@ -10,12 +10,12 @@
 
     <div class="relative z-10 flex h-full flex-1 flex-col justify-between p-6 sm:p-8 xl:p-10">
       <div class="w-full">
-        <span class="mb-4 block border-b border-gray-200 pb-2 text-[12px] font-medium uppercase leading-4 tracking-normal text-gray-500 dark:border-white/10 dark:text-[#999999]">PLAN</span>
+        <span class="mb-4 block border-b border-gray-200 pb-2 text-[12px] font-medium uppercase leading-4 tracking-normal text-gray-500 dark:border-white/10 dark:text-[#999999]">{{ product.eyebrowText }}</span>
         <h3 class="mb-2 text-[32px] font-normal leading-[40px] tracking-normal text-gray-950 dark:text-white">{{ product.title }}</h3>
 
         <div class="mt-8">
           <div class="mb-6 flex items-end justify-between gap-4">
-            <span class="text-base font-normal leading-6 text-gray-500 dark:text-[#999999]">Price</span>
+            <span class="text-base font-normal leading-6 text-gray-500 dark:text-[#999999]">{{ product.priceLabel }}</span>
             <span class="text-[40px] font-semibold leading-none tracking-normal text-gray-950 dark:text-white">{{ product.priceText }}</span>
           </div>
           <ul class="space-y-3 border-t border-gray-200 pt-4 text-sm leading-6 text-gray-500 dark:border-white/10 dark:text-[#999999]">

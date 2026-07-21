@@ -109,6 +109,44 @@ describe('admin order currency display', () => {
     expect(text).toContain('$200.00')
   })
 
+  it('uses order currency for refund quote money and USD for subscription quota', () => {
+    const wrapper = mount(AdminRefundDialog, {
+      props: {
+        show: true,
+        order: orderFactory({
+          currency: 'CNY',
+          amount: 29,
+          pay_amount: 30.45,
+        }),
+        userBalance: 200,
+        refundQuote: {
+          eligible: true,
+          manual_review_required: false,
+          entitlement_period_id: 101,
+          purchase_base_amount: 29,
+          non_refundable_fee: 1.45,
+          period_total_quota_usd: 288,
+          used_quota_usd: 36.2,
+          usage_ratio: 0.125,
+          estimated_refund_amount: 25.375,
+          calculated_at: '2026-07-20T01:00:00Z',
+        },
+      },
+      global: {
+        stubs: {
+          BaseDialog: BaseDialogStub,
+        },
+      },
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('¥29.00')
+    expect(text).toContain('¥1.45')
+    expect(text).toContain('¥25.38')
+    expect(text).toContain('$36 / $288')
+    expect(text).not.toContain('$29.00')
+  })
+
   it('renders payment currency consistently in the shared order table', () => {
     const wrapper = mount(OrderTable, {
       props: {

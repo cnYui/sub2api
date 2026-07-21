@@ -890,6 +890,7 @@ var (
 		{Name: "subscription_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "subscription_days", Type: field.TypeInt, Nullable: true},
 		{Name: "subscription_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "subscription_snapshot", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "provider_instance_id", Type: field.TypeString, Nullable: true, Size: 64},
 		{Name: "provider_key", Type: field.TypeString, Nullable: true, Size: 30},
 		{Name: "provider_init_status", Type: field.TypeString, Size: 20, Default: "NOT_STARTED"},
@@ -916,6 +917,7 @@ var (
 		{Name: "refund_gateway_status", Type: field.TypeString, Size: 20, Default: "NOT_STARTED"},
 		{Name: "refund_entitlement_status", Type: field.TypeString, Size: 20, Default: "NOT_STARTED"},
 		{Name: "refund_provider_ref", Type: field.TypeString, Nullable: true, Size: 128},
+		{Name: "refund_basis", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
 		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "paid_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -936,7 +938,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "payment_orders_users_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[58]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[60]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -953,32 +955,32 @@ var (
 			{
 				Name:    "paymentorder_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[58]},
+				Columns: []*schema.Column{PaymentOrdersColumns[60]},
 			},
 			{
 				Name:    "paymentorder_status",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[28]},
+				Columns: []*schema.Column{PaymentOrdersColumns[29]},
 			},
 			{
 				Name:    "paymentorder_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[48]},
+				Columns: []*schema.Column{PaymentOrdersColumns[50]},
 			},
 			{
 				Name:    "paymentorder_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[56]},
+				Columns: []*schema.Column{PaymentOrdersColumns[58]},
 			},
 			{
 				Name:    "paymentorder_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[49]},
+				Columns: []*schema.Column{PaymentOrdersColumns[51]},
 			},
 			{
 				Name:    "paymentorder_payment_type_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[12], PaymentOrdersColumns[49]},
+				Columns: []*schema.Column{PaymentOrdersColumns[12], PaymentOrdersColumns[51]},
 			},
 			{
 				Name:    "paymentorder_order_type",
@@ -998,12 +1000,12 @@ var (
 			{
 				Name:    "paymentorder_provider_init_status_provider_init_lease_until",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[24], PaymentOrdersColumns[26]},
+				Columns: []*schema.Column{PaymentOrdersColumns[25], PaymentOrdersColumns[27]},
 			},
 			{
 				Name:    "paymentorder_payment_resolution_status_payment_resolution_deadline",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[29], PaymentOrdersColumns[30]},
+				Columns: []*schema.Column{PaymentOrdersColumns[30], PaymentOrdersColumns[31]},
 			},
 		},
 	}
@@ -1332,6 +1334,10 @@ var (
 		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "period_days", Type: field.TypeInt},
 		{Name: "daily_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "weekly_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "period_total_quota_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "quota_window_unit", Type: field.TypeString, Size: 20, Default: "day"},
+		{Name: "quota_window_days", Type: field.TypeInt, Default: 1},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "revoked_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "revoked_reason", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
@@ -1347,19 +1353,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "subscription_entitlement_periods_group_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[12]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[16]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
 			{
 				Symbol:     "subscription_entitlement_periods_user_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[13]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[17]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
 			{
 				Symbol:     "subscription_entitlement_periods_subscription_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[14]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[18]},
 				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -1373,7 +1379,7 @@ var (
 			{
 				Name:    "idx_subscription_entitlement_periods_active_user_expiry",
 				Unique:  false,
-				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[13], SubscriptionEntitlementPeriodsColumns[6], SubscriptionEntitlementPeriodsColumns[5]},
+				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[17], SubscriptionEntitlementPeriodsColumns[6], SubscriptionEntitlementPeriodsColumns[5]},
 				Annotation: &entsql.IndexAnnotation{
 					DescColumns: map[string]bool{
 						SubscriptionEntitlementPeriodsColumns[5].Name: true,
@@ -1415,6 +1421,64 @@ var (
 				Name:    "subscriptionplan_for_sale",
 				Unique:  false,
 				Columns: []*schema.Column{SubscriptionPlansColumns[10]},
+			},
+		},
+	}
+	// SubscriptionQuotaDebtAdjustmentsColumns holds the columns for the "subscription_quota_debt_adjustments" table.
+	SubscriptionQuotaDebtAdjustmentsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "source_key", Type: field.TypeString, Unique: true, Size: 160},
+		{Name: "overage_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "weekly_limit_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "daily_equivalent_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "raw_deduction_days", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
+		{Name: "deducted_days", Type: field.TypeInt},
+		{Name: "original_expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "new_expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "application_status", Type: field.TypeString, Size: 32},
+		{Name: "applied_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "notes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "group_id", Type: field.TypeInt64},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "subscription_id", Type: field.TypeInt64},
+	}
+	// SubscriptionQuotaDebtAdjustmentsTable holds the schema information for the "subscription_quota_debt_adjustments" table.
+	SubscriptionQuotaDebtAdjustmentsTable = &schema.Table{
+		Name:       "subscription_quota_debt_adjustments",
+		Columns:    SubscriptionQuotaDebtAdjustmentsColumns,
+		PrimaryKey: []*schema.Column{SubscriptionQuotaDebtAdjustmentsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "subscription_quota_debt_adjustments_group_id_fkey",
+				Columns:    []*schema.Column{SubscriptionQuotaDebtAdjustmentsColumns[14]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "subscription_quota_debt_adjustments_user_id_fkey",
+				Columns:    []*schema.Column{SubscriptionQuotaDebtAdjustmentsColumns[15]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+			{
+				Symbol:     "subscription_quota_debt_adjustments_subscription_id_fkey",
+				Columns:    []*schema.Column{SubscriptionQuotaDebtAdjustmentsColumns[16]},
+				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
+				OnDelete:   schema.Restrict,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "idx_subscription_quota_debt_adjustments_subscription",
+				Unique:  false,
+				Columns: []*schema.Column{SubscriptionQuotaDebtAdjustmentsColumns[16], SubscriptionQuotaDebtAdjustmentsColumns[1]},
+				Annotation: &entsql.IndexAnnotation{
+					DescColumns: map[string]bool{
+						SubscriptionQuotaDebtAdjustmentsColumns[1].Name: true,
+					},
+				},
 			},
 		},
 	}
@@ -1852,6 +1916,7 @@ var (
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "daily_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "weekly_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "weekly_anchor_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "monthly_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "daily_usage_usd", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
 		{Name: "weekly_usage_usd", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,10)"}},
@@ -1870,19 +1935,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "user_subscriptions_groups_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[15]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[16]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "user_subscriptions_users_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[16]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[17]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "user_subscriptions_users_assigned_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[17]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[18]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1891,12 +1956,12 @@ var (
 			{
 				Name:    "usersubscription_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[17]},
 			},
 			{
 				Name:    "usersubscription_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[15]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[16]},
 			},
 			{
 				Name:    "usersubscription_status",
@@ -1911,17 +1976,17 @@ var (
 			{
 				Name:    "usersubscription_user_id_status_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16], UserSubscriptionsColumns[6], UserSubscriptionsColumns[5]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[17], UserSubscriptionsColumns[6], UserSubscriptionsColumns[5]},
 			},
 			{
 				Name:    "usersubscription_assigned_by",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[17]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[18]},
 			},
 			{
 				Name:    "usersubscription_user_id_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16], UserSubscriptionsColumns[15]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[17], UserSubscriptionsColumns[16]},
 			},
 			{
 				Name:    "usersubscription_deleted_at",
@@ -1960,6 +2025,7 @@ var (
 		SettingsTable,
 		SubscriptionEntitlementPeriodsTable,
 		SubscriptionPlansTable,
+		SubscriptionQuotaDebtAdjustmentsTable,
 		TLSFingerprintProfilesTable,
 		UsageCleanupTasksTable,
 		UsageLogsTable,
@@ -2081,13 +2147,27 @@ func init() {
 		Table: "subscription_entitlement_periods",
 	}
 	SubscriptionEntitlementPeriodsTable.Annotation.Checks = map[string]string{
-		"subscription_entitlement_periods_days_check":   "period_days > 0",
-		"subscription_entitlement_periods_limit_check":  "daily_limit_usd IS NULL OR daily_limit_usd >= 0",
-		"subscription_entitlement_periods_range_check":  "expires_at > starts_at",
-		"subscription_entitlement_periods_status_check": "status IN ('active', 'revoked')",
+		"subscription_entitlement_periods_days_check":              "period_days > 0",
+		"subscription_entitlement_periods_limit_check":             "daily_limit_usd IS NULL OR daily_limit_usd >= 0",
+		"subscription_entitlement_periods_quota_window_days_check": "quota_window_days > 0",
+		"subscription_entitlement_periods_quota_window_unit_check": "quota_window_unit IN ('day', 'week', 'month', 'none')",
+		"subscription_entitlement_periods_range_check":             "expires_at > starts_at",
+		"subscription_entitlement_periods_status_check":            "status IN ('active', 'revoked')",
+		"subscription_entitlement_periods_total_quota_check":       "period_total_quota_usd IS NULL OR period_total_quota_usd >= 0",
+		"subscription_entitlement_periods_weekly_limit_check":      "weekly_limit_usd IS NULL OR weekly_limit_usd >= 0",
 	}
 	SubscriptionPlansTable.Annotation = &entsql.Annotation{
 		Table: "subscription_plans",
+	}
+	SubscriptionQuotaDebtAdjustmentsTable.ForeignKeys[0].RefTable = GroupsTable
+	SubscriptionQuotaDebtAdjustmentsTable.ForeignKeys[1].RefTable = UsersTable
+	SubscriptionQuotaDebtAdjustmentsTable.ForeignKeys[2].RefTable = UserSubscriptionsTable
+	SubscriptionQuotaDebtAdjustmentsTable.Annotation = &entsql.Annotation{
+		Table: "subscription_quota_debt_adjustments",
+	}
+	SubscriptionQuotaDebtAdjustmentsTable.Annotation.Checks = map[string]string{
+		"subscription_quota_debt_adjustments_days_check":   "deducted_days >= 0",
+		"subscription_quota_debt_adjustments_status_check": "application_status IN ('pending', 'applied', 'already_applied', 'manual_review')",
 	}
 	TLSFingerprintProfilesTable.Annotation = &entsql.Annotation{
 		Table: "tls_fingerprint_profiles",

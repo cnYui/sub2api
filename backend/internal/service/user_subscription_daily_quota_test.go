@@ -12,12 +12,18 @@ import (
 type dailyResetTrackingUserSubRepo struct {
 	userSubRepoNoop
 
-	resetDailyCalled bool
+	resetDailyCalled   bool
+	refreshUsageCalled bool
 }
 
 func (r *dailyResetTrackingUserSubRepo) ResetDailyUsage(context.Context, int64, time.Time) error {
 	r.resetDailyCalled = true
 	return nil
+}
+
+func (r *dailyResetTrackingUserSubRepo) RefreshExpiredUsageWindows(context.Context, int64, time.Time, time.Time, time.Time, time.Time) (bool, error) {
+	r.refreshUsageCalled = true
+	return true, nil
 }
 
 func TestAssignOrExtendSubscription_ExpiredDailyCardStartsNewOneTimeQuota(t *testing.T) {
@@ -127,6 +133,7 @@ func TestCheckAndResetWindows_DailyCardDoesNotResetDailyUsage(t *testing.T) {
 
 	require.NoError(t, err)
 	require.False(t, repo.resetDailyCalled, "日卡作为一次性配额，过了 24 小时日窗口也不应重置 daily usage")
+	require.False(t, repo.refreshUsageCalled, "日卡作为一次性配额，不应刷新订阅日窗口")
 	require.Equal(t, 10.0, sub.DailyUsageUSD)
 }
 
@@ -149,8 +156,77 @@ func TestCheckAndResetWindows_MultiDaySubscriptionStillResetsDailyUsage(t *testi
 	err := svc.CheckAndResetWindows(context.Background(), sub)
 
 	require.NoError(t, err)
-	require.True(t, repo.resetDailyCalled, "多日订阅仍应重置过期 daily window")
+	require.True(t, repo.refreshUsageCalled, "多日订阅仍应刷新过期 daily window")
 	require.Equal(t, 0.0, sub.DailyUsageUSD)
+}
+
+func TestCheckAndResetWindows_MultiDaySubscriptionCarriesOverDailyOverage(t *testing.T) {
+	now := time.Now()
+	startsAt := now.AddDate(0, 0, -5)
+	dailyWindowStart := startOfDay(now.AddDate(0, 0, -1))
+	dailyLimit := 15.0
+	repo := &dailyResetTrackingUserSubRepo{}
+	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, nil)
+	sub := &UserSubscription{
+		ID:               1,
+		UserID:           10,
+		GroupID:          20,
+		StartsAt:         startsAt,
+		ExpiresAt:        startsAt.AddDate(0, 0, 10),
+		DailyUsageUSD:    25,
+		DailyWindowStart: &dailyWindowStart,
+		Group:            &Group{DailyLimitUSD: &dailyLimit},
+	}
+
+	err := svc.CheckAndResetWindows(context.Background(), sub)
+
+	require.NoError(t, err)
+	require.True(t, repo.refreshUsageCalled)
+	require.InDelta(t, 10.0, sub.DailyUsageUSD, 0.000001)
+}
+
+func TestUserSubscriptionDailyCarryoverUsageAt_CarriesOnlyOverage(t *testing.T) {
+	now := time.Date(2026, 7, 22, 10, 0, 0, 0, time.Local)
+	yesterday := startOfDay(now.AddDate(0, 0, -1))
+	dailyLimit := 15.0
+	sub := &UserSubscription{
+		StartsAt:         now.AddDate(0, 0, -10),
+		ExpiresAt:        now.AddDate(0, 0, 10),
+		DailyWindowStart: &yesterday,
+		DailyUsageUSD:    25,
+	}
+	group := &Group{DailyLimitUSD: &dailyLimit}
+
+	require.InDelta(t, 10.0, sub.DailyCarryoverUsageAt(group, now), 0.000001)
+}
+
+func TestUserSubscriptionDailyCarryoverUsageAt_ReducesByElapsedDays(t *testing.T) {
+	now := time.Date(2026, 7, 23, 10, 0, 0, 0, time.Local)
+	twoDaysAgo := startOfDay(now.AddDate(0, 0, -2))
+	dailyLimit := 15.0
+	sub := &UserSubscription{
+		StartsAt:         now.AddDate(0, 0, -10),
+		ExpiresAt:        now.AddDate(0, 0, 10),
+		DailyWindowStart: &twoDaysAgo,
+		DailyUsageUSD:    40,
+	}
+	group := &Group{DailyLimitUSD: &dailyLimit}
+
+	require.InDelta(t, 10.0, sub.DailyCarryoverUsageAt(group, now), 0.000001)
+}
+
+func TestUserSubscriptionDailyCarryoverUsageAt_UnlimitedDoesNotCarry(t *testing.T) {
+	now := time.Date(2026, 7, 22, 10, 0, 0, 0, time.Local)
+	yesterday := startOfDay(now.AddDate(0, 0, -1))
+	sub := &UserSubscription{
+		StartsAt:         now.AddDate(0, 0, -10),
+		ExpiresAt:        now.AddDate(0, 0, 10),
+		DailyWindowStart: &yesterday,
+		DailyUsageUSD:    25,
+	}
+	group := &Group{}
+
+	require.Zero(t, sub.DailyCarryoverUsageAt(group, now))
 }
 
 func TestValidateAndCheckLimits_DailyCardDoesNotAllowSecondQuotaAfterMidnight(t *testing.T) {
@@ -175,4 +251,52 @@ func TestValidateAndCheckLimits_DailyCardDoesNotAllowSecondQuotaAfterMidnight(t 
 	require.False(t, needsMaintenance, "日卡跨过日窗口后不应触发 daily reset 维护")
 	require.True(t, errors.Is(err, ErrDailyLimitExceeded))
 	require.Equal(t, dailyLimit+0.01, sub.DailyUsageUSD, "热路径不应清零日卡已用额度")
+}
+
+func TestValidateAndCheckLimits_MultiDaySubscriptionUsesDailyCarryover(t *testing.T) {
+	now := time.Now()
+	dailyWindowStart := startOfDay(now.AddDate(0, 0, -1))
+	dailyLimit := 15.0
+	sub := &UserSubscription{
+		Status:           SubscriptionStatusActive,
+		StartsAt:         now.AddDate(0, 0, -5),
+		ExpiresAt:        now.AddDate(0, 0, 5),
+		DailyWindowStart: &dailyWindowStart,
+		DailyUsageUSD:    25.0,
+	}
+	group := &Group{
+		SubscriptionType: SubscriptionTypeSubscription,
+		DailyLimitUSD:    &dailyLimit,
+	}
+	svc := NewSubscriptionService(groupRepoNoop{}, userSubRepoNoop{}, nil, nil, nil)
+
+	needsMaintenance, err := svc.ValidateAndCheckLimits(sub, group)
+
+	require.NoError(t, err)
+	require.True(t, needsMaintenance)
+	require.InDelta(t, 10.0, sub.DailyUsageUSD, 0.000001)
+}
+
+func TestValidateAndCheckLimits_MultiDaySubscriptionRejectsCarryoverExhaustedDay(t *testing.T) {
+	now := time.Now()
+	dailyWindowStart := startOfDay(now.AddDate(0, 0, -1))
+	dailyLimit := 15.0
+	sub := &UserSubscription{
+		Status:           SubscriptionStatusActive,
+		StartsAt:         now.AddDate(0, 0, -5),
+		ExpiresAt:        now.AddDate(0, 0, 5),
+		DailyWindowStart: &dailyWindowStart,
+		DailyUsageUSD:    31.0,
+	}
+	group := &Group{
+		SubscriptionType: SubscriptionTypeSubscription,
+		DailyLimitUSD:    &dailyLimit,
+	}
+	svc := NewSubscriptionService(groupRepoNoop{}, userSubRepoNoop{}, nil, nil, nil)
+
+	needsMaintenance, err := svc.ValidateAndCheckLimits(sub, group)
+
+	require.True(t, needsMaintenance)
+	require.True(t, errors.Is(err, ErrDailyLimitExceeded))
+	require.InDelta(t, 16.0, sub.DailyUsageUSD, 0.000001)
 }

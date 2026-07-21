@@ -553,9 +553,25 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, client *dbent.Client, o *dbent.PaymentOrder, applyRebate bool) error {
 	gid := *o.SubscriptionGroupID
 	days := *o.SubscriptionDays
-	g, err := s.groupRepo.GetByID(ctx, gid)
-	if err != nil || g.Status != payment.EntityStatusActive {
-		return fmt.Errorf("group %d no longer exists or inactive", gid)
+	snapshot, err := subscriptionOrderSnapshotFromOrder(o)
+	if err != nil {
+		return err
+	}
+	if snapshot != nil {
+		gid = snapshot.GroupID
+		days = snapshot.ValidityDays
+	}
+	var entitlementGroupSnapshot *Group
+	if snapshot != nil {
+		if snapshotGroup, ok := snapshot.rollingWeeklyGroupSnapshot(); ok {
+			entitlementGroupSnapshot = snapshotGroup
+		}
+	}
+	if entitlementGroupSnapshot == nil {
+		g, err := s.groupRepo.GetByID(ctx, gid)
+		if err != nil || g.Status != payment.EntityStatusActive {
+			return fmt.Errorf("group %d no longer exists or inactive", gid)
+		}
 	}
 	assigned := s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_ASSIGNED") || s.hasAuditLogWithClient(ctx, client, o.ID, "SUBSCRIPTION_SUCCESS")
 	if !assigned {
@@ -568,14 +584,23 @@ func (s *PaymentService) fulfillSubscriptionOrderInTx(ctx context.Context, clien
 			if err := s.ensureSubscriptionPurchaseAllowed(ctx, o.UserID, gid); err != nil {
 				return err
 			}
-			sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
+			input := &AssignSubscriptionInput{
 				UserID:            o.UserID,
 				GroupID:           gid,
 				ValidityDays:      days,
 				AssignedBy:        0,
 				Notes:             orderNote,
 				EntitlementSource: paymentOrderSubscriptionEntitlementSource(o.ID),
-			})
+				GroupSnapshot:     entitlementGroupSnapshot,
+			}
+			if snapshot != nil {
+				// 使用订单快照抵抗支付期间的套餐编辑。
+				input.WeeklyLimitUSD = snapshot.WeeklyLimitUSD
+				input.PeriodTotalQuotaUSD = snapshot.PeriodTotalQuotaUSD
+				input.QuotaWindowUnit = snapshot.QuotaWindowUnit
+				input.QuotaWindowDays = snapshot.QuotaWindowDays
+			}
+			sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, input)
 			if err != nil {
 				return fmt.Errorf("assign subscription: %w", err)
 			}

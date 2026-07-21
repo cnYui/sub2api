@@ -700,6 +700,37 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("normalizes public Codex default subscriptions to 28 days before saving", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      default_subscriptions: [{ group_id: 19, validity_days: 30 }],
+    });
+    getGroups.mockResolvedValueOnce([
+      {
+        id: 19,
+        name: "codex-pool-19-usd",
+        description: null,
+        platform: "openai",
+        rate_multiplier: 1,
+        subscription_type: "subscription",
+        status: "active",
+      },
+    ]);
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        default_subscriptions: [{ group_id: 19, validity_days: 28 }],
+      }),
+    );
+  });
+
   it("updates provider enablement immediately and reloads providers", async () => {
     const provider = {
       id: 7,

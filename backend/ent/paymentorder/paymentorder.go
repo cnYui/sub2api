@@ -58,6 +58,8 @@ const (
 	FieldSubscriptionDays = "subscription_days"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
+	// FieldSubscriptionSnapshot holds the string denoting the subscription_snapshot field in the database.
+	FieldSubscriptionSnapshot = "subscription_snapshot"
 	// FieldProviderInstanceID holds the string denoting the provider_instance_id field in the database.
 	FieldProviderInstanceID = "provider_instance_id"
 	// FieldProviderKey holds the string denoting the provider_key field in the database.
@@ -110,6 +112,8 @@ const (
 	FieldRefundEntitlementStatus = "refund_entitlement_status"
 	// FieldRefundProviderRef holds the string denoting the refund_provider_ref field in the database.
 	FieldRefundProviderRef = "refund_provider_ref"
+	// FieldRefundBasis holds the string denoting the refund_basis field in the database.
+	FieldRefundBasis = "refund_basis"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
 	// FieldPaidAt holds the string denoting the paid_at field in the database.
@@ -177,6 +181,7 @@ var Columns = []string{
 	FieldSubscriptionGroupID,
 	FieldSubscriptionDays,
 	FieldSubscriptionID,
+	FieldSubscriptionSnapshot,
 	FieldProviderInstanceID,
 	FieldProviderKey,
 	FieldProviderInitStatus,
@@ -203,6 +208,7 @@ var Columns = []string{
 	FieldRefundGatewayStatus,
 	FieldRefundEntitlementStatus,
 	FieldRefundProviderRef,
+	FieldRefundBasis,
 	FieldExpiresAt,
 	FieldPaidAt,
 	FieldCompletedAt,

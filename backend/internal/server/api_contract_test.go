@@ -522,8 +522,10 @@ func TestAPIContracts(t *testing.T) {
 					"period_mode": "entitlement_period",
 					"today_usage_usd": 1.23,
 					"today_limit_usd": 19,
+					"today_limit_unlimited": false,
 					"period_usage_usd": 5.67,
 					"period_limit_usd": 570,
+					"period_limit_unlimited": false,
 					"period_days": 30
 				}
 			}`,

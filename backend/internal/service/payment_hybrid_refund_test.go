@@ -149,5 +149,7 @@ func newHybridRefundScenario(t *testing.T, provider payment.Provider) hybridRefu
 		refundProvider:  provider,
 		subscriptionSvc: NewSubscriptionService(groupRepo, subRepo, nil, nil, nil),
 	}
-	return hybridRefundScenario{ctx: ctx, client: client, svc: svc, orderID: order.ID, userID: userEntity.ID, subID: subID, subRepo: subRepo}
+	scenario := autoGatewayRefundScenario{ctx: ctx, client: client, userID: userEntity.ID, orderID: order.ID, subID: subID, subRepo: subRepo, svc: svc}
+	attachRefundQuoteEntitlement(t, &scenario, 198, 792, 158.4)
+	return hybridRefundScenario{ctx: ctx, client: client, svc: svc, orderID: order.ID, userID: userEntity.ID, subID: scenario.subID, subRepo: subRepo}
 }

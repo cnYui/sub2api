@@ -94,10 +94,11 @@ type NullableInt64Update struct {
 }
 
 type RedeemCodeBatchUpdateFields struct {
-	Status    *string
-	ExpiresAt NullableTimeUpdate
-	Notes     *string
-	GroupID   NullableInt64Update
+	Status       *string
+	ExpiresAt    NullableTimeUpdate
+	Notes        *string
+	GroupID      NullableInt64Update
+	ValidityDays *int
 
 	// Core fields are intentionally modeled only so service validation can
 	// reject payloads that try to mutate redemption value semantics in bulk.
@@ -110,6 +111,7 @@ func (f RedeemCodeBatchUpdateFields) HasChanges() bool {
 		f.ExpiresAt.Set ||
 		f.Notes != nil ||
 		f.GroupID.Set ||
+		f.ValidityDays != nil ||
 		f.Type != nil ||
 		f.Value != nil
 }
@@ -119,7 +121,7 @@ func (f RedeemCodeBatchUpdateFields) HasCoreFieldChanges() bool {
 }
 
 func (f RedeemCodeBatchUpdateFields) TouchesUsedSensitiveFields() bool {
-	return f.Status != nil || f.ExpiresAt.Set || f.GroupID.Set
+	return f.Status != nil || f.ExpiresAt.Set || f.GroupID.Set || f.ValidityDays != nil
 }
 
 type RedeemCodeBatchUpdateInput struct {
@@ -314,12 +316,37 @@ func (s *RedeemService) BatchUpdate(ctx context.Context, input *RedeemCodeBatchU
 	if input.Fields.GroupID.Set && input.Fields.GroupID.Value != nil && *input.Fields.GroupID.Value <= 0 {
 		return nil, infraerrors.BadRequest("REDEEM_CODE_GROUP_ID_INVALID", "group_id must be positive")
 	}
+	if input.Fields.GroupID.Set && input.Fields.GroupID.Value != nil {
+		if normalized, err := s.normalizeBatchRedeemSubscriptionGroup(ctx, *input.Fields.GroupID.Value); err != nil {
+			return nil, err
+		} else if normalized != nil {
+			input.Fields.ValidityDays = normalized
+		}
+	}
 
 	updated, err := s.redeemRepo.BatchUpdate(ctx, ids, input.Fields)
 	if err != nil {
 		return nil, err
 	}
 	return &RedeemCodeBatchUpdateResult{Updated: updated}, nil
+}
+
+func (s *RedeemService) normalizeBatchRedeemSubscriptionGroup(ctx context.Context, groupID int64) (*int, error) {
+	if s == nil || s.subscriptionService == nil || s.subscriptionService.groupRepo == nil {
+		return nil, nil
+	}
+	group, err := s.subscriptionService.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("get redeem subscription group: %w", err)
+	}
+	if !group.IsSubscriptionType() {
+		return nil, infraerrors.BadRequest("REDEEM_CODE_GROUP_INVALID", "group must be subscription type")
+	}
+	if group.UsesRollingWeeklyQuota() {
+		days := publicCodexSubscriptionValidityDays
+		return &days, nil
+	}
+	return nil, nil
 }
 
 // checkRedeemRateLimit 检查用户兑换错误次数是否超限
@@ -467,9 +494,6 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 				return nil, fmt.Errorf("reduce or cancel subscription: %w", err)
 			}
 		} else {
-			if validityDays == 0 {
-				validityDays = 30
-			}
 			_, _, err := s.subscriptionService.AssignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
 				UserID:            userID,
 				GroupID:           *redeemCode.GroupID,

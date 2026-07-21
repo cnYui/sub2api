@@ -47,7 +47,18 @@ vi.mock('vue-i18n', async () => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: (key: string, params?: Record<string, unknown>) => {
+        if (key === 'payment.trafficPack.title') return `${params?.amount}刀流量卡`
+        if (key === 'payment.trafficPack.usdAmount') return `${params?.amount}刀`
+        if (key === 'payment.trafficPack.creditAmount') return `${params?.amount}刀额度`
+        if (key === 'payment.trafficPack.defaultDescription') return `有效期 ${params?.days} 天，可用于 GPT 写代码和生图。`
+        if (key === 'payment.trafficPack.availableQuota') return '可用额度'
+        if (key === 'payment.trafficPack.buyNow') return '立即购买'
+        if (key === 'payment.productCard.balanceRecharge') return '充值'
+        if (key === 'payment.productCard.subscription') return '订阅'
+        if (key === 'payment.productCard.price') return '价格'
+        return key
+      },
     }),
   }
 })
@@ -227,7 +238,13 @@ function checkoutInfoWithFiveManualPlansFixture() {
           group_id: 2,
           name: '29 元订阅池',
           price: 29,
-          daily_limit_usd: 19,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 72,
+          period_total_quota_usd: 288,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
         },
         {
           ...checkoutInfoWithPlansFixture().data.plans[0],
@@ -235,7 +252,13 @@ function checkoutInfoWithFiveManualPlansFixture() {
           group_id: 3,
           name: '39 元订阅池',
           price: 39,
-          daily_limit_usd: 29,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 97,
+          period_total_quota_usd: 388,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
         },
         {
           ...checkoutInfoWithPlansFixture().data.plans[0],
@@ -243,7 +266,13 @@ function checkoutInfoWithFiveManualPlansFixture() {
           group_id: 4,
           name: '59 元订阅池',
           price: 59,
-          daily_limit_usd: 49,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 148,
+          period_total_quota_usd: 592,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
         },
         {
           ...checkoutInfoWithPlansFixture().data.plans[0],
@@ -251,7 +280,13 @@ function checkoutInfoWithFiveManualPlansFixture() {
           group_id: 5,
           name: '79 元订阅池',
           price: 79,
-          daily_limit_usd: 69,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 198,
+          period_total_quota_usd: 792,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
           group_name: 'codex-pool-69-usd',
           sort_order: 79,
         },
@@ -261,7 +296,13 @@ function checkoutInfoWithFiveManualPlansFixture() {
           group_id: 6,
           name: '99 元订阅池',
           price: 99,
-          daily_limit_usd: 89,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 248,
+          period_total_quota_usd: 992,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
           group_name: 'codex-pool-89-usd',
           sort_order: 99,
         },
@@ -302,7 +343,13 @@ function checkoutInfoWithSevenManualPlansFixture() {
           group_id: 10,
           name: '149 元订阅池',
           price: 149,
-          daily_limit_usd: 135,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 374,
+          period_total_quota_usd: 1496,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
           group_name: 'codex-pool-135-usd',
           sort_order: 149,
         },
@@ -312,7 +359,13 @@ function checkoutInfoWithSevenManualPlansFixture() {
           group_id: 11,
           name: '199 元订阅池',
           price: 199,
-          daily_limit_usd: 179,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 500,
+          period_total_quota_usd: 2000,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
           group_name: 'codex-pool-179-usd',
           sort_order: 199,
         },
@@ -978,7 +1031,7 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.text()).toContain('10刀流量卡')
     expect(wrapper.text()).toContain('20刀流量卡')
     expect(wrapper.text()).not.toContain('一次性流量包-有效期')
-    expect(wrapper.text()).toContain('刷新时间365天')
+    expect(wrapper.text()).toContain('payment.planCard.validity365 payment.days')
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
     expect(purchaseCards).toHaveLength(5)
@@ -1022,10 +1075,10 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const text = wrapper.text()
-    expect(text).toContain('月度订阅套餐A')
-    expect(text).toContain('手续费详情¥29元 + 1%')
+    expect(text).toContain('29 元订阅池')
+    expect(text).toContain('payment.planCard.feeDetail¥29元 + 1%')
     expect(text).toContain('5刀流量卡')
-    expect(text).toContain('手续费详情¥2元 + 1%')
+    expect(text).toContain('payment.planCard.feeDetail¥2元 + 1%')
   })
 
   it('marks active subscription purchase cards without rendering the duplicated current subscription block', async () => {
@@ -1038,8 +1091,12 @@ describe('PaymentView tab defaults', () => {
           name: 'codex-pool-19-usd',
           platform: 'openai',
           rate_multiplier: 1,
-          daily_limit_usd: 19,
-          weekly_limit_usd: null,
+          daily_limit_usd: null,
+          weekly_limit_usd: 72,
+          period_total_quota_usd: 288,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
           monthly_limit_usd: null,
         },
       },
@@ -1067,6 +1124,105 @@ describe('PaymentView tab defaults', () => {
     expect(wrapper.find('[data-testid="purchase-product-card"]').text()).toContain('active')
     expect(wrapper.text()).not.toContain('payment.activeSubscription')
     expect(wrapper.text()).not.toContain('codex-pool-19-usd')
+  })
+
+  it('renders weekly quota and 28-day contract in subscription confirmation without legacy daily copy', async () => {
+    getCheckoutInfo.mockResolvedValue(checkoutInfoWithFiveZPayPlansFixture())
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
+    await purchaseCards[1].trigger('click')
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('29 元订阅池')
+    expect(text).toContain('payment.planCard.weeklyLimit$72')
+    expect(text).toContain('payment.planCard.periodTotalQuota$288')
+    expect(text).toContain('payment.planCard.refreshTimepayment.planCard.weeklyRefresh')
+    expect(text).toContain('payment.planCard.validity28 payment.days')
+    expect(text).not.toContain('payment.planCard.dailyLimit')
+    expect(text).not.toContain('payment.planCard.dailyRefresh')
+    expect(text).not.toContain('24点')
+    expect(text).not.toContain('30天')
+  })
+
+  it('renders public Codex plans as weekly quota even when checkout payload still has legacy daily quota', async () => {
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        ...checkoutInfoWithFiveZPayPlansFixture().data,
+        plans: [
+          {
+            ...checkoutInfoWithPlansFixture().data.plans[0],
+            id: 19,
+            group_id: 2,
+            group_name: 'codex-pool-19-usd',
+            name: '29 元订阅池',
+            description: '月度订阅-时间 30天，日限额 15刀，24点刷新',
+            price: 29,
+            validity_days: 30,
+            effective_validity_days: undefined,
+            quota_window_unit: '',
+            quota_window_days: 0,
+            daily_limit_usd: 15,
+            weekly_limit_usd: null,
+            monthly_limit_usd: null,
+            period_total_quota_usd: null,
+          },
+        ],
+      },
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+          PaymentMethodSelector: paymentMethodSelectorStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const textBeforeConfirm = wrapper.text()
+    expect(textBeforeConfirm).toContain('payment.planCard.weeklyLimit$72')
+    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$288')
+    expect(textBeforeConfirm).toContain('payment.planCard.refreshTimepayment.planCard.weeklyRefresh')
+    expect(textBeforeConfirm).toContain('payment.planCard.validity28 payment.days')
+    expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$15')
+    expect(textBeforeConfirm).not.toContain('payment.planCard.dailyRefresh')
+    expect(textBeforeConfirm).not.toContain('月度订阅-时间 30天，日限额 15刀，24点刷新')
+
+    await wrapper.findAll('[data-testid="purchase-product-card"]')[1].trigger('click')
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('payment.planCard.weeklyLimit$72')
+    expect(text).toContain('payment.planCard.periodTotalQuota$288')
+    expect(text).toContain('payment.planCard.validity28 payment.days')
+    expect(text).toContain('payment.planCard.weeklyDescription')
+    expect(text).not.toContain('payment.planCard.dailyLimit$15')
+    expect(text).not.toContain('payment.planCard.dailyRefresh')
+    expect(text).not.toContain('月度订阅-时间 30天，日限额 15刀，24点刷新')
   })
 
   it.each([
@@ -1109,8 +1265,8 @@ describe('PaymentView tab defaults', () => {
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
     expect(purchaseCards).toHaveLength(9)
     expect(purchaseCards[0].element.parentElement?.className).toContain('lg:grid-cols-4')
-    expect(wrapper.text()).toContain('月度订阅套餐A')
-    expect(wrapper.text()).toContain('月度订阅套餐D')
+    expect(wrapper.text()).toContain('29 元订阅池')
+    expect(wrapper.text()).toContain('79 元订阅池')
     expect(wrapper.text()).toContain('5刀流量卡')
 
     await purchaseCards[index].trigger('click')
@@ -1165,11 +1321,13 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('月度订阅套餐F')
-    expect(wrapper.text()).toContain('日限额135刀')
+    expect(wrapper.text()).toContain('149 元订阅池')
+    expect(wrapper.text()).toContain('payment.planCard.weeklyLimit$374')
+    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$1496')
     expect(wrapper.text()).toContain('¥149')
-    expect(wrapper.text()).toContain('月度订阅套餐G')
-    expect(wrapper.text()).toContain('日限额179刀')
+    expect(wrapper.text()).toContain('199 元订阅池')
+    expect(wrapper.text()).toContain('payment.planCard.weeklyLimit$500')
+    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$2000')
     expect(wrapper.text()).toContain('¥199')
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
@@ -1645,8 +1803,8 @@ describe('PaymentView page responsibility', () => {
           name: 'codex-pool-19-usd',
           platform: 'openai',
           rate_multiplier: 1,
-          daily_limit_usd: 19,
-          weekly_limit_usd: null,
+          daily_limit_usd: null,
+          weekly_limit_usd: 72,
           monthly_limit_usd: null,
         },
       },

@@ -64,6 +64,8 @@ type PaymentOrder struct {
 	SubscriptionDays *int `json:"subscription_days,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
 	SubscriptionID *int64 `json:"subscription_id,omitempty"`
+	// SubscriptionSnapshot holds the value of the "subscription_snapshot" field.
+	SubscriptionSnapshot map[string]interface{} `json:"subscription_snapshot,omitempty"`
 	// ProviderInstanceID holds the value of the "provider_instance_id" field.
 	ProviderInstanceID *string `json:"provider_instance_id,omitempty"`
 	// ProviderKey holds the value of the "provider_key" field.
@@ -116,6 +118,8 @@ type PaymentOrder struct {
 	RefundEntitlementStatus string `json:"refund_entitlement_status,omitempty"`
 	// RefundProviderRef holds the value of the "refund_provider_ref" field.
 	RefundProviderRef *string `json:"refund_provider_ref,omitempty"`
+	// RefundBasis holds the value of the "refund_basis" field.
+	RefundBasis map[string]interface{} `json:"refund_basis,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	// PaidAt holds the value of the "paid_at" field.
@@ -180,7 +184,7 @@ func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case paymentorder.FieldProviderSnapshot:
+		case paymentorder.FieldSubscriptionSnapshot, paymentorder.FieldProviderSnapshot, paymentorder.FieldRefundBasis:
 			values[i] = new([]byte)
 		case paymentorder.FieldForceRefund:
 			values[i] = new(sql.NullBool)
@@ -353,6 +357,14 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 				_m.SubscriptionID = new(int64)
 				*_m.SubscriptionID = value.Int64
 			}
+		case paymentorder.FieldSubscriptionSnapshot:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field subscription_snapshot", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.SubscriptionSnapshot); err != nil {
+					return fmt.Errorf("unmarshal field subscription_snapshot: %w", err)
+				}
+			}
 		case paymentorder.FieldProviderInstanceID:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field provider_instance_id", values[i])
@@ -524,6 +536,14 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.RefundProviderRef = new(string)
 				*_m.RefundProviderRef = value.String
+			}
+		case paymentorder.FieldRefundBasis:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field refund_basis", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.RefundBasis); err != nil {
+					return fmt.Errorf("unmarshal field refund_basis: %w", err)
+				}
 			}
 		case paymentorder.FieldExpiresAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -718,6 +738,9 @@ func (_m *PaymentOrder) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
+	builder.WriteString("subscription_snapshot=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SubscriptionSnapshot))
+	builder.WriteString(", ")
 	if v := _m.ProviderInstanceID; v != nil {
 		builder.WriteString("provider_instance_id=")
 		builder.WriteString(*v)
@@ -823,6 +846,9 @@ func (_m *PaymentOrder) String() string {
 		builder.WriteString("refund_provider_ref=")
 		builder.WriteString(*v)
 	}
+	builder.WriteString(", ")
+	builder.WriteString("refund_basis=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RefundBasis))
 	builder.WriteString(", ")
 	builder.WriteString("expires_at=")
 	builder.WriteString(_m.ExpiresAt.Format(time.ANSIC))

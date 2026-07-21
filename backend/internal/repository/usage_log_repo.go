@@ -2396,11 +2396,12 @@ type PlatformDashboardStats = usagestats.PlatformDashboardStats
 type userDashboardQuota = usagestats.UserDashboardQuota
 
 type userDashboardQuotaPeriod struct {
-	mode       string
-	startsAt   time.Time
-	expiresAt  time.Time
-	days       int
-	dailyLimit sql.NullFloat64
+	mode           string
+	startsAt       time.Time
+	expiresAt      time.Time
+	days           int
+	dailyLimit     sql.NullFloat64
+	subscriptionID sql.NullInt64
 }
 
 // GetUserDashboardStats 获取用户专属的仪表盘统计
@@ -2576,6 +2577,15 @@ func (r *usageLogRepository) GetUserDashboardQuota(ctx context.Context, userID i
 	if err != nil {
 		return nil, err
 	}
+	if period.subscriptionID.Valid {
+		subscriptionDailyUsage, err := r.getUserDashboardSubscriptionDailyUsage(ctx, period.subscriptionID.Int64, todayStart)
+		if err != nil {
+			return nil, err
+		}
+		if subscriptionDailyUsage > todayUsed {
+			todayUsed = subscriptionDailyUsage
+		}
+	}
 	periodUsed, err := r.getUserDashboardQuotaUsage(ctx, userID, period.startsAt, periodEnd)
 	if err != nil {
 		return nil, err
@@ -2585,16 +2595,87 @@ func (r *usageLogRepository) GetUserDashboardQuota(ctx context.Context, userID i
 	if period.dailyLimit.Valid {
 		dailyLimit = period.dailyLimit.Float64
 	}
-	return &userDashboardQuota{
-		PeriodMode:      period.mode,
-		TodayUsageUSD:   todayUsed,
-		TodayLimitUSD:   dailyLimit,
-		PeriodUsageUSD:  periodUsed,
-		PeriodLimitUSD:  dailyLimit * float64(period.days),
-		PeriodDays:      period.days,
-		PeriodStartsAt:  cloneTimePtr(period.startsAt),
-		PeriodExpiresAt: cloneTimePtr(period.expiresAt),
-	}, nil
+	unlimited := !period.dailyLimit.Valid && period.mode != usagestats.UserDashboardQuotaModeNoSubscription
+	result := &userDashboardQuota{
+		PeriodMode:           period.mode,
+		TodayUsageUSD:        todayUsed,
+		TodayLimitUSD:        dailyLimit,
+		TodayLimitUnlimited:  unlimited,
+		PeriodUsageUSD:       periodUsed,
+		PeriodLimitUSD:       dailyLimit * float64(period.days),
+		PeriodLimitUnlimited: unlimited,
+		PeriodDays:           period.days,
+		PeriodStartsAt:       cloneTimePtr(period.startsAt),
+		PeriodExpiresAt:      cloneTimePtr(period.expiresAt),
+	}
+	weekly, found, err := r.getCurrentRollingWeeklyDashboardQuota(ctx, userID, now)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		result.QuotaWindowUnit = "week"
+		result.WindowUsageUSD = weekly.usageUSD
+		result.WindowLimitUSD = weekly.limitUSD
+		result.WindowStartsAt = cloneTimePtr(weekly.startsAt)
+		result.WindowResetsAt = cloneTimePtr(weekly.resetsAt)
+	} else {
+		result.QuotaWindowUnit = "period"
+		result.WindowUsageUSD = result.PeriodUsageUSD
+		result.WindowLimitUSD = result.PeriodLimitUSD
+		result.WindowLimitUnlimited = result.PeriodLimitUnlimited
+		result.WindowStartsAt = result.PeriodStartsAt
+		result.WindowResetsAt = result.PeriodExpiresAt
+	}
+	return result, nil
+}
+
+type rollingWeeklyDashboardQuota struct {
+	usageUSD float64
+	limitUSD float64
+	startsAt time.Time
+	resetsAt time.Time
+}
+
+func (r *usageLogRepository) getCurrentRollingWeeklyDashboardQuota(ctx context.Context, userID int64, now time.Time) (*rollingWeeklyDashboardQuota, bool, error) {
+	var anchorAt, expiresAt time.Time
+	var windowStart sql.NullTime
+	var usageUSD float64
+	var weeklyLimit float64
+	err := scanSingleRow(ctx, r.sql, `
+		SELECT us.weekly_anchor_at, us.weekly_window_start, sep.expires_at, us.weekly_usage_usd,
+			sep.weekly_limit_usd
+		FROM user_subscriptions us
+		JOIN groups g ON g.id = us.group_id
+		JOIN subscription_entitlement_periods sep ON sep.subscription_id = us.id
+			AND sep.status = 'active' AND sep.starts_at <= $2 AND sep.expires_at > $2
+		WHERE us.user_id = $1 AND us.status = 'active' AND us.deleted_at IS NULL
+			AND us.expires_at > $2
+			AND us.weekly_anchor_at IS NOT NULL
+			AND g.subscription_type = 'subscription'
+			AND g.name IN ('codex-pool-19-usd', 'codex-pool-29-usd', 'codex-pool-49-usd', 'codex-pool-69-usd', 'codex-pool-89-usd', 'codex-pool-135-usd', 'codex-pool-179-usd')
+			AND sep.weekly_limit_usd IS NOT NULL
+			AND sep.weekly_limit_usd > 0
+		ORDER BY us.expires_at ASC, sep.starts_at DESC, sep.id DESC
+		LIMIT 1
+	`, []any{userID, now}, &anchorAt, &windowStart, &expiresAt, &usageUSD, &weeklyLimit)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	var storedWindowStart *time.Time
+	if windowStart.Valid {
+		storedWindowStart = &windowStart.Time
+	}
+	window := service.CalculateSubscriptionWeeklyWindow(anchorAt, storedWindowStart, expiresAt, now, weeklyLimit)
+	if window.Expired {
+		return nil, false, nil
+	}
+	if !windowStart.Valid || !windowStart.Time.Equal(window.Start) {
+		usageUSD = 0
+	}
+	return &rollingWeeklyDashboardQuota{usageUSD: usageUSD, limitUSD: window.EffectiveLimitUSD, startsAt: window.Start, resetsAt: window.ResetsAt}, true, nil
 }
 
 func (r *usageLogRepository) getCurrentDashboardQuotaPeriod(ctx context.Context, userID int64, now time.Time) (*userDashboardQuotaPeriod, error) {
@@ -2619,7 +2700,7 @@ func (r *usageLogRepository) findPreciseDashboardQuotaPeriod(ctx context.Context
 	var period userDashboardQuotaPeriod
 	var dailyLimit sql.NullFloat64
 	err := scanSingleRow(ctx, r.sql, `
-		SELECT starts_at, expires_at, period_days, daily_limit_usd
+		SELECT starts_at, expires_at, period_days, daily_limit_usd, subscription_id
 		FROM subscription_entitlement_periods
 		WHERE user_id = $1
 		  AND status = 'active'
@@ -2627,7 +2708,7 @@ func (r *usageLogRepository) findPreciseDashboardQuotaPeriod(ctx context.Context
 		  AND expires_at > $2
 		ORDER BY starts_at DESC, expires_at ASC, id DESC
 		LIMIT 1
-	`, []any{userID, now}, &period.startsAt, &period.expiresAt, &period.days, &dailyLimit)
+	`, []any{userID, now}, &period.startsAt, &period.expiresAt, &period.days, &dailyLimit, &period.subscriptionID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -2641,8 +2722,9 @@ func (r *usageLogRepository) findPreciseDashboardQuotaPeriod(ctx context.Context
 
 func (r *usageLogRepository) findLegacyDashboardQuotaPeriod(ctx context.Context, userID int64, now time.Time) (*userDashboardQuotaPeriod, bool, error) {
 	var dailyLimit sql.NullFloat64
+	var period userDashboardQuotaPeriod
 	err := scanSingleRow(ctx, r.sql, `
-		SELECT g.daily_limit_usd
+		SELECT us.id, g.daily_limit_usd
 		FROM user_subscriptions us
 		JOIN groups g ON g.id = us.group_id
 		WHERE us.user_id = $1
@@ -2652,7 +2734,7 @@ func (r *usageLogRepository) findLegacyDashboardQuotaPeriod(ctx context.Context,
 		  AND us.expires_at > $3
 		ORDER BY us.expires_at ASC, us.id DESC
 		LIMIT 1
-	`, []any{userID, service.SubscriptionStatusActive, now}, &dailyLimit)
+	`, []any{userID, service.SubscriptionStatusActive, now}, &period.subscriptionID, &dailyLimit)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
@@ -2661,12 +2743,49 @@ func (r *usageLogRepository) findLegacyDashboardQuotaPeriod(ctx context.Context,
 	}
 	startsAt := now.AddDate(0, 0, -30)
 	return &userDashboardQuotaPeriod{
-		mode:       usagestats.UserDashboardQuotaModeRolling30Legacy,
-		startsAt:   startsAt,
-		expiresAt:  now,
-		days:       30,
-		dailyLimit: dailyLimit,
+		mode:           usagestats.UserDashboardQuotaModeRolling30Legacy,
+		startsAt:       startsAt,
+		expiresAt:      now,
+		days:           30,
+		dailyLimit:     dailyLimit,
+		subscriptionID: period.subscriptionID,
 	}, true, nil
+}
+
+func (r *usageLogRepository) getUserDashboardSubscriptionDailyUsage(ctx context.Context, subscriptionID int64, todayStart time.Time) (float64, error) {
+	var usage float64
+	err := scanSingleRow(ctx, r.sql, `
+		SELECT COALESCE(
+			CASE
+				WHEN us.daily_window_start IS NULL THEN 0
+				WHEN us.daily_window_start < $2 THEN
+					CASE
+						WHEN g.daily_limit_usd IS NOT NULL AND g.daily_limit_usd > 0 THEN
+							GREATEST(
+								us.daily_usage_usd - (
+									g.daily_limit_usd * GREATEST(FLOOR(EXTRACT(EPOCH FROM ($2 - us.daily_window_start)) / 86400), 1)
+								),
+								0
+							)
+						ELSE 0
+					END
+				ELSE us.daily_usage_usd
+			END,
+			0
+		)::float8
+		FROM user_subscriptions us
+		JOIN groups g ON g.id = us.group_id
+		WHERE us.id = $1
+			AND us.deleted_at IS NULL
+			AND g.deleted_at IS NULL
+	`, []any{subscriptionID, todayStart}, &usage)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return usage, nil
 }
 
 func (r *usageLogRepository) getUserDashboardQuotaUsage(ctx context.Context, userID int64, startTime, endTime time.Time) (float64, error) {

@@ -46,7 +46,9 @@ const messages: Record<string, string> = {
   'keyUsage.limitMonthly': 'Monthly Limit',
   'keyUsage.remainingQuota': 'Remaining Quota',
   'keyUsage.usedQuota': 'Used Quota',
+  'keyUsage.weeklyWindowNotActive': 'Weekly quota window inactive',
   'keyUsage.subscriptionType': 'Subscription Type',
+  'keyUsage.subscriptionExpires': 'Subscription Expires',
   'keyUsage.todayRequests': 'Today Requests',
   'keyUsage.todayInputTokens': 'Today Input',
   'keyUsage.todayOutputTokens': 'Today Output',
@@ -202,6 +204,126 @@ describe('KeyUsageView daily detail', () => {
     expect(text).toContain('30')
     expect(text).toContain('10')
     expect(text).toContain('$0.12')
+
+    wrapper.unmount()
+  })
+
+  it('renders weekly subscription quota as rounded integer USD', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        mode: 'subscription',
+        planName: '29 元订阅池',
+        remaining: 59.6,
+        subscription: {
+          daily_usage_usd: 0,
+          daily_limit_usd: 0,
+          weekly_usage_usd: 12.4,
+          weekly_limit_usd: 72,
+          effective_weekly_limit_usd: 72,
+          weekly_window_resets_at: '2099-01-08T00:00:00Z',
+          monthly_usage_usd: 0,
+          monthly_limit_usd: 0,
+          expires_at: '2099-01-29T00:00:00Z',
+        },
+        usage: {
+          today: {
+            requests: 1,
+            input_tokens: 10,
+            output_tokens: 20,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            total_tokens: 30,
+            actual_cost: 0.01,
+          },
+          total: {
+            requests: 12,
+            input_tokens: 100,
+            output_tokens: 200,
+            cache_creation_tokens: 10,
+            cache_read_tokens: 30,
+            total_tokens: 340,
+            actual_cost: 0.12,
+          },
+          rpm: 0,
+          tpm: 0,
+        },
+      }),
+    } as Response)
+
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(text).toContain('Weekly Limit')
+    expect(text).toContain('$12 / $72')
+    expect(text).toContain('Remaining Quota')
+    expect(text).toContain('$60')
+    expect(text).not.toContain('Daily Limit')
+    expect(text).not.toContain('$12.40 / $72.00')
+    expect(text).not.toContain('$59.60')
+
+    wrapper.unmount()
+  })
+
+  it('shows inactive weekly window instead of guessing reset time when backend omits window facts', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        mode: 'subscription',
+        planName: '29 元订阅池',
+        remaining: 0,
+        subscription: {
+          daily_usage_usd: 0,
+          daily_limit_usd: 0,
+          weekly_usage_usd: 0,
+          weekly_limit_usd: 72,
+          effective_weekly_limit_usd: null,
+          weekly_window_resets_at: null,
+          monthly_usage_usd: 0,
+          monthly_limit_usd: 0,
+          expires_at: '2099-01-29T00:00:00Z',
+        },
+        usage: {
+          today: {},
+          total: {},
+          rpm: 0,
+          tpm: 0,
+        },
+      }),
+    } as Response)
+
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(text).toContain('Weekly quota window inactive')
+    expect(text).not.toContain('$0 / $72')
+    expect(text).not.toContain('⟳')
 
     wrapper.unmount()
   })

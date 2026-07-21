@@ -54,6 +54,10 @@ func (UserSubscription) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("weekly_anchor_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("monthly_window_start").
 			Optional().
 			Nillable().
@@ -101,6 +105,9 @@ func (UserSubscription) Edges() []ent.Edge {
 		edge.To("usage_logs", UsageLog.Type),
 		edge.To("entitlement_periods", SubscriptionEntitlementPeriod.Type).
 			StorageKey(edge.Symbol("subscription_entitlement_periods_subscription_id_fkey")).
+			Annotations(entsql.OnDelete(entsql.Restrict)),
+		edge.To("quota_debt_adjustments", SubscriptionQuotaDebtAdjustment.Type).
+			StorageKey(edge.Symbol("subscription_quota_debt_adjustments_subscription_id_fkey")).
 			Annotations(entsql.OnDelete(entsql.Restrict)),
 	}
 }

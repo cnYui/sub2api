@@ -70,6 +70,8 @@ type Tx struct {
 	SubscriptionEntitlementPeriod *SubscriptionEntitlementPeriodClient
 	// SubscriptionPlan is the client for interacting with the SubscriptionPlan builders.
 	SubscriptionPlan *SubscriptionPlanClient
+	// SubscriptionQuotaDebtAdjustment is the client for interacting with the SubscriptionQuotaDebtAdjustment builders.
+	SubscriptionQuotaDebtAdjustment *SubscriptionQuotaDebtAdjustmentClient
 	// TLSFingerprintProfile is the client for interacting with the TLSFingerprintProfile builders.
 	TLSFingerprintProfile *TLSFingerprintProfileClient
 	// UsageCleanupTask is the client for interacting with the UsageCleanupTask builders.
@@ -247,6 +249,7 @@ func (tx *Tx) init() {
 	tx.Setting = NewSettingClient(tx.config)
 	tx.SubscriptionEntitlementPeriod = NewSubscriptionEntitlementPeriodClient(tx.config)
 	tx.SubscriptionPlan = NewSubscriptionPlanClient(tx.config)
+	tx.SubscriptionQuotaDebtAdjustment = NewSubscriptionQuotaDebtAdjustmentClient(tx.config)
 	tx.TLSFingerprintProfile = NewTLSFingerprintProfileClient(tx.config)
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)

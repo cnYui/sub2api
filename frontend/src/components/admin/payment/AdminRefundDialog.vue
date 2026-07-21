@@ -94,6 +94,44 @@
       <!-- Refund Amount -->
       <div>
         <label class="input-label">{{ t('payment.admin.refundAmount') }}</label>
+        <div
+          v-if="isSubscriptionOrder"
+          class="mb-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
+        >
+          <template v-if="quoteLoading">
+            {{ t('payment.refundQuote.loading') }}
+          </template>
+          <template v-else-if="refundQuote">
+            <div class="grid gap-1">
+              <div class="flex justify-between">
+                <span>{{ t('payment.refundQuote.purchaseBase') }}</span>
+                <span>{{ creditedAmountSymbol }}{{ refundQuote.purchase_base_amount.toFixed(2) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>{{ t('payment.refundQuote.nonRefundableFee') }}</span>
+                <span>{{ paymentAmountSymbol }}{{ refundQuote.non_refundable_fee.toFixed(2) }}</span>
+              </div>
+              <div v-if="!refundQuote.manual_review_required" class="flex justify-between">
+                <span>{{ t('payment.refundQuote.periodQuotaUsage') }}</span>
+                <span>{{ formatSubscriptionQuotaUSD(refundQuote.used_quota_usd) }} / {{ formatSubscriptionQuotaUSD(refundQuote.period_total_quota_usd) }}</span>
+              </div>
+              <div v-if="!refundQuote.manual_review_required" class="flex justify-between">
+                <span>{{ t('payment.refundQuote.usageRatio') }}</span>
+                <span>{{ Math.round(refundQuote.usage_ratio * 100) }}%</span>
+              </div>
+              <div class="flex justify-between font-medium">
+                <span>{{ t('payment.refundQuote.estimatedRefund') }}</span>
+                <span>{{ creditedAmountSymbol }}{{ refundQuote.estimated_refund_amount.toFixed(2) }}</span>
+              </div>
+              <p v-if="refundQuote.manual_review_required" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                {{ t('payment.refundQuote.manualReviewRequired') }}
+              </p>
+            </div>
+          </template>
+          <template v-else>
+            {{ t('payment.admin.refundQuoteUnavailable') }}
+          </template>
+        </div>
         <div class="relative">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ creditedAmountSymbol }}</span>
           <input
@@ -103,11 +141,12 @@
             min="0.01"
             :max="maxRefundable"
             class="input pl-7"
+            :disabled="usesReadonlyQuote"
             required
           />
         </div>
         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-          {{ t('payment.admin.maxRefundable') }}: {{ creditedAmountSymbol }}{{ maxRefundable.toFixed(2) }}
+          {{ refundAmountHint }}
         </p>
       </div>
 
@@ -132,7 +171,7 @@
       </div>
 
       <!-- Force Refund -->
-      <div v-if="requireForce" class="flex items-center gap-2">
+      <div v-if="showForceOption" class="flex items-center gap-2">
         <input
           id="force-refund"
           v-model="form.force"
@@ -153,7 +192,7 @@
         <button
           type="submit"
           form="refund-form"
-          :disabled="submitting || form.amount <= 0 || (requireForce && !form.force)"
+          :disabled="submitDisabled"
           class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-dark-800"
         >
           {{ submitting ? t('common.processing') : t('payment.admin.confirmRefund') }}
@@ -167,9 +206,10 @@
 import { reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import type { PaymentOrder } from '@/types/payment'
+import type { PaymentOrder, SubscriptionRefundQuote } from '@/types/payment'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
+import { formatSubscriptionQuotaUSD } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 
@@ -180,6 +220,8 @@ const props = defineProps<{
   userBalance?: number | null
   requireForce?: boolean
   warning?: string
+  refundQuote?: SubscriptionRefundQuote | null
+  quoteLoading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -217,9 +259,32 @@ const balanceInsufficient = computed(() => {
   return props.userBalance < props.order.amount
 })
 
-watch(() => props.show, (val) => {
+const isSubscriptionOrder = computed(() => props.order?.order_type === 'subscription')
+
+const usesReadonlyQuote = computed(() => isSubscriptionOrder.value && !!props.refundQuote && !form.force)
+
+const showForceOption = computed(() => props.requireForce || isSubscriptionOrder.value)
+
+const quoteAmount = computed(() => {
+  if (!props.refundQuote || props.refundQuote.manual_review_required) return 0
+  return Math.min(props.refundQuote.estimated_refund_amount, maxRefundable.value)
+})
+
+const refundAmountHint = computed(() => {
+  if (usesReadonlyQuote.value) return t('payment.admin.ruleBasedRefundHint')
+  return `${t('payment.admin.maxRefundable')}: ${creditedAmountSymbol.value}${maxRefundable.value.toFixed(2)}`
+})
+
+const submitDisabled = computed(() => {
+  if (props.submitting || form.amount <= 0 || form.amount > maxRefundable.value) return true
+  if (props.requireForce && !form.force) return true
+  if (!isSubscriptionOrder.value || form.force) return false
+  if (props.quoteLoading || !props.refundQuote) return true
+  return props.refundQuote.manual_review_required || !props.refundQuote.eligible
+})
+
+watch([() => props.show, () => props.order], ([val]) => {
   if (val && props.order) {
-    // For REFUND_REQUESTED, pre-fill with the requested amount
     if (props.order.status === 'REFUND_REQUESTED' && props.order.refund_amount) {
       form.amount = props.order.refund_amount
     } else {
@@ -231,6 +296,12 @@ watch(() => props.show, (val) => {
   }
 })
 
+watch([() => props.refundQuote, () => form.force], () => {
+  if (props.show && usesReadonlyQuote.value) {
+    form.amount = quoteAmount.value
+  }
+})
+
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
 }
@@ -238,6 +309,6 @@ function formatDateTime(dateStr: string): string {
 function handleSubmit() {
   if (form.amount <= 0 || form.amount > maxRefundable.value) return
   if (props.requireForce && !form.force) return
-  emit('confirm', { ...form })
+  emit('confirm', { ...form, amount: usesReadonlyQuote.value ? quoteAmount.value : form.amount })
 }
 </script>

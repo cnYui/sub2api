@@ -115,6 +115,62 @@ func (_c *SubscriptionEntitlementPeriodCreate) SetNillableDailyLimitUsd(v *float
 	return _c
 }
 
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (_c *SubscriptionEntitlementPeriodCreate) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodCreate {
+	_c.mutation.SetWeeklyLimitUsd(v)
+	return _c
+}
+
+// SetNillableWeeklyLimitUsd sets the "weekly_limit_usd" field if the given value is not nil.
+func (_c *SubscriptionEntitlementPeriodCreate) SetNillableWeeklyLimitUsd(v *float64) *SubscriptionEntitlementPeriodCreate {
+	if v != nil {
+		_c.SetWeeklyLimitUsd(*v)
+	}
+	return _c
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (_c *SubscriptionEntitlementPeriodCreate) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodCreate {
+	_c.mutation.SetPeriodTotalQuotaUsd(v)
+	return _c
+}
+
+// SetNillablePeriodTotalQuotaUsd sets the "period_total_quota_usd" field if the given value is not nil.
+func (_c *SubscriptionEntitlementPeriodCreate) SetNillablePeriodTotalQuotaUsd(v *float64) *SubscriptionEntitlementPeriodCreate {
+	if v != nil {
+		_c.SetPeriodTotalQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (_c *SubscriptionEntitlementPeriodCreate) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodCreate {
+	_c.mutation.SetQuotaWindowUnit(v)
+	return _c
+}
+
+// SetNillableQuotaWindowUnit sets the "quota_window_unit" field if the given value is not nil.
+func (_c *SubscriptionEntitlementPeriodCreate) SetNillableQuotaWindowUnit(v *string) *SubscriptionEntitlementPeriodCreate {
+	if v != nil {
+		_c.SetQuotaWindowUnit(*v)
+	}
+	return _c
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (_c *SubscriptionEntitlementPeriodCreate) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodCreate {
+	_c.mutation.SetQuotaWindowDays(v)
+	return _c
+}
+
+// SetNillableQuotaWindowDays sets the "quota_window_days" field if the given value is not nil.
+func (_c *SubscriptionEntitlementPeriodCreate) SetNillableQuotaWindowDays(v *int) *SubscriptionEntitlementPeriodCreate {
+	if v != nil {
+		_c.SetQuotaWindowDays(*v)
+	}
+	return _c
+}
+
 // SetStatus sets the "status" field.
 func (_c *SubscriptionEntitlementPeriodCreate) SetStatus(v string) *SubscriptionEntitlementPeriodCreate {
 	_c.mutation.SetStatus(v)
@@ -215,6 +271,14 @@ func (_c *SubscriptionEntitlementPeriodCreate) defaults() {
 		v := subscriptionentitlementperiod.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.QuotaWindowUnit(); !ok {
+		v := subscriptionentitlementperiod.DefaultQuotaWindowUnit
+		_c.mutation.SetQuotaWindowUnit(v)
+	}
+	if _, ok := _c.mutation.QuotaWindowDays(); !ok {
+		v := subscriptionentitlementperiod.DefaultQuotaWindowDays
+		_c.mutation.SetQuotaWindowDays(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := subscriptionentitlementperiod.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -266,6 +330,17 @@ func (_c *SubscriptionEntitlementPeriodCreate) check() error {
 	}
 	if _, ok := _c.mutation.PeriodDays(); !ok {
 		return &ValidationError{Name: "period_days", err: errors.New(`ent: missing required field "SubscriptionEntitlementPeriod.period_days"`)}
+	}
+	if _, ok := _c.mutation.QuotaWindowUnit(); !ok {
+		return &ValidationError{Name: "quota_window_unit", err: errors.New(`ent: missing required field "SubscriptionEntitlementPeriod.quota_window_unit"`)}
+	}
+	if v, ok := _c.mutation.QuotaWindowUnit(); ok {
+		if err := subscriptionentitlementperiod.QuotaWindowUnitValidator(v); err != nil {
+			return &ValidationError{Name: "quota_window_unit", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.quota_window_unit": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.QuotaWindowDays(); !ok {
+		return &ValidationError{Name: "quota_window_days", err: errors.New(`ent: missing required field "SubscriptionEntitlementPeriod.quota_window_days"`)}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "SubscriptionEntitlementPeriod.status"`)}
@@ -345,6 +420,22 @@ func (_c *SubscriptionEntitlementPeriodCreate) createSpec() (*SubscriptionEntitl
 	if value, ok := _c.mutation.DailyLimitUsd(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldDailyLimitUsd, field.TypeFloat64, value)
 		_node.DailyLimitUsd = &value
+	}
+	if value, ok := _c.mutation.WeeklyLimitUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64, value)
+		_node.WeeklyLimitUsd = &value
+	}
+	if value, ok := _c.mutation.PeriodTotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64, value)
+		_node.PeriodTotalQuotaUsd = &value
+	}
+	if value, ok := _c.mutation.QuotaWindowUnit(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowUnit, field.TypeString, value)
+		_node.QuotaWindowUnit = value
+	}
+	if value, ok := _c.mutation.QuotaWindowDays(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowDays, field.TypeInt, value)
+		_node.QuotaWindowDays = value
 	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldStatus, field.TypeString, value)
@@ -599,6 +690,84 @@ func (u *SubscriptionEntitlementPeriodUpsert) ClearDailyLimitUsd() *Subscription
 	return u
 }
 
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsert {
+	u.Set(subscriptionentitlementperiod.FieldWeeklyLimitUsd, v)
+	return u
+}
+
+// UpdateWeeklyLimitUsd sets the "weekly_limit_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsert) UpdateWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsert {
+	u.SetExcluded(subscriptionentitlementperiod.FieldWeeklyLimitUsd)
+	return u
+}
+
+// AddWeeklyLimitUsd adds v to the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) AddWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsert {
+	u.Add(subscriptionentitlementperiod.FieldWeeklyLimitUsd, v)
+	return u
+}
+
+// ClearWeeklyLimitUsd clears the value of the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) ClearWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsert {
+	u.SetNull(subscriptionentitlementperiod.FieldWeeklyLimitUsd)
+	return u
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsert {
+	u.Set(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, v)
+	return u
+}
+
+// UpdatePeriodTotalQuotaUsd sets the "period_total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsert) UpdatePeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsert {
+	u.SetExcluded(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd)
+	return u
+}
+
+// AddPeriodTotalQuotaUsd adds v to the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) AddPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsert {
+	u.Add(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, v)
+	return u
+}
+
+// ClearPeriodTotalQuotaUsd clears the value of the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsert) ClearPeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsert {
+	u.SetNull(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd)
+	return u
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (u *SubscriptionEntitlementPeriodUpsert) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodUpsert {
+	u.Set(subscriptionentitlementperiod.FieldQuotaWindowUnit, v)
+	return u
+}
+
+// UpdateQuotaWindowUnit sets the "quota_window_unit" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsert) UpdateQuotaWindowUnit() *SubscriptionEntitlementPeriodUpsert {
+	u.SetExcluded(subscriptionentitlementperiod.FieldQuotaWindowUnit)
+	return u
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsert) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsert {
+	u.Set(subscriptionentitlementperiod.FieldQuotaWindowDays, v)
+	return u
+}
+
+// UpdateQuotaWindowDays sets the "quota_window_days" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsert) UpdateQuotaWindowDays() *SubscriptionEntitlementPeriodUpsert {
+	u.SetExcluded(subscriptionentitlementperiod.FieldQuotaWindowDays)
+	return u
+}
+
+// AddQuotaWindowDays adds v to the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsert) AddQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsert {
+	u.Add(subscriptionentitlementperiod.FieldQuotaWindowDays, v)
+	return u
+}
+
 // SetStatus sets the "status" field.
 func (u *SubscriptionEntitlementPeriodUpsert) SetStatus(v string) *SubscriptionEntitlementPeriodUpsert {
 	u.Set(subscriptionentitlementperiod.FieldStatus, v)
@@ -844,6 +1013,97 @@ func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateDailyLimitUsd() *Subscrip
 func (u *SubscriptionEntitlementPeriodUpsertOne) ClearDailyLimitUsd() *SubscriptionEntitlementPeriodUpsertOne {
 	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
 		s.ClearDailyLimitUsd()
+	})
+}
+
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetWeeklyLimitUsd(v)
+	})
+}
+
+// AddWeeklyLimitUsd adds v to the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) AddWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddWeeklyLimitUsd(v)
+	})
+}
+
+// UpdateWeeklyLimitUsd sets the "weekly_limit_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateWeeklyLimitUsd()
+	})
+}
+
+// ClearWeeklyLimitUsd clears the value of the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) ClearWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearWeeklyLimitUsd()
+	})
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetPeriodTotalQuotaUsd(v)
+	})
+}
+
+// AddPeriodTotalQuotaUsd adds v to the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) AddPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddPeriodTotalQuotaUsd(v)
+	})
+}
+
+// UpdatePeriodTotalQuotaUsd sets the "period_total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertOne) UpdatePeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdatePeriodTotalQuotaUsd()
+	})
+}
+
+// ClearPeriodTotalQuotaUsd clears the value of the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) ClearPeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearPeriodTotalQuotaUsd()
+	})
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowUnit(v)
+	})
+}
+
+// UpdateQuotaWindowUnit sets the "quota_window_unit" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateQuotaWindowUnit() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowUnit()
+	})
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowDays(v)
+	})
+}
+
+// AddQuotaWindowDays adds v to the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) AddQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddQuotaWindowDays(v)
+	})
+}
+
+// UpdateQuotaWindowDays sets the "quota_window_days" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateQuotaWindowDays() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowDays()
 	})
 }
 
@@ -1265,6 +1525,97 @@ func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateDailyLimitUsd() *Subscri
 func (u *SubscriptionEntitlementPeriodUpsertBulk) ClearDailyLimitUsd() *SubscriptionEntitlementPeriodUpsertBulk {
 	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
 		s.ClearDailyLimitUsd()
+	})
+}
+
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetWeeklyLimitUsd(v)
+	})
+}
+
+// AddWeeklyLimitUsd adds v to the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) AddWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddWeeklyLimitUsd(v)
+	})
+}
+
+// UpdateWeeklyLimitUsd sets the "weekly_limit_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateWeeklyLimitUsd()
+	})
+}
+
+// ClearWeeklyLimitUsd clears the value of the "weekly_limit_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) ClearWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearWeeklyLimitUsd()
+	})
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetPeriodTotalQuotaUsd(v)
+	})
+}
+
+// AddPeriodTotalQuotaUsd adds v to the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) AddPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddPeriodTotalQuotaUsd(v)
+	})
+}
+
+// UpdatePeriodTotalQuotaUsd sets the "period_total_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdatePeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdatePeriodTotalQuotaUsd()
+	})
+}
+
+// ClearPeriodTotalQuotaUsd clears the value of the "period_total_quota_usd" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) ClearPeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearPeriodTotalQuotaUsd()
+	})
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowUnit(v)
+	})
+}
+
+// UpdateQuotaWindowUnit sets the "quota_window_unit" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateQuotaWindowUnit() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowUnit()
+	})
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowDays(v)
+	})
+}
+
+// AddQuotaWindowDays adds v to the "quota_window_days" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) AddQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.AddQuotaWindowDays(v)
+	})
+}
+
+// UpdateQuotaWindowDays sets the "quota_window_days" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateQuotaWindowDays() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowDays()
 	})
 }
 

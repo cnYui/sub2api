@@ -15,6 +15,8 @@ import (
 
 type settingUpdateRepoStub struct {
 	updates map[string]string
+	values  map[string]string
+	all     map[string]string
 }
 
 func (s *settingUpdateRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -22,7 +24,13 @@ func (s *settingUpdateRepoStub) Get(ctx context.Context, key string) (*Setting, 
 }
 
 func (s *settingUpdateRepoStub) GetValue(ctx context.Context, key string) (string, error) {
-	panic("unexpected GetValue call")
+	if s.values == nil {
+		panic("unexpected GetValue call")
+	}
+	if value, ok := s.values[key]; ok {
+		return value, nil
+	}
+	return "", ErrSettingNotFound
 }
 
 func (s *settingUpdateRepoStub) Set(ctx context.Context, key, value string) error {
@@ -30,7 +38,16 @@ func (s *settingUpdateRepoStub) Set(ctx context.Context, key, value string) erro
 }
 
 func (s *settingUpdateRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
-	panic("unexpected GetMultiple call")
+	if s.values == nil {
+		panic("unexpected GetMultiple call")
+	}
+	result := make(map[string]string, len(keys))
+	for _, key := range keys {
+		if value, ok := s.values[key]; ok {
+			result[key] = value
+		}
+	}
+	return result, nil
 }
 
 func (s *settingUpdateRepoStub) SetMultiple(ctx context.Context, settings map[string]string) error {
@@ -42,7 +59,14 @@ func (s *settingUpdateRepoStub) SetMultiple(ctx context.Context, settings map[st
 }
 
 func (s *settingUpdateRepoStub) GetAll(ctx context.Context) (map[string]string, error) {
-	panic("unexpected GetAll call")
+	if s.all == nil {
+		panic("unexpected GetAll call")
+	}
+	result := make(map[string]string, len(s.all))
+	for k, v := range s.all {
+		result[k] = v
+	}
+	return result, nil
 }
 
 func (s *settingUpdateRepoStub) Delete(ctx context.Context, key string) error {
@@ -127,6 +151,120 @@ func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidGroup(t *testin
 	require.Equal(t, []DefaultSubscriptionSetting{
 		{GroupID: 11, ValidityDays: 30},
 	}, got)
+}
+
+func TestSettingService_UpdateSettings_DefaultSubscriptions_PublicCodexUses28Days(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	groupReader := &defaultSubGroupReaderStub{
+		byID: map[int64]*Group{
+			19: {ID: 19, Name: "codex-pool-19-usd", SubscriptionType: SubscriptionTypeSubscription},
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+	svc.SetDefaultSubscriptionGroupReader(groupReader)
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		DefaultSubscriptions: []DefaultSubscriptionSetting{
+			{GroupID: 19, ValidityDays: 30},
+		},
+	})
+	require.NoError(t, err)
+
+	var got []DefaultSubscriptionSetting
+	require.NoError(t, json.Unmarshal([]byte(repo.updates[SettingKeyDefaultSubscriptions]), &got))
+	require.Equal(t, []DefaultSubscriptionSetting{
+		{GroupID: 19, ValidityDays: publicCodexSubscriptionValidityDays},
+	}, got)
+}
+
+func TestSettingService_UpdateSettingsWithAuthSourceDefaults_PublicCodexUses28Days(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	groupReader := &defaultSubGroupReaderStub{
+		byID: map[int64]*Group{
+			29: {ID: 29, Name: "codex-pool-29-usd", SubscriptionType: SubscriptionTypeSubscription},
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+	svc.SetDefaultSubscriptionGroupReader(groupReader)
+
+	err := svc.UpdateSettingsWithAuthSourceDefaults(context.Background(), &SystemSettings{}, &AuthSourceDefaultSettings{
+		Email: ProviderDefaultGrantSettings{
+			Subscriptions: []DefaultSubscriptionSetting{{GroupID: 29, ValidityDays: 30}},
+		},
+	})
+	require.NoError(t, err)
+
+	var got []DefaultSubscriptionSetting
+	require.NoError(t, json.Unmarshal([]byte(repo.updates[SettingKeyAuthSourceDefaultEmailSubscriptions]), &got))
+	require.Equal(t, []DefaultSubscriptionSetting{
+		{GroupID: 29, ValidityDays: publicCodexSubscriptionValidityDays},
+	}, got)
+}
+
+func TestSettingService_GetDefaultSubscriptions_NormalizesPublicCodexValidity(t *testing.T) {
+	repo := &settingUpdateRepoStub{
+		values: map[string]string{
+			SettingKeyDefaultSubscriptions: `[{"group_id":19,"validity_days":30},{"group_id":11,"validity_days":14}]`,
+		},
+	}
+	groupReader := &defaultSubGroupReaderStub{
+		byID: map[int64]*Group{
+			11: {ID: 11, Name: "standard-subscription", SubscriptionType: SubscriptionTypeSubscription},
+			19: {ID: 19, Name: "codex-pool-19-usd", SubscriptionType: SubscriptionTypeSubscription},
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+	svc.SetDefaultSubscriptionGroupReader(groupReader)
+
+	got := svc.GetDefaultSubscriptions(context.Background())
+	require.Equal(t, []DefaultSubscriptionSetting{
+		{GroupID: 19, ValidityDays: publicCodexSubscriptionValidityDays},
+		{GroupID: 11, ValidityDays: 14},
+	}, got)
+}
+
+func TestSettingService_GetAllSettings_NormalizesPublicCodexValidity(t *testing.T) {
+	repo := &settingUpdateRepoStub{
+		all: map[string]string{
+			SettingKeyDefaultSubscriptions: `[{"group_id":29,"validity_days":30},{"group_id":12,"validity_days":21}]`,
+		},
+	}
+	groupReader := &defaultSubGroupReaderStub{
+		byID: map[int64]*Group{
+			12: {ID: 12, Name: "standard-subscription", SubscriptionType: SubscriptionTypeSubscription},
+			29: {ID: 29, Name: "codex-pool-29-usd", SubscriptionType: SubscriptionTypeSubscription},
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+	svc.SetDefaultSubscriptionGroupReader(groupReader)
+
+	got, err := svc.GetAllSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []DefaultSubscriptionSetting{
+		{GroupID: 29, ValidityDays: publicCodexSubscriptionValidityDays},
+		{GroupID: 12, ValidityDays: 21},
+	}, got.DefaultSubscriptions)
+}
+
+func TestSettingService_GetAuthSourceDefaultSettings_NormalizesPublicCodexValidity(t *testing.T) {
+	repo := &settingUpdateRepoStub{
+		values: map[string]string{
+			SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"group_id":19,"validity_days":30}]`,
+		},
+	}
+	groupReader := &defaultSubGroupReaderStub{
+		byID: map[int64]*Group{
+			19: {ID: 19, Name: "codex-pool-19-usd", SubscriptionType: SubscriptionTypeSubscription},
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+	svc.SetDefaultSubscriptionGroupReader(groupReader)
+
+	got, err := svc.GetAuthSourceDefaultSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []DefaultSubscriptionSetting{
+		{GroupID: 19, ValidityDays: publicCodexSubscriptionValidityDays},
+	}, got.Email.Subscriptions)
 }
 
 func TestSettingService_UpdateSettings_DefaultSubscriptions_RejectsNonSubscriptionGroup(t *testing.T) {

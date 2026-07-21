@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	billingBalanceKeyPrefix   = "billing:balance:"
-	billingSubKeyPrefix       = "billing:sub:"
-	billingRateLimitKeyPrefix = "apikey:rate:"
-	billingCacheTTL           = 5 * time.Minute
-	billingCacheJitter        = 30 * time.Second
-	rateLimitCacheTTL         = 7 * 24 * time.Hour // 7 days matches the longest window
+	billingBalanceKeyPrefix     = "billing:balance:"
+	billingSubKeyPrefix         = "billing:sub:"
+	billingRateLimitKeyPrefix   = "apikey:rate:"
+	billingSubInvalidateChannel = "subscription:cache:invalidate"
+	billingCacheTTL             = 5 * time.Minute
+	billingCacheJitter          = 30 * time.Second
+	rateLimitCacheTTL           = 7 * 24 * time.Hour // 7 days matches the longest window
 
 	// Rate limit window durations — must match service.RateLimitWindow* constants.
 	rateLimitWindow5h = 5 * time.Hour
@@ -48,6 +49,10 @@ func billingSubKey(userID, groupID int64) string {
 	return fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 }
 
+func billingSubInvalidationPayload(userID, groupID int64) string {
+	return fmt.Sprintf("%d:%d", userID, groupID)
+}
+
 const (
 	subFieldStatus        = "status"
 	subFieldExpiresAt     = "expires_at"
@@ -57,7 +62,14 @@ const (
 	subFieldVersion       = "version"
 	subFieldDailyWindow   = "daily_window_start"
 	subFieldWeeklyWindow  = "weekly_window_start"
+	subFieldWeeklyAnchor  = "weekly_anchor_at"
 	subFieldMonthlyWindow = "monthly_window_start"
+	subFieldEntitlementID = "entitlement_period_id"
+	subFieldEntWeekly     = "entitlement_weekly_limit_usd"
+	subFieldPeriodTotal   = "period_total_quota_usd"
+	subFieldEntExpiresAt  = "entitlement_expires_at"
+	subFieldWindowUnit    = "quota_window_unit"
+	subFieldWindowDays    = "quota_window_days"
 )
 
 // billingRateLimitKey generates the Redis key for API key rate limit cache.
@@ -92,10 +104,42 @@ var (
 			return 0
 		end
 		local cost = tonumber(ARGV[1])
+		local ttl = ARGV[2]
+		local now = tonumber(ARGV[3])
+		local quota_window_unit = redis.call('HGET', KEYS[1], 'quota_window_unit') or ''
+		local entitlement_weekly_limit = redis.call('HGET', KEYS[1], 'entitlement_weekly_limit_usd') or ''
+		if quota_window_unit == 'week' and entitlement_weekly_limit ~= '' then
+			local anchor = tonumber(redis.call('HGET', KEYS[1], 'weekly_anchor_at') or redis.call('HGET', KEYS[1], 'weekly_window_start') or 0)
+			local start = tonumber(redis.call('HGET', KEYS[1], 'weekly_window_start') or anchor or 0)
+			local expires_at = tonumber(redis.call('HGET', KEYS[1], 'entitlement_expires_at') or redis.call('HGET', KEYS[1], 'expires_at') or 0)
+			if anchor > 0 and expires_at > now then
+				if start == 0 or start < anchor then
+					start = anchor
+				end
+				while true do
+					local next_start = start + 604800
+					if next_start > expires_at or now < next_start then
+						break
+					end
+					start = next_start
+				end
+				local stored_start = tonumber(redis.call('HGET', KEYS[1], 'weekly_window_start') or 0)
+				if stored_start ~= start then
+					redis.call('HSET', KEYS[1], 'weekly_usage', tostring(cost))
+					redis.call('HSET', KEYS[1], 'weekly_window_start', tostring(start))
+				else
+					redis.call('HINCRBYFLOAT', KEYS[1], 'weekly_usage', cost)
+				end
+				redis.call('EXPIRE', KEYS[1], ttl)
+				return 1
+			end
+			redis.call('EXPIRE', KEYS[1], ttl)
+			return 1
+		end
 		redis.call('HINCRBYFLOAT', KEYS[1], 'daily_usage', cost)
 		redis.call('HINCRBYFLOAT', KEYS[1], 'weekly_usage', cost)
 		redis.call('HINCRBYFLOAT', KEYS[1], 'monthly_usage', cost)
-		redis.call('EXPIRE', KEYS[1], ARGV[2])
+		redis.call('EXPIRE', KEYS[1], ttl)
 		return 1
 	`)
 
@@ -225,11 +269,57 @@ func (c *billingCache) parseSubscriptionCache(data map[string]string) (*service.
 	if result.WeeklyWindowStart, err = parseRequiredUnixTimePtr(data, subFieldWeeklyWindow); err != nil {
 		return nil, err
 	}
+	result.WeeklyAnchorAt = parseOptionalUnixTimePtr(data, subFieldWeeklyAnchor)
 	if result.MonthlyWindowStart, err = parseRequiredUnixTimePtr(data, subFieldMonthlyWindow); err != nil {
 		return nil, err
 	}
+	result.EntitlementPeriodID = parseOptionalInt64Ptr(data, subFieldEntitlementID)
+	result.EntitlementWeeklyLimitUSD = parseOptionalFloat64Ptr(data, subFieldEntWeekly)
+	result.PeriodTotalQuotaUSD = parseOptionalFloat64Ptr(data, subFieldPeriodTotal)
+	result.EntitlementExpiresAt = parseOptionalUnixTimePtr(data, subFieldEntExpiresAt)
+	result.QuotaWindowUnit = strings.TrimSpace(data[subFieldWindowUnit])
+	if daysStr := strings.TrimSpace(data[subFieldWindowDays]); daysStr != "" {
+		result.QuotaWindowDays, _ = strconv.Atoi(daysStr)
+	}
 
 	return result, nil
+}
+
+func parseOptionalInt64Ptr(data map[string]string, field string) *int64 {
+	value := strings.TrimSpace(data[field])
+	if value == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
+func parseOptionalFloat64Ptr(data map[string]string, field string) *float64 {
+	value := strings.TrimSpace(data[field])
+	if value == "" {
+		return nil
+	}
+	parsed, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return nil
+	}
+	return &parsed
+}
+
+func parseOptionalUnixTimePtr(data map[string]string, field string) *time.Time {
+	value := strings.TrimSpace(data[field])
+	if value == "" {
+		return nil
+	}
+	seconds, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return nil
+	}
+	t := time.Unix(seconds, 0)
+	return &t
 }
 
 func parseRequiredUnixTimePtr(data map[string]string, field string) (*time.Time, error) {
@@ -261,7 +351,14 @@ func (c *billingCache) SetSubscriptionCache(ctx context.Context, userID, groupID
 		subFieldVersion:       data.Version,
 		subFieldDailyWindow:   formatUnixTimePtr(data.DailyWindowStart),
 		subFieldWeeklyWindow:  formatUnixTimePtr(data.WeeklyWindowStart),
+		subFieldWeeklyAnchor:  formatUnixTimePtr(data.WeeklyAnchorAt),
 		subFieldMonthlyWindow: formatUnixTimePtr(data.MonthlyWindowStart),
+		subFieldEntitlementID: formatInt64Ptr(data.EntitlementPeriodID),
+		subFieldEntWeekly:     formatFloat64Ptr(data.EntitlementWeeklyLimitUSD),
+		subFieldPeriodTotal:   formatFloat64Ptr(data.PeriodTotalQuotaUSD),
+		subFieldEntExpiresAt:  formatUnixTimePtr(data.EntitlementExpiresAt),
+		subFieldWindowUnit:    data.QuotaWindowUnit,
+		subFieldWindowDays:    data.QuotaWindowDays,
 	}
 
 	pipe := c.rdb.Pipeline()
@@ -278,9 +375,23 @@ func formatUnixTimePtr(t *time.Time) string {
 	return strconv.FormatInt(t.Unix(), 10)
 }
 
+func formatInt64Ptr(v *int64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatInt(*v, 10)
+}
+
+func formatFloat64Ptr(v *float64) string {
+	if v == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*v, 'f', -1, 64)
+}
+
 func (c *billingCache) UpdateSubscriptionUsage(ctx context.Context, userID, groupID int64, cost float64) error {
 	key := billingSubKey(userID, groupID)
-	_, err := updateSubUsageScript.Run(ctx, c.rdb, []string{key}, cost, int(jitteredTTL().Seconds())).Result()
+	_, err := updateSubUsageScript.Run(ctx, c.rdb, []string{key}, cost, int(jitteredTTL().Seconds()), time.Now().Unix()).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		log.Printf("Warning: update subscription usage cache failed for user %d group %d: %v", userID, groupID, err)
 		return err
@@ -291,6 +402,61 @@ func (c *billingCache) UpdateSubscriptionUsage(ctx context.Context, userID, grou
 func (c *billingCache) InvalidateSubscriptionCache(ctx context.Context, userID, groupID int64) error {
 	key := billingSubKey(userID, groupID)
 	return c.rdb.Del(ctx, key).Err()
+}
+
+func (c *billingCache) PublishSubscriptionCacheInvalidation(ctx context.Context, userID, groupID int64) error {
+	return c.rdb.Publish(ctx, billingSubInvalidateChannel, billingSubInvalidationPayload(userID, groupID)).Err()
+}
+
+func (c *billingCache) SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(userID, groupID int64)) error {
+	pubsub := c.rdb.Subscribe(ctx, billingSubInvalidateChannel)
+	_, err := pubsub.Receive(ctx)
+	if err != nil {
+		_ = pubsub.Close()
+		return fmt.Errorf("subscribe to subscription cache invalidation: %w", err)
+	}
+
+	go func() {
+		defer func() {
+			if err := pubsub.Close(); err != nil {
+				log.Printf("Warning: failed to close subscription cache invalidation pubsub: %v", err)
+			}
+		}()
+
+		ch := pubsub.Channel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					return
+				}
+				userID, groupID, ok := parseBillingSubInvalidationPayload(msg.Payload)
+				if ok {
+					handler(userID, groupID)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func parseBillingSubInvalidationPayload(payload string) (int64, int64, bool) {
+	parts := strings.Split(strings.TrimSpace(payload), ":")
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	userID, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || userID <= 0 {
+		return 0, 0, false
+	}
+	groupID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil || groupID <= 0 {
+		return 0, 0, false
+	}
+	return userID, groupID, true
 }
 
 func (c *billingCache) GetAPIKeyRateLimit(ctx context.Context, keyID int64) (*service.APIKeyRateLimitCacheData, error) {

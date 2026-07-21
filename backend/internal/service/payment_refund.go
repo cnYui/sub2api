@@ -234,10 +234,11 @@ func (s *PaymentService) executeUserAutoRefund(ctx context.Context, o *dbent.Pay
 		if sub == nil || sub.Status != SubscriptionStatusActive || !sub.ExpiresAt.After(now) {
 			return infraerrors.BadRequest("SUBSCRIPTION_NOT_FOUND", "active linked subscription not found")
 		}
-		refundAmount = calculateSubscriptionRefundAmount(o.Amount, *o.SubscriptionDays, sub.StartsAt, now)
-		if refundAmount <= 0 {
-			return infraerrors.BadRequest("NO_REFUNDABLE_DAYS", "no refundable subscription days remaining")
+		quote, quoteErr := s.requireSubscriptionRefundQuote(ctx, o)
+		if quoteErr != nil {
+			return quoteErr
 		}
+		refundAmount = quote.EstimatedRefundAmount
 		nr = strings.TrimSpace(reason)
 		if nr == "" {
 			nr = fmt.Sprintf("refund order:%d", o.ID)
@@ -246,19 +247,12 @@ func (s *PaymentService) executeUserAutoRefund(ctx context.Context, o *dbent.Pay
 		if o.PaymentType == payment.TypeBalance {
 			return s.executeBalanceSubscriptionRefundTransaction(ctx, o, sub, refundAmount, nr, by, "user:"+by, requestID, false, OrderStatusCompleted, now)
 		}
-		refundBalanceAmount, refundGatewayAmount := calculateOrderRefundFundingSplit(o, refundAmount)
-		lock = lock.
-			Where(paymentorder.StatusEQ(OrderStatusCompleted)).
-			SetRefundRequestedAt(now).
-			SetRefundRequestReason(nr).
-			SetRefundRequestedBy(by).
-			SetRefundAmount(refundAmount).
-			SetRefundBalanceAmount(refundBalanceAmount).
-			SetRefundGatewayAmount(refundGatewayAmount).
-			SetRefundBalanceStatus(RefundGatewayNotStarted).
-			SetRefundRequestID(requestID).
-			SetRefundGatewayStatus(RefundGatewayNotStarted).
-			SetRefundEntitlementStatus(RefundEntitlementNotStarted)
+		locked, lockedQuote, err := s.beginUserGatewaySubscriptionRefundTransaction(ctx, o.ID, uid, nr, by, requestID)
+		if err != nil {
+			return err
+		}
+		s.writeAuditLog(ctx, o.ID, "REFUND_REQUESTED", "user:"+by, map[string]any{"amount": lockedQuote.EstimatedRefundAmount, "reason": nr, "auto": true, "retry": false, "continuation": false, "requestID": requestID})
+		return s.executeUserGatewaySubscriptionRefund(ctx, locked, lockedQuote.EstimatedRefundAmount, nr, "user:"+by)
 	}
 	c, err := lock.SetStatus(OrderStatusRefunding).ClearFailedAt().ClearFailedReason().Save(ctx)
 	if err != nil {
@@ -280,6 +274,164 @@ func (s *PaymentService) executeUserAutoRefund(ctx context.Context, o *dbent.Pay
 	s.writeAuditLog(ctx, o.ID, auditAction, "user:"+by, map[string]any{"amount": refundAmount, "reason": nr, "auto": true, "retry": isRetry, "continuation": isContinuation, "requestID": requestID})
 
 	return s.executeUserGatewaySubscriptionRefund(ctx, locked, refundAmount, nr, "user:"+by)
+}
+
+func (s *PaymentService) beginUserGatewaySubscriptionRefundTransaction(
+	ctx context.Context,
+	orderID int64,
+	userID int64,
+	reason string,
+	requestedBy string,
+	requestID string,
+) (*dbent.PaymentOrder, *SubscriptionRefundQuote, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin subscription refund request transaction: %w", err)
+	}
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	rollback := func(cause error) (*dbent.PaymentOrder, *SubscriptionRefundQuote, error) {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return nil, nil, fmt.Errorf("%w; rollback subscription refund request: %v", cause, rollbackErr)
+		}
+		return nil, nil, cause
+	}
+
+	order, err := s.lockRefundOrder(txCtx, client, orderID)
+	if err != nil {
+		return rollback(fmt.Errorf("lock refund order: %w", err))
+	}
+	if order.UserID != userID {
+		return rollback(infraerrors.Forbidden("FORBIDDEN", "no permission"))
+	}
+	if order.Status != OrderStatusCompleted {
+		return rollback(infraerrors.Conflict("CONFLICT", "order status changed"))
+	}
+	if order.OrderType != payment.OrderTypeSubscription || order.SubscriptionID == nil {
+		return rollback(infraerrors.BadRequest("INVALID_ORDER_TYPE", "only subscription orders can request refund"))
+	}
+	sub, err := s.lockAndLoadRefundSubscription(txCtx, client, order)
+	if err != nil {
+		return rollback(infraerrors.BadRequest("SUBSCRIPTION_NOT_FOUND", "linked subscription not found"))
+	}
+	if err := s.validateExclusiveRefundSubscriptionWithClient(txCtx, client, order, sub); err != nil {
+		return rollback(err)
+	}
+	quote, err := s.requireSubscriptionRefundQuoteWithClient(txCtx, client, order, true)
+	if err != nil {
+		return rollback(err)
+	}
+	refundBalanceAmount, refundGatewayAmount := calculateOrderRefundFundingSplit(order, quote.EstimatedRefundAmount)
+	_, err = client.PaymentOrder.UpdateOneID(order.ID).
+		SetStatus(OrderStatusRefunding).
+		SetRefundRequestedAt(time.Now()).
+		SetRefundRequestReason(reason).
+		SetRefundRequestedBy(requestedBy).
+		SetRefundAmount(quote.EstimatedRefundAmount).
+		SetRefundBalanceAmount(refundBalanceAmount).
+		SetRefundGatewayAmount(refundGatewayAmount).
+		SetRefundBalanceStatus(RefundGatewayNotStarted).
+		SetRefundRequestID(requestID).
+		SetRefundGatewayStatus(RefundGatewayNotStarted).
+		SetRefundEntitlementStatus(RefundEntitlementNotStarted).
+		SetRefundBasis(quote.Basis()).
+		ClearFailedAt().
+		ClearFailedReason().
+		Save(txCtx)
+	if err != nil {
+		return rollback(fmt.Errorf("persist refund request: %w", err))
+	}
+	locked, err := client.PaymentOrder.Get(txCtx, order.ID)
+	if err != nil {
+		return rollback(fmt.Errorf("reload refund order: %w", err))
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit subscription refund request transaction: %w", err)
+	}
+	return locked, quote, nil
+}
+
+func (s *PaymentService) beginAdminGatewaySubscriptionRefundTransaction(
+	ctx context.Context,
+	orderID int64,
+	expectedStatus string,
+	reason string,
+	requestID string,
+) (*dbent.PaymentOrder, *SubscriptionRefundQuote, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin admin subscription refund transaction: %w", err)
+	}
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	rollback := func(cause error) (*dbent.PaymentOrder, *SubscriptionRefundQuote, error) {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return nil, nil, fmt.Errorf("%w; rollback admin subscription refund: %v", cause, rollbackErr)
+		}
+		return nil, nil, cause
+	}
+
+	order, err := s.lockRefundOrder(txCtx, client, orderID)
+	if err != nil {
+		return rollback(fmt.Errorf("lock refund order: %w", err))
+	}
+	if order.Status != expectedStatus {
+		return rollback(infraerrors.Conflict("CONFLICT", "order status changed"))
+	}
+	if order.OrderType != payment.OrderTypeSubscription || order.SubscriptionID == nil {
+		return rollback(infraerrors.BadRequest("INVALID_ORDER_TYPE", "only subscription orders can request refund"))
+	}
+	sub, err := s.lockAndLoadRefundSubscription(txCtx, client, order)
+	if err != nil {
+		return rollback(infraerrors.BadRequest("SUBSCRIPTION_NOT_FOUND", "linked subscription not found"))
+	}
+	if err := s.validateExclusiveRefundSubscriptionWithClient(txCtx, client, order, sub); err != nil {
+		return rollback(err)
+	}
+	quote, err := s.requireSubscriptionRefundQuoteWithClient(txCtx, client, order, true)
+	if err != nil {
+		return rollback(err)
+	}
+	refundBalanceAmount, refundGatewayAmount := calculateOrderRefundFundingSplit(order, quote.EstimatedRefundAmount)
+	rr := strings.TrimSpace(reason)
+	if rr == "" {
+		rr = fmt.Sprintf("refund order:%d", order.ID)
+	}
+	if strings.TrimSpace(requestID) == "" {
+		requestID = fmt.Sprintf("refund-%d", order.ID)
+	}
+	_, err = client.PaymentOrder.UpdateOneID(order.ID).
+		SetStatus(OrderStatusRefunding).
+		SetRefundRequestedAt(time.Now()).
+		SetRefundRequestReason(rr).
+		SetRefundRequestedBy("admin").
+		SetRefundAmount(quote.EstimatedRefundAmount).
+		SetRefundBalanceAmount(refundBalanceAmount).
+		SetRefundGatewayAmount(refundGatewayAmount).
+		SetRefundBalanceStatus(RefundGatewayNotStarted).
+		SetRefundRequestID(requestID).
+		SetRefundGatewayStatus(RefundGatewayNotStarted).
+		SetRefundEntitlementStatus(RefundEntitlementNotStarted).
+		SetRefundBasis(quote.Basis()).
+		ClearFailedAt().
+		ClearFailedReason().
+		Save(txCtx)
+	if err != nil {
+		return rollback(fmt.Errorf("persist admin refund request: %w", err))
+	}
+	locked, err := client.PaymentOrder.Get(txCtx, order.ID)
+	if err != nil {
+		return rollback(fmt.Errorf("reload refund order: %w", err))
+	}
+	if err := s.createAuditLogIfAbsentWithClient(txCtx, client, order.ID, "REFUND_REQUESTED", "admin", map[string]any{
+		"amount": quote.EstimatedRefundAmount, "reason": rr, "auto": true, "retry": false, "requestID": requestID,
+	}); err != nil {
+		return rollback(fmt.Errorf("write admin refund request audit: %w", err))
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit admin subscription refund transaction: %w", err)
+	}
+	return locked, quote, nil
 }
 
 func (s *PaymentService) executeUserGatewaySubscriptionRefund(ctx context.Context, o *dbent.PaymentOrder, refundAmount float64, reason, operator string) error {
@@ -387,6 +539,24 @@ func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
 		return cause
 	}
 
+	lockedOrder, err := s.lockRefundOrder(txCtx, client, o.ID)
+	if err != nil {
+		return rollback(fmt.Errorf("lock balance refund order: %w", err))
+	}
+	if lockedOrder.UserID != o.UserID || lockedOrder.Status != expectedStatus {
+		return rollback(infraerrors.Conflict("CONFLICT", "order status changed"))
+	}
+	if !force && expectedStatus == OrderStatusCompleted && lockedOrder.OrderType == payment.OrderTypeSubscription {
+		quote, quoteErr := s.requireSubscriptionRefundQuoteWithClient(txCtx, client, lockedOrder, true)
+		if quoteErr != nil {
+			return rollback(quoteErr)
+		}
+		refundAmount = quote.EstimatedRefundAmount
+		if err := s.persistSubscriptionRefundBasisWithClient(txCtx, client, lockedOrder.ID, quote); err != nil {
+			return rollback(fmt.Errorf("persist refund basis: %w", err))
+		}
+	}
+
 	c, err := client.PaymentOrder.Update().
 		Where(paymentorder.IDEQ(o.ID), paymentorder.UserIDEQ(o.UserID), paymentorder.StatusEQ(expectedStatus)).
 		SetStatus(OrderStatusRefunding).
@@ -394,6 +564,8 @@ func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
 		SetRefundRequestReason(reason).
 		SetRefundRequestedBy(requestedBy).
 		SetRefundAmount(refundAmount).
+		SetRefundBalanceAmount(refundAmount).
+		SetRefundBalanceStatus(RefundGatewayNotStarted).
 		SetRefundRequestID(requestID).
 		SetRefundGatewayStatus(RefundGatewayNotRequired).
 		SetRefundEntitlementStatus(RefundEntitlementNotStarted).
@@ -433,6 +605,8 @@ func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
 		SetRefundReason(reason).
 		SetRefundAt(now).
 		SetForceRefund(force).
+		SetRefundBalanceAmount(refundAmount).
+		SetRefundBalanceStatus(RefundGatewaySucceeded).
 		SetRefundGatewayStatus(RefundGatewayNotRequired).
 		SetRefundEntitlementStatus(RefundEntitlementSucceeded).
 		ClearFailedAt().
@@ -445,6 +619,13 @@ func (s *PaymentService) executeBalanceSubscriptionRefundTransaction(
 		"amount": refundAmount, "reason": reason, "auto": true, "retry": false, "requestID": requestID,
 	}); err != nil {
 		return rollback(fmt.Errorf("write balance refund request audit: %w", err))
+	}
+	if force {
+		if err := s.createAuditLogIfAbsentWithClient(txCtx, client, o.ID, "FORCE_REFUND_REQUESTED", operator, map[string]any{
+			"amount": refundAmount, "reason": reason, "requestID": requestID,
+		}); err != nil {
+			return rollback(fmt.Errorf("write force refund request audit: %w", err))
+		}
 	}
 	if err := s.createAuditLogIfAbsentWithClient(txCtx, client, o.ID, "REFUND_SUCCESS", operator, map[string]any{
 		"refundAmount": refundAmount, "reason": reason, "balanceRefunded": refundAmount, "auto": true,
@@ -473,6 +654,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	isRetry := o.Status == OrderStatusRefundFailed
 	isContinuation := o.Status == OrderStatusRefunding && o.RefundGatewayStatus == RefundGatewaySucceeded
 	isExistingRefund := isRetry || isContinuation
+	if force && !isExistingRefund && strings.TrimSpace(reason) == "" {
+		return nil, nil, infraerrors.BadRequest("FORCE_REFUND_REASON_REQUIRED", "force refund requires an audit reason")
+	}
 	if (o.Status == OrderStatusRefundFailed || o.Status == OrderStatusRefunding) && !paymentOrderRefundContinuable(o) {
 		return nil, nil, infraerrors.Conflict("REFUND_RECONCILIATION_REQUIRED", "refund status requires manual reconciliation")
 	}
@@ -491,6 +675,16 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 		if sub != nil && o.RefundGatewayStatus != RefundGatewaySucceeded {
 			if err := s.validateExclusiveRefundSubscription(ctx, o, sub); err != nil {
 				return nil, nil, err
+			}
+		}
+		if !force && !isExistingRefund {
+			quote, quoteErr := s.requireSubscriptionRefundQuote(ctx, o)
+			if quoteErr != nil {
+				return nil, nil, quoteErr
+			}
+			amt = quote.EstimatedRefundAmount
+			if err := s.persistSubscriptionRefundBasis(ctx, o.ID, quote); err != nil {
+				return nil, nil, fmt.Errorf("persist refund basis: %w", err)
 			}
 		}
 	}
@@ -590,6 +784,9 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 	isRetry := o.Status == OrderStatusRefundFailed
 	isContinuation := o.Status == OrderStatusRefunding && o.RefundGatewayStatus == RefundGatewaySucceeded
 	isExistingRefund := isRetry || isContinuation
+	if p.Force && !isExistingRefund && strings.TrimSpace(p.Reason) == "" {
+		return nil, infraerrors.BadRequest("FORCE_REFUND_REASON_REQUIRED", "force refund requires an audit reason")
+	}
 	if (o.Status == OrderStatusRefundFailed || o.Status == OrderStatusRefunding) && !paymentOrderRefundContinuable(o) {
 		return nil, infraerrors.Conflict("REFUND_RECONCILIATION_REQUIRED", "refund status requires manual reconciliation")
 	}
@@ -628,7 +825,33 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 		if err := s.executeBalanceSubscriptionRefundTransaction(ctx, o, linkedSubscription, p.RefundAmount, p.Reason, "admin", "admin", requestID, p.Force, o.Status, time.Now()); err != nil {
 			return nil, err
 		}
-		return &RefundResult{Success: true, BalanceDeducted: -p.RefundAmount, SubDaysDeducted: p.SubDaysToDeduct}, nil
+		refundAmount := p.RefundAmount
+		if reloaded, reloadErr := s.entClient.PaymentOrder.Get(ctx, p.OrderID); reloadErr == nil && reloaded.RefundAmount > 0 {
+			refundAmount = reloaded.RefundAmount
+		}
+		return &RefundResult{Success: true, BalanceDeducted: -refundAmount, SubDaysDeducted: p.SubDaysToDeduct}, nil
+	}
+	if o.OrderType == payment.OrderTypeSubscription && !p.Force && !isExistingRefund {
+		requestID := psStringValue(o.RefundRequestID)
+		if requestID == "" {
+			requestID = fmt.Sprintf("refund-%d", o.ID)
+		}
+		locked, quote, err := s.beginAdminGatewaySubscriptionRefundTransaction(ctx, o.ID, o.Status, p.Reason, requestID)
+		if err != nil {
+			return nil, err
+		}
+		p.Order = locked
+		p.RefundAmount = quote.EstimatedRefundAmount
+		p.BalanceAmount = locked.RefundBalanceAmount
+		p.GatewayAmount = locked.RefundGatewayAmount
+		if p.GatewayAmount <= 0 {
+			p.GatewayAmount = refundGatewayAmountForOrder(locked, quote.EstimatedRefundAmount)
+		}
+		p.Reason = psStringValue(locked.RefundRequestReason)
+		if p.Reason == "" {
+			p.Reason = fmt.Sprintf("refund order:%d", locked.ID)
+		}
+		return s.executeRefundGateway(ctx, p)
 	}
 
 	lock := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusEQ(o.Status))
@@ -680,6 +903,19 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 		return nil, err
 	}
 	p.Order = locked
+	if p.Force && !isExistingRefund {
+		s.writeAuditLog(ctx, p.OrderID, "FORCE_REFUND_REQUESTED", "admin", map[string]any{
+			"amount": p.RefundAmount, "reason": p.Reason, "requestID": psStringValue(locked.RefundRequestID),
+		})
+	}
+	return s.executeRefundGateway(ctx, p)
+}
+
+func (s *PaymentService) executeRefundGateway(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+	locked := p.Order
+	if locked == nil {
+		return nil, infraerrors.BadRequest("INVALID_REFUND_PLAN", "refund order is required")
+	}
 	if locked.RefundGatewayStatus == RefundGatewaySucceeded {
 		return s.executeAdminRefundEntitlement(ctx, p)
 	}
@@ -732,7 +968,7 @@ func (s *PaymentService) executeAdminRefundEntitlement(ctx context.Context, p *R
 	if o == nil {
 		return nil, infraerrors.BadRequest("INVALID_REFUND_PLAN", "refund order is required")
 	}
-	if o.OrderType == payment.OrderTypeSubscription && o.RefundGatewayStatus == RefundGatewaySucceeded {
+	if o.OrderType == payment.OrderTypeSubscription && (o.RefundGatewayStatus == RefundGatewaySucceeded || o.RefundGatewayStatus == RefundGatewayNotRequired) {
 		return s.completeGatewaySubscriptionRefundTransaction(ctx, o.ID, p.Reason, "admin", p.Force)
 	}
 	if o.RefundEntitlementStatus != RefundEntitlementSucceeded {
@@ -758,10 +994,8 @@ func (s *PaymentService) executeAdminRefundEntitlement(ctx context.Context, p *R
 			}
 			if subscriptionID == 0 {
 				err = fmt.Errorf("refund subscription link is missing")
-			} else if s.subscriptionSvc == nil {
-				err = fmt.Errorf("subscription service is unavailable")
-			} else if revokeErr := s.subscriptionSvc.RevokeSubscription(ctx, subscriptionID); revokeErr != nil && !errors.Is(revokeErr, ErrSubscriptionNotFound) {
-				err = revokeErr
+			} else {
+				err = infraerrors.Conflict("REFUND_RECONCILIATION_REQUIRED", "subscription refund must finalize through the target entitlement period")
 			}
 		}
 		if err != nil {

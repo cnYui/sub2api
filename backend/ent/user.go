@@ -79,6 +79,8 @@ type UserEdges struct {
 	Subscriptions []*UserSubscription `json:"subscriptions,omitempty"`
 	// SubscriptionEntitlementPeriods holds the value of the subscription_entitlement_periods edge.
 	SubscriptionEntitlementPeriods []*SubscriptionEntitlementPeriod `json:"subscription_entitlement_periods,omitempty"`
+	// SubscriptionQuotaDebtAdjustments holds the value of the subscription_quota_debt_adjustments edge.
+	SubscriptionQuotaDebtAdjustments []*SubscriptionQuotaDebtAdjustment `json:"subscription_quota_debt_adjustments,omitempty"`
 	// AssignedSubscriptions holds the value of the assigned_subscriptions edge.
 	AssignedSubscriptions []*UserSubscription `json:"assigned_subscriptions,omitempty"`
 	// AnnouncementReads holds the value of the announcement_reads edge.
@@ -105,7 +107,7 @@ type UserEdges struct {
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [16]bool
+	loadedTypes [17]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -144,10 +146,19 @@ func (e UserEdges) SubscriptionEntitlementPeriodsOrErr() ([]*SubscriptionEntitle
 	return nil, &NotLoadedError{edge: "subscription_entitlement_periods"}
 }
 
+// SubscriptionQuotaDebtAdjustmentsOrErr returns the SubscriptionQuotaDebtAdjustments value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) SubscriptionQuotaDebtAdjustmentsOrErr() ([]*SubscriptionQuotaDebtAdjustment, error) {
+	if e.loadedTypes[4] {
+		return e.SubscriptionQuotaDebtAdjustments, nil
+	}
+	return nil, &NotLoadedError{edge: "subscription_quota_debt_adjustments"}
+}
+
 // AssignedSubscriptionsOrErr returns the AssignedSubscriptions value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AssignedSubscriptionsOrErr() ([]*UserSubscription, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[5] {
 		return e.AssignedSubscriptions, nil
 	}
 	return nil, &NotLoadedError{edge: "assigned_subscriptions"}
@@ -156,7 +167,7 @@ func (e UserEdges) AssignedSubscriptionsOrErr() ([]*UserSubscription, error) {
 // AnnouncementReadsOrErr returns the AnnouncementReads value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AnnouncementReadsOrErr() ([]*AnnouncementRead, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.AnnouncementReads, nil
 	}
 	return nil, &NotLoadedError{edge: "announcement_reads"}
@@ -165,7 +176,7 @@ func (e UserEdges) AnnouncementReadsOrErr() ([]*AnnouncementRead, error) {
 // AllowedGroupsOrErr returns the AllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AllowedGroupsOrErr() ([]*Group, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.AllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "allowed_groups"}
@@ -174,7 +185,7 @@ func (e UserEdges) AllowedGroupsOrErr() ([]*Group, error) {
 // UsageLogsOrErr returns the UsageLogs value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UsageLogsOrErr() ([]*UsageLog, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[8] {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
@@ -183,7 +194,7 @@ func (e UserEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 // AttributeValuesOrErr returns the AttributeValues value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AttributeValuesOrErr() ([]*UserAttributeValue, error) {
-	if e.loadedTypes[8] {
+	if e.loadedTypes[9] {
 		return e.AttributeValues, nil
 	}
 	return nil, &NotLoadedError{edge: "attribute_values"}
@@ -192,7 +203,7 @@ func (e UserEdges) AttributeValuesOrErr() ([]*UserAttributeValue, error) {
 // PromoCodeUsagesOrErr returns the PromoCodeUsages value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PromoCodeUsagesOrErr() ([]*PromoCodeUsage, error) {
-	if e.loadedTypes[9] {
+	if e.loadedTypes[10] {
 		return e.PromoCodeUsages, nil
 	}
 	return nil, &NotLoadedError{edge: "promo_code_usages"}
@@ -201,7 +212,7 @@ func (e UserEdges) PromoCodeUsagesOrErr() ([]*PromoCodeUsage, error) {
 // PaymentOrdersOrErr returns the PaymentOrders value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PaymentOrdersOrErr() ([]*PaymentOrder, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.PaymentOrders, nil
 	}
 	return nil, &NotLoadedError{edge: "payment_orders"}
@@ -210,7 +221,7 @@ func (e UserEdges) PaymentOrdersOrErr() ([]*PaymentOrder, error) {
 // PaymentBalanceHoldsOrErr returns the PaymentBalanceHolds value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PaymentBalanceHoldsOrErr() ([]*PaymentBalanceHold, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.PaymentBalanceHolds, nil
 	}
 	return nil, &NotLoadedError{edge: "payment_balance_holds"}
@@ -219,7 +230,7 @@ func (e UserEdges) PaymentBalanceHoldsOrErr() ([]*PaymentBalanceHold, error) {
 // AuthIdentitiesOrErr returns the AuthIdentities value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.AuthIdentities, nil
 	}
 	return nil, &NotLoadedError{edge: "auth_identities"}
@@ -228,7 +239,7 @@ func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
 // PendingAuthSessionsOrErr returns the PendingAuthSessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.PendingAuthSessions, nil
 	}
 	return nil, &NotLoadedError{edge: "pending_auth_sessions"}
@@ -237,7 +248,7 @@ func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
 // PlatformQuotasOrErr returns the PlatformQuotas value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PlatformQuotasOrErr() ([]*UserPlatformQuota, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.PlatformQuotas, nil
 	}
 	return nil, &NotLoadedError{edge: "platform_quotas"}
@@ -246,7 +257,7 @@ func (e UserEdges) PlatformQuotasOrErr() ([]*UserPlatformQuota, error) {
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[15] {
+	if e.loadedTypes[16] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -463,6 +474,11 @@ func (_m *User) QuerySubscriptions() *UserSubscriptionQuery {
 // QuerySubscriptionEntitlementPeriods queries the "subscription_entitlement_periods" edge of the User entity.
 func (_m *User) QuerySubscriptionEntitlementPeriods() *SubscriptionEntitlementPeriodQuery {
 	return NewUserClient(_m.config).QuerySubscriptionEntitlementPeriods(_m)
+}
+
+// QuerySubscriptionQuotaDebtAdjustments queries the "subscription_quota_debt_adjustments" edge of the User entity.
+func (_m *User) QuerySubscriptionQuotaDebtAdjustments() *SubscriptionQuotaDebtAdjustmentQuery {
+	return NewUserClient(_m.config).QuerySubscriptionQuotaDebtAdjustments(_m)
 }
 
 // QueryAssignedSubscriptions queries the "assigned_subscriptions" edge of the User entity.

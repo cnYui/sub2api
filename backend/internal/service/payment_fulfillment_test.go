@@ -895,6 +895,90 @@ func TestConfirmPaymentCompletesSubscriptionWhenAmountMatches(t *testing.T) {
 	require.Equal(t, reloaded.SubscriptionID, &period.SubscriptionID)
 }
 
+func TestConfirmPaymentFulfillsPublicCodexSubscriptionFromOrderSnapshotWhenGroupDisabled(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+
+	user, err := client.User.Create().
+		SetEmail("zpay-snapshot-weekly@example.com").
+		SetPasswordHash("hash").
+		SetUsername("zpay-snapshot-weekly-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(29).
+		SetPayAmount(29).
+		SetFeeRate(0).
+		SetRechargeCode("PAY-ZPAY-SNAPSHOT-WEEKLY").
+		SetOutTradeNo("sub2_zpay_snapshot_weekly").
+		SetPaymentType(payment.TypeAlipay).
+		SetProviderKey(payment.TypeEasyPay).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeSubscription).
+		SetPlanID(1).
+		SetSubscriptionGroupID(2).
+		SetSubscriptionDays(30).
+		SetSubscriptionSnapshot(map[string]any{
+			"version":                1,
+			"plan_id":                1,
+			"plan_name":              "29 元订阅池",
+			"group_id":               2,
+			"group_name":             "codex-pool-19-usd",
+			"validity_days":          28,
+			"weekly_limit_usd":       72,
+			"period_total_quota_usd": 288,
+			"quota_window_unit":      "week",
+			"quota_window_days":      7,
+		}).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	subRepo := newSubscriptionUserSubRepoStub()
+	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
+	disabledGroup := &Group{ID: 2, Name: "codex-pool-19-usd", Status: "disabled", SubscriptionType: SubscriptionTypeSubscription}
+	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{group: disabledGroup}, subRepo, nil, nil, nil)
+	subscriptionSvc.entitlementPeriodRepo = entitlementRepo
+	svc := &PaymentService{
+		entClient:       client,
+		groupRepo:       &subscriptionGroupRepoStub{group: disabledGroup},
+		subscriptionSvc: subscriptionSvc,
+	}
+
+	err = svc.HandlePaymentNotification(ctx, &payment.PaymentNotification{
+		TradeNo: "zpay-trade-snapshot-weekly",
+		OrderID: order.OutTradeNo,
+		Amount:  29,
+		Status:  payment.NotificationStatusSuccess,
+	}, payment.TypeEasyPay)
+	require.NoError(t, err)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.Equal(t, 1, subRepo.createCalls)
+	period, err := entitlementRepo.GetBySource(ctx, SubscriptionEntitlementSource{
+		Type: "payment_order",
+		ID:   strconv.FormatInt(order.ID, 10),
+	})
+	require.NoError(t, err)
+	require.Equal(t, 28, period.PeriodDays)
+	require.NotNil(t, period.WeeklyLimitUSD)
+	require.InDelta(t, 72, *period.WeeklyLimitUSD, 1e-9)
+	require.NotNil(t, period.PeriodTotalQuotaUSD)
+	require.InDelta(t, 288, *period.PeriodTotalQuotaUSD, 1e-9)
+	require.Equal(t, "week", period.QuotaWindowUnit)
+	require.Equal(t, 7, period.QuotaWindowDays)
+}
+
 func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)

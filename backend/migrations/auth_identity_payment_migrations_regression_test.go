@@ -278,3 +278,65 @@ func TestMigration161SeedsCodex149And199SubscriptionPlansWithoutAccountBinding(t
 	require.NotContains(t, sql, "INSERT INTO account_groups")
 	require.NotContains(t, sql, "UPDATE account_groups")
 }
+
+func TestMigration170ReducesCodexSubscriptionDailyLimits(t *testing.T) {
+	content, err := FS.ReadFile("170_reduce_codex_subscription_daily_limits.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"'codex-pool-19-usd'::TEXT, 15::NUMERIC",
+		"'codex-pool-29-usd'::TEXT, 25::NUMERIC",
+		"'codex-pool-49-usd'::TEXT, 39::NUMERIC",
+		"'codex-pool-69-usd'::TEXT, 53::NUMERIC",
+		"'codex-pool-89-usd'::TEXT, 66::NUMERIC",
+		"'codex-pool-135-usd'::TEXT, 100::NUMERIC",
+		"'codex-pool-179-usd'::TEXT, 133::NUMERIC",
+		"daily_limit_usd = plan.daily_usd",
+		"日限额 ' || trim_scale(plan.daily_usd) || '刀",
+		"每日 ' || trim_scale(plan.daily_usd) || ' USD",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "subscription_entitlement_periods")
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+}
+
+func TestMigration171EnablesUserErrorRequestViewByDefault(t *testing.T) {
+	content, err := FS.ReadFile("171_enable_user_error_request_view_default.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "allow_user_view_error_requests")
+	require.Contains(t, sql, "'true'")
+	require.Contains(t, sql, "ON CONFLICT (key) DO UPDATE")
+	require.Contains(t, sql, "value = EXCLUDED.value")
+}
+
+func TestMigration174AddsWeeklyRollingSubscriptionQuotaSchemaOnly(t *testing.T) {
+	content, err := FS.ReadFile("174_weekly_rolling_subscription_quota_schema.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"ADD COLUMN IF NOT EXISTS weekly_anchor_at TIMESTAMPTZ",
+		"ADD COLUMN IF NOT EXISTS subscription_snapshot JSONB",
+		"ADD COLUMN IF NOT EXISTS refund_basis JSONB",
+		"ADD COLUMN IF NOT EXISTS weekly_limit_usd NUMERIC(20,10)",
+		"ADD COLUMN IF NOT EXISTS period_total_quota_usd NUMERIC(20,10)",
+		"ADD COLUMN IF NOT EXISTS quota_window_unit VARCHAR(20) NOT NULL DEFAULT 'day'",
+		"ADD COLUMN IF NOT EXISTS quota_window_days INTEGER NOT NULL DEFAULT 1",
+		"ADD COLUMN IF NOT EXISTS entitlement_period_id BIGINT",
+		"idx_usage_facts_entitlement_period_id",
+		"CREATE TABLE IF NOT EXISTS subscription_quota_debt_adjustments",
+		"subscription_quota_debt_adjustments_source_key_unique UNIQUE (source_key)",
+		"CHECK (application_status IN ('pending', 'applied', 'already_applied', 'manual_review'))",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "UPDATE groups")
+	require.NotContains(t, sql, "UPDATE subscription_plans")
+	require.NotContains(t, sql, "UPDATE user_subscriptions")
+	require.NotContains(t, sql, "UPDATE subscription_entitlement_periods")
+}

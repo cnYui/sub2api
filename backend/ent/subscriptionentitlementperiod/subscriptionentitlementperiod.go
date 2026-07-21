@@ -36,6 +36,14 @@ const (
 	FieldPeriodDays = "period_days"
 	// FieldDailyLimitUsd holds the string denoting the daily_limit_usd field in the database.
 	FieldDailyLimitUsd = "daily_limit_usd"
+	// FieldWeeklyLimitUsd holds the string denoting the weekly_limit_usd field in the database.
+	FieldWeeklyLimitUsd = "weekly_limit_usd"
+	// FieldPeriodTotalQuotaUsd holds the string denoting the period_total_quota_usd field in the database.
+	FieldPeriodTotalQuotaUsd = "period_total_quota_usd"
+	// FieldQuotaWindowUnit holds the string denoting the quota_window_unit field in the database.
+	FieldQuotaWindowUnit = "quota_window_unit"
+	// FieldQuotaWindowDays holds the string denoting the quota_window_days field in the database.
+	FieldQuotaWindowDays = "quota_window_days"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
 	// FieldRevokedAt holds the string denoting the revoked_at field in the database.
@@ -87,6 +95,10 @@ var Columns = []string{
 	FieldExpiresAt,
 	FieldPeriodDays,
 	FieldDailyLimitUsd,
+	FieldWeeklyLimitUsd,
+	FieldPeriodTotalQuotaUsd,
+	FieldQuotaWindowUnit,
+	FieldQuotaWindowDays,
 	FieldStatus,
 	FieldRevokedAt,
 	FieldRevokedReason,
@@ -113,6 +125,12 @@ var (
 	SourceTypeValidator func(string) error
 	// SourceIDValidator is a validator for the "source_id" field. It is called by the builders before save.
 	SourceIDValidator func(string) error
+	// DefaultQuotaWindowUnit holds the default value on creation for the "quota_window_unit" field.
+	DefaultQuotaWindowUnit string
+	// QuotaWindowUnitValidator is a validator for the "quota_window_unit" field. It is called by the builders before save.
+	QuotaWindowUnitValidator func(string) error
+	// DefaultQuotaWindowDays holds the default value on creation for the "quota_window_days" field.
+	DefaultQuotaWindowDays int
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -182,6 +200,26 @@ func ByPeriodDays(opts ...sql.OrderTermOption) OrderOption {
 // ByDailyLimitUsd orders the results by the daily_limit_usd field.
 func ByDailyLimitUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDailyLimitUsd, opts...).ToFunc()
+}
+
+// ByWeeklyLimitUsd orders the results by the weekly_limit_usd field.
+func ByWeeklyLimitUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWeeklyLimitUsd, opts...).ToFunc()
+}
+
+// ByPeriodTotalQuotaUsd orders the results by the period_total_quota_usd field.
+func ByPeriodTotalQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldPeriodTotalQuotaUsd, opts...).ToFunc()
+}
+
+// ByQuotaWindowUnit orders the results by the quota_window_unit field.
+func ByQuotaWindowUnit(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldQuotaWindowUnit, opts...).ToFunc()
+}
+
+// ByQuotaWindowDays orders the results by the quota_window_days field.
+func ByQuotaWindowDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldQuotaWindowDays, opts...).ToFunc()
 }
 
 // ByStatus orders the results by the status field.

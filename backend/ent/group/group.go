@@ -84,6 +84,8 @@ const (
 	EdgeSubscriptions = "subscriptions"
 	// EdgeSubscriptionEntitlementPeriods holds the string denoting the subscription_entitlement_periods edge name in mutations.
 	EdgeSubscriptionEntitlementPeriods = "subscription_entitlement_periods"
+	// EdgeSubscriptionQuotaDebtAdjustments holds the string denoting the subscription_quota_debt_adjustments edge name in mutations.
+	EdgeSubscriptionQuotaDebtAdjustments = "subscription_quota_debt_adjustments"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
@@ -124,6 +126,13 @@ const (
 	SubscriptionEntitlementPeriodsInverseTable = "subscription_entitlement_periods"
 	// SubscriptionEntitlementPeriodsColumn is the table column denoting the subscription_entitlement_periods relation/edge.
 	SubscriptionEntitlementPeriodsColumn = "group_id"
+	// SubscriptionQuotaDebtAdjustmentsTable is the table that holds the subscription_quota_debt_adjustments relation/edge.
+	SubscriptionQuotaDebtAdjustmentsTable = "subscription_quota_debt_adjustments"
+	// SubscriptionQuotaDebtAdjustmentsInverseTable is the table name for the SubscriptionQuotaDebtAdjustment entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionquotadebtadjustment" package.
+	SubscriptionQuotaDebtAdjustmentsInverseTable = "subscription_quota_debt_adjustments"
+	// SubscriptionQuotaDebtAdjustmentsColumn is the table column denoting the subscription_quota_debt_adjustments relation/edge.
+	SubscriptionQuotaDebtAdjustmentsColumn = "group_id"
 	// UsageLogsTable is the table that holds the usage_logs relation/edge.
 	UsageLogsTable = "usage_logs"
 	// UsageLogsInverseTable is the table name for the UsageLog entity.
@@ -469,6 +478,20 @@ func BySubscriptionEntitlementPeriods(term sql.OrderTerm, terms ...sql.OrderTerm
 	}
 }
 
+// BySubscriptionQuotaDebtAdjustmentsCount orders the results by subscription_quota_debt_adjustments count.
+func BySubscriptionQuotaDebtAdjustmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubscriptionQuotaDebtAdjustmentsStep(), opts...)
+	}
+}
+
+// BySubscriptionQuotaDebtAdjustments orders the results by subscription_quota_debt_adjustments terms.
+func BySubscriptionQuotaDebtAdjustments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubscriptionQuotaDebtAdjustmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUsageLogsCount orders the results by usage_logs count.
 func ByUsageLogsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -564,6 +587,13 @@ func newSubscriptionEntitlementPeriodsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SubscriptionEntitlementPeriodsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, SubscriptionEntitlementPeriodsTable, SubscriptionEntitlementPeriodsColumn),
+	)
+}
+func newSubscriptionQuotaDebtAdjustmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubscriptionQuotaDebtAdjustmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SubscriptionQuotaDebtAdjustmentsTable, SubscriptionQuotaDebtAdjustmentsColumn),
 	)
 }
 func newUsageLogsStep() *sqlgraph.Step {

@@ -108,6 +108,42 @@ func TestOpenAIBillingAuthorization_ReservesTrafficCreditWhenSubscriptionExceede
 	require.Equal(t, 1, repo.reserveCalls)
 }
 
+func TestOpenAIBillingAuthorization_RollingWeeklyIgnoresStaleWindowUsage(t *testing.T) {
+	weeklyLimit := 72.0
+	anchor := time.Now().UTC().AddDate(0, 0, -8).Truncate(time.Second)
+	svc, repo := newOpenAIBillingAuthorizationTestService(70)
+	input := newOpenAIBillingAuthorizationTestInput()
+	input.Group = &Group{
+		ID:               2,
+		Name:             "codex-pool-19-usd",
+		SubscriptionType: SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	input.Subscription = &UserSubscription{
+		ID:                3,
+		StartsAt:          anchor,
+		ExpiresAt:         anchor.AddDate(0, 0, 28),
+		WeeklyAnchorAt:    &anchor,
+		WeeklyWindowStart: &anchor,
+		WeeklyUsageUSD:    80,
+		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
+			ID:             30,
+			StartsAt:       anchor,
+			ExpiresAt:      anchor.AddDate(0, 0, 28),
+			Status:         SubscriptionEntitlementPeriodStatusActive,
+			WeeklyLimitUSD: &weeklyLimit,
+		},
+	}
+
+	got, err := svc.Authorize(context.Background(), input)
+
+	require.NoError(t, err)
+	require.Equal(t, BillingSourceSubscription, got.Source)
+	require.NotNil(t, got.EntitlementPeriodID)
+	require.Equal(t, int64(30), *got.EntitlementPeriodID)
+	require.Zero(t, repo.reserveCalls)
+}
+
 func TestOpenAIBillingAuthorization_RejectsOutstandingDebt(t *testing.T) {
 	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)
 	repo.hasDebt = true

@@ -72,6 +72,18 @@ type Group struct {
 	RateLimitedAccountCount int64
 }
 
+var publicCodexSubscriptionWeeklyLimitsUSD = map[string]float64{
+	"codex-pool-19-usd":  72,
+	"codex-pool-29-usd":  97,
+	"codex-pool-49-usd":  148,
+	"codex-pool-69-usd":  198,
+	"codex-pool-89-usd":  248,
+	"codex-pool-135-usd": 374,
+	"codex-pool-179-usd": 500,
+}
+
+const publicCodexSubscriptionValidityDays = 28
+
 func (g *Group) IsActive() bool {
 	return g.Status == StatusActive
 }
@@ -90,6 +102,46 @@ func (g *Group) HasWeeklyLimit() bool {
 
 func (g *Group) HasMonthlyLimit() bool {
 	return g.MonthlyLimitUSD != nil && *g.MonthlyLimitUSD > 0
+}
+
+func PublicCodexSubscriptionWeeklyLimitUSD(groupName string) (float64, bool) {
+	limit, ok := publicCodexSubscriptionWeeklyLimitsUSD[strings.TrimSpace(groupName)]
+	return limit, ok
+}
+
+func (g *Group) IsPublicCodexSubscriptionGroup() bool {
+	if g == nil || !g.IsSubscriptionType() {
+		return false
+	}
+	_, ok := PublicCodexSubscriptionWeeklyLimitUSD(g.Name)
+	return ok
+}
+
+func (g *Group) EffectiveWeeklyLimitUSD() *float64 {
+	if g == nil {
+		return nil
+	}
+	if limit, ok := PublicCodexSubscriptionWeeklyLimitUSD(g.Name); ok {
+		return &limit
+	}
+	return g.WeeklyLimitUSD
+}
+
+// UsesRollingWeeklyQuota 仅识别本次切换的公共 Codex 订阅，避免影响其他订阅或平台配额。
+func (g *Group) UsesRollingWeeklyQuota() bool {
+	return g.IsPublicCodexSubscriptionGroup()
+}
+
+// NormalizePublicCodexSubscriptionQuota 固定公共 Codex 订阅的额度事实，避免管理入口把它写回日/月额度。
+func NormalizePublicCodexSubscriptionQuota(g *Group) {
+	if g == nil || !g.IsPublicCodexSubscriptionGroup() {
+		return
+	}
+	limit, _ := PublicCodexSubscriptionWeeklyLimitUSD(g.Name)
+	g.DailyLimitUSD = nil
+	g.WeeklyLimitUSD = &limit
+	g.MonthlyLimitUSD = nil
+	g.DefaultValidityDays = publicCodexSubscriptionValidityDays
 }
 
 // IsGroupContextValid reports whether a group from context has the fields required for routing decisions.

@@ -8,6 +8,48 @@ export interface RemainingDurationParts {
   minutes: number
 }
 
+const PUBLIC_CODEX_SUBSCRIPTION_WEEKLY_LIMITS_USD = new Map<string, number>([
+  ['codex-pool-19-usd', 72],
+  ['codex-pool-29-usd', 97],
+  ['codex-pool-49-usd', 148],
+  ['codex-pool-69-usd', 198],
+  ['codex-pool-89-usd', 248],
+  ['codex-pool-135-usd', 374],
+  ['codex-pool-179-usd', 500],
+])
+
+export const PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS = 28
+
+type RollingWeeklySubscriptionLike = Pick<
+  UserSubscription,
+  'effective_weekly_limit_usd' | 'weekly_window_resets_at'
+> & {
+  group?: { name?: string | null } | null
+}
+
+// 周额度页面统一显示整数；实际限额始终由后端返回的精确值决定。
+export function formatSubscriptionQuotaUSD(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '∞'
+  return `$${Math.round(value)}`
+}
+
+export function isPublicCodexSubscriptionGroupName(groupName: string | null | undefined): boolean {
+  return publicCodexSubscriptionWeeklyLimitUSD(groupName) != null
+}
+
+export function publicCodexSubscriptionWeeklyLimitUSD(groupName: string | null | undefined): number | null {
+  if (!groupName) return null
+  return PUBLIC_CODEX_SUBSCRIPTION_WEEKLY_LIMITS_USD.get(groupName) ?? null
+}
+
+export function isRollingWeeklySubscription(subscription: RollingWeeklySubscriptionLike): boolean {
+  return Boolean(
+    subscription.effective_weekly_limit_usd != null ||
+      subscription.weekly_window_resets_at ||
+      isPublicCodexSubscriptionGroupName(subscription.group?.name),
+  )
+}
+
 export function isOneTimeDailyQuota(
   subscription: Pick<UserSubscription, 'starts_at' | 'expires_at'>
 ): boolean {

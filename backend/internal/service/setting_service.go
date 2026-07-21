@@ -703,7 +703,9 @@ func (s *SettingService) GetAllSettings(ctx context.Context) (*SystemSettings, e
 		return nil, fmt.Errorf("get all settings: %w", err)
 	}
 
-	return s.parseSettings(settings), nil
+	result := s.parseSettings(settings)
+	result.DefaultSubscriptions = s.normalizeDefaultSubscriptionsForRead(ctx, result.DefaultSubscriptions)
+	return result, nil
 }
 
 // GetFrontendURL 获取前端基础URL（数据库优先，fallback 到配置文件）
@@ -1690,9 +1692,11 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Contex
 }
 
 func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, settings *SystemSettings) (map[string]string, error) {
-	if err := s.validateDefaultSubscriptionGroups(ctx, settings.DefaultSubscriptions); err != nil {
+	defaultSubscriptions, err := s.normalizeDefaultSubscriptionsForStorage(ctx, settings.DefaultSubscriptions)
+	if err != nil {
 		return nil, err
 	}
+	settings.DefaultSubscriptions = defaultSubscriptions
 	normalizedWhitelist, err := NormalizeRegistrationEmailSuffixWhitelist(settings.RegistrationEmailSuffixWhitelist)
 	if err != nil {
 		return nil, infraerrors.BadRequest("INVALID_REGISTRATION_EMAIL_SUFFIX_WHITELIST", err.Error())
@@ -2061,18 +2065,20 @@ func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, sett
 		return nil, nil
 	}
 
-	for _, subscriptions := range [][]DefaultSubscriptionSetting{
-		settings.Email.Subscriptions,
-		settings.LinuxDo.Subscriptions,
-		settings.OIDC.Subscriptions,
-		settings.WeChat.Subscriptions,
-		settings.GitHub.Subscriptions,
-		settings.Google.Subscriptions,
-		settings.DingTalk.Subscriptions,
+	for _, subscriptions := range []*[]DefaultSubscriptionSetting{
+		&settings.Email.Subscriptions,
+		&settings.LinuxDo.Subscriptions,
+		&settings.OIDC.Subscriptions,
+		&settings.WeChat.Subscriptions,
+		&settings.GitHub.Subscriptions,
+		&settings.Google.Subscriptions,
+		&settings.DingTalk.Subscriptions,
 	} {
-		if err := s.validateDefaultSubscriptionGroups(ctx, subscriptions); err != nil {
+		normalized, err := s.normalizeDefaultSubscriptionsForStorage(ctx, *subscriptions)
+		if err != nil {
 			return nil, err
 		}
+		*subscriptions = normalized
 	}
 
 	// 校验各 auth source 的 platform quota map（改动 C：对等系统层校验）
@@ -2188,42 +2194,58 @@ func (s *SettingService) defaultRewriteMessageCacheControl() bool {
 }
 
 func (s *SettingService) validateDefaultSubscriptionGroups(ctx context.Context, items []DefaultSubscriptionSetting) error {
+	_, err := s.normalizeDefaultSubscriptionsForStorage(ctx, items)
+	return err
+}
+
+func (s *SettingService) normalizeDefaultSubscriptionsForStorage(ctx context.Context, items []DefaultSubscriptionSetting) ([]DefaultSubscriptionSetting, error) {
 	if len(items) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	checked := make(map[int64]struct{}, len(items))
+	normalized := make([]DefaultSubscriptionSetting, 0, len(items))
 	for _, item := range items {
-		if item.GroupID <= 0 {
+		if item.GroupID <= 0 || item.ValidityDays <= 0 {
 			continue
 		}
 		if _, ok := checked[item.GroupID]; ok {
-			return ErrDefaultSubGroupDuplicate.WithMetadata(map[string]string{
+			return nil, ErrDefaultSubGroupDuplicate.WithMetadata(map[string]string{
 				"group_id": strconv.FormatInt(item.GroupID, 10),
 			})
 		}
 		checked[item.GroupID] = struct{}{}
 		if s.defaultSubGroupReader == nil {
+			if item.ValidityDays > MaxValidityDays {
+				item.ValidityDays = MaxValidityDays
+			}
+			normalized = append(normalized, item)
 			continue
 		}
 
 		group, err := s.defaultSubGroupReader.GetByID(ctx, item.GroupID)
 		if err != nil {
 			if errors.Is(err, ErrGroupNotFound) {
-				return ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
+				return nil, ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
 					"group_id": strconv.FormatInt(item.GroupID, 10),
 				})
 			}
-			return fmt.Errorf("get default subscription group %d: %w", item.GroupID, err)
+			return nil, fmt.Errorf("get default subscription group %d: %w", item.GroupID, err)
 		}
 		if !group.IsSubscriptionType() {
-			return ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
+			return nil, ErrDefaultSubGroupInvalid.WithMetadata(map[string]string{
 				"group_id": strconv.FormatInt(item.GroupID, 10),
 			})
 		}
+		if group.UsesRollingWeeklyQuota() {
+			item.ValidityDays = publicCodexSubscriptionValidityDays
+		} else if item.ValidityDays > MaxValidityDays {
+			item.ValidityDays = MaxValidityDays
+		}
+		normalized = append(normalized, item)
 	}
 
-	return nil
+	return normalized, nil
 }
 
 func (s *SettingService) GetEmailOAuthProviderConfig(ctx context.Context, provider string) (config.EmailOAuthProviderConfig, error) {
@@ -2665,7 +2687,31 @@ func (s *SettingService) GetDefaultSubscriptions(ctx context.Context) []DefaultS
 	if err != nil {
 		return nil
 	}
-	return parseDefaultSubscriptions(value)
+	return s.normalizeDefaultSubscriptionsForRead(ctx, parseDefaultSubscriptions(value))
+}
+
+func (s *SettingService) normalizeDefaultSubscriptionsForRead(ctx context.Context, items []DefaultSubscriptionSetting) []DefaultSubscriptionSetting {
+	if len(items) == 0 {
+		return nil
+	}
+	normalized := append([]DefaultSubscriptionSetting(nil), items...)
+	if s == nil || s.defaultSubGroupReader == nil {
+		return normalized
+	}
+	for i := range normalized {
+		item := &normalized[i]
+		if item.GroupID <= 0 || item.ValidityDays <= 0 {
+			continue
+		}
+		group, err := s.defaultSubGroupReader.GetByID(ctx, item.GroupID)
+		if err != nil || group == nil {
+			continue
+		}
+		if group.UsesRollingWeeklyQuota() {
+			item.ValidityDays = publicCodexSubscriptionValidityDays
+		}
+	}
+	return normalized
 }
 
 func (s *SettingService) GetAuthSourceDefaultSettings(ctx context.Context) (*AuthSourceDefaultSettings, error) {
@@ -2721,15 +2767,20 @@ func (s *SettingService) GetAuthSourceDefaultSettings(ctx context.Context) (*Aut
 	}
 
 	return &AuthSourceDefaultSettings{
-		Email:                        parseProviderDefaultGrantSettings(settings, emailAuthSourceDefaultKeys),
-		LinuxDo:                      parseProviderDefaultGrantSettings(settings, linuxDoAuthSourceDefaultKeys),
-		OIDC:                         parseProviderDefaultGrantSettings(settings, oidcAuthSourceDefaultKeys),
-		WeChat:                       parseProviderDefaultGrantSettings(settings, weChatAuthSourceDefaultKeys),
-		GitHub:                       parseProviderDefaultGrantSettings(settings, gitHubAuthSourceDefaultKeys),
-		Google:                       parseProviderDefaultGrantSettings(settings, googleAuthSourceDefaultKeys),
-		DingTalk:                     parseProviderDefaultGrantSettings(settings, dingTalkAuthSourceDefaultKeys),
+		Email:                        s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, emailAuthSourceDefaultKeys)),
+		LinuxDo:                      s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, linuxDoAuthSourceDefaultKeys)),
+		OIDC:                         s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, oidcAuthSourceDefaultKeys)),
+		WeChat:                       s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, weChatAuthSourceDefaultKeys)),
+		GitHub:                       s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, gitHubAuthSourceDefaultKeys)),
+		Google:                       s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, googleAuthSourceDefaultKeys)),
+		DingTalk:                     s.normalizeProviderDefaultSubscriptionsForRead(ctx, parseProviderDefaultGrantSettings(settings, dingTalkAuthSourceDefaultKeys)),
 		ForceEmailOnThirdPartySignup: settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
 	}, nil
+}
+
+func (s *SettingService) normalizeProviderDefaultSubscriptionsForRead(ctx context.Context, settings ProviderDefaultGrantSettings) ProviderDefaultGrantSettings {
+	settings.Subscriptions = s.normalizeDefaultSubscriptionsForRead(ctx, settings.Subscriptions)
+	return settings
 }
 
 func (s *SettingService) ResolveAuthSourceGrantSettings(ctx context.Context, signupSource string, firstBind bool) (ProviderDefaultGrantSettings, bool, error) {

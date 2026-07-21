@@ -40,6 +40,9 @@ services:
       - JWT_SECRET=${JWT_SECRET:-}
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
       - TZ=${TZ:-Asia/Shanghai}
+      # 本地开发态需要真实预授权，避免 usage_facts 长期落入 shadow 只观测不扣费。
+      - BILLING_TRAFFIC_CREDIT_RESERVATION_ENABLED=${BILLING_TRAFFIC_CREDIT_RESERVATION_ENABLED:-true}
+      - BILLING_TRAFFIC_CREDIT_RESERVATION_SHADOW=${BILLING_TRAFFIC_CREDIT_RESERVATION_SHADOW:-false}
       # OpenAI HTTP upstream protocol/timeout
       - GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT=${GATEWAY_OPENAI_RESPONSE_HEADER_TIMEOUT:-0}
       - GATEWAY_OPENAI_HTTP2_ENABLED=${GATEWAY_OPENAI_HTTP2_ENABLED:-true}
@@ -61,6 +64,7 @@ services:
         condition: service_healthy
     networks:
       - sub2api-network
+      - sub2api-cliproxy-local
     healthcheck:
       test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
       interval: 30s
@@ -115,3 +119,6 @@ services:
 networks:
   sub2api-network:
     driver: bridge
+  sub2api-cliproxy-local:
+    external: true
+    name: sub2api-cliproxy-local

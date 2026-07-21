@@ -96,6 +96,10 @@ func (s *UserSubscriptionRepoSuite) mustCreateAPIKey(userID, groupID int64, key 
 }
 
 func (s *UserSubscriptionRepoSuite) mustCreateUsageLog(apiKeyID, userID, groupID, subscriptionID int64, cost float64, createdAt time.Time) {
+	s.mustCreateUsageLogWithBilling(apiKeyID, userID, groupID, subscriptionID, cost, cost, service.BillingTypeSubscription, createdAt)
+}
+
+func (s *UserSubscriptionRepoSuite) mustCreateUsageLogWithBilling(apiKeyID, userID, groupID, subscriptionID int64, totalCost, actualCost float64, billingType int8, createdAt time.Time) {
 	s.T().Helper()
 
 	account, err := s.client.Account.Create().
@@ -106,19 +110,21 @@ func (s *UserSubscriptionRepoSuite) mustCreateUsageLog(apiKeyID, userID, groupID
 		Save(s.ctx)
 	s.Require().NoError(err, "create account")
 
-	_, err = s.client.UsageLog.Create().
+	create := s.client.UsageLog.Create().
 		SetUserID(userID).
 		SetAPIKeyID(apiKeyID).
 		SetAccountID(account.ID).
 		SetRequestID(uuid.NewString()).
 		SetModel("gpt-5.5").
 		SetGroupID(groupID).
-		SetSubscriptionID(subscriptionID).
-		SetTotalCost(cost).
-		SetActualCost(cost).
-		SetBillingType(service.BillingTypeSubscription).
-		SetCreatedAt(createdAt).
-		Save(s.ctx)
+		SetTotalCost(totalCost).
+		SetActualCost(actualCost).
+		SetBillingType(billingType).
+		SetCreatedAt(createdAt)
+	if subscriptionID > 0 {
+		create.SetSubscriptionID(subscriptionID)
+	}
+	_, err = create.Save(s.ctx)
 	s.Require().NoError(err, "create usage log")
 }
 
@@ -529,6 +535,62 @@ func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_CurrentWindow
 	s.Require().InDelta(3.3, got.MonthlyUsageUSD, 1e-6)
 }
 
+func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_CarriesDailyOverage() {
+	user := s.mustCreateUser("refresh-daily-carryover@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-refresh-daily-carryover")
+	s.Require().NoError(s.client.Group.UpdateOneID(group.ID).SetDailyLimitUsd(15).Exec(s.ctx))
+	yesterday := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	dailyStart := time.Date(2026, 7, 7, 0, 0, 0, 0, time.UTC)
+	weeklyStart := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	monthlyStart := time.Date(2026, 7, 7, 10, 30, 0, 0, time.UTC)
+	now := monthlyStart
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetWeeklyWindowStart(weeklyStart)
+		c.SetMonthlyWindowStart(monthlyStart)
+		c.SetDailyUsageUsd(25)
+		c.SetWeeklyUsageUsd(30)
+		c.SetMonthlyUsageUsd(40)
+	})
+
+	updated, err := s.repo.RefreshExpiredUsageWindows(s.ctx, sub.ID, dailyStart, weeklyStart, monthlyStart, now)
+	s.Require().NoError(err)
+	s.Require().True(updated)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(10.0, got.DailyUsageUSD, 1e-6)
+	s.Require().InDelta(30.0, got.WeeklyUsageUSD, 1e-6)
+	s.Require().InDelta(40.0, got.MonthlyUsageUSD, 1e-6)
+	s.Require().WithinDuration(dailyStart, *got.DailyWindowStart, time.Microsecond)
+}
+
+func (s *UserSubscriptionRepoSuite) TestRefreshExpiredUsageWindows_CarriesDailyOverageAcrossElapsedDays() {
+	user := s.mustCreateUser("refresh-daily-carryover-days@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-refresh-daily-carryover-days")
+	s.Require().NoError(s.client.Group.UpdateOneID(group.ID).SetDailyLimitUsd(15).Exec(s.ctx))
+	twoDaysAgo := time.Date(2026, 7, 5, 0, 0, 0, 0, time.UTC)
+	dailyStart := time.Date(2026, 7, 7, 0, 0, 0, 0, time.UTC)
+	weeklyStart := time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+	monthlyStart := time.Date(2026, 7, 7, 10, 30, 0, 0, time.UTC)
+	now := monthlyStart
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(twoDaysAgo)
+		c.SetWeeklyWindowStart(weeklyStart)
+		c.SetMonthlyWindowStart(monthlyStart)
+		c.SetDailyUsageUsd(40)
+	})
+
+	updated, err := s.repo.RefreshExpiredUsageWindows(s.ctx, sub.ID, dailyStart, weeklyStart, monthlyStart, now)
+	s.Require().NoError(err)
+	s.Require().True(updated)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(10.0, got.DailyUsageUSD, 1e-6)
+	s.Require().WithinDuration(dailyStart, *got.DailyWindowStart, time.Microsecond)
+}
+
 func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_UsesTodayUsageLogs() {
 	user := s.mustCreateUser("calibrate-daily@test.com", service.RoleUser)
 	group := s.mustCreateGroup("g-calibrate-daily")
@@ -562,6 +624,62 @@ func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_UsesTod
 	s.Require().NoError(err)
 	s.Require().InDelta(4.0, got.DailyUsageUSD, 0.000001)
 	s.Require().NotNil(got.DailyWindowStart)
+	s.Require().WithinDuration(today, *got.DailyWindowStart, time.Microsecond)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_AttributesShadowLogsByUserGroupAndUsesActualCost() {
+	user := s.mustCreateUser("calibrate-shadow@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-shadow")
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	upperBound := today.Add(10 * time.Minute)
+	now := upperBound
+
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(99)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	apiKey := s.mustCreateAPIKey(user.ID, group.ID, "sk-calibrate-shadow-"+uuid.NewString())
+
+	s.mustCreateUsageLogWithBilling(apiKey.ID, user.ID, group.ID, 0, 99, 1.25, service.BillingTypeShadow, today.Add(time.Minute))
+	s.mustCreateUsageLogWithBilling(apiKey.ID, user.ID, group.ID, sub.ID, 50, 2.75, service.BillingTypeSubscription, today.Add(2*time.Minute))
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, upperBound, now, 100)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), result.UpdatedCount)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(4.0, got.DailyUsageUSD, 0.000001)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_AddsDailyCarryover() {
+	user := s.mustCreateUser("calibrate-carryover@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-carryover")
+	s.Require().NoError(s.client.Group.UpdateOneID(group.ID).SetDailyLimitUsd(15).Exec(s.ctx))
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	upperBound := today.Add(10 * time.Minute)
+	now := upperBound
+
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(25)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	apiKey := s.mustCreateAPIKey(user.ID, group.ID, "sk-calibrate-carryover-"+uuid.NewString())
+	s.mustCreateUsageLog(apiKey.ID, user.ID, group.ID, sub.ID, 1.5, today.Add(time.Minute))
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, upperBound, now, 100)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), result.UpdatedCount)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(11.5, got.DailyUsageUSD, 0.000001)
 	s.Require().WithinDuration(today, *got.DailyWindowStart, time.Microsecond)
 }
 

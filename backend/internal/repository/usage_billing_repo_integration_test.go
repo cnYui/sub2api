@@ -194,6 +194,70 @@ func TestUsageBillingRepositoryApply_SubscriptionBillingAdvancesExpiredDailyWind
 	require.WithinDuration(t, today, dailyWindow, time.Microsecond)
 }
 
+func TestUsageBillingRepositoryApply_SubscriptionBillingCarriesOverExpiredDailyWindow(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-sub-carryover-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+	})
+	dailyLimit := 15.0
+	group := mustCreateGroup(t, client, &service.Group{
+		Name:             "usage-billing-sub-carryover-" + uuid.NewString(),
+		Platform:         service.PlatformOpenAI,
+		SubscriptionType: service.SubscriptionTypeSubscription,
+		DailyLimitUSD:    &dailyLimit,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID:  user.ID,
+		GroupID: &group.ID,
+		Key:     "sk-usage-billing-sub-carryover-" + uuid.NewString(),
+		Name:    "billing-sub-carryover",
+	})
+
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	completedAt := today.Add(90 * time.Second)
+	subscription := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:  user.ID,
+		GroupID: group.ID,
+	})
+	_, err := integrationDB.ExecContext(ctx, `
+		UPDATE user_subscriptions
+		SET daily_usage_usd = $1,
+			weekly_usage_usd = $2,
+			monthly_usage_usd = $3,
+			daily_window_start = $4,
+			weekly_window_start = $4,
+			monthly_window_start = $4
+		WHERE id = $5
+	`, 25.0, 25.0, 25.0, yesterday, subscription.ID)
+	require.NoError(t, err)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:        uuid.NewString(),
+		APIKeyID:         apiKey.ID,
+		UserID:           user.ID,
+		SubscriptionID:   &subscription.ID,
+		SubscriptionCost: 0.75,
+		CompletedAt:      completedAt,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+
+	var dailyUsage float64
+	var dailyWindow time.Time
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT daily_usage_usd, daily_window_start
+		FROM user_subscriptions
+		WHERE id = $1
+	`, subscription.ID).Scan(&dailyUsage, &dailyWindow))
+	require.InDelta(t, 10.75, dailyUsage, 0.000001)
+	require.WithinDuration(t, today, dailyWindow, time.Microsecond)
+}
+
 func TestUsageBillingRepositoryApply_SubscriptionBillingAccumulatesCurrentDailyWindow(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

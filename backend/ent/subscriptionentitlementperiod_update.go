@@ -183,6 +183,95 @@ func (_u *SubscriptionEntitlementPeriodUpdate) ClearDailyLimitUsd() *Subscriptio
 	return _u
 }
 
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ResetWeeklyLimitUsd()
+	_u.mutation.SetWeeklyLimitUsd(v)
+	return _u
+}
+
+// SetNillableWeeklyLimitUsd sets the "weekly_limit_usd" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetNillableWeeklyLimitUsd(v *float64) *SubscriptionEntitlementPeriodUpdate {
+	if v != nil {
+		_u.SetWeeklyLimitUsd(*v)
+	}
+	return _u
+}
+
+// AddWeeklyLimitUsd adds value to the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) AddWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.AddWeeklyLimitUsd(v)
+	return _u
+}
+
+// ClearWeeklyLimitUsd clears the value of the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) ClearWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ClearWeeklyLimitUsd()
+	return _u
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ResetPeriodTotalQuotaUsd()
+	_u.mutation.SetPeriodTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillablePeriodTotalQuotaUsd sets the "period_total_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetNillablePeriodTotalQuotaUsd(v *float64) *SubscriptionEntitlementPeriodUpdate {
+	if v != nil {
+		_u.SetPeriodTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddPeriodTotalQuotaUsd adds value to the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) AddPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.AddPeriodTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearPeriodTotalQuotaUsd clears the value of the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) ClearPeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ClearPeriodTotalQuotaUsd()
+	return _u
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.SetQuotaWindowUnit(v)
+	return _u
+}
+
+// SetNillableQuotaWindowUnit sets the "quota_window_unit" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetNillableQuotaWindowUnit(v *string) *SubscriptionEntitlementPeriodUpdate {
+	if v != nil {
+		_u.SetQuotaWindowUnit(*v)
+	}
+	return _u
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ResetQuotaWindowDays()
+	_u.mutation.SetQuotaWindowDays(v)
+	return _u
+}
+
+// SetNillableQuotaWindowDays sets the "quota_window_days" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetNillableQuotaWindowDays(v *int) *SubscriptionEntitlementPeriodUpdate {
+	if v != nil {
+		_u.SetQuotaWindowDays(*v)
+	}
+	return _u
+}
+
+// AddQuotaWindowDays adds value to the "quota_window_days" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) AddQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.AddQuotaWindowDays(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *SubscriptionEntitlementPeriodUpdate) SetStatus(v string) *SubscriptionEntitlementPeriodUpdate {
 	_u.mutation.SetStatus(v)
@@ -317,6 +406,11 @@ func (_u *SubscriptionEntitlementPeriodUpdate) check() error {
 			return &ValidationError{Name: "source_id", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.source_id": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.QuotaWindowUnit(); ok {
+		if err := subscriptionentitlementperiod.QuotaWindowUnitValidator(v); err != nil {
+			return &ValidationError{Name: "quota_window_unit", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.quota_window_unit": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := subscriptionentitlementperiod.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.status": %w`, err)}
@@ -375,6 +469,33 @@ func (_u *SubscriptionEntitlementPeriodUpdate) sqlSave(ctx context.Context) (_no
 	}
 	if _u.mutation.DailyLimitUsdCleared() {
 		_spec.ClearField(subscriptionentitlementperiod.FieldDailyLimitUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.WeeklyLimitUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedWeeklyLimitUsd(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.WeeklyLimitUsdCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PeriodTotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPeriodTotalQuotaUsd(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.PeriodTotalQuotaUsdCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.QuotaWindowUnit(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowUnit, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.QuotaWindowDays(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedQuotaWindowDays(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldQuotaWindowDays, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldStatus, field.TypeString, value)
@@ -647,6 +768,95 @@ func (_u *SubscriptionEntitlementPeriodUpdateOne) ClearDailyLimitUsd() *Subscrip
 	return _u
 }
 
+// SetWeeklyLimitUsd sets the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ResetWeeklyLimitUsd()
+	_u.mutation.SetWeeklyLimitUsd(v)
+	return _u
+}
+
+// SetNillableWeeklyLimitUsd sets the "weekly_limit_usd" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillableWeeklyLimitUsd(v *float64) *SubscriptionEntitlementPeriodUpdateOne {
+	if v != nil {
+		_u.SetWeeklyLimitUsd(*v)
+	}
+	return _u
+}
+
+// AddWeeklyLimitUsd adds value to the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) AddWeeklyLimitUsd(v float64) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.AddWeeklyLimitUsd(v)
+	return _u
+}
+
+// ClearWeeklyLimitUsd clears the value of the "weekly_limit_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) ClearWeeklyLimitUsd() *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ClearWeeklyLimitUsd()
+	return _u
+}
+
+// SetPeriodTotalQuotaUsd sets the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ResetPeriodTotalQuotaUsd()
+	_u.mutation.SetPeriodTotalQuotaUsd(v)
+	return _u
+}
+
+// SetNillablePeriodTotalQuotaUsd sets the "period_total_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillablePeriodTotalQuotaUsd(v *float64) *SubscriptionEntitlementPeriodUpdateOne {
+	if v != nil {
+		_u.SetPeriodTotalQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddPeriodTotalQuotaUsd adds value to the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) AddPeriodTotalQuotaUsd(v float64) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.AddPeriodTotalQuotaUsd(v)
+	return _u
+}
+
+// ClearPeriodTotalQuotaUsd clears the value of the "period_total_quota_usd" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) ClearPeriodTotalQuotaUsd() *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ClearPeriodTotalQuotaUsd()
+	return _u
+}
+
+// SetQuotaWindowUnit sets the "quota_window_unit" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetQuotaWindowUnit(v string) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.SetQuotaWindowUnit(v)
+	return _u
+}
+
+// SetNillableQuotaWindowUnit sets the "quota_window_unit" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillableQuotaWindowUnit(v *string) *SubscriptionEntitlementPeriodUpdateOne {
+	if v != nil {
+		_u.SetQuotaWindowUnit(*v)
+	}
+	return _u
+}
+
+// SetQuotaWindowDays sets the "quota_window_days" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ResetQuotaWindowDays()
+	_u.mutation.SetQuotaWindowDays(v)
+	return _u
+}
+
+// SetNillableQuotaWindowDays sets the "quota_window_days" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillableQuotaWindowDays(v *int) *SubscriptionEntitlementPeriodUpdateOne {
+	if v != nil {
+		_u.SetQuotaWindowDays(*v)
+	}
+	return _u
+}
+
+// AddQuotaWindowDays adds value to the "quota_window_days" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) AddQuotaWindowDays(v int) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.AddQuotaWindowDays(v)
+	return _u
+}
+
 // SetStatus sets the "status" field.
 func (_u *SubscriptionEntitlementPeriodUpdateOne) SetStatus(v string) *SubscriptionEntitlementPeriodUpdateOne {
 	_u.mutation.SetStatus(v)
@@ -794,6 +1004,11 @@ func (_u *SubscriptionEntitlementPeriodUpdateOne) check() error {
 			return &ValidationError{Name: "source_id", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.source_id": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.QuotaWindowUnit(); ok {
+		if err := subscriptionentitlementperiod.QuotaWindowUnitValidator(v); err != nil {
+			return &ValidationError{Name: "quota_window_unit", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.quota_window_unit": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := subscriptionentitlementperiod.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "SubscriptionEntitlementPeriod.status": %w`, err)}
@@ -869,6 +1084,33 @@ func (_u *SubscriptionEntitlementPeriodUpdateOne) sqlSave(ctx context.Context) (
 	}
 	if _u.mutation.DailyLimitUsdCleared() {
 		_spec.ClearField(subscriptionentitlementperiod.FieldDailyLimitUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.WeeklyLimitUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedWeeklyLimitUsd(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.WeeklyLimitUsdCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldWeeklyLimitUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.PeriodTotalQuotaUsd(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedPeriodTotalQuotaUsd(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.PeriodTotalQuotaUsdCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldPeriodTotalQuotaUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.QuotaWindowUnit(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowUnit, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.QuotaWindowDays(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedQuotaWindowDays(); ok {
+		_spec.AddField(subscriptionentitlementperiod.FieldQuotaWindowDays, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldStatus, field.TypeString, value)

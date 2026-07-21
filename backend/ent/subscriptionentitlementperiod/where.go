@@ -110,6 +110,26 @@ func DailyLimitUsd(v float64) predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldDailyLimitUsd, v))
 }
 
+// WeeklyLimitUsd applies equality check predicate on the "weekly_limit_usd" field. It's identical to WeeklyLimitUsdEQ.
+func WeeklyLimitUsd(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldWeeklyLimitUsd, v))
+}
+
+// PeriodTotalQuotaUsd applies equality check predicate on the "period_total_quota_usd" field. It's identical to PeriodTotalQuotaUsdEQ.
+func PeriodTotalQuotaUsd(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldPeriodTotalQuotaUsd, v))
+}
+
+// QuotaWindowUnit applies equality check predicate on the "quota_window_unit" field. It's identical to QuotaWindowUnitEQ.
+func QuotaWindowUnit(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowDays applies equality check predicate on the "quota_window_days" field. It's identical to QuotaWindowDaysEQ.
+func QuotaWindowDays(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowDays, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldStatus, v))
@@ -563,6 +583,211 @@ func DailyLimitUsdIsNil() predicate.SubscriptionEntitlementPeriod {
 // DailyLimitUsdNotNil applies the NotNil predicate on the "daily_limit_usd" field.
 func DailyLimitUsdNotNil() predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotNull(FieldDailyLimitUsd))
+}
+
+// WeeklyLimitUsdEQ applies the EQ predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdEQ(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdNEQ applies the NEQ predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdNEQ(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNEQ(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdIn applies the In predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdIn(vs ...float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIn(FieldWeeklyLimitUsd, vs...))
+}
+
+// WeeklyLimitUsdNotIn applies the NotIn predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdNotIn(vs ...float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotIn(FieldWeeklyLimitUsd, vs...))
+}
+
+// WeeklyLimitUsdGT applies the GT predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdGT(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGT(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdGTE applies the GTE predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdGTE(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGTE(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdLT applies the LT predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdLT(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLT(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdLTE applies the LTE predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdLTE(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldWeeklyLimitUsd, v))
+}
+
+// WeeklyLimitUsdIsNil applies the IsNil predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdIsNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIsNull(FieldWeeklyLimitUsd))
+}
+
+// WeeklyLimitUsdNotNil applies the NotNil predicate on the "weekly_limit_usd" field.
+func WeeklyLimitUsdNotNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotNull(FieldWeeklyLimitUsd))
+}
+
+// PeriodTotalQuotaUsdEQ applies the EQ predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdEQ(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdNEQ applies the NEQ predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdNEQ(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNEQ(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdIn applies the In predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdIn(vs ...float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIn(FieldPeriodTotalQuotaUsd, vs...))
+}
+
+// PeriodTotalQuotaUsdNotIn applies the NotIn predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdNotIn(vs ...float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotIn(FieldPeriodTotalQuotaUsd, vs...))
+}
+
+// PeriodTotalQuotaUsdGT applies the GT predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdGT(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGT(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdGTE applies the GTE predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdGTE(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGTE(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdLT applies the LT predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdLT(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLT(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdLTE applies the LTE predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdLTE(v float64) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldPeriodTotalQuotaUsd, v))
+}
+
+// PeriodTotalQuotaUsdIsNil applies the IsNil predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdIsNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIsNull(FieldPeriodTotalQuotaUsd))
+}
+
+// PeriodTotalQuotaUsdNotNil applies the NotNil predicate on the "period_total_quota_usd" field.
+func PeriodTotalQuotaUsdNotNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotNull(FieldPeriodTotalQuotaUsd))
+}
+
+// QuotaWindowUnitEQ applies the EQ predicate on the "quota_window_unit" field.
+func QuotaWindowUnitEQ(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitNEQ applies the NEQ predicate on the "quota_window_unit" field.
+func QuotaWindowUnitNEQ(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNEQ(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitIn applies the In predicate on the "quota_window_unit" field.
+func QuotaWindowUnitIn(vs ...string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIn(FieldQuotaWindowUnit, vs...))
+}
+
+// QuotaWindowUnitNotIn applies the NotIn predicate on the "quota_window_unit" field.
+func QuotaWindowUnitNotIn(vs ...string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotIn(FieldQuotaWindowUnit, vs...))
+}
+
+// QuotaWindowUnitGT applies the GT predicate on the "quota_window_unit" field.
+func QuotaWindowUnitGT(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGT(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitGTE applies the GTE predicate on the "quota_window_unit" field.
+func QuotaWindowUnitGTE(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGTE(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitLT applies the LT predicate on the "quota_window_unit" field.
+func QuotaWindowUnitLT(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLT(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitLTE applies the LTE predicate on the "quota_window_unit" field.
+func QuotaWindowUnitLTE(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitContains applies the Contains predicate on the "quota_window_unit" field.
+func QuotaWindowUnitContains(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldContains(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitHasPrefix applies the HasPrefix predicate on the "quota_window_unit" field.
+func QuotaWindowUnitHasPrefix(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldHasPrefix(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitHasSuffix applies the HasSuffix predicate on the "quota_window_unit" field.
+func QuotaWindowUnitHasSuffix(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldHasSuffix(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitEqualFold applies the EqualFold predicate on the "quota_window_unit" field.
+func QuotaWindowUnitEqualFold(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEqualFold(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowUnitContainsFold applies the ContainsFold predicate on the "quota_window_unit" field.
+func QuotaWindowUnitContainsFold(v string) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldContainsFold(FieldQuotaWindowUnit, v))
+}
+
+// QuotaWindowDaysEQ applies the EQ predicate on the "quota_window_days" field.
+func QuotaWindowDaysEQ(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowDays, v))
+}
+
+// QuotaWindowDaysNEQ applies the NEQ predicate on the "quota_window_days" field.
+func QuotaWindowDaysNEQ(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNEQ(FieldQuotaWindowDays, v))
+}
+
+// QuotaWindowDaysIn applies the In predicate on the "quota_window_days" field.
+func QuotaWindowDaysIn(vs ...int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIn(FieldQuotaWindowDays, vs...))
+}
+
+// QuotaWindowDaysNotIn applies the NotIn predicate on the "quota_window_days" field.
+func QuotaWindowDaysNotIn(vs ...int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotIn(FieldQuotaWindowDays, vs...))
+}
+
+// QuotaWindowDaysGT applies the GT predicate on the "quota_window_days" field.
+func QuotaWindowDaysGT(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGT(FieldQuotaWindowDays, v))
+}
+
+// QuotaWindowDaysGTE applies the GTE predicate on the "quota_window_days" field.
+func QuotaWindowDaysGTE(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGTE(FieldQuotaWindowDays, v))
+}
+
+// QuotaWindowDaysLT applies the LT predicate on the "quota_window_days" field.
+func QuotaWindowDaysLT(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLT(FieldQuotaWindowDays, v))
+}
+
+// QuotaWindowDaysLTE applies the LTE predicate on the "quota_window_days" field.
+func QuotaWindowDaysLTE(v int) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldQuotaWindowDays, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.

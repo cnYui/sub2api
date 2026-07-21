@@ -21,6 +21,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -400,6 +401,21 @@ func (_c *UserCreate) AddSubscriptionEntitlementPeriods(v ...*SubscriptionEntitl
 		ids[i] = v[i].ID
 	}
 	return _c.AddSubscriptionEntitlementPeriodIDs(ids...)
+}
+
+// AddSubscriptionQuotaDebtAdjustmentIDs adds the "subscription_quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_c *UserCreate) AddSubscriptionQuotaDebtAdjustmentIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
+	return _c
+}
+
+// AddSubscriptionQuotaDebtAdjustments adds the "subscription_quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_c *UserCreate) AddSubscriptionQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSubscriptionQuotaDebtAdjustmentIDs(ids...)
 }
 
 // AddAssignedSubscriptionIDs adds the "assigned_subscriptions" edge to the UserSubscription entity by IDs.
@@ -932,6 +948,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubscriptionQuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.SubscriptionQuotaDebtAdjustmentsTable,
+			Columns: []string{user.SubscriptionQuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

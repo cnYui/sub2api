@@ -6,6 +6,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
@@ -32,6 +33,7 @@ func (r *userSubscriptionRepository) Create(ctx context.Context, sub *service.Us
 		SetExpiresAt(sub.ExpiresAt).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
 		SetNillableWeeklyWindowStart(sub.WeeklyWindowStart).
+		SetNillableWeeklyAnchorAt(sub.WeeklyAnchorAt).
 		SetNillableMonthlyWindowStart(sub.MonthlyWindowStart).
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
@@ -70,7 +72,11 @@ func (r *userSubscriptionRepository) GetByID(ctx context.Context, id int64) (*se
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
-	return userSubscriptionEntityToService(m), nil
+	out := userSubscriptionEntityToService(m)
+	if err := r.attachCurrentEntitlementPeriod(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *userSubscriptionRepository) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
@@ -82,7 +88,11 @@ func (r *userSubscriptionRepository) GetByUserIDAndGroupID(ctx context.Context, 
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
-	return userSubscriptionEntityToService(m), nil
+	out := userSubscriptionEntityToService(m)
+	if err := r.attachCurrentEntitlementPeriod(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *userSubscriptionRepository) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
@@ -99,7 +109,11 @@ func (r *userSubscriptionRepository) GetActiveByUserIDAndGroupID(ctx context.Con
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
 	}
-	return userSubscriptionEntityToService(m), nil
+	out := userSubscriptionEntityToService(m)
+	if err := r.attachCurrentEntitlementPeriod(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.UserSubscription) error {
@@ -116,6 +130,7 @@ func (r *userSubscriptionRepository) Update(ctx context.Context, sub *service.Us
 		SetStatus(sub.Status).
 		SetNillableDailyWindowStart(sub.DailyWindowStart).
 		SetNillableWeeklyWindowStart(sub.WeeklyWindowStart).
+		SetNillableWeeklyAnchorAt(sub.WeeklyAnchorAt).
 		SetNillableMonthlyWindowStart(sub.MonthlyWindowStart).
 		SetDailyUsageUsd(sub.DailyUsageUSD).
 		SetWeeklyUsageUsd(sub.WeeklyUsageUSD).
@@ -149,7 +164,11 @@ func (r *userSubscriptionRepository) ListByUserID(ctx context.Context, userID in
 	if err != nil {
 		return nil, err
 	}
-	return userSubscriptionEntitiesToService(subs), nil
+	out := userSubscriptionEntitiesToService(subs)
+	if err := r.attachCurrentEntitlementPeriods(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *userSubscriptionRepository) ListActiveByUserID(ctx context.Context, userID int64) ([]service.UserSubscription, error) {
@@ -166,7 +185,11 @@ func (r *userSubscriptionRepository) ListActiveByUserID(ctx context.Context, use
 	if err != nil {
 		return nil, err
 	}
-	return userSubscriptionEntitiesToService(subs), nil
+	out := userSubscriptionEntitiesToService(subs)
+	if err := r.attachCurrentEntitlementPeriods(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *userSubscriptionRepository) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
@@ -189,7 +212,11 @@ func (r *userSubscriptionRepository) ListByGroupID(ctx context.Context, groupID 
 		return nil, nil, err
 	}
 
-	return userSubscriptionEntitiesToService(subs), paginationResultFromTotal(int64(total), params), nil
+	out := userSubscriptionEntitiesToService(subs)
+	if err := r.attachCurrentEntitlementPeriods(ctx, out); err != nil {
+		return nil, nil, err
+	}
+	return out, paginationResultFromTotal(int64(total), params), nil
 }
 
 func (r *userSubscriptionRepository) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
@@ -266,7 +293,11 @@ func (r *userSubscriptionRepository) List(ctx context.Context, params pagination
 		return nil, nil, err
 	}
 
-	return userSubscriptionEntitiesToService(subs), paginationResultFromTotal(int64(total), params), nil
+	out := userSubscriptionEntitiesToService(subs)
+	if err := r.attachCurrentEntitlementPeriods(ctx, out); err != nil {
+		return nil, nil, err
+	}
+	return out, paginationResultFromTotal(int64(total), params), nil
 }
 
 func (r *userSubscriptionRepository) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
@@ -343,7 +374,18 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 		UPDATE user_subscriptions
 		SET
 			daily_usage_usd = CASE
-				WHEN daily_window_start IS NULL OR daily_window_start < $2 THEN 0
+				WHEN user_subscriptions.daily_window_start IS NULL THEN 0
+				WHEN user_subscriptions.daily_window_start < $2 THEN
+					CASE
+						WHEN g.daily_limit_usd IS NOT NULL AND g.daily_limit_usd > 0 THEN
+							GREATEST(
+								user_subscriptions.daily_usage_usd - (
+									g.daily_limit_usd * GREATEST(FLOOR(EXTRACT(EPOCH FROM ($2 - user_subscriptions.daily_window_start)) / 86400), 1)
+								),
+								0
+							)
+						ELSE 0
+					END
 				ELSE daily_usage_usd
 			END,
 			daily_window_start = CASE
@@ -367,8 +409,11 @@ func (r *userSubscriptionRepository) RefreshExpiredUsageWindows(ctx context.Cont
 				ELSE monthly_window_start
 			END,
 			updated_at = $5
-		WHERE id = $1
-			AND deleted_at IS NULL
+		FROM groups g
+		WHERE user_subscriptions.id = $1
+			AND user_subscriptions.group_id = g.id
+			AND user_subscriptions.deleted_at IS NULL
+			AND g.deleted_at IS NULL
 			AND (
 				daily_window_start IS NULL OR daily_window_start < $2
 				OR weekly_window_start IS NULL OR weekly_window_start < $3
@@ -401,31 +446,96 @@ func (r *userSubscriptionRepository) CalibrateActiveDailyUsageWindows(ctx contex
 
 	const updateSQL = `
 		WITH candidates AS (
-			SELECT id, user_id, group_id
-			FROM user_subscriptions
-			WHERE deleted_at IS NULL
-				AND status = $4
-				AND expires_at > $3
-				AND (daily_window_start IS NULL OR daily_window_start < $1)
-			ORDER BY id
+			SELECT
+				us.id,
+				us.user_id,
+				us.group_id,
+				CASE
+					WHEN us.daily_window_start IS NULL THEN 0
+					WHEN g.daily_limit_usd IS NOT NULL AND g.daily_limit_usd > 0 THEN
+						GREATEST(
+							us.daily_usage_usd - (
+								g.daily_limit_usd * GREATEST(FLOOR(EXTRACT(EPOCH FROM ($1 - us.daily_window_start)) / 86400), 1)
+							),
+							0
+						)
+					ELSE 0
+				END AS daily_carryover_usd
+			FROM user_subscriptions us
+			JOIN groups g ON g.id = us.group_id AND g.deleted_at IS NULL
+			WHERE us.deleted_at IS NULL
+				AND us.status = $4
+				AND us.expires_at > $3
+				AND (us.daily_window_start IS NULL OR us.daily_window_start < $1)
+			ORDER BY us.id
 			LIMIT $5
 			FOR UPDATE SKIP LOCKED
 		),
-		usage_today AS (
-			SELECT ul.subscription_id, COALESCE(SUM(ul.total_cost), 0) AS total_cost
+		fact_rows AS (
+			SELECT
+				c.id AS subscription_id,
+				uf.request_id,
+				uf.api_key_id,
+				COALESCE(SUM(COALESCE(
+					NULLIF(uf.payload #>> '{usage_log,ActualCost}', '')::numeric,
+					NULLIF(uf.payload #>> '{usage_log,actual_cost}', '')::numeric,
+					NULLIF(uf.payload #>> '{effects,actual_cost}', '')::numeric,
+					0
+				)), 0) AS actual_cost
+			FROM candidates c
+			JOIN usage_facts uf ON uf.user_id = c.user_id
+			WHERE uf.completed_at >= $1
+				AND uf.completed_at < $2
+				AND uf.billing_status IN ('pending', 'settling', 'settled', 'debt')
+				AND (
+					NULLIF(uf.payload #>> '{billing_command,SubscriptionID}', '')::bigint = c.id
+					OR COALESCE(
+						NULLIF(uf.payload #>> '{effects,group_id}', '')::bigint,
+						NULLIF(uf.payload #>> '{usage_log,GroupID}', '')::bigint,
+						NULLIF(uf.payload #>> '{usage_log,group_id}', '')::bigint
+					) = c.group_id
+				)
+			GROUP BY c.id, uf.request_id, uf.api_key_id
+		),
+		fact_costs AS (
+			SELECT subscription_id, COALESCE(SUM(actual_cost), 0) AS actual_cost
+			FROM fact_rows
+			GROUP BY subscription_id
+		),
+		log_costs AS (
+			SELECT c.id AS subscription_id, COALESCE(SUM(ul.actual_cost), 0) AS actual_cost
 			FROM usage_logs ul
-			JOIN candidates c ON c.id = ul.subscription_id
+			JOIN candidates c ON ul.user_id = c.user_id
 			WHERE ul.created_at >= $1
 				AND ul.created_at < $2
-			GROUP BY ul.subscription_id
+				AND ul.actual_cost > 0
+				AND (ul.subscription_id = c.id OR (ul.subscription_id IS NULL AND ul.group_id = c.group_id))
+				AND NOT EXISTS (
+					SELECT 1
+					FROM usage_facts uf
+					WHERE uf.request_id = ul.request_id
+						AND uf.api_key_id = ul.api_key_id
+						AND uf.billing_status IN ('pending', 'settling', 'settled', 'debt')
+				)
+			GROUP BY c.id
+		),
+		usage_today AS (
+			SELECT subscription_id, actual_cost FROM fact_costs
+			UNION ALL
+			SELECT subscription_id, actual_cost FROM log_costs
+		),
+		usage_totals AS (
+			SELECT subscription_id, COALESCE(SUM(actual_cost), 0) AS actual_cost
+			FROM usage_today
+			GROUP BY subscription_id
 		),
 		updated AS (
 			UPDATE user_subscriptions us
-			SET daily_usage_usd = COALESCE(ut.total_cost, 0),
+			SET daily_usage_usd = c.daily_carryover_usd + COALESCE(ut.actual_cost, 0),
 				daily_window_start = $1,
 				updated_at = $3
 			FROM candidates c
-			LEFT JOIN usage_today ut ON ut.subscription_id = c.id
+			LEFT JOIN usage_totals ut ON ut.subscription_id = c.id
 			WHERE us.id = c.id
 			RETURNING us.id, us.user_id, us.group_id
 		)
@@ -621,6 +731,7 @@ func userSubscriptionEntityToService(m *dbent.UserSubscription) *service.UserSub
 		Status:             m.Status,
 		DailyWindowStart:   m.DailyWindowStart,
 		WeeklyWindowStart:  m.WeeklyWindowStart,
+		WeeklyAnchorAt:     m.WeeklyAnchorAt,
 		MonthlyWindowStart: m.MonthlyWindowStart,
 		DailyUsageUSD:      m.DailyUsageUsd,
 		WeeklyUsageUSD:     m.WeeklyUsageUsd,
@@ -651,6 +762,66 @@ func userSubscriptionEntitiesToService(models []*dbent.UserSubscription) []servi
 		}
 	}
 	return out
+}
+
+func (r *userSubscriptionRepository) attachCurrentEntitlementPeriod(ctx context.Context, sub *service.UserSubscription) error {
+	if sub == nil {
+		return nil
+	}
+	subs := []service.UserSubscription{*sub}
+	if err := r.attachCurrentEntitlementPeriods(ctx, subs); err != nil {
+		return err
+	}
+	*sub = subs[0]
+	return nil
+}
+
+func (r *userSubscriptionRepository) attachCurrentEntitlementPeriods(ctx context.Context, subs []service.UserSubscription) error {
+	if len(subs) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(subs))
+	for i := range subs {
+		if subs[i].ID > 0 {
+			ids = append(ids, subs[i].ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	client := clientFromContext(ctx, r.client)
+	periods, err := client.SubscriptionEntitlementPeriod.Query().
+		Where(
+			subscriptionentitlementperiod.SubscriptionIDIn(ids...),
+			subscriptionentitlementperiod.StatusEQ(service.SubscriptionEntitlementPeriodStatusActive),
+			subscriptionentitlementperiod.StartsAtLTE(now),
+			subscriptionentitlementperiod.ExpiresAtGT(now),
+		).
+		Order(
+			dbent.Asc(subscriptionentitlementperiod.FieldSubscriptionID),
+			dbent.Desc(subscriptionentitlementperiod.FieldStartsAt),
+			dbent.Desc(subscriptionentitlementperiod.FieldID),
+		).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	bySubscription := make(map[int64]*service.SubscriptionEntitlementPeriod, len(periods))
+	for _, period := range periods {
+		if period == nil {
+			continue
+		}
+		if _, exists := bySubscription[period.SubscriptionID]; exists {
+			continue
+		}
+		bySubscription[period.SubscriptionID] = subscriptionEntitlementPeriodEntityToService(period)
+	}
+	for i := range subs {
+		subs[i].CurrentEntitlementPeriod = bySubscription[subs[i].ID]
+	}
+	return nil
 }
 
 func applyUserSubscriptionEntityToService(dst *service.UserSubscription, src *dbent.UserSubscription) {

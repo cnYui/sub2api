@@ -1385,17 +1385,63 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 		// 订阅信息可能不在 context 中（/v1/usage 路径跳过了中间件的计费检查）
 		subscription, ok := middleware2.GetSubscriptionFromContext(c)
 		if ok {
-			subscription = normalizedSubscriptionForUsageResponse(subscription, timezone.Now())
+			now := timezone.Now()
+			subscription = normalizedSubscriptionForUsageResponse(subscription, now)
 			remaining := h.calculateSubscriptionRemaining(apiKey.Group, subscription)
+			rollingWeeklyGroup := apiKey.Group.UsesRollingWeeklyQuota()
+			weeklyLimit := apiKey.Group.WeeklyLimitUSD
+			dailyLimit := apiKey.Group.DailyLimitUSD
+			monthlyLimit := apiKey.Group.MonthlyLimitUSD
+			var weeklyWindowStart any
+			var weeklyResetsAt any
+			var weeklyRemaining *float64
+			weeklyUsage := subscription.WeeklyUsageUSD
+			if rollingWeeklyGroup {
+				dailyLimit = nil
+				weeklyLimit = nil
+				monthlyLimit = nil
+				weeklyUsage = 0
+				if window, ok := subscription.CurrentRollingWeeklyWindow(apiKey.Group, now); ok {
+					limit := window.EffectiveLimitUSD
+					weeklyUsage = subscription.RollingWeeklyUsageUSD(window)
+					remaining := window.RemainingUSD(weeklyUsage)
+					weeklyLimit = &limit
+					weeklyWindowStart = window.Start
+					weeklyResetsAt = window.ResetsAt
+					weeklyRemaining = &remaining
+				}
+			} else if subscription.HasRollingWeeklyQuotaFacts(apiKey.Group, now) {
+				weeklyLimit = nil
+				if window, ok := subscription.CurrentRollingWeeklyWindow(apiKey.Group, now); ok {
+					limit := window.EffectiveLimitUSD
+					weeklyUsage = subscription.RollingWeeklyUsageUSD(window)
+					remaining := window.RemainingUSD(weeklyUsage)
+					weeklyLimit = &limit
+					weeklyWindowStart = window.Start
+					weeklyResetsAt = window.ResetsAt
+					weeklyRemaining = &remaining
+				}
+			} else if weeklyLimit != nil {
+				remaining := max(0, *weeklyLimit-subscription.WeeklyUsageUSD)
+				weeklyRemaining = &remaining
+				weeklyWindowStart = subscription.WeeklyWindowStart
+				if resetAt := subscription.WeeklyResetTime(); resetAt != nil {
+					weeklyResetsAt = *resetAt
+				}
+			}
 			resp["remaining"] = remaining
 			resp["subscription"] = gin.H{
-				"daily_usage_usd":   subscription.DailyUsageUSD,
-				"weekly_usage_usd":  subscription.WeeklyUsageUSD,
-				"monthly_usage_usd": subscription.MonthlyUsageUSD,
-				"daily_limit_usd":   apiKey.Group.DailyLimitUSD,
-				"weekly_limit_usd":  apiKey.Group.WeeklyLimitUSD,
-				"monthly_limit_usd": apiKey.Group.MonthlyLimitUSD,
-				"expires_at":        subscription.ExpiresAt,
+				"daily_usage_usd":            subscription.DailyUsageUSD,
+				"weekly_usage_usd":           weeklyUsage,
+				"monthly_usage_usd":          subscription.MonthlyUsageUSD,
+				"daily_limit_usd":            dailyLimit,
+				"weekly_limit_usd":           weeklyLimit,
+				"effective_weekly_limit_usd": weeklyLimit,
+				"weekly_remaining_usd":       weeklyRemaining,
+				"weekly_window_start":        weeklyWindowStart,
+				"weekly_window_resets_at":    weeklyResetsAt,
+				"monthly_limit_usd":          monthlyLimit,
+				"expires_at":                 subscription.ExpiresAt,
 			}
 		}
 
@@ -1453,7 +1499,16 @@ func normalizedSubscriptionForUsageResponse(sub *service.UserSubscription, now t
 	if normalized.DailyWindowStart == nil || normalized.DailyWindowStart.Before(dailyStart) {
 		normalized.DailyUsageUSD = 0
 	}
-	if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
+	if normalized.Group != nil && normalized.Group.UsesRollingWeeklyQuota() {
+		window, ok := normalized.CurrentRollingWeeklyWindow(normalized.Group, now)
+		if ok && (normalized.WeeklyWindowStart == nil || !normalized.WeeklyWindowStart.Equal(window.Start)) {
+			normalized.WeeklyWindowStart = &window.Start
+			normalized.WeeklyUsageUSD = 0
+		} else if !ok {
+			normalized.WeeklyWindowStart = nil
+			normalized.WeeklyUsageUSD = 0
+		}
+	} else if normalized.WeeklyWindowStart == nil || normalized.WeeklyWindowStart.Before(weeklyStart) {
 		normalized.WeeklyUsageUSD = 0
 	}
 	if normalized.MonthlyWindowStart == nil || !normalized.MonthlyWindowStart.Add(30*24*time.Hour).After(now) {
@@ -1467,7 +1522,23 @@ func normalizedSubscriptionForUsageResponse(sub *service.UserSubscription, now t
 // 1. 如果日/周/月任一限额达到100%，返回0
 // 2. 否则返回所有已配置周期中剩余额度的最小值
 func (h *GatewayHandler) calculateSubscriptionRemaining(group *service.Group, sub *service.UserSubscription) float64 {
+	if group == nil || sub == nil {
+		return 0
+	}
 	var remainingValues []float64
+	now := timezone.Now()
+
+	if group.UsesRollingWeeklyQuota() {
+		window, ok := sub.CurrentRollingWeeklyWindow(group, now)
+		if !ok {
+			return 0
+		}
+		remaining := window.EffectiveLimitUSD - sub.RollingWeeklyUsageUSD(window)
+		if remaining <= 0 {
+			return 0
+		}
+		return remaining
+	}
 
 	// 检查日限额
 	if group.HasDailyLimit() {
@@ -2079,7 +2150,10 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 	}
 	if errors.Is(err, service.ErrUserPlatformDailyQuotaExhausted) ||
 		errors.Is(err, service.ErrUserPlatformWeeklyQuotaExhausted) ||
-		errors.Is(err, service.ErrUserPlatformMonthlyQuotaExhausted) {
+		errors.Is(err, service.ErrUserPlatformMonthlyQuotaExhausted) ||
+		errors.Is(err, service.ErrDailyLimitExceeded) ||
+		errors.Is(err, service.ErrWeeklyLimitExceeded) ||
+		errors.Is(err, service.ErrMonthlyLimitExceeded) {
 		// 与 RPM 超限一致映射 429 + Retry-After，让 SDK 自动退避（而非 403 直接失败）。
 		// 错误码用 rate_limit_exceeded 与 OpenAI 兼容客户端一致；细分类型由 ErrCode + window_resets_at metadata 区分。
 		msg := pkgerrors.Message(err)

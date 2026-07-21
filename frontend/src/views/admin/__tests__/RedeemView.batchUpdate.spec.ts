@@ -4,9 +4,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import RedeemView from '../RedeemView.vue'
 import zh from '@/i18n/locales/zh'
 
-const { listRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, showError, showInfo } =
+const { listRedeemCodes, generateRedeemCodes, batchUpdateRedeemCodes, getAllGroups, showSuccess, showError, showInfo } =
   vi.hoisted(() => ({
     listRedeemCodes: vi.fn(),
+    generateRedeemCodes: vi.fn(),
     batchUpdateRedeemCodes: vi.fn(),
     getAllGroups: vi.fn(),
     showSuccess: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock('@/api/admin', () => ({
   adminAPI: {
     redeem: {
       list: listRedeemCodes,
-      generate: vi.fn(),
+      generate: generateRedeemCodes,
       delete: vi.fn(),
       batchDelete: vi.fn(),
       batchUpdate: batchUpdateRedeemCodes,
@@ -106,6 +107,7 @@ describe('admin RedeemView batch update', () => {
     document.body.innerHTML = ''
 
     listRedeemCodes.mockReset()
+    generateRedeemCodes.mockReset()
     batchUpdateRedeemCodes.mockReset()
     getAllGroups.mockReset()
     showSuccess.mockReset()
@@ -142,6 +144,7 @@ describe('admin RedeemView batch update', () => {
       page_size: 20,
       pages: 1
     })
+    generateRedeemCodes.mockResolvedValue([])
     batchUpdateRedeemCodes.mockResolvedValue({ updated: 1, message: 'ok' })
     getAllGroups.mockResolvedValue([])
   })
@@ -185,5 +188,126 @@ describe('admin RedeemView batch update', () => {
     })
     expect(showSuccess).toHaveBeenCalledWith('admin.redeem.batchUpdateSuccess')
     expect(zh.admin.redeem.form.balanceHint).toBe('余额金额（人民币）')
+  })
+
+  it('generates public Codex subscription redeem codes with fixed 28-day validity', async () => {
+    getAllGroups.mockResolvedValueOnce([
+      {
+        id: 19,
+        name: 'codex-pool-19-usd',
+        description: null,
+        platform: 'openai',
+        rate_multiplier: 1,
+        subscription_type: 'subscription',
+        status: 'active'
+      }
+    ])
+    const wrapper = mount(RedeemView, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          Select: SelectStub,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+    const openGenerate = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('admin.redeem.generateCodes'))
+    expect(openGenerate).toBeDefined()
+    await openGenerate?.trigger('click')
+    await flushPromises()
+
+    const typeSelect = wrapper
+      .findAll('select')
+      .find((select) => select.text().includes('admin.redeem.subscription') && !select.text().includes('admin.redeem.allTypes'))
+    expect(typeSelect).toBeDefined()
+    await typeSelect?.setValue('subscription')
+    await flushPromises()
+
+    const groupSelect = wrapper
+      .findAll('select')
+      .find((select) => select.text().includes('codex-pool-19-usd'))
+    expect(groupSelect).toBeDefined()
+    await groupSelect?.setValue('19')
+    await flushPromises()
+
+    const fixedValidityInput = wrapper
+      .findAll('input[type="number"]')
+      .find((input) => input.attributes('disabled') !== undefined && input.element.value === '28')
+    expect(fixedValidityInput).toBeDefined()
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(generateRedeemCodes).toHaveBeenCalledWith(1, 'subscription', 10, 19, 28, undefined)
+  })
+
+  it('renders legacy public Codex subscription redeem code validity as 28 days', async () => {
+    listRedeemCodes.mockResolvedValueOnce({
+      items: [
+        {
+          id: 19,
+          code: 'CODEX-LEGACY',
+          type: 'subscription',
+          value: 0,
+          validity_days: 0,
+          group: {
+            id: 19,
+            name: 'codex-pool-19-usd',
+            subscription_type: 'subscription',
+            platform: 'openai',
+            rate_multiplier: 1
+          },
+          status: 'unused',
+          used_by: null,
+          used_at: null,
+          created_at: '2026-01-01T00:00:00Z',
+          expires_at: null
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    getAllGroups.mockResolvedValueOnce([])
+
+    const wrapper = mount(RedeemView, {
+      attachTo: document.body,
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          Select: SelectStub,
+          GroupBadge: true,
+          GroupOptionItem: true,
+          Icon: true,
+          Teleport: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('28 admin.redeem.days')
+    expect(text).not.toContain('30 admin.redeem.days')
   })
 })

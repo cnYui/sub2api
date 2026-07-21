@@ -8838,6 +8838,7 @@ type usageSettlementParams struct {
 	APIKey                *APIKey
 	Account               *Account
 	Subscription          *UserSubscription
+	EntitlementPeriodID   *int64
 	RequestFingerprint    string
 	RequestPayloadHash    string
 	IsSubscriptionBill    bool
@@ -8977,6 +8978,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *usageSett
 	// on "> 0" still correctly skip free subscriptions (RateMultiplier == 0).
 	if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
 		cmd.SubscriptionID = &p.Subscription.ID
+		cmd.EntitlementPeriodID = cloneInt64ForUsageCommand(p.EntitlementPeriodID)
 		cmd.SubscriptionCost = p.Cost.ActualCost
 	} else if p.UseTrafficPack && p.Cost.ActualCost > 0 {
 		cmd.TrafficPackCost = p.Cost.ActualCost
@@ -8997,6 +8999,14 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *usageSett
 
 	cmd.Normalize()
 	return cmd
+}
+
+func cloneInt64ForUsageCommand(in *int64) *int64 {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
 }
 
 func applyUsageSettlementEffects(ctx context.Context, p *usageSettlementParams, deps *billingDeps, result *UsageBillingApplyResult) {
@@ -9347,12 +9357,17 @@ func (s *GatewayService) buildGatewayUsageRecord(ctx context.Context, input *Rec
 		)
 	}
 
+	var entitlementPeriodID *int64
+	if subscription != nil {
+		entitlementPeriodID = subscription.CurrentEntitlementPeriodID()
+	}
 	billingParams := &usageSettlementParams{
 		Cost:                  cost,
 		User:                  user,
 		APIKey:                apiKey,
 		Account:               account,
 		Subscription:          subscription,
+		EntitlementPeriodID:   entitlementPeriodID,
 		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
 		IsSubscriptionBill:    isSubscriptionBilling,
 		AccountRateMultiplier: accountRateMultiplier,

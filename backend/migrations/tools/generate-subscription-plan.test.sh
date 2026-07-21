@@ -20,19 +20,22 @@ output="$(
     --price-cny 109 \
     --plan-label "109 元订阅池" \
     --group-name codex-pool-99-usd \
-    --daily-limit-usd 99 \
+    --weekly-limit-usd 99 \
     --sort-order 109 \
-    --validity-days 30 \
+    --validity-days 28 \
     --template-group codex-pool-49-usd \
     --bind-openai-accounts
 )"
 
 assert_contains "${output}" "INSERT INTO groups"
 assert_contains "${output}" "'codex-pool-99-usd'"
-assert_contains "${output}" "daily_limit_usd = 99"
+assert_contains "${output}" "weekly_limit_usd = 99"
+assert_contains "${output}" "daily_limit_usd = NULL"
 assert_contains "${output}" "INSERT INTO subscription_plans"
 assert_contains "${output}" "'109 元订阅池'"
 assert_contains "${output}" "price = 109.00"
+assert_contains "${output}" "28 天订阅，每 7 天刷新周额度，购买时间起滚动计算"
+assert_contains "${output}" "周额度 99 USD"
 assert_contains "${output}" "INSERT INTO account_groups"
 assert_contains "${output}" "WHERE a.platform = 'openai'"
 assert_contains "${output}" "ON CONFLICT (account_id, group_id) DO NOTHING"

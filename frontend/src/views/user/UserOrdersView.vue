@@ -62,8 +62,19 @@
           </div>
           <div class="mt-2 flex justify-between text-sm">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.amount') }}</span>
-            <span class="text-gray-900 dark:text-white">${{ refundTarget.amount.toFixed(2) }}</span>
+            <span class="text-gray-900 dark:text-white">{{ formatRefundPaymentAmount(refundTarget.amount) }}</span>
           </div>
+          <template v-if="refundQuote">
+            <div class="mt-2 border-t border-gray-200 pt-2 text-sm dark:border-dark-700">
+              <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.purchaseBase') }}</span><span>{{ formatRefundPaymentAmount(refundQuote.purchase_base_amount) }}</span></div>
+              <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.nonRefundableFee') }}</span><span>{{ formatRefundPaymentAmount(refundQuote.non_refundable_fee) }}</span></div>
+              <div v-if="!refundQuote.manual_review_required" class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.periodQuotaUsage') }}</span><span>{{ formatSubscriptionQuotaUSD(refundQuote.used_quota_usd) }} / {{ formatSubscriptionQuotaUSD(refundQuote.period_total_quota_usd) }}</span></div>
+              <div v-if="!refundQuote.manual_review_required" class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.usageRatio') }}</span><span>{{ Math.round(refundQuote.usage_ratio * 100) }}%</span></div>
+              <div class="mt-2 flex justify-between font-medium text-gray-900 dark:text-white"><span>{{ t('payment.refundQuote.estimatedRefund') }}</span><span>{{ formatRefundPaymentAmount(refundQuote.estimated_refund_amount) }}</span></div>
+              <p v-if="refundQuote.manual_review_required" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.manualReviewRequired') }}</p>
+            </div>
+          </template>
+          <p v-else-if="quoteLoading" class="mt-2 text-xs text-gray-500">{{ t('payment.refundQuote.loading') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('payment.refundReason') }}</label>
@@ -73,7 +84,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" @click="refundTarget = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="actionLoading || !refundReason.trim()" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
+		  <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundQuote?.eligible || refundQuote.manual_review_required || !refundReason.trim()" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -87,7 +98,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import type { PaymentOrder } from '@/types/payment'
+import type { PaymentOrder, SubscriptionRefundQuote } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -95,6 +106,8 @@ import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
 import { canRequestOrderRefund } from './paymentRefund'
+import { currencySymbol } from '@/components/payment/currency'
+import { formatSubscriptionQuotaUSD } from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -108,6 +121,8 @@ const currentFilter = ref('')
 const cancelTargetId = ref<number | null>(null)
 const refundTarget = ref<PaymentOrder | null>(null)
 const refundReason = ref('')
+const refundQuote = ref<SubscriptionRefundQuote | null>(null)
+const quoteLoading = ref(false)
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
 
 const statusFilters = computed(() => [
@@ -155,7 +170,20 @@ async function confirmCancel() {
   }
 }
 
-function openRefundDialog(order: PaymentOrder) { refundTarget.value = order; refundReason.value = '' }
+async function openRefundDialog(order: PaymentOrder) {
+  refundTarget.value = order
+  refundReason.value = ''
+  refundQuote.value = null
+  quoteLoading.value = true
+  try {
+    const res = await paymentAPI.getRefundQuote(order.id)
+    refundQuote.value = res.data
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    quoteLoading.value = false
+  }
+}
 
 async function confirmRefund() {
   if (!refundTarget.value || !refundReason.value.trim()) return
@@ -179,6 +207,10 @@ function canRequestRefund(order: PaymentOrder): boolean {
 
 function refundActionKey(order: PaymentOrder | null): string {
   return order?.status === 'REFUND_FAILED' ? 'payment.orders.retryRefund' : 'payment.orders.requestRefund'
+}
+
+function formatRefundPaymentAmount(value: number): string {
+  return `${currencySymbol(refundTarget.value?.currency || 'CNY')}${value.toFixed(2)}`
 }
 
 async function loadRefundEligibility() {

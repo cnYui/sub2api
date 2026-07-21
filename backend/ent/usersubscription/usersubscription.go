@@ -35,6 +35,8 @@ const (
 	FieldDailyWindowStart = "daily_window_start"
 	// FieldWeeklyWindowStart holds the string denoting the weekly_window_start field in the database.
 	FieldWeeklyWindowStart = "weekly_window_start"
+	// FieldWeeklyAnchorAt holds the string denoting the weekly_anchor_at field in the database.
+	FieldWeeklyAnchorAt = "weekly_anchor_at"
 	// FieldMonthlyWindowStart holds the string denoting the monthly_window_start field in the database.
 	FieldMonthlyWindowStart = "monthly_window_start"
 	// FieldDailyUsageUsd holds the string denoting the daily_usage_usd field in the database.
@@ -59,6 +61,8 @@ const (
 	EdgeUsageLogs = "usage_logs"
 	// EdgeEntitlementPeriods holds the string denoting the entitlement_periods edge name in mutations.
 	EdgeEntitlementPeriods = "entitlement_periods"
+	// EdgeQuotaDebtAdjustments holds the string denoting the quota_debt_adjustments edge name in mutations.
+	EdgeQuotaDebtAdjustments = "quota_debt_adjustments"
 	// Table holds the table name of the usersubscription in the database.
 	Table = "user_subscriptions"
 	// UserTable is the table that holds the user relation/edge.
@@ -96,6 +100,13 @@ const (
 	EntitlementPeriodsInverseTable = "subscription_entitlement_periods"
 	// EntitlementPeriodsColumn is the table column denoting the entitlement_periods relation/edge.
 	EntitlementPeriodsColumn = "subscription_id"
+	// QuotaDebtAdjustmentsTable is the table that holds the quota_debt_adjustments relation/edge.
+	QuotaDebtAdjustmentsTable = "subscription_quota_debt_adjustments"
+	// QuotaDebtAdjustmentsInverseTable is the table name for the SubscriptionQuotaDebtAdjustment entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionquotadebtadjustment" package.
+	QuotaDebtAdjustmentsInverseTable = "subscription_quota_debt_adjustments"
+	// QuotaDebtAdjustmentsColumn is the table column denoting the quota_debt_adjustments relation/edge.
+	QuotaDebtAdjustmentsColumn = "subscription_id"
 )
 
 // Columns holds all SQL columns for usersubscription fields.
@@ -111,6 +122,7 @@ var Columns = []string{
 	FieldStatus,
 	FieldDailyWindowStart,
 	FieldWeeklyWindowStart,
+	FieldWeeklyAnchorAt,
 	FieldMonthlyWindowStart,
 	FieldDailyUsageUsd,
 	FieldWeeklyUsageUsd,
@@ -216,6 +228,11 @@ func ByWeeklyWindowStart(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWeeklyWindowStart, opts...).ToFunc()
 }
 
+// ByWeeklyAnchorAt orders the results by the weekly_anchor_at field.
+func ByWeeklyAnchorAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldWeeklyAnchorAt, opts...).ToFunc()
+}
+
 // ByMonthlyWindowStart orders the results by the monthly_window_start field.
 func ByMonthlyWindowStart(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldMonthlyWindowStart, opts...).ToFunc()
@@ -299,6 +316,20 @@ func ByEntitlementPeriods(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOptio
 		sqlgraph.OrderByNeighborTerms(s, newEntitlementPeriodsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByQuotaDebtAdjustmentsCount orders the results by quota_debt_adjustments count.
+func ByQuotaDebtAdjustmentsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newQuotaDebtAdjustmentsStep(), opts...)
+	}
+}
+
+// ByQuotaDebtAdjustments orders the results by quota_debt_adjustments terms.
+func ByQuotaDebtAdjustments(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newQuotaDebtAdjustmentsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -332,5 +363,12 @@ func newEntitlementPeriodsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EntitlementPeriodsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EntitlementPeriodsTable, EntitlementPeriodsColumn),
+	)
+}
+func newQuotaDebtAdjustmentsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(QuotaDebtAdjustmentsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, QuotaDebtAdjustmentsTable, QuotaDebtAdjustmentsColumn),
 	)
 }

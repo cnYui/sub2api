@@ -136,13 +136,14 @@
                 v-if="row.subscription_type === 'subscription'"
                 class="text-xs text-gray-500 dark:text-gray-400"
               >
-                <template
-                  v-if="
-                    row.daily_limit_usd ||
-                    row.weekly_limit_usd ||
-                    row.monthly_limit_usd
-                  "
-                >
+                <template v-if="isPublicCodexGroup(row)">
+                  {{
+                    t("admin.groups.subscription.publicCodexWeeklyWindow", {
+                      quota: publicCodexWeeklyLimit(row) ?? row.weekly_limit_usd ?? "-",
+                    })
+                  }}
+                </template>
+                <template v-else-if="row.daily_limit_usd || row.weekly_limit_usd || row.monthly_limit_usd">
                   <span v-if="row.daily_limit_usd"
                     >${{ row.daily_limit_usd }}/{{
                       t("admin.groups.limitDay")
@@ -615,6 +616,7 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexCreateForm"
               />
             </div>
             <div>
@@ -628,6 +630,7 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexCreateForm"
               />
             </div>
             <div>
@@ -641,8 +644,15 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexCreateForm"
               />
             </div>
+            <p
+              v-if="isPublicCodexCreateForm"
+              class="text-xs text-gray-500 dark:text-gray-400"
+            >
+              {{ t("admin.groups.subscription.publicCodexFixedQuotaHint") }}
+            </p>
           </div>
         </div>
 
@@ -1818,6 +1828,7 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexEditForm"
               />
             </div>
             <div>
@@ -1831,6 +1842,7 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexEditForm"
               />
             </div>
             <div>
@@ -1844,8 +1856,15 @@
                 min="0"
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
+                :disabled="isPublicCodexEditForm"
               />
             </div>
+            <p
+              v-if="isPublicCodexEditForm"
+              class="text-xs text-gray-500 dark:text-gray-400"
+            >
+              {{ t("admin.groups.subscription.publicCodexFixedQuotaHint") }}
+            </p>
           </div>
         </div>
 
@@ -2908,6 +2927,7 @@ import {
 } from "./groupsModelsList";
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
+import { publicCodexSubscriptionWeeklyLimitUSD } from "@/utils/subscriptionQuota";
 
 const { t } = useI18n();
 const appStore = useAppStore();
@@ -3517,6 +3537,59 @@ const editForm = reactive({
   rpm_limit: 0 as number,
 });
 
+type PublicCodexQuotaForm = {
+  name: string;
+  subscription_type: SubscriptionType;
+  daily_limit_usd: number | null;
+  weekly_limit_usd: number | null;
+  monthly_limit_usd: number | null;
+};
+
+const publicCodexWeeklyLimit = (
+  group: Pick<AdminGroup, "name"> | PublicCodexQuotaForm | null | undefined,
+): number | null => {
+  if (!group) return null;
+  return publicCodexSubscriptionWeeklyLimitUSD(String(group.name || "").trim());
+};
+
+const isPublicCodexGroup = (
+  group:
+    | Pick<AdminGroup, "name" | "subscription_type">
+    | PublicCodexQuotaForm
+    | null
+    | undefined,
+): boolean => {
+  return (
+    Boolean(group) &&
+    group?.subscription_type === "subscription" &&
+    publicCodexWeeklyLimit(group) != null
+  );
+};
+
+const applyPublicCodexQuotaToForm = (form: PublicCodexQuotaForm) => {
+  const weeklyLimit = publicCodexWeeklyLimit(form);
+  if (form.subscription_type !== "subscription" || weeklyLimit == null) {
+    return;
+  }
+  form.daily_limit_usd = null;
+  form.weekly_limit_usd = weeklyLimit;
+  form.monthly_limit_usd = null;
+};
+
+const isPublicCodexCreateForm = computed(() => isPublicCodexGroup(createForm));
+const isPublicCodexEditForm = computed(() => isPublicCodexGroup(editForm));
+
+watch(
+  () => [createForm.name, createForm.subscription_type] as const,
+  () => applyPublicCodexQuotaToForm(createForm),
+  { immediate: true },
+);
+watch(
+  () => [editForm.name, editForm.subscription_type] as const,
+  () => applyPublicCodexQuotaToForm(editForm),
+  { immediate: true },
+);
+
 // 根据分组类型返回不同的删除确认消息
 const deleteConfirmMessage = computed(() => {
   if (!deletingGroup.value) {
@@ -3721,6 +3794,7 @@ const handleCreateGroup = async () => {
   }
   submitting.value = true;
   try {
+    applyPublicCodexQuotaToForm(createForm);
     // 构建请求数据，包含模型路由配置
     const requestData = {
       ...createForm,
@@ -3846,6 +3920,7 @@ const handleUpdateGroup = async () => {
 
   submitting.value = true;
   try {
+    applyPublicCodexQuotaToForm(editForm);
     // 转换 fallback_group_id: null -> 0 (后端使用 0 表示清除)
     const payload = {
       ...editForm,

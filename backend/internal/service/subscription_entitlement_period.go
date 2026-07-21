@@ -63,18 +63,22 @@ type SubscriptionEntitlementSource struct {
 
 // SubscriptionEntitlementPeriod 保存发放时不可变的套餐额度与期限快照。
 type SubscriptionEntitlementPeriod struct {
-	ID             int64
-	UserID         int64
-	SubscriptionID int64
-	GroupID        int64
-	Source         SubscriptionEntitlementSource
-	StartsAt       time.Time
-	ExpiresAt      time.Time
-	PeriodDays     int
-	DailyLimitUSD  *float64
-	Status         string
-	RevokedAt      *time.Time
-	RevokedReason  string
+	ID                  int64
+	UserID              int64
+	SubscriptionID      int64
+	GroupID             int64
+	Source              SubscriptionEntitlementSource
+	StartsAt            time.Time
+	ExpiresAt           time.Time
+	PeriodDays          int
+	DailyLimitUSD       *float64
+	WeeklyLimitUSD      *float64
+	PeriodTotalQuotaUSD *float64
+	QuotaWindowUnit     string
+	QuotaWindowDays     int
+	Status              string
+	RevokedAt           *time.Time
+	RevokedReason       string
 }
 
 // GrantResult 返回订阅与对应权益周期；Replayed 表示未重复发放。
@@ -209,7 +213,7 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 		return nil, fmt.Errorf("recheck subscription entitlement period by source: %w", err)
 	}
 
-	group, err := s.groupRepo.GetByID(ctx, input.GroupID)
+	group, err := s.resolveEntitlementGroup(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("get subscription group: %w", err)
 	}
@@ -230,7 +234,11 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 	if existingSub != nil && existingSub.ExpiresAt.After(now) {
 		startsAt = existingSub.ExpiresAt
 	}
-	expiresAt := startsAt.AddDate(0, 0, normalizeAssignValidityDays(input.ValidityDays))
+	validityDays := normalizeAssignValidityDays(input.ValidityDays)
+	if group.UsesRollingWeeklyQuota() {
+		validityDays = 28
+	}
+	expiresAt := startsAt.AddDate(0, 0, validityDays)
 	if expiresAt.After(MaxExpiresAt) {
 		expiresAt = MaxExpiresAt
 	}
@@ -241,7 +249,7 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 
 	var subscription *UserSubscription
 	if existingSub == nil {
-		subscription, err = s.createSubscriptionWithTerm(ctx, input, startsAt, expiresAt)
+		subscription, err = s.createSubscriptionWithTerm(ctx, input, group, startsAt, expiresAt)
 	} else if existingSub.ExpiresAt.After(now) {
 		err = s.userSubRepo.ExtendExpiry(ctx, existingSub.ID, expiresAt)
 		if err == nil && existingSub.Status != SubscriptionStatusActive {
@@ -262,6 +270,16 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 	if err != nil {
 		return nil, fmt.Errorf("apply subscription entitlement term: %w", err)
 	}
+	if group.UsesRollingWeeklyQuota() && subscription.WeeklyAnchorAt == nil {
+		anchor := subscription.StartsAt
+		subscription.WeeklyAnchorAt = &anchor
+		if subscription.WeeklyWindowStart == nil {
+			subscription.WeeklyWindowStart = &anchor
+		}
+		if err := s.userSubRepo.Update(ctx, subscription); err != nil {
+			return nil, fmt.Errorf("set rolling weekly anchor: %w", err)
+		}
+	}
 
 	period := &SubscriptionEntitlementPeriod{
 		UserID:         input.UserID,
@@ -273,6 +291,25 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 		PeriodDays:     periodDays,
 		DailyLimitUSD:  cloneOptionalFloat64(group.DailyLimitUSD),
 		Status:         SubscriptionEntitlementPeriodStatusActive,
+	}
+	if group.UsesRollingWeeklyQuota() {
+		period.WeeklyLimitUSD = cloneOptionalFloat64(input.WeeklyLimitUSD)
+		if period.WeeklyLimitUSD == nil {
+			period.WeeklyLimitUSD = cloneOptionalFloat64(group.EffectiveWeeklyLimitUSD())
+		}
+		period.PeriodTotalQuotaUSD = cloneOptionalFloat64(input.PeriodTotalQuotaUSD)
+		if period.PeriodTotalQuotaUSD == nil && period.WeeklyLimitUSD != nil {
+			total := *period.WeeklyLimitUSD * 4
+			period.PeriodTotalQuotaUSD = &total
+		}
+		period.QuotaWindowUnit = input.QuotaWindowUnit
+		if period.QuotaWindowUnit == "" {
+			period.QuotaWindowUnit = "week"
+		}
+		period.QuotaWindowDays = input.QuotaWindowDays
+		if period.QuotaWindowDays <= 0 {
+			period.QuotaWindowDays = subscriptionWeeklyWindowDays
+		}
 	}
 	if err := s.entitlementPeriodRepo.Create(ctx, period); err != nil {
 		return nil, fmt.Errorf("create subscription entitlement period: %w", err)
@@ -304,6 +341,18 @@ func (s *SubscriptionService) grantResultForExistingPeriod(ctx context.Context, 
 	}, nil
 }
 
+func (s *SubscriptionService) resolveEntitlementGroup(ctx context.Context, input *AssignSubscriptionInput) (*Group, error) {
+	if input != nil && input.GroupSnapshot != nil {
+		group := *input.GroupSnapshot
+		if group.ID == 0 {
+			group.ID = input.GroupID
+		}
+		group.Hydrated = true
+		return &group, nil
+	}
+	return s.groupRepo.GetByID(ctx, input.GroupID)
+}
+
 func (s *SubscriptionService) lockSubscriptionEntitlementUser(ctx context.Context, userID int64) error {
 	client := s.entClient
 	if tx := dbent.TxFromContext(ctx); tx != nil {
@@ -329,6 +378,7 @@ func (s *SubscriptionService) lockSubscriptionEntitlementUser(ctx context.Contex
 func (s *SubscriptionService) createSubscriptionWithTerm(
 	ctx context.Context,
 	input *AssignSubscriptionInput,
+	group *Group,
 	startsAt time.Time,
 	expiresAt time.Time,
 ) (*UserSubscription, error) {
@@ -342,6 +392,11 @@ func (s *SubscriptionService) createSubscriptionWithTerm(
 		Notes:      input.Notes,
 		CreatedAt:  startsAt,
 		UpdatedAt:  startsAt,
+	}
+	if group != nil && group.UsesRollingWeeklyQuota() {
+		anchor := startsAt
+		subscription.WeeklyAnchorAt = &anchor
+		subscription.WeeklyWindowStart = &anchor
 	}
 	if input.AssignedBy > 0 {
 		subscription.AssignedBy = &input.AssignedBy

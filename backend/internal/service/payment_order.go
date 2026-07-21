@@ -12,7 +12,9 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	entgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -207,11 +209,22 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}
 	if err := s.checkDailyLimit(ctx, tx, req.UserID, limitAmount, cfg.DailyLimit); err != nil {
 		return nil, err
+	}
+	var subscriptionSnapshot *SubscriptionOrderSnapshot
+	if plan != nil {
+		plan, subscriptionSnapshot, err = s.lockSubscriptionPlanSnapshotInTx(ctx, tx, plan, orderAmount)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.ensureSubscriptionPurchaseAllowed(txCtx, req.UserID, subscriptionSnapshot.GroupID); err != nil {
+			return nil, err
+		}
 	}
 	tm := cfg.OrderTimeoutMin
 	if tm <= 0 {
@@ -281,7 +294,7 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		b.SetProviderSnapshot(providerSnapshot)
 	}
 	if plan != nil {
-		b.SetPlanID(plan.ID).SetSubscriptionGroupID(plan.GroupID).SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
+		b.SetPlanID(plan.ID).SetSubscriptionGroupID(subscriptionSnapshot.GroupID).SetSubscriptionDays(subscriptionSnapshot.ValidityDays).SetSubscriptionSnapshot(subscriptionSnapshot.mapValue())
 	}
 	order, err := b.Save(ctx)
 	if err != nil {
@@ -301,6 +314,56 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("commit order transaction: %w", err)
 	}
 	return order, nil
+}
+
+func (s *PaymentService) lockSubscriptionPlanSnapshotInTx(ctx context.Context, tx *dbent.Tx, expectedPlan *dbent.SubscriptionPlan, expectedAmount float64) (*dbent.SubscriptionPlan, *SubscriptionOrderSnapshot, error) {
+	if tx == nil || expectedPlan == nil {
+		return nil, nil, infraerrors.BadRequest("INVALID_INPUT", "subscription plan is required")
+	}
+	planQuery := tx.SubscriptionPlan.Query().Where(subscriptionplan.IDEQ(expectedPlan.ID))
+	groupQuery := tx.Group.Query()
+	if isPostgresEntClient(tx.Client()) {
+		planQuery = planQuery.ForUpdate()
+		groupQuery = groupQuery.ForUpdate()
+	}
+	lockedPlan, err := planQuery.Only(ctx)
+	if err != nil || !lockedPlan.ForSale {
+		return nil, nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
+	}
+	if lockedPlan.GroupID != expectedPlan.GroupID || math.Abs(lockedPlan.Price-expectedAmount) > paymentAmountToleranceForCurrency(payment.DefaultPaymentCurrency) {
+		return nil, nil, infraerrors.Conflict("SUBSCRIPTION_PLAN_CHANGED", "subscription plan changed, please refresh and retry")
+	}
+	lockedGroup, err := groupQuery.Where(entgroup.IDEQ(lockedPlan.GroupID)).Only(ctx)
+	if err != nil || lockedGroup.Status != payment.EntityStatusActive {
+		return nil, nil, infraerrors.NotFound("GROUP_NOT_FOUND", "subscription group is no longer available")
+	}
+	groupSnapshot := subscriptionSnapshotGroupFromEntity(lockedGroup)
+	if !groupSnapshot.IsSubscriptionType() {
+		return nil, nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
+	}
+	snapshot, err := newSubscriptionOrderSnapshot(lockedPlan, groupSnapshot)
+	if err != nil {
+		return nil, nil, err
+	}
+	return lockedPlan, snapshot, nil
+}
+
+func subscriptionSnapshotGroupFromEntity(g *dbent.Group) *Group {
+	if g == nil {
+		return nil
+	}
+	return &Group{
+		ID:                  g.ID,
+		Name:                g.Name,
+		Platform:            g.Platform,
+		Status:              g.Status,
+		SubscriptionType:    g.SubscriptionType,
+		DailyLimitUSD:       g.DailyLimitUsd,
+		WeeklyLimitUSD:      g.WeeklyLimitUsd,
+		MonthlyLimitUSD:     g.MonthlyLimitUsd,
+		DefaultValidityDays: g.DefaultValidityDays,
+		Hydrated:            true,
+	}
 }
 
 func (s *PaymentService) allocateOutTradeNo(ctx context.Context, tx *dbent.Tx) (string, error) {

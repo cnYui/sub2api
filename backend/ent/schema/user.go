@@ -123,6 +123,9 @@ func (User) Edges() []ent.Edge {
 		edge.To("subscription_entitlement_periods", SubscriptionEntitlementPeriod.Type).
 			StorageKey(edge.Symbol("subscription_entitlement_periods_user_id_fkey")).
 			Annotations(entsql.OnDelete(entsql.Restrict)),
+		edge.To("subscription_quota_debt_adjustments", SubscriptionQuotaDebtAdjustment.Type).
+			StorageKey(edge.Symbol("subscription_quota_debt_adjustments_user_id_fkey")).
+			Annotations(entsql.OnDelete(entsql.Restrict)),
 		edge.To("assigned_subscriptions", UserSubscription.Type),
 		edge.To("announcement_reads", AnnouncementRead.Type),
 		edge.To("allowed_groups", Group.Type).

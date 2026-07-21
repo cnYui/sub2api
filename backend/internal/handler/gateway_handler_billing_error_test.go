@@ -110,6 +110,9 @@ func TestBillingErrorDetails_T10_QuotaExhaustedReturns429WithRetryAfter(t *testi
 		{"monthly", service.ErrUserPlatformMonthlyQuotaExhausted.WithMetadata(map[string]string{
 			"window_resets_at": time.Now().Add(60 * time.Minute).UTC().Format(time.RFC3339),
 		})},
+		{"subscription_weekly", service.ErrWeeklyLimitExceeded.WithMetadata(map[string]string{
+			"window_resets_at": time.Now().Add(60 * time.Minute).UTC().Format(time.RFC3339),
+		})},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

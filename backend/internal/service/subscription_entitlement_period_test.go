@@ -386,40 +386,68 @@ func TestExtendSubscription_PositiveAdjustmentAppendsAdminAdjustmentEntitlementP
 	require.InDelta(t, dailyLimit, *period.DailyLimitUSD, 0.0000001)
 }
 
-func TestExtendSubscription_NegativeAdjustmentRevokesUnexpiredEntitlementPeriods(t *testing.T) {
+func TestExtendSubscription_NegativeAdjustmentTruncatesOverlappingEntitlementPeriod(t *testing.T) {
+	ctx := context.Background()
 	now := time.Date(2030, 7, 16, 9, 0, 0, 0, time.UTC)
+	client := newPaymentConfigServiceTestClient(t)
+	userEntity, err := client.User.Create().
+		SetEmail("negative-adjustment@example.com").
+		SetUsername("negative-adjustment").
+		SetPasswordHash("hash").
+		SetStatus("active").
+		Save(ctx)
+	require.NoError(t, err)
+	groupEntity, err := client.Group.Create().
+		SetName("negative-adjustment-group").
+		SetSubscriptionType(SubscriptionTypeSubscription).
+		Save(ctx)
+	require.NoError(t, err)
+	subscriptionEntity, err := client.UserSubscription.Create().
+		SetUserID(userEntity.ID).
+		SetGroupID(groupEntity.ID).
+		SetStartsAt(now.AddDate(0, 0, -10)).
+		SetExpiresAt(now.AddDate(0, 0, 20)).
+		SetStatus(SubscriptionStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
 	userSubRepo := newSubscriptionUserSubRepoStub()
 	userSubRepo.seed(&UserSubscription{
-		ID:        91,
-		UserID:    71,
-		GroupID:   10,
+		ID:        subscriptionEntity.ID,
+		UserID:    userEntity.ID,
+		GroupID:   groupEntity.ID,
 		Status:    SubscriptionStatusActive,
 		StartsAt:  now.AddDate(0, 0, -10),
 		ExpiresAt: now.AddDate(0, 0, 20),
 	})
 	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
-	entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})] = &SubscriptionEntitlementPeriod{
-		ID:             1,
-		UserID:         71,
-		SubscriptionID: 91,
-		GroupID:        10,
-		Source:         SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"},
-		StartsAt:       now.AddDate(0, 0, -10),
-		ExpiresAt:      now.AddDate(0, 0, 20),
-		PeriodDays:     30,
-		Status:         SubscriptionEntitlementPeriodStatusActive,
-	}
+	period, err := client.SubscriptionEntitlementPeriod.Create().
+		SetUserID(userEntity.ID).
+		SetSubscriptionID(subscriptionEntity.ID).
+		SetGroupID(groupEntity.ID).
+		SetSourceType("payment_order").
+		SetSourceID("order-negative-adjustment").
+		SetStartsAt(now.AddDate(0, 0, -10)).
+		SetExpiresAt(now.AddDate(0, 0, 20)).
+		SetPeriodDays(30).
+		SetStatus(SubscriptionEntitlementPeriodStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
 	svc := newEntitlementSubscriptionServiceForTest(&subscriptionGroupRepoStub{
-		group: &Group{ID: 10, SubscriptionType: SubscriptionTypeSubscription},
+		group: &Group{ID: groupEntity.ID, SubscriptionType: SubscriptionTypeSubscription},
 	}, userSubRepo, entitlementRepo, now)
+	svc.entClient = client
 
-	subscription, err := svc.ExtendSubscription(context.Background(), 91, -5)
+	subscription, err := svc.ExtendSubscription(ctx, subscriptionEntity.ID, -5)
 
 	require.NoError(t, err)
 	require.Equal(t, now.AddDate(0, 0, 15), subscription.ExpiresAt)
-	require.Equal(t, []int64{91}, entitlementRepo.revokeSubscriptionCalls)
-	require.Equal(t, "revoked", entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})].Status)
-	require.Equal(t, "admin_adjustment_negative", entitlementRepo.periods[subscriptionEntitlementSourceKey(SubscriptionEntitlementSource{Type: "payment_order", ID: "order-91"})].RevokedReason)
+	require.Empty(t, entitlementRepo.revokeSubscriptionCalls)
+	reloadedPeriod, err := client.SubscriptionEntitlementPeriod.Get(ctx, period.ID)
+	require.NoError(t, err)
+	require.Equal(t, SubscriptionEntitlementPeriodStatusActive, reloadedPeriod.Status)
+	require.Equal(t, now.AddDate(0, 0, 15), reloadedPeriod.ExpiresAt)
+	require.Equal(t, 25, reloadedPeriod.PeriodDays)
+	require.Nil(t, reloadedPeriod.RevokedAt)
 }
 
 func TestWithSubscriptionUpdateTx_ReusesOuterTransactionWithoutNestedBegin(t *testing.T) {

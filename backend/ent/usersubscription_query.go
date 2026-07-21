@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -24,16 +25,17 @@ import (
 // UserSubscriptionQuery is the builder for querying UserSubscription entities.
 type UserSubscriptionQuery struct {
 	config
-	ctx                    *QueryContext
-	order                  []usersubscription.OrderOption
-	inters                 []Interceptor
-	predicates             []predicate.UserSubscription
-	withUser               *UserQuery
-	withGroup              *GroupQuery
-	withAssignedByUser     *UserQuery
-	withUsageLogs          *UsageLogQuery
-	withEntitlementPeriods *SubscriptionEntitlementPeriodQuery
-	modifiers              []func(*sql.Selector)
+	ctx                      *QueryContext
+	order                    []usersubscription.OrderOption
+	inters                   []Interceptor
+	predicates               []predicate.UserSubscription
+	withUser                 *UserQuery
+	withGroup                *GroupQuery
+	withAssignedByUser       *UserQuery
+	withUsageLogs            *UsageLogQuery
+	withEntitlementPeriods   *SubscriptionEntitlementPeriodQuery
+	withQuotaDebtAdjustments *SubscriptionQuotaDebtAdjustmentQuery
+	modifiers                []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -173,6 +175,28 @@ func (_q *UserSubscriptionQuery) QueryEntitlementPeriods() *SubscriptionEntitlem
 			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
 			sqlgraph.To(subscriptionentitlementperiod.Table, subscriptionentitlementperiod.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.EntitlementPeriodsTable, usersubscription.EntitlementPeriodsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryQuotaDebtAdjustments chains the current query on the "quota_debt_adjustments" edge.
+func (_q *UserSubscriptionQuery) QueryQuotaDebtAdjustments() *SubscriptionQuotaDebtAdjustmentQuery {
+	query := (&SubscriptionQuotaDebtAdjustmentClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
+			sqlgraph.To(subscriptionquotadebtadjustment.Table, subscriptionquotadebtadjustment.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.QuotaDebtAdjustmentsTable, usersubscription.QuotaDebtAdjustmentsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -367,16 +391,17 @@ func (_q *UserSubscriptionQuery) Clone() *UserSubscriptionQuery {
 		return nil
 	}
 	return &UserSubscriptionQuery{
-		config:                 _q.config,
-		ctx:                    _q.ctx.Clone(),
-		order:                  append([]usersubscription.OrderOption{}, _q.order...),
-		inters:                 append([]Interceptor{}, _q.inters...),
-		predicates:             append([]predicate.UserSubscription{}, _q.predicates...),
-		withUser:               _q.withUser.Clone(),
-		withGroup:              _q.withGroup.Clone(),
-		withAssignedByUser:     _q.withAssignedByUser.Clone(),
-		withUsageLogs:          _q.withUsageLogs.Clone(),
-		withEntitlementPeriods: _q.withEntitlementPeriods.Clone(),
+		config:                   _q.config,
+		ctx:                      _q.ctx.Clone(),
+		order:                    append([]usersubscription.OrderOption{}, _q.order...),
+		inters:                   append([]Interceptor{}, _q.inters...),
+		predicates:               append([]predicate.UserSubscription{}, _q.predicates...),
+		withUser:                 _q.withUser.Clone(),
+		withGroup:                _q.withGroup.Clone(),
+		withAssignedByUser:       _q.withAssignedByUser.Clone(),
+		withUsageLogs:            _q.withUsageLogs.Clone(),
+		withEntitlementPeriods:   _q.withEntitlementPeriods.Clone(),
+		withQuotaDebtAdjustments: _q.withQuotaDebtAdjustments.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -435,6 +460,17 @@ func (_q *UserSubscriptionQuery) WithEntitlementPeriods(opts ...func(*Subscripti
 		opt(query)
 	}
 	_q.withEntitlementPeriods = query
+	return _q
+}
+
+// WithQuotaDebtAdjustments tells the query-builder to eager-load the nodes that are connected to
+// the "quota_debt_adjustments" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserSubscriptionQuery) WithQuotaDebtAdjustments(opts ...func(*SubscriptionQuotaDebtAdjustmentQuery)) *UserSubscriptionQuery {
+	query := (&SubscriptionQuotaDebtAdjustmentClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withQuotaDebtAdjustments = query
 	return _q
 }
 
@@ -516,12 +552,13 @@ func (_q *UserSubscriptionQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	var (
 		nodes       = []*UserSubscription{}
 		_spec       = _q.querySpec()
-		loadedTypes = [5]bool{
+		loadedTypes = [6]bool{
 			_q.withUser != nil,
 			_q.withGroup != nil,
 			_q.withAssignedByUser != nil,
 			_q.withUsageLogs != nil,
 			_q.withEntitlementPeriods != nil,
+			_q.withQuotaDebtAdjustments != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -575,6 +612,15 @@ func (_q *UserSubscriptionQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 			func(n *UserSubscription) { n.Edges.EntitlementPeriods = []*SubscriptionEntitlementPeriod{} },
 			func(n *UserSubscription, e *SubscriptionEntitlementPeriod) {
 				n.Edges.EntitlementPeriods = append(n.Edges.EntitlementPeriods, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withQuotaDebtAdjustments; query != nil {
+		if err := _q.loadQuotaDebtAdjustments(ctx, query, nodes,
+			func(n *UserSubscription) { n.Edges.QuotaDebtAdjustments = []*SubscriptionQuotaDebtAdjustment{} },
+			func(n *UserSubscription, e *SubscriptionQuotaDebtAdjustment) {
+				n.Edges.QuotaDebtAdjustments = append(n.Edges.QuotaDebtAdjustments, e)
 			}); err != nil {
 			return nil, err
 		}
@@ -720,6 +766,36 @@ func (_q *UserSubscriptionQuery) loadEntitlementPeriods(ctx context.Context, que
 	}
 	query.Where(predicate.SubscriptionEntitlementPeriod(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(usersubscription.EntitlementPeriodsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SubscriptionID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "subscription_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserSubscriptionQuery) loadQuotaDebtAdjustments(ctx context.Context, query *SubscriptionQuotaDebtAdjustmentQuery, nodes []*UserSubscription, init func(*UserSubscription), assign func(*UserSubscription, *SubscriptionQuotaDebtAdjustment)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*UserSubscription)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(subscriptionquotadebtadjustment.FieldSubscriptionID)
+	}
+	query.Where(predicate.SubscriptionQuotaDebtAdjustment(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(usersubscription.QuotaDebtAdjustmentsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

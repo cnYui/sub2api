@@ -3173,6 +3173,7 @@
                         :placeholder="
                           t('admin.settings.defaults.subscriptionGroup')
                         "
+                        @change="syncDefaultSubscriptionValidity(item)"
                       >
                         <template #selected="{ option }">
                           <GroupBadge
@@ -3248,7 +3249,15 @@
                         min="1"
                         max="36500"
                         class="input h-[42px]"
+                        :disabled="isPublicCodexDefaultSubscription(item)"
+                        @change="syncDefaultSubscriptionValidity(item)"
                       />
+                      <p
+                        v-if="isPublicCodexDefaultSubscription(item)"
+                        class="mt-1.5 text-xs text-gray-500 dark:text-gray-400"
+                      >
+                        {{ t("admin.settings.defaults.publicCodex28DayHint") }}
+                      </p>
                     </div>
                     <div class="flex items-end">
                       <button
@@ -3503,6 +3512,7 @@
                             :placeholder="
                               t('admin.settings.defaults.subscriptionGroup')
                             "
+                            @change="syncDefaultSubscriptionValidity(item)"
                           >
                             <template #selected="{ option }">
                               <GroupBadge
@@ -3582,7 +3592,15 @@
                             min="1"
                             max="36500"
                             class="input h-[42px]"
+                            :disabled="isPublicCodexDefaultSubscription(item)"
+                            @change="syncDefaultSubscriptionValidity(item)"
                           />
+                          <p
+                            v-if="isPublicCodexDefaultSubscription(item)"
+                            class="mt-1.5 text-xs text-gray-500 dark:text-gray-400"
+                          >
+                            {{ t("admin.settings.defaults.publicCodex28DayHint") }}
+                          </p>
                         </div>
                         <div class="flex items-end">
                           <button
@@ -6969,6 +6987,10 @@ import {
   normalizeRegistrationEmailSuffixDomains,
   parseRegistrationEmailSuffixWhitelistInput,
 } from "@/utils/registrationEmailPolicy";
+import {
+  PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  isPublicCodexSubscriptionGroupName as isKnownPublicCodexSubscriptionGroupName,
+} from "@/utils/subscriptionQuota";
 
 const { t, locale } = useI18n();
 const appStore = useAppStore();
@@ -7575,6 +7597,8 @@ interface DefaultSubscriptionGroupOption {
   [key: string]: unknown;
 }
 
+const publicCodexSubscriptionValidityDays = PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS;
+
 type SettingsForm = Omit<
   SystemSettings,
   | "wechat_connect_open_enabled"
@@ -8057,6 +8081,45 @@ const defaultSubscriptionGroupOptions = computed<
   })),
 );
 
+function isPublicCodexSubscriptionGroupName(name: string | null | undefined) {
+  return isKnownPublicCodexSubscriptionGroupName(String(name || "").trim());
+}
+
+function findSubscriptionGroupByID(
+  groupID: number | null | undefined,
+): AdminGroup | undefined {
+  if (!groupID) return undefined;
+  return subscriptionGroups.value.find((group) => group.id === Number(groupID));
+}
+
+function isPublicCodexDefaultSubscription(
+  item: DefaultSubscriptionSetting,
+): boolean {
+  return isPublicCodexSubscriptionGroupName(
+    findSubscriptionGroupByID(item.group_id)?.name,
+  );
+}
+
+function syncDefaultSubscriptionValidity(item: DefaultSubscriptionSetting) {
+  if (isPublicCodexDefaultSubscription(item)) {
+    item.validity_days = publicCodexSubscriptionValidityDays;
+  }
+}
+
+function normalizeDefaultSubscriptionsForSubmit(
+  subscriptions: DefaultSubscriptionSetting[],
+): DefaultSubscriptionSetting[] {
+  return normalizeDefaultSubscriptionSettings(subscriptions).map((item) => {
+    if (!isPublicCodexDefaultSubscription(item)) {
+      return item;
+    }
+    return {
+      ...item,
+      validity_days: publicCodexSubscriptionValidityDays,
+    };
+  });
+}
+
 const registrationEmailSuffixWhitelistSeparatorKeys = new Set([
   " ",
   ",",
@@ -8441,7 +8504,7 @@ async function loadSettings() {
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(settings));
     form.default_platform_quotas = normalizePlatformQuotasMap(settings.default_platform_quotas);
     form.backend_mode_enabled = settings.backend_mode_enabled;
-    form.default_subscriptions = normalizeDefaultSubscriptionSettings(
+    form.default_subscriptions = normalizeDefaultSubscriptionsForSubmit(
       settings.default_subscriptions,
     );
     registrationEmailSuffixWhitelistTags.value =
@@ -8554,6 +8617,15 @@ async function loadSubscriptionGroups() {
       (group) =>
         group.subscription_type === "subscription" && group.status === "active",
     );
+    form.default_subscriptions = normalizeDefaultSubscriptionsForSubmit(
+      form.default_subscriptions,
+    );
+    for (const authSource of authSourceDefaultsMeta.value) {
+      authSourceDefaults[authSource.source].subscriptions =
+        normalizeDefaultSubscriptionsForSubmit(
+          authSourceDefaults[authSource.source].subscriptions,
+        );
+    }
   } catch (_error: unknown) {
     subscriptionGroups.value = [];
   }
@@ -8574,7 +8646,9 @@ function addDefaultSubscription() {
   if (!candidate) return;
   form.default_subscriptions.push({
     group_id: candidate.id,
-    validity_days: 30,
+    validity_days: isPublicCodexSubscriptionGroupName(candidate.name)
+      ? publicCodexSubscriptionValidityDays
+      : 30,
   });
 }
 
@@ -8590,7 +8664,9 @@ function addAuthSourceDefaultSubscription(source: AuthSourceType) {
   if (!candidate) return;
   authSourceDefaults[source].subscriptions.push({
     group_id: candidate.id,
-    validity_days: 30,
+    validity_days: isPublicCodexSubscriptionGroupName(candidate.name)
+      ? publicCodexSubscriptionValidityDays
+      : 30,
   });
 }
 
@@ -8689,7 +8765,7 @@ async function saveSettings() {
       form.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.login_agreement_documents = normalizedLoginAgreementDocuments;
 
-    const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionSettings(
+    const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionsForSubmit(
       form.default_subscriptions,
     );
     const duplicateDefaultSubscription = findDuplicateDefaultSubscription(
@@ -8706,7 +8782,7 @@ async function saveSettings() {
 
     for (const authSource of authSourceDefaultsMeta.value) {
       authSourceDefaults[authSource.source].subscriptions =
-        normalizeDefaultSubscriptionSettings(
+        normalizeDefaultSubscriptionsForSubmit(
           authSourceDefaults[authSource.source].subscriptions,
         );
       const duplicate = findDuplicateDefaultSubscription(

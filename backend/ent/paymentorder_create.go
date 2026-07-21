@@ -268,6 +268,12 @@ func (_c *PaymentOrderCreate) SetNillableSubscriptionID(v *int64) *PaymentOrderC
 	return _c
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (_c *PaymentOrderCreate) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderCreate {
+	_c.mutation.SetSubscriptionSnapshot(v)
+	return _c
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_c *PaymentOrderCreate) SetProviderInstanceID(v string) *PaymentOrderCreate {
 	_c.mutation.SetProviderInstanceID(v)
@@ -621,6 +627,12 @@ func (_c *PaymentOrderCreate) SetNillableRefundProviderRef(v *string) *PaymentOr
 	if v != nil {
 		_c.SetRefundProviderRef(*v)
 	}
+	return _c
+}
+
+// SetRefundBasis sets the "refund_basis" field.
+func (_c *PaymentOrderCreate) SetRefundBasis(v map[string]interface{}) *PaymentOrderCreate {
+	_c.mutation.SetRefundBasis(v)
 	return _c
 }
 
@@ -1188,6 +1200,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldSubscriptionID, field.TypeInt64, value)
 		_node.SubscriptionID = &value
 	}
+	if value, ok := _c.mutation.SubscriptionSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionSnapshot, field.TypeJSON, value)
+		_node.SubscriptionSnapshot = value
+	}
 	if value, ok := _c.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 		_node.ProviderInstanceID = &value
@@ -1291,6 +1307,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.RefundProviderRef(); ok {
 		_spec.SetField(paymentorder.FieldRefundProviderRef, field.TypeString, value)
 		_node.RefundProviderRef = &value
+	}
+	if value, ok := _c.mutation.RefundBasis(); ok {
+		_spec.SetField(paymentorder.FieldRefundBasis, field.TypeJSON, value)
+		_node.RefundBasis = value
 	}
 	if value, ok := _c.mutation.ExpiresAt(); ok {
 		_spec.SetField(paymentorder.FieldExpiresAt, field.TypeTime, value)
@@ -1783,6 +1803,24 @@ func (u *PaymentOrderUpsert) ClearSubscriptionID() *PaymentOrderUpsert {
 	return u
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (u *PaymentOrderUpsert) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldSubscriptionSnapshot, v)
+	return u
+}
+
+// UpdateSubscriptionSnapshot sets the "subscription_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateSubscriptionSnapshot() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldSubscriptionSnapshot)
+	return u
+}
+
+// ClearSubscriptionSnapshot clears the value of the "subscription_snapshot" field.
+func (u *PaymentOrderUpsert) ClearSubscriptionSnapshot() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldSubscriptionSnapshot)
+	return u
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsert) SetProviderInstanceID(v string) *PaymentOrderUpsert {
 	u.Set(paymentorder.FieldProviderInstanceID, v)
@@ -2206,6 +2244,24 @@ func (u *PaymentOrderUpsert) UpdateRefundProviderRef() *PaymentOrderUpsert {
 // ClearRefundProviderRef clears the value of the "refund_provider_ref" field.
 func (u *PaymentOrderUpsert) ClearRefundProviderRef() *PaymentOrderUpsert {
 	u.SetNull(paymentorder.FieldRefundProviderRef)
+	return u
+}
+
+// SetRefundBasis sets the "refund_basis" field.
+func (u *PaymentOrderUpsert) SetRefundBasis(v map[string]interface{}) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldRefundBasis, v)
+	return u
+}
+
+// UpdateRefundBasis sets the "refund_basis" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateRefundBasis() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldRefundBasis)
+	return u
+}
+
+// ClearRefundBasis clears the value of the "refund_basis" field.
+func (u *PaymentOrderUpsert) ClearRefundBasis() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldRefundBasis)
 	return u
 }
 
@@ -2819,6 +2875,27 @@ func (u *PaymentOrderUpsertOne) ClearSubscriptionID() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (u *PaymentOrderUpsertOne) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionSnapshot(v)
+	})
+}
+
+// UpdateSubscriptionSnapshot sets the "subscription_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateSubscriptionSnapshot() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionSnapshot()
+	})
+}
+
+// ClearSubscriptionSnapshot clears the value of the "subscription_snapshot" field.
+func (u *PaymentOrderUpsertOne) ClearSubscriptionSnapshot() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearSubscriptionSnapshot()
+	})
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsertOne) SetProviderInstanceID(v string) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -3313,6 +3390,27 @@ func (u *PaymentOrderUpsertOne) UpdateRefundProviderRef() *PaymentOrderUpsertOne
 func (u *PaymentOrderUpsertOne) ClearRefundProviderRef() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearRefundProviderRef()
+	})
+}
+
+// SetRefundBasis sets the "refund_basis" field.
+func (u *PaymentOrderUpsertOne) SetRefundBasis(v map[string]interface{}) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBasis(v)
+	})
+}
+
+// UpdateRefundBasis sets the "refund_basis" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateRefundBasis() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBasis()
+	})
+}
+
+// ClearRefundBasis clears the value of the "refund_basis" field.
+func (u *PaymentOrderUpsertOne) ClearRefundBasis() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundBasis()
 	})
 }
 
@@ -4115,6 +4213,27 @@ func (u *PaymentOrderUpsertBulk) ClearSubscriptionID() *PaymentOrderUpsertBulk {
 	})
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (u *PaymentOrderUpsertBulk) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetSubscriptionSnapshot(v)
+	})
+}
+
+// UpdateSubscriptionSnapshot sets the "subscription_snapshot" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateSubscriptionSnapshot() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateSubscriptionSnapshot()
+	})
+}
+
+// ClearSubscriptionSnapshot clears the value of the "subscription_snapshot" field.
+func (u *PaymentOrderUpsertBulk) ClearSubscriptionSnapshot() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearSubscriptionSnapshot()
+	})
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (u *PaymentOrderUpsertBulk) SetProviderInstanceID(v string) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -4609,6 +4728,27 @@ func (u *PaymentOrderUpsertBulk) UpdateRefundProviderRef() *PaymentOrderUpsertBu
 func (u *PaymentOrderUpsertBulk) ClearRefundProviderRef() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearRefundProviderRef()
+	})
+}
+
+// SetRefundBasis sets the "refund_basis" field.
+func (u *PaymentOrderUpsertBulk) SetRefundBasis(v map[string]interface{}) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetRefundBasis(v)
+	})
+}
+
+// UpdateRefundBasis sets the "refund_basis" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateRefundBasis() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateRefundBasis()
+	})
+}
+
+// ClearRefundBasis clears the value of the "refund_basis" field.
+func (u *PaymentOrderUpsertBulk) ClearRefundBasis() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearRefundBasis()
 	})
 }
 

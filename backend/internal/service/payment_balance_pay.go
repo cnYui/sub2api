@@ -47,6 +47,17 @@ func (s *PaymentService) BalancePayOrder(ctx context.Context, req BalancePayOrde
 	defer func() { _ = tx.Rollback() }()
 	txCtx := dbent.NewTxContext(ctx, tx)
 
+	var subscriptionSnapshot *SubscriptionOrderSnapshot
+	if plan != nil {
+		plan, subscriptionSnapshot, err = s.lockSubscriptionPlanSnapshotInTx(txCtx, tx, plan, orderAmount)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.ensureSubscriptionPurchaseAllowed(txCtx, req.UserID, subscriptionSnapshot.GroupID); err != nil {
+			return nil, err
+		}
+	}
+
 	if err := s.deductBalanceForPurchaseInTx(txCtx, tx, req.UserID, payAmount); err != nil {
 		return nil, err
 	}
@@ -79,8 +90,9 @@ func (s *PaymentService) BalancePayOrder(ctx context.Context, req BalancePayOrde
 	}
 	if plan != nil {
 		orderBuilder.SetPlanID(plan.ID).
-			SetSubscriptionGroupID(plan.GroupID).
-			SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
+			SetSubscriptionGroupID(subscriptionSnapshot.GroupID).
+			SetSubscriptionDays(subscriptionSnapshot.ValidityDays).
+			SetSubscriptionSnapshot(subscriptionSnapshot.mapValue())
 	}
 	if trafficPack != nil {
 		orderBuilder.SetProviderSnapshot(buildPaymentOrderProviderSnapshot(nil, CreateOrderRequest{}, trafficPack))

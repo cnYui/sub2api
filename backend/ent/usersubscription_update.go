@@ -14,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -165,6 +166,26 @@ func (_u *UserSubscriptionUpdate) SetNillableWeeklyWindowStart(v *time.Time) *Us
 // ClearWeeklyWindowStart clears the value of the "weekly_window_start" field.
 func (_u *UserSubscriptionUpdate) ClearWeeklyWindowStart() *UserSubscriptionUpdate {
 	_u.mutation.ClearWeeklyWindowStart()
+	return _u
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (_u *UserSubscriptionUpdate) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionUpdate {
+	_u.mutation.SetWeeklyAnchorAt(v)
+	return _u
+}
+
+// SetNillableWeeklyAnchorAt sets the "weekly_anchor_at" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableWeeklyAnchorAt(v *time.Time) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetWeeklyAnchorAt(*v)
+	}
+	return _u
+}
+
+// ClearWeeklyAnchorAt clears the value of the "weekly_anchor_at" field.
+func (_u *UserSubscriptionUpdate) ClearWeeklyAnchorAt() *UserSubscriptionUpdate {
+	_u.mutation.ClearWeeklyAnchorAt()
 	return _u
 }
 
@@ -364,6 +385,21 @@ func (_u *UserSubscriptionUpdate) AddEntitlementPeriods(v ...*SubscriptionEntitl
 	return _u.AddEntitlementPeriodIDs(ids...)
 }
 
+// AddQuotaDebtAdjustmentIDs adds the "quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_u *UserSubscriptionUpdate) AddQuotaDebtAdjustmentIDs(ids ...int64) *UserSubscriptionUpdate {
+	_u.mutation.AddQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// AddQuotaDebtAdjustments adds the "quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *UserSubscriptionUpdate) AddQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserSubscriptionUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddQuotaDebtAdjustmentIDs(ids...)
+}
+
 // Mutation returns the UserSubscriptionMutation object of the builder.
 func (_u *UserSubscriptionUpdate) Mutation() *UserSubscriptionMutation {
 	return _u.mutation
@@ -427,6 +463,27 @@ func (_u *UserSubscriptionUpdate) RemoveEntitlementPeriods(v ...*SubscriptionEnt
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEntitlementPeriodIDs(ids...)
+}
+
+// ClearQuotaDebtAdjustments clears all "quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *UserSubscriptionUpdate) ClearQuotaDebtAdjustments() *UserSubscriptionUpdate {
+	_u.mutation.ClearQuotaDebtAdjustments()
+	return _u
+}
+
+// RemoveQuotaDebtAdjustmentIDs removes the "quota_debt_adjustments" edge to SubscriptionQuotaDebtAdjustment entities by IDs.
+func (_u *UserSubscriptionUpdate) RemoveQuotaDebtAdjustmentIDs(ids ...int64) *UserSubscriptionUpdate {
+	_u.mutation.RemoveQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// RemoveQuotaDebtAdjustments removes "quota_debt_adjustments" edges to SubscriptionQuotaDebtAdjustment entities.
+func (_u *UserSubscriptionUpdate) RemoveQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserSubscriptionUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveQuotaDebtAdjustmentIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -528,6 +585,12 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if _u.mutation.WeeklyWindowStartCleared() {
 		_spec.ClearField(usersubscription.FieldWeeklyWindowStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.WeeklyAnchorAt(); ok {
+		_spec.SetField(usersubscription.FieldWeeklyAnchorAt, field.TypeTime, value)
+	}
+	if _u.mutation.WeeklyAnchorAtCleared() {
+		_spec.ClearField(usersubscription.FieldWeeklyAnchorAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.MonthlyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldMonthlyWindowStart, field.TypeTime, value)
@@ -739,6 +802,51 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.QuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedQuotaDebtAdjustmentsIDs(); len(nodes) > 0 && !_u.mutation.QuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.QuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{usersubscription.Label}
@@ -892,6 +1000,26 @@ func (_u *UserSubscriptionUpdateOne) SetNillableWeeklyWindowStart(v *time.Time) 
 // ClearWeeklyWindowStart clears the value of the "weekly_window_start" field.
 func (_u *UserSubscriptionUpdateOne) ClearWeeklyWindowStart() *UserSubscriptionUpdateOne {
 	_u.mutation.ClearWeeklyWindowStart()
+	return _u
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (_u *UserSubscriptionUpdateOne) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionUpdateOne {
+	_u.mutation.SetWeeklyAnchorAt(v)
+	return _u
+}
+
+// SetNillableWeeklyAnchorAt sets the "weekly_anchor_at" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableWeeklyAnchorAt(v *time.Time) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetWeeklyAnchorAt(*v)
+	}
+	return _u
+}
+
+// ClearWeeklyAnchorAt clears the value of the "weekly_anchor_at" field.
+func (_u *UserSubscriptionUpdateOne) ClearWeeklyAnchorAt() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearWeeklyAnchorAt()
 	return _u
 }
 
@@ -1091,6 +1219,21 @@ func (_u *UserSubscriptionUpdateOne) AddEntitlementPeriods(v ...*SubscriptionEnt
 	return _u.AddEntitlementPeriodIDs(ids...)
 }
 
+// AddQuotaDebtAdjustmentIDs adds the "quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_u *UserSubscriptionUpdateOne) AddQuotaDebtAdjustmentIDs(ids ...int64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// AddQuotaDebtAdjustments adds the "quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *UserSubscriptionUpdateOne) AddQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserSubscriptionUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddQuotaDebtAdjustmentIDs(ids...)
+}
+
 // Mutation returns the UserSubscriptionMutation object of the builder.
 func (_u *UserSubscriptionUpdateOne) Mutation() *UserSubscriptionMutation {
 	return _u.mutation
@@ -1154,6 +1297,27 @@ func (_u *UserSubscriptionUpdateOne) RemoveEntitlementPeriods(v ...*Subscription
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEntitlementPeriodIDs(ids...)
+}
+
+// ClearQuotaDebtAdjustments clears all "quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_u *UserSubscriptionUpdateOne) ClearQuotaDebtAdjustments() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearQuotaDebtAdjustments()
+	return _u
+}
+
+// RemoveQuotaDebtAdjustmentIDs removes the "quota_debt_adjustments" edge to SubscriptionQuotaDebtAdjustment entities by IDs.
+func (_u *UserSubscriptionUpdateOne) RemoveQuotaDebtAdjustmentIDs(ids ...int64) *UserSubscriptionUpdateOne {
+	_u.mutation.RemoveQuotaDebtAdjustmentIDs(ids...)
+	return _u
+}
+
+// RemoveQuotaDebtAdjustments removes "quota_debt_adjustments" edges to SubscriptionQuotaDebtAdjustment entities.
+func (_u *UserSubscriptionUpdateOne) RemoveQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserSubscriptionUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveQuotaDebtAdjustmentIDs(ids...)
 }
 
 // Where appends a list predicates to the UserSubscriptionUpdate builder.
@@ -1285,6 +1449,12 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 	}
 	if _u.mutation.WeeklyWindowStartCleared() {
 		_spec.ClearField(usersubscription.FieldWeeklyWindowStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.WeeklyAnchorAt(); ok {
+		_spec.SetField(usersubscription.FieldWeeklyAnchorAt, field.TypeTime, value)
+	}
+	if _u.mutation.WeeklyAnchorAtCleared() {
+		_spec.ClearField(usersubscription.FieldWeeklyAnchorAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.MonthlyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldMonthlyWindowStart, field.TypeTime, value)
@@ -1489,6 +1659,51 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.QuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedQuotaDebtAdjustmentsIDs(); len(nodes) > 0 && !_u.mutation.QuotaDebtAdjustmentsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.QuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

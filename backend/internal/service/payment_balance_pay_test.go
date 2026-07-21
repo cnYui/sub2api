@@ -326,6 +326,7 @@ func TestBalancePayTrafficPackDeductsPayAmountAndCreditsPack(t *testing.T) {
 
 func createBalancePayTestPlan(t *testing.T, ctx context.Context, client *dbent.Client, groupID int64, price float64) int64 {
 	t.Helper()
+	seedPaymentTestSubscriptionGroup(t, ctx, client, groupID)
 	plan, err := client.SubscriptionPlan.Create().
 		SetGroupID(groupID).
 		SetName("RMB Plan").
@@ -336,6 +337,38 @@ func createBalancePayTestPlan(t *testing.T, ctx context.Context, client *dbent.C
 		Save(ctx)
 	require.NoError(t, err)
 	return plan.ID
+}
+
+func seedPaymentTestSubscriptionGroup(t *testing.T, ctx context.Context, client *dbent.Client, groupID int64) {
+	t.Helper()
+	_, err := client.ExecContext(ctx, `
+INSERT INTO groups (
+	id, name, status, platform, subscription_type,
+	rate_multiplier, is_exclusive, default_validity_days,
+	allow_image_generation, claude_code_only,
+	model_routing, model_routing_enabled, mcp_xml_inject,
+	supported_model_scopes, sort_order,
+	allow_messages_dispatch, require_oauth_only, require_privacy_set,
+	default_mapped_model, messages_dispatch_model_config, models_list_config,
+	rpm_limit, created_at, updated_at
+)
+VALUES (
+	?, ?, ?, ?, ?,
+	1.0, false, 30,
+	false, false,
+	'{}', false, true,
+	'["claude","gemini_text","gemini_image"]', 0,
+	false, false, false,
+	'', '{}', '{}',
+	0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+)
+ON CONFLICT(id) DO UPDATE SET
+	status = excluded.status,
+	platform = excluded.platform,
+	subscription_type = excluded.subscription_type,
+	updated_at = CURRENT_TIMESTAMP
+`, groupID, "test-subscription-group-"+strconv.FormatInt(groupID, 10), payment.EntityStatusActive, PlatformOpenAI, SubscriptionTypeSubscription)
+	require.NoError(t, err)
 }
 
 func newBalancePayTestService(client *dbent.Client, feeRate float64) *PaymentService {

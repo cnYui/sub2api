@@ -15,5 +15,13 @@ type SubscriptionCacheData struct {
 
 	DailyWindowStart   *time.Time
 	WeeklyWindowStart  *time.Time
+	WeeklyAnchorAt     *time.Time
 	MonthlyWindowStart *time.Time
+
+	EntitlementPeriodID       *int64
+	EntitlementWeeklyLimitUSD *float64
+	PeriodTotalQuotaUSD       *float64
+	EntitlementExpiresAt      *time.Time
+	QuotaWindowUnit           string
+	QuotaWindowDays           int
 }

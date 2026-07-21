@@ -219,6 +219,48 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			},
 		},
 		{
+			name: "rolling_weekly_update_resets_stale_window_before_increment",
+			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
+				userID := int64(14)
+				groupID := int64(24)
+				anchor := time.Now().AddDate(0, 0, -8).Truncate(time.Second)
+				currentWindowStart := anchor.AddDate(0, 0, 7)
+				entitlementID := int64(3001)
+				weeklyLimit := 72.0
+				periodTotal := 288.0
+
+				data := &service.SubscriptionCacheData{
+					Status:                    "active",
+					ExpiresAt:                 anchor.AddDate(0, 0, 28),
+					DailyUsage:                1.0,
+					WeeklyUsage:               60.0,
+					MonthlyUsage:              3.0,
+					Version:                   1,
+					DailyWindowStart:          ptrTimeForBillingCacheIntegration(anchor),
+					WeeklyWindowStart:         ptrTimeForBillingCacheIntegration(anchor),
+					WeeklyAnchorAt:            ptrTimeForBillingCacheIntegration(anchor),
+					MonthlyWindowStart:        ptrTimeForBillingCacheIntegration(anchor),
+					EntitlementPeriodID:       &entitlementID,
+					EntitlementWeeklyLimitUSD: &weeklyLimit,
+					PeriodTotalQuotaUSD:       &periodTotal,
+					EntitlementExpiresAt:      ptrTimeForBillingCacheIntegration(anchor.AddDate(0, 0, 28)),
+					QuotaWindowUnit:           "week",
+					QuotaWindowDays:           7,
+				}
+				require.NoError(s.T(), cache.SetSubscriptionCache(ctx, userID, groupID, data), "SetSubscriptionCache")
+
+				require.NoError(s.T(), cache.UpdateSubscriptionUsage(ctx, userID, groupID, 3.5), "UpdateSubscriptionUsage")
+
+				gotSub, err := cache.GetSubscriptionCache(ctx, userID, groupID)
+				require.NoError(s.T(), err, "GetSubscriptionCache after rolling weekly update")
+				require.InDelta(s.T(), 1.0, gotSub.DailyUsage, 1e-9)
+				require.InDelta(s.T(), 3.5, gotSub.WeeklyUsage, 1e-9)
+				require.InDelta(s.T(), 3.0, gotSub.MonthlyUsage, 1e-9)
+				require.NotNil(s.T(), gotSub.WeeklyWindowStart)
+				require.True(s.T(), gotSub.WeeklyWindowStart.Equal(currentWindowStart))
+			},
+		},
+		{
 			name: "invalidate_removes_key",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(101)

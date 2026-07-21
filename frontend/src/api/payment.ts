@@ -13,7 +13,8 @@ import type {
   CreateOrderRequest,
   CreateOrderResult,
   BalancePayOrderRequest,
-  PaymentOrder
+  PaymentOrder,
+  SubscriptionRefundQuote
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -86,6 +87,11 @@ export const paymentAPI = {
   /** Request a refund for a completed order */
   requestRefund(id: number, data: { reason: string }) {
     return apiClient.post(`/payment/orders/${id}/refund-request`, data)
+  },
+
+  /** Get a read-only quota-based subscription refund quote. */
+  getRefundQuote(id: number) {
+    return apiClient.get<SubscriptionRefundQuote>(`/payment/orders/${id}/refund-quote`)
   },
 
   /** Get provider instance IDs that allow user refund */

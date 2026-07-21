@@ -16,7 +16,7 @@ export default {
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
-      realtimeBilling: '每日刷新'
+      realtimeBilling: '每 7 天刷新'
     },
     // 用户痛点区块
     painPoints: {
@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 元套餐',
-      unifiedGatewayDesc: '月度订阅-时间 30天，日限额 19刀，24点刷新',
+      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 72 刀',
       multiAccount: '39 元套餐',
-      multiAccountDesc: '月度订阅-时间 30天，日限额 29刀，24点刷新',
+      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 97 刀',
       balanceQuota: '59 元套餐',
-      balanceQuotaDesc: '月度订阅-时间 30天，日限额 49刀，24点刷新',
+      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 148 刀',
       premiumQuota: '99 元套餐',
-      premiumQuotaDesc: '月度订阅-时间 30天，日限额 89刀，24点刷新'
+      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 248 刀'
     },
     // 优势对比
     comparison: {
@@ -160,6 +160,7 @@ export default {
     daysLeft: '({days} 天)',
     usedQuota: '已用额度',
     resetNow: '即将重置',
+    weeklyWindowNotActive: '当前周额度窗口未激活',
     subscriptionType: '订阅类型',
     subscriptionExpires: '订阅到期',
     // Usage stat cells
@@ -656,8 +657,11 @@ export default {
     todayCost: '今日消费',
     subscriptionQuota: '套餐额度',
     todayQuota: '今日',
+	weeklyQuota: '本周额度',
+	resetsAt: '刷新时间',
     periodQuota: '本期',
     last30DaysQuota: '近 30 天',
+    unlimitedQuota: '不限额',
     todayTokens: '今日 Token',
     totalTokens: '累计 Token',
     cacheToday: '今日缓存',
@@ -2341,7 +2345,9 @@ export default {
         monthlyLimit: '每月限额（USD）',
         defaultValidityDays: '默认有效期（天）',
         validityHint: '分配给用户时订阅的有效天数',
-        noLimit: '无限制'
+        noLimit: '无限制',
+        publicCodexWeeklyWindow: '${quota}/周 · 28 天有效 · 每 7 天刷新',
+        publicCodexFixedQuotaHint: '公共 Codex 分组固定使用周额度和 28 天有效期，保存时会清空日/月额度。'
       },
       imagePricing: {
         title: '图片生成计费',
@@ -3073,7 +3079,7 @@ export default {
       revoke: '撤销',
       resetQuota: '重置配额',
       resetQuotaTitle: '重置用量配额',
-      resetQuotaConfirm: "确定要重置 '{user}' 的每日、每周和每月用量配额吗？用量将归零并从今天开始重新计算。",
+      resetQuotaConfirm: "确定要重置 '{user}' 的当前用量窗口吗？公共 Codex 订阅会重置当前滚动周窗，其它订阅仍按日/周/月窗口处理。",
       quotaResetSuccess: '配额重置成功',
       failedToResetQuota: '重置配额失败',
       noSubscriptionsYet: '暂无订阅',
@@ -3115,7 +3121,7 @@ export default {
           adjust: '调整',
           adjustDesc: '延长或缩短订阅有效期',
           resetQuota: '重置配额',
-          resetQuotaDesc: '将日/周/月用量归零，重新开始计算',
+          resetQuotaDesc: '将当前订阅用量窗口归零，公共 Codex 为当前滚动周窗',
           revoke: '撤销',
           revokeDesc: '立即终止该用户的订阅，不可恢复'
         },
@@ -4594,6 +4600,7 @@ export default {
       selectGroup: '选择分组',
       selectGroupPlaceholder: '选择订阅分组',
       validityDays: '有效天数',
+      publicCodex28DayHint: '公共 Codex 兑换码固定发放 28 天订阅，每 7 天刷新周额度。',
       codeExpiry: '兑换码过期',
       neverExpires: '永不过期',
       expiryPresetDays: '{days} 天',
@@ -5892,6 +5899,7 @@ export default {
         defaultSubscriptionsDuplicate: '默认订阅存在重复分组：{groupId}。每个分组只能出现一次。',
         subscriptionGroup: '订阅分组',
         subscriptionValidityDays: '有效期（天）',
+        publicCodex28DayHint: '公共 Codex 订阅固定为 28 天，每 7 天刷新周额度。',
         defaultPlatformQuotas: '默认平台限额（注册时分配）',
         defaultPlatformQuotasHint: '新用户注册时自动写入平台限额记录；已有用户不受影响。留空 = 该平台该窗口不限制。',
         platformQuotaNotice: '月限额为 30 天滚动窗口，非自然月',
@@ -6814,6 +6822,8 @@ export default {
     expired: '已过期',
     expiresToday: '今天到期',
     expiresTomorrow: '明天到期',
+    resetsAt: '重置于 {time}',
+    weeklyWindowNotActive: '当前周额度窗口尚未激活',
     viewAll: '查看全部订阅',
     noSubscriptions: '暂无有效订阅',
     unlimited: '无限制'
@@ -6912,7 +6922,14 @@ export default {
     resetIn: '{time} 后重置',
     quotaEndsIn: '额度将在 {time} 后结束',
     windowNotActive: '等待首次使用',
-    usageOf: '已用 {used} / {limit}'
+    weeklyWindowNotActive: '当前周额度窗口尚未激活，后续权益会按原定时间生效',
+    usageOf: '已用 {used} / {limit}',
+    trafficPack: {
+      title: 'GPT 流量卡 #{id}',
+      description: '剩余额度 {remaining}，当前可用 {available}。',
+      settledUsage: '已结算用量',
+      currentAvailable: '当前可用 {amount}',
+    }
   },
 
   // Onboarding Tour
@@ -7218,6 +7235,15 @@ export default {
     rechargeRatePreview: '人民币余额按 1:1 入账',
     refundReason: '退款原因',
     refundReasonPlaceholder: '请描述您的退款原因',
+    refundQuote: {
+      purchaseBase: '购买本金',
+      nonRefundableFee: '手续费（不退）',
+      periodQuotaUsage: '已用 / 28 天总额度',
+      usageRatio: '使用比例',
+      estimatedRefund: '预计退款',
+      manualReviewRequired: '历史用量无法唯一归属，本订单需要人工审核退款。',
+      loading: '正在计算额度退款报价…',
+    },
     stripeLoadFailed: '支付组件加载失败，请刷新页面重试',
     stripeMissingParams: '缺少订单ID或支付密钥',
     stripeNotConfigured: 'Stripe 未配置',
@@ -7295,11 +7321,32 @@ export default {
     planCard: {
       rate: '倍率',
       dailyLimit: '日限额',
-      weeklyLimit: '周限额',
+      weeklyLimit: '周额度',
+      periodTotalQuota: '28 天总额度',
       monthlyLimit: '月限额',
       quota: '配额',
       unlimited: '无限制',
       models: '模型',
+      refreshTime: '刷新时间',
+      weeklyRefresh: '每 7 天刷新',
+      weeklyDescription: '28 天订阅，每 7 天按购买时间刷新周额度。',
+      dailyRefresh: '24 点刷新',
+      validity: '有效期',
+      feeDetail: '手续费详情',
+    },
+    productCard: {
+      balanceRecharge: '充值',
+      subscription: '订阅',
+      price: '价格',
+    },
+    trafficPack: {
+      eyebrow: '流量卡',
+      title: '{amount}刀流量卡',
+      usdAmount: '{amount}刀',
+      creditAmount: '{amount}刀额度',
+      availableQuota: '可用额度',
+      defaultDescription: '有效期 {days} 天，可用于 GPT 写代码和生图。',
+      buyNow: '立即购买',
     },
     days: '天',
     months: '个月',
@@ -7347,6 +7394,8 @@ export default {
       refundOrder: '退款订单',
       refundAmount: '退款金额',
       maxRefundable: '最大可退金额',
+      ruleBasedRefundHint: '普通订阅退款按服务端额度报价计算，提交时会重新锁定并复算',
+      refundQuoteUnavailable: '暂时无法获取额度退款报价，如需继续只能走强制人工退款。',
       refundReason: '退款原因',
       refundReasonPlaceholder: '请输入退款原因',
       confirmRefund: '确认退款',
@@ -7360,7 +7409,8 @@ export default {
       orderAmount: '订单金额',
       insufficientBalance: '余额不足，将扣至 $0',
       noDeduction: '将不扣除用户余额',
-      forceRefund: '强制退款（忽略余额检查）',
+      forceRefund: '强制人工退款（需审计原因）',
+      forceRefundAudit: '此订单通过强制人工退款处理，需结合操作日志复核原因。',
       orderCancelled: '订单已取消',
       retry: '重试',
       retrySuccess: '重试成功',
@@ -7370,6 +7420,12 @@ export default {
       refundRequestedAt: '申请时间',
       refundRequestedBy: '申请人',
       refundRequestReason: '申请原因',
+      subscriptionSnapshot: '订阅快照',
+      refundBasis: '退款依据',
+      entitlementPeriod: '权益段',
+      periodTotalQuota: '周期总额度',
+      quotaWindow: '额度窗口',
+      calculatedAt: '计算时间',
       auditLogs: '操作日志',
       operator: '操作人',
       channelName: '渠道名称',
@@ -7425,6 +7481,7 @@ export default {
       groupRequired: '请选择订阅分组',
       priceRequired: '价格必须大于 0',
       validityDaysRequired: '有效期天数必须大于 0',
+      publicCodex28DayHint: '公共 Codex 订阅套餐固定为 28 天，每 7 天刷新周额度；保存时会按后端快照再次校准。',
       groupMissing: '缺失',
       groupInfo: '分组信息',
       platform: '平台',

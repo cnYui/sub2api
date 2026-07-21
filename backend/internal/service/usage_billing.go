@@ -24,6 +24,7 @@ type UsageBillingCommand struct {
 	UserID              int64
 	AccountID           int64
 	SubscriptionID      *int64
+	EntitlementPeriodID *int64
 	AccountType         string
 	Model               string
 	ServiceTier         string
@@ -67,7 +68,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		return ""
 	}
 	raw := fmt.Sprintf(
-		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%s|%t|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
+		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%d|%d|%s|%t|%d|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f",
 		c.UserID,
 		c.AccountID,
 		c.APIKeyID,
@@ -86,6 +87,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		strings.TrimSpace(c.MediaType),
 		c.BillingIncomplete,
 		valueOrZero(c.SubscriptionID),
+		valueOrZero(c.EntitlementPeriodID),
 		c.BalanceCost,
 		c.SubscriptionCost,
 		c.TrafficPackCost,

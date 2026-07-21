@@ -105,6 +105,11 @@ func WeeklyWindowStart(v time.Time) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldWeeklyWindowStart, v))
 }
 
+// WeeklyAnchorAt applies equality check predicate on the "weekly_anchor_at" field. It's identical to WeeklyAnchorAtEQ.
+func WeeklyAnchorAt(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldWeeklyAnchorAt, v))
+}
+
 // MonthlyWindowStart applies equality check predicate on the "monthly_window_start" field. It's identical to MonthlyWindowStartEQ.
 func MonthlyWindowStart(v time.Time) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldMonthlyWindowStart, v))
@@ -555,6 +560,56 @@ func WeeklyWindowStartNotNil() predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldNotNull(FieldWeeklyWindowStart))
 }
 
+// WeeklyAnchorAtEQ applies the EQ predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtEQ(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldEQ(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtNEQ applies the NEQ predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtNEQ(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNEQ(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtIn applies the In predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtIn(vs ...time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIn(FieldWeeklyAnchorAt, vs...))
+}
+
+// WeeklyAnchorAtNotIn applies the NotIn predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtNotIn(vs ...time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotIn(FieldWeeklyAnchorAt, vs...))
+}
+
+// WeeklyAnchorAtGT applies the GT predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtGT(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGT(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtGTE applies the GTE predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtGTE(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldGTE(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtLT applies the LT predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtLT(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLT(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtLTE applies the LTE predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtLTE(v time.Time) predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldLTE(FieldWeeklyAnchorAt, v))
+}
+
+// WeeklyAnchorAtIsNil applies the IsNil predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtIsNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldIsNull(FieldWeeklyAnchorAt))
+}
+
+// WeeklyAnchorAtNotNil applies the NotNil predicate on the "weekly_anchor_at" field.
+func WeeklyAnchorAtNotNil() predicate.UserSubscription {
+	return predicate.UserSubscription(sql.FieldNotNull(FieldWeeklyAnchorAt))
+}
+
 // MonthlyWindowStartEQ applies the EQ predicate on the "monthly_window_start" field.
 func MonthlyWindowStartEQ(v time.Time) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.FieldEQ(FieldMonthlyWindowStart, v))
@@ -977,6 +1032,29 @@ func HasEntitlementPeriods() predicate.UserSubscription {
 func HasEntitlementPeriodsWith(preds ...predicate.SubscriptionEntitlementPeriod) predicate.UserSubscription {
 	return predicate.UserSubscription(func(s *sql.Selector) {
 		step := newEntitlementPeriodsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasQuotaDebtAdjustments applies the HasEdge predicate on the "quota_debt_adjustments" edge.
+func HasQuotaDebtAdjustments() predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, QuotaDebtAdjustmentsTable, QuotaDebtAdjustmentsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasQuotaDebtAdjustmentsWith applies the HasEdge predicate on the "quota_debt_adjustments" edge with a given conditions (other predicates).
+func HasQuotaDebtAdjustmentsWith(preds ...predicate.SubscriptionQuotaDebtAdjustment) predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := newQuotaDebtAdjustmentsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -344,6 +344,104 @@ func TestGetPaymentConfigKeepsStoredEnabledTypes(t *testing.T) {
 	}
 }
 
+func TestCreatePlanNormalizesPublicCodexValidity(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := NewPaymentConfigService(client, nil, nil)
+
+	groupEntity, err := client.Group.Create().
+		SetName("codex-pool-19-usd").
+		SetSubscriptionType(SubscriptionTypeSubscription).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+
+	plan, err := svc.CreatePlan(ctx, CreatePlanRequest{
+		GroupID:      groupEntity.ID,
+		Name:         "29 元订阅池",
+		Description:  "月度订阅-时间 30天，日限额 15刀，24点刷新",
+		Features:     "每日 15 USD",
+		ProductName:  "月度订阅 30 天",
+		Price:        29,
+		ValidityDays: 30,
+		ValidityUnit: "month",
+		ForSale:      true,
+	})
+	if err != nil {
+		t.Fatalf("CreatePlan returned error: %v", err)
+	}
+
+	if plan.ValidityDays != publicCodexSubscriptionValidityDays {
+		t.Fatalf("ValidityDays = %d, want %d", plan.ValidityDays, publicCodexSubscriptionValidityDays)
+	}
+	if plan.ValidityUnit != "day" {
+		t.Fatalf("ValidityUnit = %q, want day", plan.ValidityUnit)
+	}
+	if plan.Description != "28 天订阅，每 7 天刷新 72 USD 周额度，购买时间起滚动计算" {
+		t.Fatalf("Description = %q", plan.Description)
+	}
+	if plan.Features != "周额度 72 USD\n28 天有效期\n购买时间起每 7 天刷新" {
+		t.Fatalf("Features = %q", plan.Features)
+	}
+	if plan.ProductName != "29 元订阅池" {
+		t.Fatalf("ProductName = %q", plan.ProductName)
+	}
+}
+
+func TestUpdatePlanNormalizesPublicCodexValidity(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := NewPaymentConfigService(client, nil, nil)
+
+	groupEntity, err := client.Group.Create().
+		SetName("codex-pool-29-usd").
+		SetSubscriptionType(SubscriptionTypeSubscription).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create group: %v", err)
+	}
+	plan, err := client.SubscriptionPlan.Create().
+		SetGroupID(groupEntity.ID).
+		SetName("39 元订阅池").
+		SetDescription("月度订阅-时间 30天，日限额 25刀，24点刷新").
+		SetPrice(39).
+		SetValidityDays(30).
+		SetValidityUnit("month").
+		SetFeatures("每日 25 USD").
+		SetProductName("旧 30 天套餐").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create plan: %v", err)
+	}
+
+	validityDays := 365
+	validityUnit := "year"
+	updated, err := svc.UpdatePlan(ctx, plan.ID, UpdatePlanRequest{
+		ValidityDays: &validityDays,
+		ValidityUnit: &validityUnit,
+	})
+	if err != nil {
+		t.Fatalf("UpdatePlan returned error: %v", err)
+	}
+
+	if updated.ValidityDays != publicCodexSubscriptionValidityDays {
+		t.Fatalf("ValidityDays = %d, want %d", updated.ValidityDays, publicCodexSubscriptionValidityDays)
+	}
+	if updated.ValidityUnit != "day" {
+		t.Fatalf("ValidityUnit = %q, want day", updated.ValidityUnit)
+	}
+	if updated.Description != "28 天订阅，每 7 天刷新 97 USD 周额度，购买时间起滚动计算" {
+		t.Fatalf("Description = %q", updated.Description)
+	}
+	if updated.Features != "周额度 97 USD\n28 天有效期\n购买时间起每 7 天刷新" {
+		t.Fatalf("Features = %q", updated.Features)
+	}
+	if updated.ProductName != "39 元订阅池" {
+		t.Fatalf("ProductName = %q", updated.ProductName)
+	}
+}
+
 func newPaymentConfigServiceTestClient(t *testing.T) *dbent.Client {
 	t.Helper()
 

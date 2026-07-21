@@ -40,6 +40,37 @@ func TestRedeemService_BatchUpdate_PartialFields(t *testing.T) {
 	require.Nil(t, repo.batchUpdateFields.Value)
 }
 
+func TestRedeemService_BatchUpdate_PublicCodexGroupForces28DayValidity(t *testing.T) {
+	groupID := int64(19)
+	repo := &redeemRepoStub{}
+	subscriptionSvc := NewSubscriptionService(&subscriptionGroupRepoStub{
+		group: &Group{
+			ID:               groupID,
+			Name:             "codex-pool-19-usd",
+			SubscriptionType: SubscriptionTypeSubscription,
+		},
+	}, nil, nil, nil, nil)
+	svc := &RedeemService{
+		redeemRepo:          repo,
+		subscriptionService: subscriptionSvc,
+	}
+
+	result, err := svc.BatchUpdate(context.Background(), &RedeemCodeBatchUpdateInput{
+		IDs: []int64{1, 2},
+		Fields: RedeemCodeBatchUpdateFields{
+			GroupID: NullableInt64Update{Set: true, Value: &groupID},
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(2), result.Updated)
+	require.True(t, repo.batchUpdateCalled)
+	require.True(t, repo.batchUpdateFields.GroupID.Set)
+	require.Equal(t, groupID, *repo.batchUpdateFields.GroupID.Value)
+	require.NotNil(t, repo.batchUpdateFields.ValidityDays)
+	require.Equal(t, publicCodexSubscriptionValidityDays, *repo.batchUpdateFields.ValidityDays)
+}
+
 func TestRedeemService_BatchUpdate_RejectsInvalidID(t *testing.T) {
 	repo := &redeemRepoStub{}
 	svc := &RedeemService{redeemRepo: repo}

@@ -1587,7 +1587,11 @@ export interface UserSubscription {
   monthly_usage_usd: number
   daily_window_start: string | null
   weekly_window_start: string | null
+	weekly_anchor_at?: string | null
+	weekly_window_resets_at?: string | null
   monthly_window_start: string | null
+	effective_weekly_limit_usd?: number | null
+	weekly_remaining_usd?: number | null
   created_at: string
   updated_at: string
   expires_at: string | null

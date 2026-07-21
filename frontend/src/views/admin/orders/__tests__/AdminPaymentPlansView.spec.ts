@@ -60,11 +60,11 @@ const planFixture = () => ({
   description: '',
   price: 79,
   original_price: 0,
-  validity_days: 30,
-  validity_unit: 'day',
+  validity_days: 365,
+  validity_unit: 'year',
   rate_multiplier: 1,
-  daily_limit_usd: 69,
-  weekly_limit_usd: null,
+  daily_limit_usd: null,
+  weekly_limit_usd: 198,
   monthly_limit_usd: null,
   supported_model_scopes: [],
   features: '',
@@ -131,6 +131,8 @@ describe('AdminPaymentPlansView', () => {
     const text = wrapper.text()
     expect(text).toContain('基础价')
     expect(text).toContain('¥79.00')
+    expect(text).toContain('28 天')
+    expect(text).not.toContain('365 年')
     expect(text).not.toContain('$79.00')
     expect(text).not.toContain('¥79.79')
   })

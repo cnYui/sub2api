@@ -17,6 +17,7 @@ type UserSubscription struct {
 
 	DailyWindowStart   *time.Time
 	WeeklyWindowStart  *time.Time
+	WeeklyAnchorAt     *time.Time
 	MonthlyWindowStart *time.Time
 
 	DailyUsageUSD   float64
@@ -33,6 +34,8 @@ type UserSubscription struct {
 	User           *User
 	Group          *Group
 	AssignedByUser *User
+
+	CurrentEntitlementPeriod *SubscriptionEntitlementPeriod
 }
 
 func (s *UserSubscription) IsActive() bool {
@@ -72,6 +75,44 @@ func (s *UserSubscription) NeedsDailyResetAt(now time.Time) bool {
 	return usagewindow.DailyExpired(s.DailyWindowStart, now, usagewindow.DailyPolicyNaturalDay)
 }
 
+func (s *UserSubscription) DailyCarryoverUsageAt(group *Group, now time.Time) float64 {
+	if s == nil || group == nil || !s.NeedsDailyResetAt(now) {
+		return 0
+	}
+	return subscriptionDailyCarryoverUsageUSD(s.DailyUsageUSD, group.DailyLimitUSD, s.DailyWindowStart, now)
+}
+
+func subscriptionDailyCarryoverUsageUSD(usage float64, dailyLimit *float64, windowStart *time.Time, now time.Time) float64 {
+	return subscriptionDailyCarryoverForDays(usage, dailyLimit, subscriptionDailyCarryoverDays(windowStart, now))
+}
+
+func subscriptionDailyCarryoverForDays(usage float64, dailyLimit *float64, elapsedDays int) float64 {
+	if dailyLimit == nil || *dailyLimit <= 0 || elapsedDays <= 0 {
+		return 0
+	}
+	carryover := usage - (*dailyLimit * float64(elapsedDays))
+	if carryover <= 0 {
+		return 0
+	}
+	return carryover
+}
+
+func subscriptionDailyCarryoverDays(windowStart *time.Time, now time.Time) int {
+	if windowStart == nil {
+		return 0
+	}
+	start := usagewindow.CurrentDailyStart(*windowStart)
+	current := usagewindow.CurrentDailyStart(now)
+	if !start.Before(current) {
+		return 0
+	}
+	days := 0
+	for day := start; day.Before(current); day = day.AddDate(0, 0, 1) {
+		days++
+	}
+	return days
+}
+
 func (s *UserSubscription) NeedsWeeklyReset() bool {
 	return usagewindow.WeeklyExpired(s.WeeklyWindowStart, time.Now())
 }
@@ -109,6 +150,15 @@ func (s *UserSubscription) MonthlyResetTime() *time.Time {
 }
 
 func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64) bool {
+	if group.UsesRollingWeeklyQuota() {
+		if s.HasRollingWeeklyQuotaFacts(group, time.Now()) {
+			return true
+		}
+		if !group.HasDailyLimit() {
+			return true
+		}
+		return s.DailyUsageUSD+additionalCost <= *group.DailyLimitUSD
+	}
 	if !group.HasDailyLimit() {
 		return true
 	}
@@ -116,6 +166,13 @@ func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64)
 }
 
 func (s *UserSubscription) CheckWeeklyLimit(group *Group, additionalCost float64) bool {
+	if group.UsesRollingWeeklyQuota() {
+		window, ok := s.CurrentRollingWeeklyWindow(group, time.Now())
+		if ok {
+			return window.Allows(s.RollingWeeklyUsageUSD(window), additionalCost)
+		}
+		return group.HasDailyLimit()
+	}
 	if !group.HasWeeklyLimit() {
 		return true
 	}

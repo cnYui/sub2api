@@ -214,7 +214,7 @@
           <template #cell-usage="{ row }">
             <div class="min-w-[280px] space-y-2">
               <!-- Daily Usage -->
-              <div v-if="row.group?.daily_limit_usd" class="usage-row">
+              <div v-if="row.group?.daily_limit_usd && !weeklyLimitForSubscription(row) && !isRollingWeeklySubscription(row)" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.daily') }}</span>
                   <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
@@ -249,23 +249,23 @@
               </div>
 
               <!-- Weekly Usage -->
-              <div v-if="row.group?.weekly_limit_usd" class="usage-row">
+              <div v-if="weeklyLimitForSubscription(row)" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.weekly') }}</span>
                   <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
                     <div
                       class="meter-fill rounded-full"
-                      :class="getProgressClass(row.weekly_usage_usd, row.group?.weekly_limit_usd)"
-                      :style="{ '--meter-value': meterScale(row.weekly_usage_usd, row.group?.weekly_limit_usd) }"
+                      :class="getProgressClass(row.weekly_usage_usd, weeklyLimitForSubscription(row))"
+                      :style="{ '--meter-value': meterScale(row.weekly_usage_usd, weeklyLimitForSubscription(row)) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
                     ${{ row.weekly_usage_usd?.toFixed(2) || '0.00' }}
                     <span class="text-gray-400">/</span>
-                    ${{ row.group?.weekly_limit_usd?.toFixed(2) }}
+                    {{ formatSubscriptionQuotaUSD(weeklyLimitForSubscription(row)) }}
                   </span>
                 </div>
-                <div class="reset-info" v-if="row.weekly_window_start">
+                <div class="reset-info" v-if="row.weekly_window_resets_at || row.weekly_window_start">
                   <svg
                     class="h-3 w-3"
                     fill="none"
@@ -279,8 +279,24 @@
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  <span>{{ formatResetTime(row.weekly_window_start, 'weekly') }}</span>
+                  <span>{{ formatWeeklyUsageWindow(row) }}</span>
                 </div>
+              </div>
+              <div v-else-if="isRollingWeeklySubscription(row)" class="reset-info">
+                <svg
+                  class="h-3 w-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>{{ formatWeeklyUsageWindow(row) }}</span>
               </div>
 
               <!-- Monthly Usage -->
@@ -732,7 +748,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
@@ -753,7 +769,15 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import {
+  PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  formatSubscriptionQuotaUSD,
+  getRemainingDurationParts,
+  isOneTimeDailyQuota,
+  isPublicCodexSubscriptionGroupName,
+  isRollingWeeklySubscription,
+  type RemainingDurationParts,
+} from '@/utils/subscriptionQuota'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -952,6 +976,12 @@ const extendForm = reactive({
   days: 30
 })
 
+const isPublicCodexGroup = (group: Pick<Group, 'name' | 'subscription_type'> | null | undefined) =>
+  !!group && group.subscription_type === 'subscription' && isPublicCodexSubscriptionGroupName(group.name)
+
+const defaultValidityDaysForGroup = (group: Pick<Group, 'name' | 'subscription_type'> | null | undefined) =>
+  isPublicCodexGroup(group) ? PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS : 30
+
 // Group options for filter (all groups)
 const groupOptions = computed(() => [
   { value: '', label: t('admin.subscriptions.allGroups') },
@@ -978,6 +1008,14 @@ const subscriptionGroupOptions = computed(() =>
       subscriptionType: g.subscription_type,
       rate: g.rate_multiplier
     }))
+)
+
+watch(
+  () => assignForm.group_id,
+  (groupID) => {
+    const group = groups.value.find((item) => item.id === groupID)
+    assignForm.validity_days = defaultValidityDaysForGroup(group)
+  },
 )
 
 const applyFilters = () => {
@@ -1154,14 +1192,18 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 
 const closeAssignModal = () => {
   showAssignModal.value = false
-  assignForm.user_id = null
-  assignForm.group_id = null
-  assignForm.validity_days = 30
+  resetAssignForm()
   // Clear user search state
   selectedUser.value = null
   userSearchKeyword.value = ''
   userSearchResults.value = []
   showUserDropdown.value = false
+}
+
+const resetAssignForm = () => {
+  assignForm.user_id = null
+  assignForm.group_id = null
+  assignForm.validity_days = defaultValidityDaysForGroup(null)
 }
 
 const handleAssignSubscription = async () => {
@@ -1198,7 +1240,7 @@ const handleAssignSubscription = async () => {
 
 const handleExtend = (subscription: UserSubscription) => {
   extendingSubscription.value = subscription
-  extendForm.days = 30
+  extendForm.days = defaultValidityDaysForGroup(subscription.group)
   showExtendModal.value = true
 }
 
@@ -1333,6 +1375,25 @@ const formatDailyUsageWindow = (subscription: UserSubscription): string => {
   }
 
   return formatResetTime(subscription.daily_window_start, 'daily')
+}
+
+const weeklyLimitForSubscription = (subscription: UserSubscription): number | null => {
+  if (isRollingWeeklySubscription(subscription)) {
+    return subscription.effective_weekly_limit_usd ?? null
+  }
+  return subscription.effective_weekly_limit_usd ?? subscription.group?.weekly_limit_usd ?? null
+}
+
+const formatWeeklyUsageWindow = (subscription: UserSubscription): string => {
+  const resetsAt = subscription.weekly_window_resets_at
+  if (resetsAt) {
+    const parts = getRemainingDurationParts(resetsAt)
+    return parts ? formatResetDuration(parts) : t('admin.subscriptions.windowNotActive')
+  }
+  if (isRollingWeeklySubscription(subscription)) {
+    return t('admin.subscriptions.windowNotActive')
+  }
+  return formatResetTime(subscription.weekly_window_start, 'weekly')
 }
 
 // Format reset time based on window start and period type

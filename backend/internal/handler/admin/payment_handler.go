@@ -117,47 +117,49 @@ func (h *PaymentHandler) RetryFulfillment(c *gin.Context) {
 }
 
 type AdminPaymentOrderResult struct {
-	ID                  int64      `json:"id"`
-	UserID              int64      `json:"user_id"`
-	UserEmail           string     `json:"user_email,omitempty"`
-	UserName            string     `json:"user_name,omitempty"`
-	UserNotes           *string    `json:"user_notes,omitempty"`
-	Amount              float64    `json:"amount"`
-	PayAmount           float64    `json:"pay_amount"`
-	FeeRate             float64    `json:"fee_rate"`
-	Currency            string     `json:"currency"`
-	RechargeCode        string     `json:"recharge_code,omitempty"`
-	OutTradeNo          string     `json:"out_trade_no"`
-	PaymentType         string     `json:"payment_type"`
-	PaymentTradeNo      string     `json:"payment_trade_no,omitempty"`
-	PayURL              *string    `json:"pay_url,omitempty"`
-	QRCode              *string    `json:"qr_code,omitempty"`
-	QRCodeImg           *string    `json:"qr_code_img,omitempty"`
-	OrderType           string     `json:"order_type"`
-	PlanID              *int64     `json:"plan_id,omitempty"`
-	SubscriptionGroupID *int64     `json:"subscription_group_id,omitempty"`
-	SubscriptionDays    *int       `json:"subscription_days,omitempty"`
-	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
-	ProviderKey         *string    `json:"provider_key,omitempty"`
-	Status              string     `json:"status"`
-	RefundAmount        float64    `json:"refund_amount"`
-	RefundReason        *string    `json:"refund_reason,omitempty"`
-	RefundAt            *time.Time `json:"refund_at,omitempty"`
-	ForceRefund         bool       `json:"force_refund,omitempty"`
-	RefundRequestedAt   *time.Time `json:"refund_requested_at,omitempty"`
-	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
-	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
-	RefundRetryable     bool       `json:"refund_retryable"`
-	ExpiresAt           time.Time  `json:"expires_at"`
-	PaidAt              *time.Time `json:"paid_at,omitempty"`
-	CompletedAt         *time.Time `json:"completed_at,omitempty"`
-	FailedAt            *time.Time `json:"failed_at,omitempty"`
-	FailedReason        *string    `json:"failed_reason,omitempty"`
-	ClientIP            string     `json:"client_ip,omitempty"`
-	SrcHost             string     `json:"src_host,omitempty"`
-	SrcURL              *string    `json:"src_url,omitempty"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
+	ID                   int64          `json:"id"`
+	UserID               int64          `json:"user_id"`
+	UserEmail            string         `json:"user_email,omitempty"`
+	UserName             string         `json:"user_name,omitempty"`
+	UserNotes            *string        `json:"user_notes,omitempty"`
+	Amount               float64        `json:"amount"`
+	PayAmount            float64        `json:"pay_amount"`
+	FeeRate              float64        `json:"fee_rate"`
+	Currency             string         `json:"currency"`
+	RechargeCode         string         `json:"recharge_code,omitempty"`
+	OutTradeNo           string         `json:"out_trade_no"`
+	PaymentType          string         `json:"payment_type"`
+	PaymentTradeNo       string         `json:"payment_trade_no,omitempty"`
+	PayURL               *string        `json:"pay_url,omitempty"`
+	QRCode               *string        `json:"qr_code,omitempty"`
+	QRCodeImg            *string        `json:"qr_code_img,omitempty"`
+	OrderType            string         `json:"order_type"`
+	PlanID               *int64         `json:"plan_id,omitempty"`
+	SubscriptionGroupID  *int64         `json:"subscription_group_id,omitempty"`
+	SubscriptionDays     *int           `json:"subscription_days,omitempty"`
+	ProviderInstanceID   *string        `json:"provider_instance_id,omitempty"`
+	ProviderKey          *string        `json:"provider_key,omitempty"`
+	Status               string         `json:"status"`
+	RefundAmount         float64        `json:"refund_amount"`
+	RefundReason         *string        `json:"refund_reason,omitempty"`
+	RefundAt             *time.Time     `json:"refund_at,omitempty"`
+	ForceRefund          bool           `json:"force_refund,omitempty"`
+	RefundRequestedAt    *time.Time     `json:"refund_requested_at,omitempty"`
+	RefundRequestReason  *string        `json:"refund_request_reason,omitempty"`
+	RefundRequestedBy    *string        `json:"refund_requested_by,omitempty"`
+	RefundRetryable      bool           `json:"refund_retryable"`
+	ExpiresAt            time.Time      `json:"expires_at"`
+	PaidAt               *time.Time     `json:"paid_at,omitempty"`
+	CompletedAt          *time.Time     `json:"completed_at,omitempty"`
+	FailedAt             *time.Time     `json:"failed_at,omitempty"`
+	FailedReason         *string        `json:"failed_reason,omitempty"`
+	ClientIP             string         `json:"client_ip,omitempty"`
+	SrcHost              string         `json:"src_host,omitempty"`
+	SrcURL               *string        `json:"src_url,omitempty"`
+	SubscriptionSnapshot map[string]any `json:"subscription_snapshot,omitempty"`
+	RefundBasis          map[string]any `json:"refund_basis,omitempty"`
+	CreatedAt            time.Time      `json:"created_at"`
+	UpdatedAt            time.Time      `json:"updated_at"`
 }
 
 func sanitizeAdminPaymentOrdersForResponse(orders []*dbent.PaymentOrder) []*AdminPaymentOrderResult {
@@ -175,47 +177,49 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		return nil
 	}
 	return &AdminPaymentOrderResult{
-		ID:                  order.ID,
-		UserID:              order.UserID,
-		UserEmail:           order.UserEmail,
-		UserName:            order.UserName,
-		UserNotes:           order.UserNotes,
-		Amount:              order.Amount,
-		PayAmount:           order.PayAmount,
-		FeeRate:             order.FeeRate,
-		Currency:            service.PaymentOrderCurrency(order),
-		RechargeCode:        order.RechargeCode,
-		OutTradeNo:          order.OutTradeNo,
-		PaymentType:         order.PaymentType,
-		PaymentTradeNo:      order.PaymentTradeNo,
-		PayURL:              order.PayURL,
-		QRCode:              order.QrCode,
-		QRCodeImg:           order.QrCodeImg,
-		OrderType:           order.OrderType,
-		PlanID:              order.PlanID,
-		SubscriptionGroupID: order.SubscriptionGroupID,
-		SubscriptionDays:    order.SubscriptionDays,
-		ProviderInstanceID:  order.ProviderInstanceID,
-		ProviderKey:         order.ProviderKey,
-		Status:              order.Status,
-		RefundAmount:        order.RefundAmount,
-		RefundReason:        order.RefundReason,
-		RefundAt:            order.RefundAt,
-		ForceRefund:         order.ForceRefund,
-		RefundRequestedAt:   order.RefundRequestedAt,
-		RefundRequestReason: order.RefundRequestReason,
-		RefundRequestedBy:   order.RefundRequestedBy,
-		RefundRetryable:     service.PaymentOrderRefundRetryable(order),
-		ExpiresAt:           order.ExpiresAt,
-		PaidAt:              order.PaidAt,
-		CompletedAt:         order.CompletedAt,
-		FailedAt:            order.FailedAt,
-		FailedReason:        order.FailedReason,
-		ClientIP:            order.ClientIP,
-		SrcHost:             order.SrcHost,
-		SrcURL:              order.SrcURL,
-		CreatedAt:           order.CreatedAt,
-		UpdatedAt:           order.UpdatedAt,
+		ID:                   order.ID,
+		UserID:               order.UserID,
+		UserEmail:            order.UserEmail,
+		UserName:             order.UserName,
+		UserNotes:            order.UserNotes,
+		Amount:               order.Amount,
+		PayAmount:            order.PayAmount,
+		FeeRate:              order.FeeRate,
+		Currency:             service.PaymentOrderCurrency(order),
+		RechargeCode:         order.RechargeCode,
+		OutTradeNo:           order.OutTradeNo,
+		PaymentType:          order.PaymentType,
+		PaymentTradeNo:       order.PaymentTradeNo,
+		PayURL:               order.PayURL,
+		QRCode:               order.QrCode,
+		QRCodeImg:            order.QrCodeImg,
+		OrderType:            order.OrderType,
+		PlanID:               order.PlanID,
+		SubscriptionGroupID:  order.SubscriptionGroupID,
+		SubscriptionDays:     order.SubscriptionDays,
+		ProviderInstanceID:   order.ProviderInstanceID,
+		ProviderKey:          order.ProviderKey,
+		Status:               order.Status,
+		RefundAmount:         order.RefundAmount,
+		RefundReason:         order.RefundReason,
+		RefundAt:             order.RefundAt,
+		ForceRefund:          order.ForceRefund,
+		RefundRequestedAt:    order.RefundRequestedAt,
+		RefundRequestReason:  order.RefundRequestReason,
+		RefundRequestedBy:    order.RefundRequestedBy,
+		RefundRetryable:      service.PaymentOrderRefundRetryable(order),
+		ExpiresAt:            order.ExpiresAt,
+		PaidAt:               order.PaidAt,
+		CompletedAt:          order.CompletedAt,
+		FailedAt:             order.FailedAt,
+		FailedReason:         order.FailedReason,
+		ClientIP:             order.ClientIP,
+		SrcHost:              order.SrcHost,
+		SrcURL:               order.SrcURL,
+		SubscriptionSnapshot: order.SubscriptionSnapshot,
+		RefundBasis:          order.RefundBasis,
+		CreatedAt:            order.CreatedAt,
+		UpdatedAt:            order.UpdatedAt,
 	}
 }
 
@@ -259,6 +263,21 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 	response.Success(c, result)
 }
 
+// GetRefundQuote 返回管理员只读退款报价；普通退款提交时仍会在事务内重新计算。
+// GET /api/v1/admin/payment/orders/:id/refund-quote
+func (h *PaymentHandler) GetRefundQuote(c *gin.Context) {
+	orderID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	quote, err := h.paymentService.AdminGetSubscriptionRefundQuote(c.Request.Context(), orderID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, quote)
+}
+
 // --- Subscription Plans ---
 
 // ListPlans returns all subscription plans.
@@ -269,6 +288,8 @@ func (h *PaymentHandler) ListPlans(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
+	service.NormalizeSubscriptionPlansForDisplay(plans, groupInfo)
 	response.Success(c, plans)
 }
 
@@ -284,6 +305,10 @@ func (h *PaymentHandler) CreatePlan(c *gin.Context) {
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
+	}
+	if plan != nil {
+		groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), []*dbent.SubscriptionPlan{plan})
+		service.NormalizeSubscriptionPlansForDisplay([]*dbent.SubscriptionPlan{plan}, groupInfo)
 	}
 	response.Created(c, plan)
 }
@@ -304,6 +329,10 @@ func (h *PaymentHandler) UpdatePlan(c *gin.Context) {
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
+	}
+	if plan != nil {
+		groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), []*dbent.SubscriptionPlan{plan})
+		service.NormalizeSubscriptionPlansForDisplay([]*dbent.SubscriptionPlan{plan}, groupInfo)
 	}
 	response.Success(c, plan)
 }

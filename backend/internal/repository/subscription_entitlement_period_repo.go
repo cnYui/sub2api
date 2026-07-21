@@ -48,7 +48,7 @@ func (r *subscriptionEntitlementPeriodRepository) Create(
 	if status == "" {
 		status = service.SubscriptionEntitlementPeriodStatusActive
 	}
-	created, err := client.SubscriptionEntitlementPeriod.Create().
+	builder := client.SubscriptionEntitlementPeriod.Create().
 		SetUserID(period.UserID).
 		SetSubscriptionID(period.SubscriptionID).
 		SetGroupID(period.GroupID).
@@ -58,10 +58,18 @@ func (r *subscriptionEntitlementPeriodRepository) Create(
 		SetExpiresAt(period.ExpiresAt).
 		SetPeriodDays(period.PeriodDays).
 		SetNillableDailyLimitUsd(period.DailyLimitUSD).
+		SetNillableWeeklyLimitUsd(period.WeeklyLimitUSD).
+		SetNillablePeriodTotalQuotaUsd(period.PeriodTotalQuotaUSD).
 		SetStatus(status).
 		SetNillableRevokedAt(period.RevokedAt).
-		SetRevokedReason(period.RevokedReason).
-		Save(ctx)
+		SetRevokedReason(period.RevokedReason)
+	if period.QuotaWindowUnit != "" {
+		builder.SetQuotaWindowUnit(period.QuotaWindowUnit)
+	}
+	if period.QuotaWindowDays > 0 {
+		builder.SetQuotaWindowDays(period.QuotaWindowDays)
+	}
+	created, err := builder.Save(ctx)
 	if err != nil {
 		return translatePersistenceError(err, nil, service.ErrSubscriptionEntitlementPeriodSourceExists)
 	}
@@ -132,13 +140,17 @@ func subscriptionEntitlementPeriodEntityToService(
 			Type: period.SourceType,
 			ID:   period.SourceID,
 		},
-		StartsAt:      period.StartsAt,
-		ExpiresAt:     period.ExpiresAt,
-		PeriodDays:    period.PeriodDays,
-		DailyLimitUSD: cloneFloat64(period.DailyLimitUsd),
-		Status:        period.Status,
-		RevokedAt:     cloneTime(period.RevokedAt),
-		RevokedReason: period.RevokedReason,
+		StartsAt:            period.StartsAt,
+		ExpiresAt:           period.ExpiresAt,
+		PeriodDays:          period.PeriodDays,
+		DailyLimitUSD:       cloneFloat64(period.DailyLimitUsd),
+		WeeklyLimitUSD:      cloneFloat64(period.WeeklyLimitUsd),
+		PeriodTotalQuotaUSD: cloneFloat64(period.PeriodTotalQuotaUsd),
+		QuotaWindowUnit:     period.QuotaWindowUnit,
+		QuotaWindowDays:     period.QuotaWindowDays,
+		Status:              period.Status,
+		RevokedAt:           cloneTime(period.RevokedAt),
+		RevokedReason:       period.RevokedReason,
 	}
 }
 

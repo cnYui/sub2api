@@ -27,9 +27,10 @@
           <GroupBadge :name="selectedGroupInfo.name" :platform="selectedGroupInfo.platform" :rate-multiplier="selectedGroupInfo.rate_multiplier" />
         </div>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <div><span class="text-gray-500">{{ t('payment.admin.dailyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.daily_limit_usd != null ? '$' + selectedGroupInfo.daily_limit_usd : t('payment.admin.unlimited') }}</span></div>
-          <div><span class="text-gray-500">{{ t('payment.admin.weeklyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.weekly_limit_usd != null ? '$' + selectedGroupInfo.weekly_limit_usd : t('payment.admin.unlimited') }}</span></div>
-          <div><span class="text-gray-500">{{ t('payment.admin.monthlyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.monthly_limit_usd != null ? '$' + selectedGroupInfo.monthly_limit_usd : t('payment.admin.unlimited') }}</span></div>
+          <div v-if="selectedGroupInfo.daily_limit_usd != null && !isPublicCodexGroup(selectedGroupInfo)"><span class="text-gray-500">{{ t('payment.admin.dailyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.daily_limit_usd != null ? '$' + selectedGroupInfo.daily_limit_usd : t('payment.admin.unlimited') }}</span></div>
+          <div><span class="text-gray-500">{{ t('payment.admin.weeklyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupWeeklyLimitUSD != null ? formatSubscriptionQuotaUSD(selectedGroupWeeklyLimitUSD) : t('payment.admin.unlimited') }}</span></div>
+          <div v-if="selectedPublicCodexPeriodTotalUSD != null"><span class="text-gray-500">{{ t('payment.planCard.periodTotalQuota') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ formatSubscriptionQuotaUSD(selectedPublicCodexPeriodTotalUSD) }}</span></div>
+          <div v-if="!isSelectedPublicCodexGroup"><span class="text-gray-500">{{ t('payment.admin.monthlyLimit') }}:</span> <span class="ml-1 font-medium text-gray-700 dark:text-gray-300">{{ selectedGroupInfo.monthly_limit_usd != null ? '$' + selectedGroupInfo.monthly_limit_usd : t('payment.admin.unlimited') }}</span></div>
         </div>
       </div>
 
@@ -39,9 +40,10 @@
         <div><label class="input-label">{{ t('payment.admin.originalPrice') }}</label><input v-model.number="planForm.original_price" type="number" step="0.01" min="0" class="input" /></div>
       </div>
       <div class="grid grid-cols-2 gap-4">
-        <div><label class="input-label">{{ t('payment.admin.validityDays') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
-        <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
+        <div><label class="input-label">{{ t('payment.admin.validityDays') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" :disabled="isSelectedPublicCodexGroup" required /></div>
+        <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" :disabled="isSelectedPublicCodexGroup" /></div>
       </div>
+      <p v-if="isSelectedPublicCodexGroup" class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.publicCodex28DayHint') }}</p>
       <div class="grid grid-cols-2 gap-4">
         <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
       </div>
@@ -89,6 +91,7 @@ import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import { platformTextClass } from '@/utils/platformColors'
+import { formatSubscriptionQuotaUSD, isPublicCodexSubscriptionGroupName, publicCodexSubscriptionWeeklyLimitUSD } from '@/utils/subscriptionQuota'
 
 const props = defineProps<{
   show: boolean
@@ -105,7 +108,7 @@ const { t } = useI18n()
 const appStore = useAppStore()
 
 const saving = ref(false)
-const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+const planForm = reactive({ name: '', group_id: null as number | null, description: '', price: 0, original_price: 0, validity_days: 28, validity_unit: 'days', sort_order: 0, for_sale: true })
 const planFeaturesText = ref('')
 
 const validityUnitOptions = computed(() => [
@@ -128,6 +131,44 @@ const selectedGroupInfo = computed(() => {
   if (!planForm.group_id) return null
   return props.groups.find(g => g.id === planForm.group_id) || null
 })
+const isSelectedPublicCodexGroup = computed(() => isPublicCodexGroup(selectedGroupInfo.value))
+const selectedPublicCodexWeeklyLimitUSD = computed(() =>
+  isSelectedPublicCodexGroup.value ? publicCodexSubscriptionWeeklyLimitUSD(selectedGroupInfo.value?.name) : null
+)
+const selectedGroupWeeklyLimitUSD = computed(() =>
+  selectedPublicCodexWeeklyLimitUSD.value ?? selectedGroupInfo.value?.weekly_limit_usd ?? null
+)
+const selectedPublicCodexPeriodTotalUSD = computed(() =>
+  selectedPublicCodexWeeklyLimitUSD.value == null ? null : selectedPublicCodexWeeklyLimitUSD.value * 4
+)
+
+function isPublicCodexGroup(group: Pick<AdminGroup, 'name' | 'subscription_type'> | null | undefined) {
+  return !!group && group.subscription_type === 'subscription' && isPublicCodexSubscriptionGroupName(group.name)
+}
+
+function publicCodexPlanDescription(groupName: string | null | undefined): string {
+  const limit = publicCodexSubscriptionWeeklyLimitUSD(groupName)
+  if (limit == null) return ''
+  return `28 天订阅，每 7 天刷新 ${Math.round(limit)} USD 周额度，购买时间起滚动计算`
+}
+
+function publicCodexPlanFeatures(groupName: string | null | undefined): string {
+  const limit = publicCodexSubscriptionWeeklyLimitUSD(groupName)
+  if (limit == null) return ''
+  return [
+    `周额度 ${Math.round(limit)} USD`,
+    '28 天有效期',
+    '购买时间起每 7 天刷新',
+  ].join('\n')
+}
+
+function applyPublicCodexPlanDefaults(group: Pick<AdminGroup, 'name' | 'subscription_type'> | null | undefined) {
+  if (!group || !isPublicCodexGroup(group)) return
+  planForm.validity_days = 28
+  planForm.validity_unit = 'days'
+  planForm.description = publicCodexPlanDescription(group.name)
+  planFeaturesText.value = publicCodexPlanFeatures(group.name)
+}
 
 // Reset form when dialog opens
 watch(() => props.show, (visible) => {
@@ -135,23 +176,29 @@ watch(() => props.show, (visible) => {
   if (props.plan) {
     Object.assign(planForm, { name: props.plan.name, group_id: props.plan.group_id, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0, validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days', sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale })
     planFeaturesText.value = (props.plan.features || []).join('\n')
+    applyPublicCodexPlanDefaults(selectedGroupInfo.value)
   } else {
-    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true })
+    Object.assign(planForm, { name: '', group_id: null, description: '', price: 0, original_price: 0, validity_days: 28, validity_unit: 'days', sort_order: 0, for_sale: true })
     planFeaturesText.value = ''
   }
+})
+
+watch(selectedGroupInfo, group => {
+  applyPublicCodexPlanDefaults(group)
 })
 
 /** Build request payload with snake_case keys matching backend JSON tags */
 function buildPlanPayload() {
   const features = planFeaturesText.value.split('\n').map(f => f.trim()).filter(Boolean).join('\n')
+  const publicCodexValidity = isSelectedPublicCodexGroup.value
   return {
     name: planForm.name,
     group_id: planForm.group_id,
     description: planForm.description,
     price: planForm.price,
     original_price: planForm.original_price || 0,
-    validity_days: planForm.validity_days,
-    validity_unit: planForm.validity_unit,
+    validity_days: publicCodexValidity ? 28 : planForm.validity_days,
+    validity_unit: publicCodexValidity ? 'days' : planForm.validity_unit,
     sort_order: planForm.sort_order,
     for_sale: planForm.for_sale,
     features,

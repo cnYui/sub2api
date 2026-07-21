@@ -41,6 +41,7 @@ type UserSubscriptionRepository interface {
 	ResetDailyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetWeeklyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
 	ResetMonthlyUsage(ctx context.Context, id int64, newWindowStart time.Time) error
+	RefreshExpiredUsageWindows(ctx context.Context, id int64, dailyStart, weeklyStart, monthlyStart, now time.Time) (bool, error)
 	IncrementUsage(ctx context.Context, id int64, costUSD float64) error
 	CalibrateActiveDailyUsageWindows(ctx context.Context, dailyStart, upperBound, now time.Time, batchSize int) (*SubscriptionDailyWindowCalibrationResult, error)
 	CountStaleActiveDailyWindows(ctx context.Context, dailyStart, now time.Time) (int64, error)

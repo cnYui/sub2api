@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -70,6 +71,144 @@ type PlanGroupInfo struct {
 	ModelScopes     []string `json:"supported_model_scopes"`
 }
 
+// PlanQuotaSnapshot 是购买页和下单快照共用的套餐额度窗口描述。
+type PlanQuotaSnapshot struct {
+	DailyLimitUSD         *float64 `json:"daily_limit_usd,omitempty"`
+	WeeklyLimitUSD        *float64 `json:"weekly_limit_usd,omitempty"`
+	MonthlyLimitUSD       *float64 `json:"monthly_limit_usd,omitempty"`
+	PeriodTotalQuotaUSD   *float64 `json:"period_total_quota_usd,omitempty"`
+	QuotaWindowUnit       string   `json:"quota_window_unit"`
+	QuotaWindowDays       int      `json:"quota_window_days"`
+	EffectiveValidityDays int      `json:"effective_validity_days"`
+}
+
+// PlanDisplaySnapshot 是公共购买页、结账页和管理端共享的套餐可见文案。
+type PlanDisplaySnapshot struct {
+	Name        string
+	Description string
+	Features    string
+	ProductName string
+}
+
+func BuildPlanQuotaSnapshot(groupName string, dailyLimit, weeklyLimit, monthlyLimit *float64, validityDays int, validityUnit string) PlanQuotaSnapshot {
+	effectiveDays := psComputeValidityDays(validityDays, validityUnit)
+	snapshot := PlanQuotaSnapshot{
+		DailyLimitUSD:         cloneOptionalFloat64(dailyLimit),
+		WeeklyLimitUSD:        cloneOptionalFloat64(weeklyLimit),
+		MonthlyLimitUSD:       cloneOptionalFloat64(monthlyLimit),
+		QuotaWindowUnit:       "day",
+		QuotaWindowDays:       1,
+		EffectiveValidityDays: effectiveDays,
+	}
+	if limit, ok := PublicCodexSubscriptionWeeklyLimitUSD(groupName); ok {
+		weekly := limit
+		total := limit * 4
+		snapshot.DailyLimitUSD = nil
+		snapshot.WeeklyLimitUSD = &weekly
+		snapshot.MonthlyLimitUSD = nil
+		snapshot.PeriodTotalQuotaUSD = &total
+		snapshot.QuotaWindowUnit = "week"
+		snapshot.QuotaWindowDays = subscriptionWeeklyWindowDays
+		snapshot.EffectiveValidityDays = publicCodexSubscriptionValidityDays
+		return snapshot
+	}
+	if snapshot.WeeklyLimitUSD != nil && *snapshot.WeeklyLimitUSD > 0 {
+		snapshot.QuotaWindowUnit = "week"
+		snapshot.QuotaWindowDays = subscriptionWeeklyWindowDays
+		return snapshot
+	}
+	if snapshot.MonthlyLimitUSD != nil && *snapshot.MonthlyLimitUSD > 0 {
+		snapshot.QuotaWindowUnit = "month"
+		snapshot.QuotaWindowDays = 30
+	}
+	return snapshot
+}
+
+func BuildPlanDisplaySnapshot(planName, description, features, productName string, price float64, groupName string, quota PlanQuotaSnapshot) PlanDisplaySnapshot {
+	display := PlanDisplaySnapshot{
+		Name:        planName,
+		Description: description,
+		Features:    features,
+		ProductName: productName,
+	}
+	weeklyLimit, ok := PublicCodexSubscriptionWeeklyLimitUSD(groupName)
+	if !ok {
+		return display
+	}
+	if quota.WeeklyLimitUSD != nil {
+		weeklyLimit = *quota.WeeklyLimitUSD
+	}
+	weeklyLimitText := strconv.FormatFloat(weeklyLimit, 'f', -1, 64)
+	display.Description = fmt.Sprintf("28 天订阅，每 7 天刷新 %s USD 周额度，购买时间起滚动计算", weeklyLimitText)
+	display.Features = strings.Join([]string{
+		fmt.Sprintf("周额度 %s USD", weeklyLimitText),
+		"28 天有效期",
+		"购买时间起每 7 天刷新",
+	}, "\n")
+
+	name := strings.TrimSpace(display.Name)
+	product := strings.TrimSpace(display.ProductName)
+	if name == "" || containsLegacySubscriptionQuotaCopy(name) {
+		switch {
+		case product != "" && !containsLegacySubscriptionQuotaCopy(product):
+			name = product
+		case price > 0:
+			name = fmt.Sprintf("%s 元订阅池", strconv.FormatFloat(price, 'f', -1, 64))
+		default:
+			name = groupName
+		}
+	}
+	display.Name = name
+	if product == "" || containsLegacySubscriptionQuotaCopy(product) {
+		display.ProductName = name
+	}
+	return display
+}
+
+// NormalizeSubscriptionPlanForDisplay 将订阅套餐实体覆盖为当前应展示的公开文案。
+func NormalizeSubscriptionPlanForDisplay(plan *dbent.SubscriptionPlan, groupInfo PlanGroupInfo) {
+	if plan == nil {
+		return
+	}
+	quota := BuildPlanQuotaSnapshot(groupInfo.Name, groupInfo.DailyLimitUSD, groupInfo.WeeklyLimitUSD, groupInfo.MonthlyLimitUSD, plan.ValidityDays, plan.ValidityUnit)
+	display := BuildPlanDisplaySnapshot(plan.Name, plan.Description, plan.Features, plan.ProductName, plan.Price, groupInfo.Name, quota)
+	plan.Name = display.Name
+	plan.Description = display.Description
+	plan.Features = display.Features
+	plan.ProductName = display.ProductName
+	if _, ok := PublicCodexSubscriptionWeeklyLimitUSD(groupInfo.Name); ok {
+		plan.ValidityDays = publicCodexSubscriptionValidityDays
+		plan.ValidityUnit = "day"
+	}
+}
+
+// NormalizeSubscriptionPlansForDisplay 批量规范化订阅套餐实体。
+func NormalizeSubscriptionPlansForDisplay(plans []*dbent.SubscriptionPlan, groupInfoMap map[int64]PlanGroupInfo) {
+	for _, plan := range plans {
+		if plan == nil {
+			continue
+		}
+		groupInfo, ok := groupInfoMap[plan.GroupID]
+		if !ok {
+			continue
+		}
+		NormalizeSubscriptionPlanForDisplay(plan, groupInfo)
+	}
+}
+
+func containsLegacySubscriptionQuotaCopy(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, token := range []string{"月度", "30天", "30 天", "日限额", "每日", "24点", "24 点"} {
+		if strings.Contains(value, token) {
+			return true
+		}
+	}
+	return false
+}
+
 // GetGroupPlatformMap returns a map of group_id → platform for the given plans.
 func (s *PaymentConfigService) GetGroupPlatformMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]string {
 	info := s.GetGroupInfoMap(ctx, plans)
@@ -99,13 +238,14 @@ func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbe
 	}
 	m := make(map[int64]PlanGroupInfo, len(groups))
 	for _, g := range groups {
+		quota := BuildPlanQuotaSnapshot(g.Name, g.DailyLimitUsd, g.WeeklyLimitUsd, g.MonthlyLimitUsd, 0, "day")
 		m[int64(g.ID)] = PlanGroupInfo{
 			Platform:        g.Platform,
 			Name:            g.Name,
 			RateMultiplier:  g.RateMultiplier,
-			DailyLimitUSD:   g.DailyLimitUsd,
-			WeeklyLimitUSD:  g.WeeklyLimitUsd,
-			MonthlyLimitUSD: g.MonthlyLimitUsd,
+			DailyLimitUSD:   quota.DailyLimitUSD,
+			WeeklyLimitUSD:  quota.WeeklyLimitUSD,
+			MonthlyLimitUSD: quota.MonthlyLimitUSD,
 			ModelScopes:     g.SupportedModelScopes,
 		}
 	}
@@ -124,10 +264,20 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
 		return nil, err
 	}
+	display, isPublicCodex, err := s.planDisplayForGroupID(ctx, req.GroupID, req.Name, req.Description, req.Features, req.ProductName, req.Price, req.ValidityDays, req.ValidityUnit)
+	if err != nil {
+		return nil, err
+	}
+	validityDays := req.ValidityDays
+	validityUnit := req.ValidityUnit
+	if isPublicCodex {
+		validityDays = publicCodexSubscriptionValidityDays
+		validityUnit = "day"
+	}
 	b := s.entClient.SubscriptionPlan.Create().
-		SetGroupID(req.GroupID).SetName(req.Name).SetDescription(req.Description).
-		SetPrice(req.Price).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
-		SetFeatures(req.Features).SetProductName(req.ProductName).
+		SetGroupID(req.GroupID).SetName(display.Name).SetDescription(display.Description).
+		SetPrice(req.Price).SetValidityDays(validityDays).SetValidityUnit(validityUnit).
+		SetFeatures(display.Features).SetProductName(display.ProductName).
 		SetForSale(req.ForSale).SetSortOrder(req.SortOrder)
 	if req.OriginalPrice != nil {
 		b.SetOriginalPrice(*req.OriginalPrice)
@@ -140,6 +290,46 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 // plus a validation guard for non-nil fields.
 func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req UpdatePlanRequest) (*dbent.SubscriptionPlan, error) {
 	if err := validatePlanPatch(req); err != nil {
+		return nil, err
+	}
+	existing, err := s.entClient.SubscriptionPlan.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	targetGroupID := existing.GroupID
+	if req.GroupID != nil {
+		targetGroupID = *req.GroupID
+	}
+	name := existing.Name
+	if req.Name != nil {
+		name = *req.Name
+	}
+	description := existing.Description
+	if req.Description != nil {
+		description = *req.Description
+	}
+	features := existing.Features
+	if req.Features != nil {
+		features = *req.Features
+	}
+	productName := existing.ProductName
+	if req.ProductName != nil {
+		productName = *req.ProductName
+	}
+	price := existing.Price
+	if req.Price != nil {
+		price = *req.Price
+	}
+	validityDays := existing.ValidityDays
+	if req.ValidityDays != nil {
+		validityDays = *req.ValidityDays
+	}
+	validityUnit := existing.ValidityUnit
+	if req.ValidityUnit != nil {
+		validityUnit = *req.ValidityUnit
+	}
+	display, forcePublicCodexValidity, err := s.planDisplayForGroupID(ctx, targetGroupID, name, description, features, productName, price, validityDays, validityUnit)
+	if err != nil {
 		return nil, err
 	}
 	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
@@ -158,11 +348,20 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	if req.OriginalPrice != nil {
 		u.SetOriginalPrice(*req.OriginalPrice)
 	}
-	if req.ValidityDays != nil {
-		u.SetValidityDays(*req.ValidityDays)
-	}
-	if req.ValidityUnit != nil {
-		u.SetValidityUnit(*req.ValidityUnit)
+	if forcePublicCodexValidity {
+		u.SetName(display.Name)
+		u.SetDescription(display.Description)
+		u.SetFeatures(display.Features)
+		u.SetProductName(display.ProductName)
+		u.SetValidityDays(publicCodexSubscriptionValidityDays)
+		u.SetValidityUnit("day")
+	} else {
+		if req.ValidityDays != nil {
+			u.SetValidityDays(*req.ValidityDays)
+		}
+		if req.ValidityUnit != nil {
+			u.SetValidityUnit(*req.ValidityUnit)
+		}
 	}
 	if req.Features != nil {
 		u.SetFeatures(*req.Features)
@@ -177,6 +376,26 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 		u.SetSortOrder(*req.SortOrder)
 	}
 	return u.Save(ctx)
+}
+
+func (s *PaymentConfigService) planDisplayForGroupID(ctx context.Context, groupID int64, name, description, features, productName string, price float64, validityDays int, validityUnit string) (PlanDisplaySnapshot, bool, error) {
+	display := PlanDisplaySnapshot{Name: name, Description: description, Features: features, ProductName: productName}
+	groupEntity, err := s.entClient.Group.Query().Where(group.IDEQ(groupID)).Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return display, false, nil
+		}
+		return display, false, fmt.Errorf("load group for public codex plan display normalization: %w", err)
+	}
+	quota := BuildPlanQuotaSnapshot(groupEntity.Name, groupEntity.DailyLimitUsd, groupEntity.WeeklyLimitUsd, groupEntity.MonthlyLimitUsd, validityDays, validityUnit)
+	isPublicCodex := groupEntity.SubscriptionType == SubscriptionTypeSubscription
+	if isPublicCodex {
+		_, isPublicCodex = PublicCodexSubscriptionWeeklyLimitUSD(groupEntity.Name)
+	}
+	if !isPublicCodex {
+		return display, false, nil
+	}
+	return BuildPlanDisplaySnapshot(name, description, features, productName, price, groupEntity.Name, quota), true, nil
 }
 
 func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {

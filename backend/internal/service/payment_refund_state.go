@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
@@ -63,6 +65,13 @@ func (s *PaymentService) validateExclusiveRefundSubscriptionWithClient(ctx conte
 	if order.SubscriptionGroupID == nil || order.SubscriptionDays == nil || sub.ID != *order.SubscriptionID || sub.UserID != order.UserID || sub.GroupID != *order.SubscriptionGroupID {
 		return infraerrors.BadRequest("SUBSCRIPTION_MISMATCH", "linked subscription does not match order")
 	}
+	hasTargetEntitlement, err := refundOrderHasActiveEntitlementPeriod(ctx, client, order.ID)
+	if err != nil {
+		return err
+	}
+	if hasTargetEntitlement {
+		return nil
+	}
 	linkedOrders, err := client.PaymentOrder.Query().
 		Where(
 			paymentorder.SubscriptionIDEQ(sub.ID),
@@ -86,6 +95,19 @@ func (s *PaymentService) validateExclusiveRefundSubscriptionWithClient(ctx conte
 		return infraerrors.Conflict("SUBSCRIPTION_TERM_CHANGED_REFUND_REQUIRES_MANUAL", "subscription term changed after purchase")
 	}
 	return nil
+}
+
+func refundOrderHasActiveEntitlementPeriod(ctx context.Context, client *dbent.Client, orderID int64) (bool, error) {
+	if client == nil {
+		return false, infraerrors.InternalServer("SUBSCRIPTION_ENTITLEMENT_REPOSITORY_UNAVAILABLE", "subscription entitlement repository is unavailable")
+	}
+	return client.SubscriptionEntitlementPeriod.Query().
+		Where(
+			subscriptionentitlementperiod.SourceTypeEQ(subscriptionEntitlementSourceTypePaymentOrder),
+			subscriptionentitlementperiod.SourceIDEQ(strconv.FormatInt(orderID, 10)),
+			subscriptionentitlementperiod.StatusEQ(SubscriptionEntitlementPeriodStatusActive),
+		).
+		Exist(ctx)
 }
 
 func (s *PaymentService) lockAndLoadRefundSubscription(ctx context.Context, client *dbent.Client, order *dbent.PaymentOrder) (*UserSubscription, error) {
@@ -138,10 +160,48 @@ func (s *PaymentService) revokeRefundSubscriptionInTransaction(ctx context.Conte
 			return err
 		}
 	}
-	if err := s.subscriptionSvc.userSubRepo.UpdateStatus(ctx, sub.ID, SubscriptionStatusExpired); err != nil {
-		return err
+	// 只撤销目标订单的权益段。历史实现会删除整个 subscription，进而误删后续续费权益。
+	client := s.entClient
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
 	}
-	return s.subscriptionSvc.userSubRepo.Delete(ctx, sub.ID)
+	periods, err := client.SubscriptionEntitlementPeriod.Query().
+		Where(
+			subscriptionentitlementperiod.SubscriptionIDEQ(sub.ID),
+			subscriptionentitlementperiod.StatusEQ(SubscriptionEntitlementPeriodStatusActive),
+		).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("list remaining entitlement periods: %w", err)
+	}
+	if len(periods) == 0 {
+		return s.subscriptionSvc.userSubRepo.UpdateStatus(ctx, sub.ID, SubscriptionStatusExpired)
+	}
+	now := s.subscriptionSvc.currentTime()
+	maxExpiresAt := periods[0].ExpiresAt
+	activeNow := false
+	hasRollingWeeklyPeriod := false
+	for _, period := range periods {
+		if period.ExpiresAt.After(maxExpiresAt) {
+			maxExpiresAt = period.ExpiresAt
+		}
+		if !period.StartsAt.After(now) && period.ExpiresAt.After(now) {
+			activeNow = true
+		}
+		if period.QuotaWindowUnit == "week" && period.WeeklyLimitUsd != nil && *period.WeeklyLimitUsd > 0 {
+			hasRollingWeeklyPeriod = true
+		}
+	}
+	updated := *sub
+	updated.ExpiresAt = maxExpiresAt
+	if activeNow || hasRollingWeeklyPeriod {
+		// 滚动周空档由当前权益段缺失拦截；订阅行保持 active 才能让未来续费到点恢复。
+		updated.Status = SubscriptionStatusActive
+	} else {
+		// 后续权益保持原始排期；空档内不允许继续使用已退款订阅。
+		updated.Status = SubscriptionStatusExpired
+	}
+	return s.subscriptionSvc.userSubRepo.Update(ctx, &updated)
 }
 
 func (s *PaymentService) invalidateRefundSubscriptionCaches(sub *UserSubscription) {
@@ -194,7 +254,7 @@ func (s *PaymentService) completeGatewaySubscriptionRefundTransaction(
 	if err != nil {
 		return nil, rollback(fmt.Errorf("lock refund order: %w", err))
 	}
-	if order.OrderType != payment.OrderTypeSubscription || order.RefundGatewayStatus != RefundGatewaySucceeded {
+	if order.OrderType != payment.OrderTypeSubscription || (order.RefundGatewayStatus != RefundGatewaySucceeded && order.RefundGatewayStatus != RefundGatewayNotRequired) {
 		return nil, rollback(infraerrors.Conflict("INVALID_REFUND_STATE", "gateway refund is not ready for entitlement finalization"))
 	}
 	if order.Status != OrderStatusRefunding && order.Status != OrderStatusRefundFailed {

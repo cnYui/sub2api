@@ -449,6 +449,18 @@ func (_u *PaymentOrderUpdate) ClearSubscriptionID() *PaymentOrderUpdate {
 	return _u
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (_u *PaymentOrderUpdate) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderUpdate {
+	_u.mutation.SetSubscriptionSnapshot(v)
+	return _u
+}
+
+// ClearSubscriptionSnapshot clears the value of the "subscription_snapshot" field.
+func (_u *PaymentOrderUpdate) ClearSubscriptionSnapshot() *PaymentOrderUpdate {
+	_u.mutation.ClearSubscriptionSnapshot()
+	return _u
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_u *PaymentOrderUpdate) SetProviderInstanceID(v string) *PaymentOrderUpdate {
 	_u.mutation.SetProviderInstanceID(v)
@@ -923,6 +935,18 @@ func (_u *PaymentOrderUpdate) ClearRefundProviderRef() *PaymentOrderUpdate {
 	return _u
 }
 
+// SetRefundBasis sets the "refund_basis" field.
+func (_u *PaymentOrderUpdate) SetRefundBasis(v map[string]interface{}) *PaymentOrderUpdate {
+	_u.mutation.SetRefundBasis(v)
+	return _u
+}
+
+// ClearRefundBasis clears the value of the "refund_basis" field.
+func (_u *PaymentOrderUpdate) ClearRefundBasis() *PaymentOrderUpdate {
+	_u.mutation.ClearRefundBasis()
+	return _u
+}
+
 // SetExpiresAt sets the "expires_at" field.
 func (_u *PaymentOrderUpdate) SetExpiresAt(v time.Time) *PaymentOrderUpdate {
 	_u.mutation.SetExpiresAt(v)
@@ -1387,6 +1411,12 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.SubscriptionIDCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionID, field.TypeInt64)
 	}
+	if value, ok := _u.mutation.SubscriptionSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionSnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.SubscriptionSnapshotCleared() {
+		_spec.ClearField(paymentorder.FieldSubscriptionSnapshot, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 	}
@@ -1521,6 +1551,12 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.RefundProviderRefCleared() {
 		_spec.ClearField(paymentorder.FieldRefundProviderRef, field.TypeString)
+	}
+	if value, ok := _u.mutation.RefundBasis(); ok {
+		_spec.SetField(paymentorder.FieldRefundBasis, field.TypeJSON, value)
+	}
+	if _u.mutation.RefundBasisCleared() {
+		_spec.ClearField(paymentorder.FieldRefundBasis, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(paymentorder.FieldExpiresAt, field.TypeTime, value)
@@ -2061,6 +2097,18 @@ func (_u *PaymentOrderUpdateOne) ClearSubscriptionID() *PaymentOrderUpdateOne {
 	return _u
 }
 
+// SetSubscriptionSnapshot sets the "subscription_snapshot" field.
+func (_u *PaymentOrderUpdateOne) SetSubscriptionSnapshot(v map[string]interface{}) *PaymentOrderUpdateOne {
+	_u.mutation.SetSubscriptionSnapshot(v)
+	return _u
+}
+
+// ClearSubscriptionSnapshot clears the value of the "subscription_snapshot" field.
+func (_u *PaymentOrderUpdateOne) ClearSubscriptionSnapshot() *PaymentOrderUpdateOne {
+	_u.mutation.ClearSubscriptionSnapshot()
+	return _u
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_u *PaymentOrderUpdateOne) SetProviderInstanceID(v string) *PaymentOrderUpdateOne {
 	_u.mutation.SetProviderInstanceID(v)
@@ -2532,6 +2580,18 @@ func (_u *PaymentOrderUpdateOne) SetNillableRefundProviderRef(v *string) *Paymen
 // ClearRefundProviderRef clears the value of the "refund_provider_ref" field.
 func (_u *PaymentOrderUpdateOne) ClearRefundProviderRef() *PaymentOrderUpdateOne {
 	_u.mutation.ClearRefundProviderRef()
+	return _u
+}
+
+// SetRefundBasis sets the "refund_basis" field.
+func (_u *PaymentOrderUpdateOne) SetRefundBasis(v map[string]interface{}) *PaymentOrderUpdateOne {
+	_u.mutation.SetRefundBasis(v)
+	return _u
+}
+
+// ClearRefundBasis clears the value of the "refund_basis" field.
+func (_u *PaymentOrderUpdateOne) ClearRefundBasis() *PaymentOrderUpdateOne {
+	_u.mutation.ClearRefundBasis()
 	return _u
 }
 
@@ -3029,6 +3089,12 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	if _u.mutation.SubscriptionIDCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionID, field.TypeInt64)
 	}
+	if value, ok := _u.mutation.SubscriptionSnapshot(); ok {
+		_spec.SetField(paymentorder.FieldSubscriptionSnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.SubscriptionSnapshotCleared() {
+		_spec.ClearField(paymentorder.FieldSubscriptionSnapshot, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 	}
@@ -3163,6 +3229,12 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if _u.mutation.RefundProviderRefCleared() {
 		_spec.ClearField(paymentorder.FieldRefundProviderRef, field.TypeString)
+	}
+	if value, ok := _u.mutation.RefundBasis(); ok {
+		_spec.SetField(paymentorder.FieldRefundBasis, field.TypeJSON, value)
+	}
+	if _u.mutation.RefundBasisCleared() {
+		_spec.ClearField(paymentorder.FieldRefundBasis, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(paymentorder.FieldExpiresAt, field.TypeTime, value)

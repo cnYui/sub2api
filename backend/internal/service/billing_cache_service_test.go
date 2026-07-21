@@ -96,6 +96,27 @@ func (b *billingCacheWorkerStub) BatchGetUserPlatformQuotaCache(ctx context.Cont
 	return nil, nil
 }
 
+type subscriptionInvalidationBrokerStub struct {
+	billingCacheWorkerStub
+
+	publishedUserID  int64
+	publishedGroupID int64
+	publishCount     int64
+	subscribeHandler func(userID, groupID int64)
+}
+
+func (b *subscriptionInvalidationBrokerStub) PublishSubscriptionCacheInvalidation(ctx context.Context, userID, groupID int64) error {
+	atomic.StoreInt64(&b.publishedUserID, userID)
+	atomic.StoreInt64(&b.publishedGroupID, groupID)
+	atomic.AddInt64(&b.publishCount, 1)
+	return nil
+}
+
+func (b *subscriptionInvalidationBrokerStub) SubscribeSubscriptionCacheInvalidation(ctx context.Context, handler func(userID, groupID int64)) error {
+	b.subscribeHandler = handler
+	return nil
+}
+
 func TestBillingCacheServiceQueueHighLoad(t *testing.T) {
 	cache := &billingCacheWorkerStub{}
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil)
@@ -129,4 +150,43 @@ func TestBillingCacheServiceEnqueueAfterStopReturnsFalse(t *testing.T) {
 		amount: 1,
 	})
 	require.False(t, enqueued)
+}
+
+func TestBillingCacheServiceInvalidateSubscriptionPublishesL1Invalidation(t *testing.T) {
+	cache := &subscriptionInvalidationBrokerStub{}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil)
+	t.Cleanup(svc.Stop)
+
+	require.NoError(t, svc.InvalidateSubscription(context.Background(), 12, 34))
+	require.Equal(t, int64(1), atomic.LoadInt64(&cache.publishCount))
+	require.Equal(t, int64(12), atomic.LoadInt64(&cache.publishedUserID))
+	require.Equal(t, int64(34), atomic.LoadInt64(&cache.publishedGroupID))
+}
+
+func TestSubscriptionServiceSubscriptionCacheInvalidationSubscriberClearsL1(t *testing.T) {
+	cache := &subscriptionInvalidationBrokerStub{}
+	billingSvc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{}, nil)
+	t.Cleanup(billingSvc.Stop)
+
+	subscriptionSvc := NewSubscriptionService(nil, nil, billingSvc, nil, &config.Config{
+		SubscriptionCache: config.SubscriptionCacheConfig{
+			L1Size:       100,
+			L1TTLSeconds: 60,
+		},
+	})
+	require.NotNil(t, subscriptionSvc.subCacheL1)
+
+	key := subCacheKey(12, 34)
+	require.True(t, subscriptionSvc.subCacheL1.Set(key, &UserSubscription{ID: 99}, 1))
+	subscriptionSvc.subCacheL1.Wait()
+	_, cachedBefore := subscriptionSvc.subCacheL1.Get(key)
+	require.True(t, cachedBefore)
+
+	subscriptionSvc.StartSubscriptionCacheInvalidationSubscriber(context.Background())
+	require.NotNil(t, cache.subscribeHandler)
+	cache.subscribeHandler(12, 34)
+	subscriptionSvc.subCacheL1.Wait()
+
+	_, cachedAfter := subscriptionSvc.subCacheL1.Get(key)
+	require.False(t, cachedAfter)
 }

@@ -1,48 +1,68 @@
-//go:build unit
-
 package handler
 
 import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNormalizedSubscriptionForUsageResponseZerosExpiredDailyWindow(t *testing.T) {
-	now := timezone.StartOfDay(timezone.Now()).Add(2 * time.Hour)
-	yesterday := timezone.StartOfDay(now).Add(-24 * time.Hour)
-	weeklyStart := timezone.StartOfWeek(now)
-	monthlyStart := now.Add(-24 * time.Hour)
+func TestCalculateSubscriptionRemainingRollingWeeklyRequiresWindowFacts(t *testing.T) {
+	weeklyLimit := 72.0
+	group := &service.Group{
+		ID:               2,
+		Name:             "codex-pool-19-usd",
+		SubscriptionType: service.SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	now := time.Now()
 	sub := &service.UserSubscription{
-		DailyUsageUSD:      12,
-		WeeklyUsageUSD:     5,
-		MonthlyUsageUSD:    9,
-		DailyWindowStart:   &yesterday,
-		WeeklyWindowStart:  &weeklyStart,
-		MonthlyWindowStart: &monthlyStart,
+		ID:             21,
+		GroupID:        group.ID,
+		Group:          group,
+		Status:         service.SubscriptionStatusActive,
+		StartsAt:       now.Add(-time.Hour),
+		ExpiresAt:      now.Add(24 * time.Hour),
+		WeeklyUsageUSD: 10,
 	}
 
-	got := normalizedSubscriptionForUsageResponse(sub, now)
+	got := (&GatewayHandler{}).calculateSubscriptionRemaining(group, sub)
 
-	require.NotSame(t, sub, got)
-	require.Equal(t, 0.0, got.DailyUsageUSD)
-	require.Equal(t, 5.0, got.WeeklyUsageUSD)
-	require.Equal(t, 9.0, got.MonthlyUsageUSD)
-	require.Equal(t, 12.0, sub.DailyUsageUSD)
+	require.Equal(t, 0.0, got)
 }
 
-func TestNormalizedSubscriptionForUsageResponseKeepsCurrentDailyWindow(t *testing.T) {
-	now := timezone.StartOfDay(timezone.Now()).Add(2 * time.Hour)
-	today := timezone.StartOfDay(now)
+func TestCalculateSubscriptionRemainingRollingWeeklyUsesEffectiveWindow(t *testing.T) {
+	weeklyLimit := 72.0
+	group := &service.Group{
+		ID:               2,
+		Name:             "codex-pool-19-usd",
+		SubscriptionType: service.SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	now := time.Now()
+	anchor := now.Add(-time.Hour)
 	sub := &service.UserSubscription{
-		DailyUsageUSD:    3.5,
-		DailyWindowStart: &today,
+		ID:                21,
+		GroupID:           group.ID,
+		Group:             group,
+		Status:            service.SubscriptionStatusActive,
+		StartsAt:          anchor,
+		ExpiresAt:         now.AddDate(0, 0, 27),
+		WeeklyAnchorAt:    &anchor,
+		WeeklyWindowStart: &anchor,
+		WeeklyUsageUSD:    10,
+		CurrentEntitlementPeriod: &service.SubscriptionEntitlementPeriod{
+			ID:             1001,
+			GroupID:        group.ID,
+			StartsAt:       anchor,
+			ExpiresAt:      now.AddDate(0, 0, 27),
+			WeeklyLimitUSD: &weeklyLimit,
+			Status:         service.SubscriptionEntitlementPeriodStatusActive,
+		},
 	}
 
-	got := normalizedSubscriptionForUsageResponse(sub, now)
+	got := (&GatewayHandler{}).calculateSubscriptionRemaining(group, sub)
 
-	require.Equal(t, 3.5, got.DailyUsageUSD)
+	require.InDelta(t, 62, got, 0.0000001)
 }

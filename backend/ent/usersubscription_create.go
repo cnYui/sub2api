@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -130,6 +131,20 @@ func (_c *UserSubscriptionCreate) SetWeeklyWindowStart(v time.Time) *UserSubscri
 func (_c *UserSubscriptionCreate) SetNillableWeeklyWindowStart(v *time.Time) *UserSubscriptionCreate {
 	if v != nil {
 		_c.SetWeeklyWindowStart(*v)
+	}
+	return _c
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (_c *UserSubscriptionCreate) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionCreate {
+	_c.mutation.SetWeeklyAnchorAt(v)
+	return _c
+}
+
+// SetNillableWeeklyAnchorAt sets the "weekly_anchor_at" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableWeeklyAnchorAt(v *time.Time) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetWeeklyAnchorAt(*v)
 	}
 	return _c
 }
@@ -289,6 +304,21 @@ func (_c *UserSubscriptionCreate) AddEntitlementPeriods(v ...*SubscriptionEntitl
 		ids[i] = v[i].ID
 	}
 	return _c.AddEntitlementPeriodIDs(ids...)
+}
+
+// AddQuotaDebtAdjustmentIDs adds the "quota_debt_adjustments" edge to the SubscriptionQuotaDebtAdjustment entity by IDs.
+func (_c *UserSubscriptionCreate) AddQuotaDebtAdjustmentIDs(ids ...int64) *UserSubscriptionCreate {
+	_c.mutation.AddQuotaDebtAdjustmentIDs(ids...)
+	return _c
+}
+
+// AddQuotaDebtAdjustments adds the "quota_debt_adjustments" edges to the SubscriptionQuotaDebtAdjustment entity.
+func (_c *UserSubscriptionCreate) AddQuotaDebtAdjustments(v ...*SubscriptionQuotaDebtAdjustment) *UserSubscriptionCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddQuotaDebtAdjustmentIDs(ids...)
 }
 
 // Mutation returns the UserSubscriptionMutation object of the builder.
@@ -473,6 +503,10 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 		_spec.SetField(usersubscription.FieldWeeklyWindowStart, field.TypeTime, value)
 		_node.WeeklyWindowStart = &value
 	}
+	if value, ok := _c.mutation.WeeklyAnchorAt(); ok {
+		_spec.SetField(usersubscription.FieldWeeklyAnchorAt, field.TypeTime, value)
+		_node.WeeklyAnchorAt = &value
+	}
 	if value, ok := _c.mutation.MonthlyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldMonthlyWindowStart, field.TypeTime, value)
 		_node.MonthlyWindowStart = &value
@@ -573,6 +607,22 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(subscriptionentitlementperiod.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.QuotaDebtAdjustmentsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.QuotaDebtAdjustmentsTable,
+			Columns: []string{usersubscription.QuotaDebtAdjustmentsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionquotadebtadjustment.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -755,6 +805,24 @@ func (u *UserSubscriptionUpsert) UpdateWeeklyWindowStart() *UserSubscriptionUpse
 // ClearWeeklyWindowStart clears the value of the "weekly_window_start" field.
 func (u *UserSubscriptionUpsert) ClearWeeklyWindowStart() *UserSubscriptionUpsert {
 	u.SetNull(usersubscription.FieldWeeklyWindowStart)
+	return u
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsert) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldWeeklyAnchorAt, v)
+	return u
+}
+
+// UpdateWeeklyAnchorAt sets the "weekly_anchor_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateWeeklyAnchorAt() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldWeeklyAnchorAt)
+	return u
+}
+
+// ClearWeeklyAnchorAt clears the value of the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsert) ClearWeeklyAnchorAt() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldWeeklyAnchorAt)
 	return u
 }
 
@@ -1067,6 +1135,27 @@ func (u *UserSubscriptionUpsertOne) UpdateWeeklyWindowStart() *UserSubscriptionU
 func (u *UserSubscriptionUpsertOne) ClearWeeklyWindowStart() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.ClearWeeklyWindowStart()
+	})
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsertOne) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetWeeklyAnchorAt(v)
+	})
+}
+
+// UpdateWeeklyAnchorAt sets the "weekly_anchor_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateWeeklyAnchorAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateWeeklyAnchorAt()
+	})
+}
+
+// ClearWeeklyAnchorAt clears the value of the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsertOne) ClearWeeklyAnchorAt() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearWeeklyAnchorAt()
 	})
 }
 
@@ -1565,6 +1654,27 @@ func (u *UserSubscriptionUpsertBulk) UpdateWeeklyWindowStart() *UserSubscription
 func (u *UserSubscriptionUpsertBulk) ClearWeeklyWindowStart() *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.ClearWeeklyWindowStart()
+	})
+}
+
+// SetWeeklyAnchorAt sets the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsertBulk) SetWeeklyAnchorAt(v time.Time) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetWeeklyAnchorAt(v)
+	})
+}
+
+// UpdateWeeklyAnchorAt sets the "weekly_anchor_at" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateWeeklyAnchorAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateWeeklyAnchorAt()
+	})
+}
+
+// ClearWeeklyAnchorAt clears the value of the "weekly_anchor_at" field.
+func (u *UserSubscriptionUpsertBulk) ClearWeeklyAnchorAt() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearWeeklyAnchorAt()
 	})
 }
 

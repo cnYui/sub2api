@@ -54,12 +54,11 @@
         <div class="min-w-0 flex-1">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.subscriptionQuota') }}</p>
           <p class="truncate text-base font-bold text-gray-900 dark:text-white">
-            <span class="mr-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayQuota') }}</span>
-            <span>${{ formatCost(quotaTodayUsed) }} / ${{ formatCost(quotaTodayLimit) }}</span>
+            <span class="mr-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ quotaWindowLabel }}</span>
+            <span>{{ formatQuotaLine(quotaWindowUsed, quotaWindowLimit, quotaWindowUnlimited) }}</span>
           </p>
           <p class="truncate text-xs text-gray-500 dark:text-gray-400">
-            <span>{{ periodQuotaLabel }}: </span>
-            <span class="text-gray-900 dark:text-gray-100">${{ formatCost(quotaPeriodUsed) }} / ${{ formatCost(quotaPeriodLimit) }}</span>
+            <span>{{ quotaWindowResetLabel }}</span>
           </p>
         </div>
       </div>
@@ -157,6 +156,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
+import { formatSubscriptionQuotaUSD } from '@/utils/subscriptionQuota'
 
 const props = defineProps<{
   stats: UserStatsType
@@ -177,8 +177,31 @@ const AVAILABLE_MODELS = [
 const quota = computed(() => props.stats?.quota)
 const quotaTodayUsed = computed(() => quota.value?.today_usage_usd ?? 0)
 const quotaTodayLimit = computed(() => quota.value?.today_limit_usd ?? 0)
+const quotaTodayUnlimited = computed(() => quota.value?.today_limit_unlimited ?? false)
 const quotaPeriodUsed = computed(() => quota.value?.period_usage_usd ?? 0)
 const quotaPeriodLimit = computed(() => quota.value?.period_limit_usd ?? 0)
+const quotaPeriodUnlimited = computed(() => quota.value?.period_limit_unlimited ?? false)
+const quotaWindowUsed = computed(() => quota.value?.window_usage_usd ?? quotaTodayUsed.value)
+const quotaWindowLimit = computed(() => quota.value?.window_limit_usd ?? quotaTodayLimit.value)
+const quotaWindowUnlimited = computed(() => quota.value?.window_limit_unlimited ?? quotaTodayUnlimited.value)
+const quotaWindowLabel = computed(() => {
+  switch (quota.value?.quota_window_unit) {
+    case 'week':
+      return t('dashboard.weeklyQuota')
+    case 'period':
+    case 'month':
+      return t('dashboard.periodQuota')
+    case 'none':
+      return t('dashboard.unlimitedQuota')
+    default:
+      return t('dashboard.todayQuota')
+  }
+})
+const quotaWindowResetLabel = computed(() => {
+  const resetAt = quota.value?.window_resets_at
+  if (!resetAt) return `${periodQuotaLabel.value}: ${formatQuotaLine(quotaPeriodUsed.value, quotaPeriodLimit.value, quotaPeriodUnlimited.value)}`
+  return `${t('dashboard.resetsAt')}: ${new Date(resetAt).toLocaleString()}`
+})
 const periodQuotaLabel = computed(() => {
   if (quota.value?.period_mode === 'rolling_30d_legacy' || quota.value?.period_mode === 'none') {
     return t('dashboard.last30DaysQuota')
@@ -193,7 +216,8 @@ const formatBalance = (b: number) =>
   }).format(b)
 
 const formatNumber = (n: number) => n.toLocaleString()
-const formatCost = (c: number) => c.toFixed(4)
+const formatQuotaLine = (used: number, limit: number, unlimited: boolean) =>
+  `${formatSubscriptionQuotaUSD(used)} / ${unlimited ? t('dashboard.unlimitedQuota') : formatSubscriptionQuotaUSD(limit)}`
 const formatTokens = (t: number) => {
   if (t >= 1_000_000) return `${(t / 1_000_000).toFixed(1)}M`
   if (t >= 1000) return `${(t / 1000).toFixed(1)}K`

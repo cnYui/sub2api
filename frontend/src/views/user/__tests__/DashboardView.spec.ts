@@ -60,9 +60,11 @@ const stats: UserDashboardStats = {
   quota: {
     period_mode: 'entitlement_period',
     today_usage_usd: 0,
-    today_limit_usd: 19,
+    today_limit_usd: 15,
+    today_limit_unlimited: false,
     period_usage_usd: 0,
     period_limit_usd: 570,
+    period_limit_unlimited: false,
     period_days: 30,
   },
 }
@@ -115,9 +117,11 @@ describe('DashboardView', () => {
     mockGetDashboardQuota.mockResolvedValue({
       period_mode: 'entitlement_period',
       today_usage_usd: 2.5,
-      today_limit_usd: 19,
+      today_limit_usd: 15,
+      today_limit_unlimited: false,
       period_usage_usd: 8,
       period_limit_usd: 570,
+      period_limit_unlimited: false,
       period_days: 30,
     })
     mockGetDashboardTrend.mockResolvedValue({ trend: [] })
@@ -165,9 +169,11 @@ describe('DashboardView', () => {
     mockGetDashboardQuota.mockResolvedValue({
       period_mode: 'entitlement_period',
       today_usage_usd: 3.5,
-      today_limit_usd: 19,
+      today_limit_usd: 15,
+      today_limit_unlimited: false,
       period_usage_usd: 9,
       period_limit_usd: 570,
+      period_limit_unlimited: false,
       period_days: 30,
     })
     mockGetDashboardTrend.mockResolvedValue({ trend: [] })
@@ -241,9 +247,11 @@ describe('DashboardView', () => {
     resolveQuota?.({
       period_mode: 'entitlement_period',
       today_usage_usd: 4,
-      today_limit_usd: 19,
+      today_limit_usd: 15,
+      today_limit_unlimited: false,
       period_usage_usd: 10,
       period_limit_usd: 570,
+      period_limit_unlimited: false,
       period_days: 30,
     })
     await flushPromises()

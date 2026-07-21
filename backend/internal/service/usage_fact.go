@@ -42,23 +42,24 @@ type UsageSettlementEffectsPayload struct {
 }
 
 type UsageFact struct {
-	ID                 int64
-	RequestID          string
-	APIKeyID           int64
-	UserID             int64
-	AccountID          int64
-	RequestFingerprint string
-	ReservationID      *int64
-	PayloadVersion     int
-	Payload            json.RawMessage
-	BillingStatus      string
-	AttemptCount       int
-	NextAttemptAt      time.Time
-	LastError          string
-	CompletedAt        time.Time
-	SettledAt          *time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                  int64
+	RequestID           string
+	APIKeyID            int64
+	UserID              int64
+	AccountID           int64
+	RequestFingerprint  string
+	ReservationID       *int64
+	EntitlementPeriodID *int64
+	PayloadVersion      int
+	Payload             json.RawMessage
+	BillingStatus       string
+	AttemptCount        int
+	NextAttemptAt       time.Time
+	LastError           string
+	CompletedAt         time.Time
+	SettledAt           *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type UsageFactRepository interface {
@@ -100,16 +101,17 @@ func NewUsageFact(payload UsageFactPayload) (*UsageFact, error) {
 	}
 	nextAttemptAt := payload.BillingCommand.CompletedAt
 	return &UsageFact{
-		RequestID:          payload.BillingCommand.RequestID,
-		APIKeyID:           payload.BillingCommand.APIKeyID,
-		UserID:             payload.BillingCommand.UserID,
-		AccountID:          payload.BillingCommand.AccountID,
-		RequestFingerprint: payload.BillingCommand.RequestFingerprint,
-		ReservationID:      payload.BillingCommand.TrafficCreditReservationID,
-		PayloadVersion:     UsageFactPayloadVersion1,
-		Payload:            raw,
-		BillingStatus:      UsageFactStatusPending,
-		NextAttemptAt:      nextAttemptAt,
-		CompletedAt:        payload.BillingCommand.CompletedAt,
+		RequestID:           payload.BillingCommand.RequestID,
+		APIKeyID:            payload.BillingCommand.APIKeyID,
+		UserID:              payload.BillingCommand.UserID,
+		AccountID:           payload.BillingCommand.AccountID,
+		RequestFingerprint:  payload.BillingCommand.RequestFingerprint,
+		ReservationID:       payload.BillingCommand.TrafficCreditReservationID,
+		EntitlementPeriodID: payload.BillingCommand.EntitlementPeriodID,
+		PayloadVersion:      UsageFactPayloadVersion1,
+		Payload:             raw,
+		BillingStatus:       UsageFactStatusPending,
+		NextAttemptAt:       nextAttemptAt,
+		CompletedAt:         payload.BillingCommand.CompletedAt,
 	}, nil
 }

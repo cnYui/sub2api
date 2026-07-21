@@ -2652,6 +2652,18 @@ func TestOpenAIUsageFromGJSONParsesImageTokensAndPresence(t *testing.T) {
 	require.True(t, presence.CacheRead)
 	require.True(t, presence.ImageInput)
 	require.True(t, presence.ImageOutput)
+
+	usage, presence, ok = openAIUsageFromGJSON(gjson.Parse(`{
+		"input_tokens": 120,
+		"output_tokens": 80,
+		"image_tokens": {"input_tokens": 20, "output_tokens": 50}
+	}`))
+
+	require.True(t, ok)
+	require.Equal(t, 20, usage.ImageInputTokens)
+	require.Equal(t, 50, usage.ImageOutputTokens)
+	require.True(t, presence.ImageInput)
+	require.True(t, presence.ImageOutput)
 }
 
 func TestOpenAIUsageFromGJSONTreatsExplicitZeroAsPresent(t *testing.T) {

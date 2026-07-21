@@ -31,7 +31,7 @@ func TestRefreshExpiredUsageWindows_UsesConditionalWindowUpdate(t *testing.T) {
 	monthlyStart := time.Date(2026, 7, 6, 10, 0, 0, 0, time.FixedZone("CST", 8*3600))
 	now := monthlyStart
 
-	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*daily_window_start < \$2.*weekly_window_start < \$3.*monthly_window_start \+ INTERVAL '30 days' <= \$5.*WHERE id = \$1.*deleted_at IS NULL`).
+	mock.ExpectExec(`(?s)UPDATE user_subscriptions.*daily_window_start < \$2.*weekly_window_start < \$3.*monthly_window_start \+ INTERVAL '30 days' <= \$5.*FROM groups g.*WHERE user_subscriptions\.id = \$1.*deleted_at IS NULL`).
 		WithArgs(int64(101), dailyStart, weeklyStart, monthlyStart, now).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 

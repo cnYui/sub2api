@@ -345,6 +345,18 @@ func (f SubscriptionPlanFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.V
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubscriptionPlanMutation", m)
 }
 
+// The SubscriptionQuotaDebtAdjustmentFunc type is an adapter to allow the use of ordinary
+// function as SubscriptionQuotaDebtAdjustment mutator.
+type SubscriptionQuotaDebtAdjustmentFunc func(context.Context, *ent.SubscriptionQuotaDebtAdjustmentMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SubscriptionQuotaDebtAdjustmentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SubscriptionQuotaDebtAdjustmentMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SubscriptionQuotaDebtAdjustmentMutation", m)
+}
+
 // The TLSFingerprintProfileFunc type is an adapter to allow the use of ordinary
 // function as TLSFingerprintProfile mutator.
 type TLSFingerprintProfileFunc func(context.Context, *ent.TLSFingerprintProfileMutation) (ent.Value, error)
