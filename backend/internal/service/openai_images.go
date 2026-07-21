@@ -10,6 +10,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -44,6 +48,14 @@ const (
 	openAIImagesResponsesMainModel = "gpt-5.4-mini"
 
 	gptImage2UnknownOutputTokenUpperBound = 23719
+
+	gptImageInputBaseTokens         = 65
+	gptImageInputTileTokens         = 129
+	gptImageInputTileSize           = 512
+	gptImageInputMaxEdge            = 2048
+	gptImageInputHighSquareExtra    = 4160
+	gptImageInputHighNonSquareExtra = 6240
+	gptImageInputUnknownUpperBound  = 7853
 )
 
 var gptImage2OutputTokenUpperBounds = map[string]map[string]int{
@@ -391,7 +403,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			partContentType := strings.TrimSpace(part.Header.Get("Content-Type"))
 			if name == "mask" && len(data) > 0 {
 				req.HasMask = true
-				width, height := parseOpenAIImageDimensions(part.Header)
+				width, height := parseOpenAIImageDimensions(data)
 				maskUpload := OpenAIImagesUpload{
 					FieldName:   name,
 					FileName:    fileName,
@@ -403,7 +415,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 				req.MaskUpload = &maskUpload
 			}
 			if name == "image" || strings.HasPrefix(name, "image[") {
-				width, height := parseOpenAIImageDimensions(part.Header)
+				width, height := parseOpenAIImageDimensions(data)
 				req.Uploads = append(req.Uploads, OpenAIImagesUpload{
 					FieldName:   name,
 					FileName:    fileName,
@@ -485,8 +497,96 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 	return nil
 }
 
-func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {
-	return 0, 0
+func parseOpenAIImageDimensions(data []byte) (int, int) {
+	if len(data) == 0 {
+		return 0, 0
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+		return 0, 0
+	}
+	return cfg.Width, cfg.Height
+}
+
+func ceilDiv(a, b int) int {
+	if b <= 0 {
+		return 0
+	}
+	return (a + b - 1) / b
+}
+
+func scaleOpenAIImageInputDimensions(width, height int) (int, int) {
+	maxEdge := maxInt(width, height)
+	if maxEdge <= gptImageInputMaxEdge {
+		scaledWidth, scaledHeight := width, height
+		shortEdge := minInt(scaledWidth, scaledHeight)
+		if shortEdge > gptImageInputTileSize {
+			scaledWidth = ceilDiv(scaledWidth*gptImageInputTileSize, shortEdge)
+			scaledHeight = ceilDiv(scaledHeight*gptImageInputTileSize, shortEdge)
+		}
+		return maxInt(scaledWidth, 1), maxInt(scaledHeight, 1)
+	}
+	scaledWidth := ceilDiv(width*gptImageInputMaxEdge, maxEdge)
+	scaledHeight := ceilDiv(height*gptImageInputMaxEdge, maxEdge)
+	shortEdge := minInt(scaledWidth, scaledHeight)
+	if shortEdge > gptImageInputTileSize {
+		scaledWidth = ceilDiv(scaledWidth*gptImageInputTileSize, shortEdge)
+		scaledHeight = ceilDiv(scaledHeight*gptImageInputTileSize, shortEdge)
+	}
+	return maxInt(scaledWidth, 1), maxInt(scaledHeight, 1)
+}
+
+func openAIImageInputTokenUpperBoundForDimensions(width, height int, fidelity string) int {
+	if width <= 0 || height <= 0 {
+		return gptImageInputUnknownUpperBound
+	}
+	scaledWidth, scaledHeight := scaleOpenAIImageInputDimensions(width, height)
+	tiles := ceilDiv(maxInt(scaledWidth, 1), gptImageInputTileSize) * ceilDiv(maxInt(scaledHeight, 1), gptImageInputTileSize)
+	base := gptImageInputBaseTokens + tiles*gptImageInputTileTokens
+	if strings.EqualFold(strings.TrimSpace(fidelity), "low") {
+		return base
+	}
+	if scaledWidth == scaledHeight {
+		return base + gptImageInputHighSquareExtra
+	}
+	return base + gptImageInputHighNonSquareExtra
+}
+
+func maxOpenAIImagesOutputTokenUpperBoundForQuality(quality string) int {
+	quality = strings.ToLower(strings.TrimSpace(quality))
+	maxBound := 0
+	for _, perQuality := range gptImage2OutputTokenUpperBounds {
+		if quality == "" || quality == "auto" {
+			for _, bound := range perQuality {
+				if bound > maxBound {
+					maxBound = bound
+				}
+			}
+			continue
+		}
+		if bound, ok := perQuality[quality]; ok && bound > maxBound {
+			maxBound = bound
+		}
+	}
+	if maxBound <= 0 {
+		return gptImage2UnknownOutputTokenUpperBound
+	}
+	return maxBound
+}
+
+func maxOpenAIImagesOutputTokenUpperBoundForSize(size string) int {
+	size = strings.ToLower(strings.TrimSpace(size))
+	perQuality, ok := gptImage2OutputTokenUpperBounds[size]
+	if !ok {
+		return gptImage2UnknownOutputTokenUpperBound
+	}
+	maxBound := 0
+	for _, bound := range perQuality {
+		if bound > maxBound {
+			maxBound = bound
+		}
+	}
+	return maxBound
 }
 
 func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
@@ -591,8 +691,15 @@ func openAIImagesOutputTokenUpperBound(req *OpenAIImagesRequest) int {
 	n := maxInt(req.N, 1)
 	size := strings.ToLower(strings.TrimSpace(req.Size))
 	quality := strings.ToLower(strings.TrimSpace(req.Quality))
-	if size == "" || size == "auto" || quality == "" || quality == "auto" {
-		return gptImage2UnknownOutputTokenUpperBound * n
+	if size == "" || size == "auto" {
+		return maxOpenAIImagesOutputTokenUpperBoundForQuality(quality) * n
+	}
+	if quality == "" || quality == "auto" {
+		base := maxOpenAIImagesOutputTokenUpperBoundForSize(size)
+		if req.PartialImages != nil && *req.PartialImages > 0 && base < gptImage2UnknownOutputTokenUpperBound {
+			base += *req.PartialImages * 100
+		}
+		return base * n
 	}
 	perQuality, ok := gptImage2OutputTokenUpperBounds[size]
 	if !ok {
@@ -612,14 +719,20 @@ func openAIImagesInputTokenUpperBound(req *OpenAIImagesRequest) int {
 	if req == nil || !req.IsEdits() {
 		return 0
 	}
-	imageCount := len(req.InputImageURLs) + len(req.Uploads)
-	if strings.TrimSpace(req.MaskImageURL) != "" || req.MaskUpload != nil {
-		imageCount++
+	total := 0
+	for _, upload := range req.Uploads {
+		total += openAIImageInputTokenUpperBoundForDimensions(upload.Width, upload.Height, req.InputFidelity)
 	}
-	if imageCount <= 0 {
-		return 0
+	if req.MaskUpload != nil {
+		total += openAIImageInputTokenUpperBoundForDimensions(req.MaskUpload.Width, req.MaskUpload.Height, req.InputFidelity)
 	}
-	return imageCount * gptImage2UnknownOutputTokenUpperBound
+	for range req.InputImageURLs {
+		total += gptImageInputUnknownUpperBound
+	}
+	if strings.TrimSpace(req.MaskImageURL) != "" {
+		total += gptImageInputUnknownUpperBound
+	}
+	return total
 }
 
 func (s *OpenAIGatewayService) AuthorizeImagesRequest(

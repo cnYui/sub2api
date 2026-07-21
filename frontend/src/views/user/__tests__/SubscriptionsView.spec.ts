@@ -277,4 +277,61 @@ describe('SubscriptionsView traffic packs', () => {
     expect(wrapper.findAll('button').some(button => button.text().includes('续费'))).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
   })
+
+  it('订阅页展示后端返回的日用量和新日限额', async () => {
+    getMySubscriptions.mockResolvedValue([
+      {
+        id: 8,
+        group_id: 2,
+        status: 'active',
+        expires_at: '2026-08-20T00:00:00+08:00',
+        daily_usage_usd: 12.34,
+        weekly_usage_usd: 12.34,
+        monthly_usage_usd: 12.34,
+        daily_window_start: '2026-07-21T00:00:00+08:00',
+        weekly_window_start: null,
+        monthly_window_start: null,
+        group: {
+          id: 2,
+          name: 'codex-pool-19-usd',
+          platform: 'openai',
+          description: 'yui.web 29 元订阅池迁移：每日 15 USD',
+          rate_multiplier: 1,
+          daily_limit_usd: 15,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+        },
+      },
+    ])
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        methods: {},
+        global_min: 0,
+        global_max: 0,
+        plans: [],
+        traffic_packs: [],
+        traffic_credit_summary: null,
+        traffic_credits: [],
+        balance_disabled: false,
+        recharge_fee_rate: 0,
+        help_text: '',
+        help_image_url: '',
+        stripe_publishable_key: '',
+      },
+    })
+
+    const wrapper = mount(SubscriptionsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          Icon: { template: '<span />' },
+        },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('codex-pool-19-usd')
+    expect(wrapper.text()).toContain('$12.34 / $15.00')
+    expect(wrapper.text()).not.toContain('$0.00 / $15.00')
+  })
 })

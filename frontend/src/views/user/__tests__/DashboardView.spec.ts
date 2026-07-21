@@ -108,6 +108,49 @@ describe('DashboardView', () => {
     wrapper.unmount()
   })
 
+  it('用户控制面板展示 quota 接口返回的新日额度和今日用量', async () => {
+    mockRefreshUser.mockResolvedValue(undefined)
+    mockGetDashboardStats.mockResolvedValue({
+      ...stats,
+      quota: {
+        period_mode: 'entitlement_period',
+        today_usage_usd: 12.34,
+        today_limit_usd: 15,
+        period_usage_usd: 12.34,
+        period_limit_usd: 450,
+        period_days: 30,
+      },
+    })
+    mockGetDashboardTrend.mockResolvedValue({ trend: [] })
+    mockGetDashboardModels.mockResolvedValue({ models: [] })
+    mockGetByDateRange.mockResolvedValue({ items: [] })
+
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          LoadingSpinner: { template: '<div />' },
+          UserDashboardStats: {
+            props: ['stats'],
+            template: `
+              <section data-testid="stats">
+                {{ '$' + stats.quota.today_usage_usd.toFixed(2) + ' / $' + stats.quota.today_limit_usd.toFixed(2) }}
+              </section>
+            `,
+          },
+          UserDashboardCharts: { template: '<section />' },
+          UserDashboardRecentUsage: { template: '<section />' },
+          UserDashboardQuickActions: { template: '<section />' },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="stats"]').text()).toContain('$12.34 / $15.00')
+    wrapper.unmount()
+  })
+
   it('每 15 秒只刷新轻量 quota，并在卸载时清理计时器', async () => {
     vi.useFakeTimers()
     mockRefreshUser.mockResolvedValue(undefined)

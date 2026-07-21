@@ -92,6 +92,43 @@ func TestOpenAIBillingAuthorization_ShadowModeDoesNotRejectInsufficientTrafficCr
 	require.Zero(t, repo.reserveCalls)
 }
 
+func TestOpenAIBillingAuthorization_ShadowModeUsesSubscriptionWhenBudgetFits(t *testing.T) {
+	dailyLimit := 10.0
+	repo := &openAIBillingAuthorizationReservationRepoStub{availableUSD: 0}
+	estimator := &openAIBillingAuthorizationEstimatorStub{budget: &OpenAITrafficCreditBudget{
+		Body:       []byte(`{"model":"gpt-5.1"}`),
+		ReserveUSD: 0.25,
+	}}
+	svc := NewOpenAIBillingAuthorizationService(repo, estimator, 15*time.Minute, false, true)
+	input := newOpenAIBillingAuthorizationTestInput()
+	input.Group = &Group{ID: 2, DailyLimitUSD: &dailyLimit}
+	input.Subscription = &UserSubscription{ID: 3, DailyUsageUSD: 1}
+
+	got, err := svc.Authorize(context.Background(), input)
+
+	require.NoError(t, err)
+	require.Equal(t, BillingSourceSubscription, got.Source)
+	require.Zero(t, repo.reserveCalls)
+}
+
+func TestOpenAIBillingAuthorization_ShadowModeDoesNotBypassExceededSubscription(t *testing.T) {
+	dailyLimit := 1.1
+	repo := &openAIBillingAuthorizationReservationRepoStub{availableUSD: 0}
+	estimator := &openAIBillingAuthorizationEstimatorStub{budget: &OpenAITrafficCreditBudget{
+		Body:       []byte(`{"model":"gpt-5.1"}`),
+		ReserveUSD: 0.25,
+	}}
+	svc := NewOpenAIBillingAuthorizationService(repo, estimator, 15*time.Minute, false, true)
+	input := newOpenAIBillingAuthorizationTestInput()
+	input.Group = &Group{ID: 2, DailyLimitUSD: &dailyLimit}
+	input.Subscription = &UserSubscription{ID: 3, DailyUsageUSD: 1}
+
+	_, err := svc.Authorize(context.Background(), input)
+
+	require.ErrorIs(t, err, ErrTrafficCreditInsufficient)
+	require.Zero(t, repo.reserveCalls)
+}
+
 func TestOpenAIBillingAuthorization_ReservesTrafficCreditWhenSubscriptionExceeded(t *testing.T) {
 	dailyLimit := 1.1
 	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)

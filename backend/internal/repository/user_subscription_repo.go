@@ -412,7 +412,7 @@ func (r *userSubscriptionRepository) CalibrateActiveDailyUsageWindows(ctx contex
 			FOR UPDATE SKIP LOCKED
 		),
 		usage_today AS (
-			SELECT ul.subscription_id, COALESCE(SUM(ul.total_cost), 0) AS total_cost
+			SELECT ul.subscription_id, COALESCE(SUM(ul.actual_cost), 0) AS total_cost
 			FROM usage_logs ul
 			JOIN candidates c ON c.id = ul.subscription_id
 			WHERE ul.created_at >= $1

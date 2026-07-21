@@ -97,6 +97,11 @@ func (s *UserSubscriptionRepoSuite) mustCreateAPIKey(userID, groupID int64, key 
 
 func (s *UserSubscriptionRepoSuite) mustCreateUsageLog(apiKeyID, userID, groupID, subscriptionID int64, cost float64, createdAt time.Time) {
 	s.T().Helper()
+	s.mustCreateUsageLogWithCosts(apiKeyID, userID, groupID, subscriptionID, cost, cost, createdAt)
+}
+
+func (s *UserSubscriptionRepoSuite) mustCreateUsageLogWithCosts(apiKeyID, userID, groupID, subscriptionID int64, totalCost, actualCost float64, createdAt time.Time) {
+	s.T().Helper()
 
 	account, err := s.client.Account.Create().
 		SetName("usage-window-account-" + uuid.NewString()).
@@ -114,8 +119,8 @@ func (s *UserSubscriptionRepoSuite) mustCreateUsageLog(apiKeyID, userID, groupID
 		SetModel("gpt-5.5").
 		SetGroupID(groupID).
 		SetSubscriptionID(subscriptionID).
-		SetTotalCost(cost).
-		SetActualCost(cost).
+		SetTotalCost(totalCost).
+		SetActualCost(actualCost).
 		SetBillingType(service.BillingTypeSubscription).
 		SetCreatedAt(createdAt).
 		Save(s.ctx)
@@ -561,6 +566,34 @@ func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_UsesTod
 	got, err := s.repo.GetByID(s.ctx, sub.ID)
 	s.Require().NoError(err)
 	s.Require().InDelta(4.0, got.DailyUsageUSD, 0.000001)
+	s.Require().NotNil(got.DailyWindowStart)
+	s.Require().WithinDuration(today, *got.DailyWindowStart, time.Microsecond)
+}
+
+func (s *UserSubscriptionRepoSuite) TestCalibrateActiveDailyUsageWindows_UsesActualCost() {
+	user := s.mustCreateUser("calibrate-actual-cost@test.com", service.RoleUser)
+	group := s.mustCreateGroup("g-calibrate-actual-cost")
+	today := timezone.StartOfDay(timezone.Now())
+	yesterday := today.Add(-24 * time.Hour)
+	upperBound := today.Add(10 * time.Minute)
+	now := upperBound
+
+	sub := s.mustCreateSubscription(user.ID, group.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDailyWindowStart(yesterday)
+		c.SetDailyUsageUsd(99)
+		c.SetStatus(service.SubscriptionStatusActive)
+		c.SetExpiresAt(now.Add(24 * time.Hour))
+	})
+	apiKey := s.mustCreateAPIKey(user.ID, group.ID, "sk-calibrate-actual-cost-"+uuid.NewString())
+	s.mustCreateUsageLogWithCosts(apiKey.ID, user.ID, group.ID, sub.ID, 10, 3, today.Add(time.Minute))
+
+	result, err := s.repo.CalibrateActiveDailyUsageWindows(s.ctx, today, upperBound, now, 100)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), result.UpdatedCount)
+
+	got, err := s.repo.GetByID(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().InDelta(3.0, got.DailyUsageUSD, 0.000001)
 	s.Require().NotNil(got.DailyWindowStart)
 	s.Require().WithinDuration(today, *got.DailyWindowStart, time.Microsecond)
 }

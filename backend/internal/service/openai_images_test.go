@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -120,6 +122,73 @@ func TestOpenAIImagesBudgetBody_ExcludesMultipartUploadBytes(t *testing.T) {
 	require.Less(t, estimateOpenAIRequestTextTokenUpperBound(budgetBody), 1_024)
 	require.Equal(t, "replace background with a blue sky", gjson.GetBytes(budgetBody, "prompt").String())
 	require.False(t, bytes.Contains(budgetBody, []byte("xxx")))
+}
+
+func TestOpenAIImagesOutputTokenUpperBound_AutoUsesSupportedOutputMax(t *testing.T) {
+	req := &OpenAIImagesRequest{
+		Endpoint: openAIImagesGenerationsEndpoint,
+		Model:    "gpt-image-2",
+		Size:     "auto",
+		Quality:  "auto",
+		N:        1,
+	}
+
+	got := openAIImagesOutputTokenUpperBound(req)
+
+	require.Equal(t, 7024, got)
+	require.Less(t, got, gptImage2UnknownOutputTokenUpperBound)
+}
+
+func TestOpenAIImagesInputTokenUpperBound_MultipartUploadUsesDecodedDimensions(t *testing.T) {
+	req := &OpenAIImagesRequest{
+		Endpoint:      openAIImagesEditsEndpoint,
+		InputFidelity: "high",
+		Uploads: []OpenAIImagesUpload{{
+			FieldName: "image",
+			FileName:  "source.png",
+			Width:     1024,
+			Height:    1024,
+		}},
+	}
+
+	got := openAIImagesInputTokenUpperBound(req)
+
+	require.Equal(t, 4354, got)
+	require.Less(t, got, gptImage2UnknownOutputTokenUpperBound)
+}
+
+func testPNGBytes(t *testing.T, width, height int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, img))
+	return buf.Bytes()
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartDetectsUploadDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "replace background"))
+	part, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = part.Write(testPNGBytes(t, 1024, 1024))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body.Bytes())
+
+	require.NoError(t, err)
+	require.Len(t, parsed.Uploads, 1)
+	require.Equal(t, 1024, parsed.Uploads[0].Width)
+	require.Equal(t, 1024, parsed.Uploads[0].Height)
 }
 
 func TestOpenAIImagesRequestModerationBody_JSONEditIncludesInputImageURLs(t *testing.T) {

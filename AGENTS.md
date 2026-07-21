@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-21 已封存当前存在 OpenAI 计费/展示错误的运行态快照：PostgreSQL custom dump 与 Redis RDB 已打包为本地 zip `/Users/wujianxiang/CodeSpace/sub2api/deploy/backups/20260721-162852-sub2api-billing-error-runtime-snapshot.zip`，SHA-256 `c8dbee661a4343627860ba888ffe7ae98325dc335773a5655a356204572b7e0f`，PostgreSQL `pg_restore --list`、Redis `redis-check-rdb`、Zip `unzip -tq` 均已校验通过。该 zip 含运行态数据，只保存在本地，不提交 GitHub。结果见 `docs/ai/context/20260721-163100-billing-error-runtime-snapshot-result_CN.md`。
+- 2026-07-20 已在 `sub2api-candidate-postgres` 以批次 `grant-20260720-10usd-current-users` 向 113 个未删除 active 用户批量发放 10 USD OpenAI 流量卡；写入 113 条 `COMPLETED/manual_grant/traffic_pack` 订单、113 张 `user_traffic_credits`、113 条 `traffic_credit_ledger.purchase` 和 113 条审计日志，不改余额、容器和路由。结果见 `docs/ai/context/20260720-221240-all-users-10usd-traffic-credit-result_CN.md`。
 - 2026-07-20 已批准全前端 Material Relay 重设计：范围覆盖公开页、认证页、用户端、管理端和通用组件；目标是信息效率、品牌辨识度、交互手感同等重要。视觉基线为通透但克制的浮动材质，半透明只用于浮动层，内容面使用实色高可读表面；动效遵循 `Press / Tap feedback`、`Origin-aware animation`、`Continuity transition`、`Stagger` 词汇与统一 easing/时长契约。设计文档见 `docs/ai/context/20260720-102228-sub2api-material-relay-frontend-redesign-design_CN.md`，尚未改业务代码、未部署。
 
 - 2026-07-19 已完成本地 Sub2API/CLIProxyAPI 共享 Docker bridge 实施：`sub2api-dev` 保留 PostgreSQL/Redis 数据网络并额外加入 `sub2api-cliproxy-local`，`cliproxyapi-local-dev` 只加入该共享网络；账号 `cliproxy-local-openai` 已通过正式管理 API 切换为 `https://cliproxyapi:8317/v1`，数据库与 Redis 快照一致。新增内部 CA/叶子证书、可选运行时 CA 注入、两仓库本地 Compose 与回归测试；两个应用分别重建后 DNS、TLS、业务和 usage 回调仍有效，数据容器未替换。CLI 本地 `auths/` 为空，成功响应/成功 usage event 尚未验证；失败事件回调 200 且不产生计费事实。未改公网、未提交、未推送，结果见 `docs/ai/context/20260719-204112-sub2api-cliproxyapi-shared-network-implementation-result_CN.md`。

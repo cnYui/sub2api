@@ -747,11 +747,11 @@ func TestLoadDefaultTrafficCreditReservationConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	if cfg.Billing.TrafficCreditReservationEnabled {
-		t.Fatal("TrafficCreditReservationEnabled = true, want false")
+	if !cfg.Billing.TrafficCreditReservationEnabled {
+		t.Fatal("TrafficCreditReservationEnabled = false, want true")
 	}
-	if !cfg.Billing.TrafficCreditReservationShadow {
-		t.Fatal("TrafficCreditReservationShadow = false, want true")
+	if cfg.Billing.TrafficCreditReservationShadow {
+		t.Fatal("TrafficCreditReservationShadow = true, want false")
 	}
 	if cfg.Billing.TrafficCreditMinimumReserveUSD != 0.01 {
 		t.Fatalf("TrafficCreditMinimumReserveUSD = %v, want 0.01", cfg.Billing.TrafficCreditMinimumReserveUSD)

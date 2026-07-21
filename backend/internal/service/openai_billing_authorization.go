@@ -90,16 +90,9 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 	if s == nil || s.estimator == nil {
 		return nil, ErrBillingPreauthUnavailable
 	}
-	if !s.enabled && s.shadow {
-		recordTrafficCreditPreauthorizationSuccess()
-		return &OpenAIBillingAuthorization{
-			Source:             BillingSourceShadow,
-			RequestFingerprint: input.RequestFingerprint,
-			EffectiveBody:      append([]byte(nil), input.Body...),
-		}, nil
-	}
 
-	if input.Subscription != nil && input.Group != nil {
+	subscriptionChecked := input.Subscription != nil && input.Group != nil
+	if subscriptionChecked {
 		budget, err := s.estimate(ctx, input, math.MaxFloat64)
 		if err != nil {
 			return nil, err
@@ -112,9 +105,22 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 				ReserveUSD:         budget.ReserveUSD,
 				PricingSnapshot:    budget.PricingSnapshot,
 				EffectiveBody:      effectiveOpenAIBillingBody(input, budget.Body),
-				Enforced:           s.enabled,
+				Enforced:           true,
 			}, nil
 		}
+	}
+
+	if !s.enabled && s.shadow {
+		if subscriptionChecked {
+			recordTrafficCreditPreauthorizationRejected(ErrTrafficCreditInsufficient)
+			return nil, ErrTrafficCreditInsufficient
+		}
+		recordTrafficCreditPreauthorizationSuccess()
+		return &OpenAIBillingAuthorization{
+			Source:             BillingSourceShadow,
+			RequestFingerprint: input.RequestFingerprint,
+			EffectiveBody:      append([]byte(nil), input.Body...),
+		}, nil
 	}
 
 	if s.reservationRepo == nil || !IsTrafficPackPlatform(input.Platform) {

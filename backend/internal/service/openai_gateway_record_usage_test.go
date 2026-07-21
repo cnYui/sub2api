@@ -1152,6 +1152,34 @@ func TestOpenAIGatewayServiceBuildUsageFact_SubscriptionBillingSetsSubscriptionF
 	require.Zero(t, payload.BillingCommand.BalanceCost)
 }
 
+func TestOpenAIGatewayServiceBuildUsageFact_SubscriptionAuthorizationSetsSubscriptionFields(t *testing.T) {
+	svc := newOpenAIRecordUsageServiceForTest(&openAIRecordUsageLogRepoStub{}, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	subscription := &UserSubscription{ID: 99}
+
+	payload := buildOpenAIUsageFactPayloadForTest(t, svc, context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_subscription_authorized",
+			Usage:     OpenAIUsage{InputTokens: 10, OutputTokens: 5},
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+			BillingAuthorization: &OpenAIBillingAuthorization{
+				Source:             BillingSourceSubscription,
+				RequestFingerprint: "fp-subscription",
+			},
+		},
+		APIKey:       &APIKey{ID: 100, GroupID: i64p(88), Group: &Group{ID: 88, SubscriptionType: SubscriptionTypeSubscription, RateMultiplier: 1.0}},
+		User:         &User{ID: 200},
+		Account:      &Account{ID: 300},
+		Subscription: subscription,
+	})
+
+	require.Equal(t, BillingTypeSubscription, payload.UsageLog.BillingType)
+	require.NotNil(t, payload.UsageLog.SubscriptionID)
+	require.Equal(t, subscription.ID, *payload.UsageLog.SubscriptionID)
+	require.Greater(t, payload.BillingCommand.SubscriptionCost, 0.0)
+	require.Zero(t, payload.BillingCommand.BalanceCost)
+}
+
 func TestOpenAIGatewayServiceBuildUsageFact_SimpleModeClearsBillingCommandCosts(t *testing.T) {
 	svc := newOpenAIRecordUsageServiceForTest(&openAIRecordUsageLogRepoStub{}, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
 	svc.cfg.RunMode = config.RunModeSimple
