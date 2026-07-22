@@ -114,23 +114,19 @@ func (s *OpenAIBillingAuthorizationService) Authorize(
 			window, ok := input.Subscription.RollingWeeklyWindowForEntitlement(input.Group, period, time.Now())
 			if ok && period != nil && period.WeeklyLimitUSD != nil && *period.WeeklyLimitUSD > 0 {
 				weeklyUsage := input.Subscription.RollingWeeklyUsageUSD(window)
-				if !window.Allows(weeklyUsage, budget.ReserveUSD) {
-					return nil, ErrWeeklyLimitExceeded.WithMetadata(map[string]string{
-						"window_resets_at": window.ResetsAt.UTC().Format(time.RFC3339),
-					})
+				if window.Allows(weeklyUsage, budget.ReserveUSD) {
+					periodID := period.ID
+					return &OpenAIBillingAuthorization{
+						Source:              BillingSourceSubscription,
+						RequestFingerprint:  input.RequestFingerprint,
+						ReserveUSD:          budget.ReserveUSD,
+						EntitlementPeriodID: &periodID,
+						PricingSnapshot:     budget.PricingSnapshot,
+						EffectiveBody:       effectiveOpenAIBillingBody(input, budget.Body),
+						Enforced:            s.enabled,
+					}, nil
 				}
-				periodID := period.ID
-				return &OpenAIBillingAuthorization{
-					Source:              BillingSourceSubscription,
-					RequestFingerprint:  input.RequestFingerprint,
-					ReserveUSD:          budget.ReserveUSD,
-					EntitlementPeriodID: &periodID,
-					PricingSnapshot:     budget.PricingSnapshot,
-					EffectiveBody:       effectiveOpenAIBillingBody(input, budget.Body),
-					Enforced:            s.enabled,
-				}, nil
-			}
-			if !input.Group.HasDailyLimit() {
+			} else if !input.Group.HasDailyLimit() {
 				return nil, ErrSubscriptionInvalid
 			}
 		}
