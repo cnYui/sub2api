@@ -16,6 +16,7 @@ type openAIBillingAuthorizationReservationRepoStub struct {
 	availableUSD float64
 	hasDebt      bool
 	reservation  *TrafficCreditReservation
+	reserveErr   error
 	reserveCalls int
 }
 
@@ -29,6 +30,9 @@ func (s *openAIBillingAuthorizationReservationRepoStub) HasOutstandingDebt(ctx c
 
 func (s *openAIBillingAuthorizationReservationRepoStub) Reserve(ctx context.Context, input TrafficCreditReservationInput) (*TrafficCreditReservation, bool, error) {
 	s.reserveCalls++
+	if s.reserveErr != nil {
+		return nil, false, s.reserveErr
+	}
 	if s.reservation == nil {
 		s.reservation = &TrafficCreditReservation{
 			ID:                            91,
@@ -144,6 +148,30 @@ func TestOpenAIBillingAuthorization_RollingWeeklyIgnoresStaleWindowUsage(t *test
 	require.Zero(t, repo.reserveCalls)
 }
 
+func TestOpenAIBillingAuthorization_ReservesTrafficCreditWhenRollingWeeklyQuotaExceeded(t *testing.T) {
+	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)
+
+	got, err := svc.Authorize(context.Background(), newOpenAIBillingAuthorizationRollingWeeklyExceededInput())
+
+	require.NoError(t, err)
+	require.Equal(t, BillingSourceTrafficCredit, got.Source)
+	require.NotNil(t, got.ReservationID)
+	require.Equal(t, int64(91), *got.ReservationID)
+	require.Equal(t, 1, repo.reserveCalls)
+}
+
+func TestOpenAIBillingAuthorization_ReturnsTrafficCreditErrorWhenRollingWeeklyQuotaExceeded(t *testing.T) {
+	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)
+	repo.availableUSD = 0
+	repo.reserveErr = ErrTrafficCreditInsufficient
+
+	_, err := svc.Authorize(context.Background(), newOpenAIBillingAuthorizationRollingWeeklyExceededInput())
+
+	require.ErrorIs(t, err, ErrTrafficCreditInsufficient)
+	require.NotErrorIs(t, err, ErrWeeklyLimitExceeded)
+	require.Equal(t, 1, repo.reserveCalls)
+}
+
 func TestOpenAIBillingAuthorization_RejectsOutstandingDebt(t *testing.T) {
 	svc, repo := newOpenAIBillingAuthorizationTestService(0.25)
 	repo.hasDebt = true
@@ -192,4 +220,32 @@ func newOpenAIBillingAuthorizationTestInput() OpenAIBillingAuthorizationInput {
 		Body:               []byte(`{"model":"gpt-5.1"}`),
 		RateMultiplier:     1,
 	}
+}
+
+func newOpenAIBillingAuthorizationRollingWeeklyExceededInput() OpenAIBillingAuthorizationInput {
+	weeklyLimit := 58.0
+	anchor := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	input := newOpenAIBillingAuthorizationTestInput()
+	input.Group = &Group{
+		ID:               2,
+		Name:             "codex-pool-19-usd",
+		SubscriptionType: SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	input.Subscription = &UserSubscription{
+		ID:                3,
+		StartsAt:          anchor,
+		ExpiresAt:         anchor.AddDate(0, 0, 28),
+		WeeklyAnchorAt:    &anchor,
+		WeeklyWindowStart: &anchor,
+		WeeklyUsageUSD:    weeklyLimit - 0.1,
+		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
+			ID:             30,
+			StartsAt:       anchor,
+			ExpiresAt:      anchor.AddDate(0, 0, 28),
+			Status:         SubscriptionEntitlementPeriodStatusActive,
+			WeeklyLimitUSD: &weeklyLimit,
+		},
+	}
+	return input
 }
