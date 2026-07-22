@@ -244,8 +244,8 @@ function checkoutInfoWithFiveManualPlansFixture() {
           price: 29,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 58,
-          period_total_quota_usd: 232,
+          weekly_limit_usd: 76,
+          period_total_quota_usd: 304,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -259,8 +259,8 @@ function checkoutInfoWithFiveManualPlansFixture() {
           price: 39,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 78,
-          period_total_quota_usd: 312,
+          weekly_limit_usd: 102,
+          period_total_quota_usd: 408,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -274,8 +274,8 @@ function checkoutInfoWithFiveManualPlansFixture() {
           price: 59,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 118,
-          period_total_quota_usd: 472,
+          weekly_limit_usd: 154,
+          period_total_quota_usd: 616,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -289,8 +289,8 @@ function checkoutInfoWithFiveManualPlansFixture() {
           price: 79,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 158,
-          period_total_quota_usd: 632,
+          weekly_limit_usd: 206,
+          period_total_quota_usd: 824,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -305,8 +305,8 @@ function checkoutInfoWithFiveManualPlansFixture() {
           price: 99,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 198,
-          period_total_quota_usd: 792,
+          weekly_limit_usd: 258,
+          period_total_quota_usd: 1032,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -352,8 +352,8 @@ function checkoutInfoWithSevenManualPlansFixture() {
           price: 149,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 299,
-          period_total_quota_usd: 1196,
+          weekly_limit_usd: 389,
+          period_total_quota_usd: 1556,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -368,8 +368,8 @@ function checkoutInfoWithSevenManualPlansFixture() {
           price: 199,
           validity_days: 28,
           daily_limit_usd: null,
-          weekly_limit_usd: 400,
-          period_total_quota_usd: 1600,
+          weekly_limit_usd: 520,
+          period_total_quota_usd: 2080,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -1099,8 +1099,8 @@ describe('PaymentView tab defaults', () => {
           platform: 'openai',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 58,
-          period_total_quota_usd: 232,
+          weekly_limit_usd: 76,
+          period_total_quota_usd: 304,
           quota_window_unit: 'week',
           quota_window_days: 7,
           effective_validity_days: 28,
@@ -1158,11 +1158,11 @@ describe('PaymentView tab defaults', () => {
 
     const text = wrapper.text()
     expect(text).toContain('29 元订阅池')
-    expect(text).toContain('周限额$58')
-    expect(text).toContain('payment.planCard.periodTotalQuota$232')
+    expect(text).toContain('周限额$76')
+    expect(text).toContain('payment.planCard.periodTotalQuota$304')
     expect(text).toContain('刷新时间每周刷新')
     expect(text).toContain('payment.planCard.validity28 payment.days')
-    expect(text).toContain('每周 $58，28 天有效期')
+    expect(text).toContain('每周 $76，28 天有效期')
     expect(text).not.toContain('payment.planCard.dailyLimit')
     expect(text).not.toContain('payment.planCard.dailyRefresh')
     expect(text).not.toContain('24点')
@@ -1212,8 +1212,8 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const textBeforeConfirm = wrapper.text()
-    expect(textBeforeConfirm).toContain('周限额$58')
-    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$232')
+    expect(textBeforeConfirm).toContain('周限额$76')
+    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$304')
     expect(textBeforeConfirm).toContain('刷新时间每周刷新')
     expect(textBeforeConfirm).toContain('payment.planCard.validity28 payment.days')
     expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$15')
@@ -1224,10 +1224,10 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     const text = wrapper.text()
-    expect(text).toContain('周限额$58')
-    expect(text).toContain('payment.planCard.periodTotalQuota$232')
+    expect(text).toContain('周限额$76')
+    expect(text).toContain('payment.planCard.periodTotalQuota$304')
     expect(text).toContain('payment.planCard.validity28 payment.days')
-    expect(text).toContain('每周 $58，28 天有效期')
+    expect(text).toContain('每周 $76，28 天有效期')
     expect(text).not.toContain('payment.planCard.dailyLimit$15')
     expect(text).not.toContain('payment.planCard.dailyRefresh')
     expect(text).not.toContain('月度订阅-时间 30天，日限额 15刀，24点刷新')
@@ -1330,12 +1330,12 @@ describe('PaymentView tab defaults', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('149 元订阅池')
-    expect(wrapper.text()).toContain('周限额$299')
-    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$1196')
+    expect(wrapper.text()).toContain('周限额$389')
+    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$1556')
     expect(wrapper.text()).toContain('¥149')
     expect(wrapper.text()).toContain('199 元订阅池')
-    expect(wrapper.text()).toContain('周限额$400')
-    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$1600')
+    expect(wrapper.text()).toContain('周限额$520')
+    expect(wrapper.text()).toContain('payment.planCard.periodTotalQuota$2080')
     expect(wrapper.text()).toContain('¥199')
 
     const purchaseCards = wrapper.findAll('[data-testid="purchase-product-card"]')
@@ -1812,7 +1812,7 @@ describe('PaymentView page responsibility', () => {
           platform: 'openai',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 58,
+          weekly_limit_usd: 76,
           monthly_limit_usd: null,
         },
       },

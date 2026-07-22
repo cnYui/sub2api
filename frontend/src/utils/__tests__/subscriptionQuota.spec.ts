@@ -19,8 +19,8 @@ describe('subscriptionQuota', () => {
 
   it('识别公共 Codex 滚动周订阅，避免页面自行推导刷新时间', () => {
     expect(PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS).toBe(28)
-    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-19-usd')).toBe(58)
-    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-179-usd')).toBe(400)
+    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-19-usd')).toBe(76)
+    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-179-usd')).toBe(520)
     expect(publicCodexSubscriptionWeeklyLimitUSD('OpenAI')).toBeNull()
     expect(isPublicCodexSubscriptionGroupName('codex-pool-19-usd')).toBe(true)
     expect(isPublicCodexSubscriptionGroupName('OpenAI')).toBe(false)

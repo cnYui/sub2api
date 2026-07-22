@@ -109,8 +109,8 @@ func TestAdminPaymentHandlerListPlansNormalizesPublicCodexPlanDisplay(t *testing
 	require.Len(t, resp.Data, 1)
 	plan := resp.Data[0]
 	require.Equal(t, "29 元订阅池", plan.Name)
-	require.Equal(t, "28 天订阅，每 7 天刷新 58 USD 周额度，购买时间起滚动计算", plan.Description)
-	require.Equal(t, "周额度 58 USD\n28 天有效期\n购买时间起每 7 天刷新", plan.Features)
+	require.Equal(t, "28 天订阅，每 7 天刷新 76 USD 周额度，购买时间起滚动计算", plan.Description)
+	require.Equal(t, "周额度 76 USD\n28 天有效期\n购买时间起每 7 天刷新", plan.Features)
 	require.Equal(t, "29 元订阅池", plan.ProductName)
 	require.Equal(t, 28, plan.ValidityDays)
 	require.Equal(t, "day", plan.ValidityUnit)

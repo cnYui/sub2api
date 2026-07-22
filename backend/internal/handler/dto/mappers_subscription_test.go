@@ -13,7 +13,7 @@ func TestUserSubscriptionFromService_RollingWeeklyDTOResetsStaleWindowUsage(t *t
 
 	anchor := time.Now().AddDate(0, 0, -8).Truncate(time.Second)
 	expiresAt := anchor.AddDate(0, 0, 28)
-	weeklyLimit := 58.0
+	weeklyLimit := 76.0
 	sub := &service.UserSubscription{
 		ID:                1001,
 		UserID:            2001,
@@ -50,9 +50,9 @@ func TestUserSubscriptionFromService_RollingWeeklyDTOResetsStaleWindowUsage(t *t
 	require.True(t, got.WeeklyWindowStart.Equal(anchor.AddDate(0, 0, 7)))
 	require.Zero(t, got.WeeklyUsageUSD)
 	require.NotNil(t, got.EffectiveWeeklyLimitUSD)
-	require.InDelta(t, 58, *got.EffectiveWeeklyLimitUSD, 1e-9)
+	require.InDelta(t, 76, *got.EffectiveWeeklyLimitUSD, 1e-9)
 	require.NotNil(t, got.WeeklyRemainingUSD)
-	require.InDelta(t, 58, *got.WeeklyRemainingUSD, 1e-9)
+	require.InDelta(t, 76, *got.WeeklyRemainingUSD, 1e-9)
 	require.NotNil(t, got.WeeklyWindowResetsAt)
 	require.True(t, got.WeeklyWindowResetsAt.Equal(anchor.AddDate(0, 0, 14)))
 }
@@ -63,7 +63,7 @@ func TestUserSubscriptionFromServiceAdmin_NormalizesPublicCodexGroupQuota(t *tes
 	anchor := time.Now().Add(-time.Hour).Truncate(time.Second)
 	expiresAt := anchor.AddDate(0, 0, 28)
 	legacyDailyLimit := 15.0
-	weeklyLimit := 58.0
+	weeklyLimit := 76.0
 	sub := &service.UserSubscription{
 		ID:                1002,
 		UserID:            2002,
@@ -99,8 +99,8 @@ func TestUserSubscriptionFromServiceAdmin_NormalizesPublicCodexGroupQuota(t *tes
 	require.NotNil(t, got.Group)
 	require.Nil(t, got.Group.DailyLimitUSD)
 	require.NotNil(t, got.Group.WeeklyLimitUSD)
-	require.InDelta(t, 58, *got.Group.WeeklyLimitUSD, 1e-9)
+	require.InDelta(t, 76, *got.Group.WeeklyLimitUSD, 1e-9)
 	require.NotNil(t, got.EffectiveWeeklyLimitUSD)
-	require.InDelta(t, 58, *got.EffectiveWeeklyLimitUSD, 1e-9)
+	require.InDelta(t, 76, *got.EffectiveWeeklyLimitUSD, 1e-9)
 	require.NotNil(t, got.WeeklyWindowResetsAt)
 }

@@ -1061,20 +1061,20 @@ func TestAdminSubscriptionRefundQuoteRequiresManualReviewForUnallocatedUsageFact
 func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 58)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 76, 304, 58)
 
 	plan, earlyResult, err := scenario.svc.PrepareRefund(scenario.ctx, scenario.orderID, 29, "管理员按规则退款", false, false)
 	require.NoError(t, err)
 	require.Nil(t, earlyResult)
 	require.NotNil(t, plan)
-	require.InDelta(t, 21.75, plan.RefundAmount, 1e-9)
+	require.InDelta(t, 23.463815789473685, plan.RefundAmount, 1e-9)
 
 	reloaded, err := scenario.client.PaymentOrder.Get(scenario.ctx, scenario.orderID)
 	require.NoError(t, err)
 	require.Equal(t, fixture.entitlementID, int64(reloaded.RefundBasis["entitlement_period_id"].(float64)))
-	require.InDelta(t, 232, reloaded.RefundBasis["period_total_quota_usd"].(float64), 1e-9)
+	require.InDelta(t, 304, reloaded.RefundBasis["period_total_quota_usd"].(float64), 1e-9)
 	require.InDelta(t, 58, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
-	require.InDelta(t, 0.25, reloaded.RefundBasis["usage_ratio"].(float64), 1e-9)
+	require.InDelta(t, 0.19078947368421054, reloaded.RefundBasis["usage_ratio"].(float64), 1e-9)
 	require.InDelta(t, 29, reloaded.RefundBasis["purchase_base_amount"].(float64), 1e-9)
 	require.InDelta(t, 0.29, reloaded.RefundBasis["non_refundable_fee"].(float64), 1e-9)
 }

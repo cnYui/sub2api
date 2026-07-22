@@ -224,9 +224,9 @@ func TestPublicCodexSnapshotUsesFixedWeeklyQuotaWithoutMigratedGroupField(t *tes
 	require.Equal(t, "week", snapshot.QuotaWindowUnit)
 	require.Equal(t, subscriptionWeeklyWindowDays, snapshot.QuotaWindowDays)
 	require.NotNil(t, snapshot.WeeklyLimitUSD)
-	require.Equal(t, 58.0, *snapshot.WeeklyLimitUSD)
+	require.Equal(t, 76.0, *snapshot.WeeklyLimitUSD)
 	require.NotNil(t, snapshot.PeriodTotalQuotaUSD)
-	require.Equal(t, 232.0, *snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, 304.0, *snapshot.PeriodTotalQuotaUSD)
 }
 
 func TestPublicCodexPlanQuotaSnapshotUsesSameWindowContract(t *testing.T) {
@@ -237,9 +237,9 @@ func TestPublicCodexPlanQuotaSnapshotUsesSameWindowContract(t *testing.T) {
 	require.Nil(t, snapshot.DailyLimitUSD)
 	require.Nil(t, snapshot.MonthlyLimitUSD)
 	require.NotNil(t, snapshot.WeeklyLimitUSD)
-	require.Equal(t, 78.0, *snapshot.WeeklyLimitUSD)
+	require.Equal(t, 102.0, *snapshot.WeeklyLimitUSD)
 	require.NotNil(t, snapshot.PeriodTotalQuotaUSD)
-	require.Equal(t, 312.0, *snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, 408.0, *snapshot.PeriodTotalQuotaUSD)
 	require.Equal(t, "week", snapshot.QuotaWindowUnit)
 	require.Equal(t, subscriptionWeeklyWindowDays, snapshot.QuotaWindowDays)
 	require.Equal(t, publicCodexSubscriptionValidityDays, snapshot.EffectiveValidityDays)

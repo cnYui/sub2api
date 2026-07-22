@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 元套餐',
-      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 58 刀',
+      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 76 刀',
       multiAccount: '39 元套餐',
-      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 78 刀',
+      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 102 刀',
       balanceQuota: '59 元套餐',
-      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 118 刀',
+      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 154 刀',
       premiumQuota: '99 元套餐',
-      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 198 刀'
+      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 258 刀'
     },
     // 优势对比
     comparison: {

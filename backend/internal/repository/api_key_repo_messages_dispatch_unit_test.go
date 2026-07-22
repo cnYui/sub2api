@@ -54,7 +54,7 @@ func TestGroupEntityToService_NormalizesPublicCodexSubscriptionQuota(t *testing.
 	require.Nil(t, got.DailyLimitUSD)
 	require.Nil(t, got.MonthlyLimitUSD)
 	require.NotNil(t, got.WeeklyLimitUSD)
-	require.InDelta(t, 58, *got.WeeklyLimitUSD, 1e-9)
+	require.InDelta(t, 76, *got.WeeklyLimitUSD, 1e-9)
 	require.Equal(t, 28, got.DefaultValidityDays)
 }
 

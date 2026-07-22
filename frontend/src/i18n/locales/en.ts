@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 RMB Plan',
-      unifiedGatewayDesc: '28-day subscription, 58 USD weekly quota, refreshes every 7 days',
+      unifiedGatewayDesc: '28-day subscription, 76 USD weekly quota, refreshes every 7 days',
       multiAccount: '39 RMB Plan',
-      multiAccountDesc: '28-day subscription, 78 USD weekly quota, refreshes every 7 days',
+      multiAccountDesc: '28-day subscription, 102 USD weekly quota, refreshes every 7 days',
       balanceQuota: '59 RMB Plan',
-      balanceQuotaDesc: '28-day subscription, 118 USD weekly quota, refreshes every 7 days',
+      balanceQuotaDesc: '28-day subscription, 154 USD weekly quota, refreshes every 7 days',
       premiumQuota: '99 RMB Plan',
-      premiumQuotaDesc: '28-day subscription, 198 USD weekly quota, refreshes every 7 days'
+      premiumQuotaDesc: '28-day subscription, 258 USD weekly quota, refreshes every 7 days'
     },
     // Comparison section
     comparison: {

@@ -244,10 +244,10 @@ describe('SubscriptionsView traffic packs', () => {
           id: 2,
           name: 'codex-pool-19-usd',
           platform: 'openai',
-          description: '29 元订阅池，每周 58 USD，28 天有效期',
+          description: '29 元订阅池，每周 76 USD，28 天有效期',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 58,
+          weekly_limit_usd: 76,
           monthly_limit_usd: null,
         },
       },
@@ -280,8 +280,8 @@ describe('SubscriptionsView traffic packs', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('codex-pool-19-usd')
-    expect(wrapper.text()).toContain('每周 $58，28 天有效期')
-    expect(wrapper.text()).not.toContain('29 元订阅池，每周 58 USD，28 天有效期')
+    expect(wrapper.text()).toContain('每周 $76，28 天有效期')
+    expect(wrapper.text()).not.toContain('29 元订阅池，每周 76 USD，28 天有效期')
     expect(wrapper.text()).not.toContain('payment.renewNow')
     expect(wrapper.findAll('button').some(button => button.text().includes('续费'))).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
@@ -307,10 +307,10 @@ describe('SubscriptionsView traffic packs', () => {
           id: 2,
           name: 'codex-pool-19-usd',
           platform: 'openai',
-          description: '29 元订阅池，每周 58 USD，28 天有效期',
+          description: '29 元订阅池，每周 76 USD，28 天有效期',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 58,
+          weekly_limit_usd: 76,
           monthly_limit_usd: null,
         },
       },
@@ -344,7 +344,7 @@ describe('SubscriptionsView traffic packs', () => {
 
     expect(wrapper.text()).toContain('当前周额度窗口尚未激活')
     expect(wrapper.text()).not.toContain('后重置')
-    expect(wrapper.text()).not.toContain('$0 / $58')
+    expect(wrapper.text()).not.toContain('$0 / $76')
   })
 
   it('公共 Codex 订阅即使 group 仍是旧日额度也展示有效周额度', async () => {
@@ -361,7 +361,7 @@ describe('SubscriptionsView traffic packs', () => {
         daily_window_start: '2026-07-20T00:00:00+08:00',
         weekly_window_start: '2026-07-20T00:00:00+08:00',
         weekly_window_resets_at: '2026-07-21T00:00:00+08:00',
-        effective_weekly_limit_usd: 58 / 7,
+        effective_weekly_limit_usd: 76 / 7,
         monthly_window_start: null,
         group: {
           id: 2,
@@ -402,7 +402,7 @@ describe('SubscriptionsView traffic packs', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('$1 / $8')
+    expect(wrapper.text()).toContain('$1 / $11')
     expect(wrapper.text()).not.toContain('$0 / $15')
   })
 })

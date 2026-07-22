@@ -73,13 +73,13 @@ type Group struct {
 }
 
 var publicCodexSubscriptionWeeklyLimitsUSD = map[string]float64{
-	"codex-pool-19-usd":  58,
-	"codex-pool-29-usd":  78,
-	"codex-pool-49-usd":  118,
-	"codex-pool-69-usd":  158,
-	"codex-pool-89-usd":  198,
-	"codex-pool-135-usd": 299,
-	"codex-pool-179-usd": 400,
+	"codex-pool-19-usd":  76,
+	"codex-pool-29-usd":  102,
+	"codex-pool-49-usd":  154,
+	"codex-pool-69-usd":  206,
+	"codex-pool-89-usd":  258,
+	"codex-pool-135-usd": 389,
+	"codex-pool-179-usd": 520,
 }
 
 const publicCodexSubscriptionValidityDays = 28

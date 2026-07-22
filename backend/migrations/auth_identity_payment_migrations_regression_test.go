@@ -366,3 +366,44 @@ func TestMigration175ReducesPublicCodexWeeklyQuotaAmounts(t *testing.T) {
 	require.NotContains(t, sql, "INSERT INTO account_groups")
 	require.NotContains(t, sql, "UPDATE account_groups")
 }
+
+func TestMigration176IncreasesPublicCodexWeeklyQuotaAmountsAndSnapshots(t *testing.T) {
+	content, err := FS.ReadFile("176_increase_public_codex_weekly_quota_amounts.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"'codex-pool-19-usd'::text, 76::numeric",
+		"'codex-pool-29-usd', 102::numeric",
+		"'codex-pool-49-usd', 154::numeric",
+		"'codex-pool-69-usd', 206::numeric",
+		"'codex-pool-89-usd', 258::numeric",
+		"'codex-pool-135-usd', 389::numeric",
+		"'codex-pool-179-usd', 520::numeric",
+		"weekly_limit_usd = p.weekly_usd",
+		"period_total_quota_usd = p.weekly_usd * 4",
+		"quota_window_unit = 'week'",
+		"quota_window_days = 7",
+		"UPDATE subscription_entitlement_periods sep",
+		"UPDATE payment_orders po",
+		"subscription_snapshot",
+		"jsonb_build_object",
+		"'version', 1",
+		"'plan_id', po.plan_id",
+		"po.plan_id IS NOT NULL",
+		"po.subscription_id IS NULL",
+		"po.status IN ('PAID', 'RECHARGING')",
+		"po.status = 'FAILED' AND po.paid_at IS NOT NULL",
+		"po.status = 'PENDING' AND po.expires_at > NOW()",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "codex-pool-local-unlimited")
+	require.NotContains(t, sql, "UPDATE usage_logs")
+	require.NotContains(t, sql, "UPDATE usage_facts")
+	require.NotContains(t, sql, "DELETE")
+	require.NotContains(t, sql, "TRUNCATE")
+	require.NotContains(t, sql, "DROP")
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+}

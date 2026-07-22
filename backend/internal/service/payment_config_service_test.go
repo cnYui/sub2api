@@ -378,10 +378,10 @@ func TestCreatePlanNormalizesPublicCodexValidity(t *testing.T) {
 	if plan.ValidityUnit != "day" {
 		t.Fatalf("ValidityUnit = %q, want day", plan.ValidityUnit)
 	}
-	if plan.Description != "28 天订阅，每 7 天刷新 58 USD 周额度，购买时间起滚动计算" {
+	if plan.Description != "28 天订阅，每 7 天刷新 76 USD 周额度，购买时间起滚动计算" {
 		t.Fatalf("Description = %q", plan.Description)
 	}
-	if plan.Features != "周额度 58 USD\n28 天有效期\n购买时间起每 7 天刷新" {
+	if plan.Features != "周额度 76 USD\n28 天有效期\n购买时间起每 7 天刷新" {
 		t.Fatalf("Features = %q", plan.Features)
 	}
 	if plan.ProductName != "29 元订阅池" {
@@ -431,10 +431,10 @@ func TestUpdatePlanNormalizesPublicCodexValidity(t *testing.T) {
 	if updated.ValidityUnit != "day" {
 		t.Fatalf("ValidityUnit = %q, want day", updated.ValidityUnit)
 	}
-	if updated.Description != "28 天订阅，每 7 天刷新 78 USD 周额度，购买时间起滚动计算" {
+	if updated.Description != "28 天订阅，每 7 天刷新 102 USD 周额度，购买时间起滚动计算" {
 		t.Fatalf("Description = %q", updated.Description)
 	}
-	if updated.Features != "周额度 78 USD\n28 天有效期\n购买时间起每 7 天刷新" {
+	if updated.Features != "周额度 102 USD\n28 天有效期\n购买时间起每 7 天刷新" {
 		t.Fatalf("Features = %q", updated.Features)
 	}
 	if updated.ProductName != "39 元订阅池" {

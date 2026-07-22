@@ -54,7 +54,7 @@ describe('PlanEditDialog', () => {
           validity_unit: 'year',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 158,
+          weekly_limit_usd: 206,
           monthly_limit_usd: null,
           supported_model_scopes: [],
           features: [],
@@ -94,12 +94,12 @@ describe('PlanEditDialog', () => {
     const validityInput = wrapper.find('input[type="number"][min="1"]')
     expect(validityInput.element).toHaveProperty('disabled', true)
     const textareas = wrapper.findAll('textarea')
-    expect((textareas[0].element as HTMLTextAreaElement).value).toContain('28 天订阅，每 7 天刷新 158 USD 周额度，购买时间起滚动计算')
+    expect((textareas[0].element as HTMLTextAreaElement).value).toContain('28 天订阅，每 7 天刷新 206 USD 周额度，购买时间起滚动计算')
     expect((textareas[0].element as HTMLTextAreaElement).value).not.toContain('历史漂移套餐')
-    expect((textareas[1].element as HTMLTextAreaElement).value).toContain('周额度 158 USD')
+    expect((textareas[1].element as HTMLTextAreaElement).value).toContain('周额度 206 USD')
     expect(wrapper.text()).toContain('payment.admin.publicCodex28DayHint')
-    expect(wrapper.text()).toContain('$158')
-    expect(wrapper.text()).toContain('$632')
+    expect(wrapper.text()).toContain('$206')
+    expect(wrapper.text()).toContain('$824')
     expect(wrapper.text()).not.toContain('payment.admin.monthlyLimit')
 
     await wrapper.get('form').trigger('submit')

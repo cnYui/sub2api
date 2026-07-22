@@ -48,12 +48,12 @@ describe('SubscriptionProgressMini', () => {
         group: {
           id: 2,
           name: 'codex-pool-19-usd',
-          weekly_limit_usd: 58,
+          weekly_limit_usd: 76,
           daily_limit_usd: null,
           monthly_limit_usd: null,
         },
         weekly_usage_usd: 12.4,
-        effective_weekly_limit_usd: 57.6,
+        effective_weekly_limit_usd: 76,
         weekly_window_resets_at: '2026-07-29T00:00:00+09:00',
         expires_at: '2026-08-19T00:00:00+09:00',
       },
@@ -71,7 +71,7 @@ describe('SubscriptionProgressMini', () => {
 
     await wrapper.find('button').trigger('click')
 
-    expect(wrapper.text()).toContain('$12/$58')
+    expect(wrapper.text()).toContain('$12/$76')
     expect(wrapper.text()).toContain('重置于 格式化时间:2026-07-29T00:00:00+09:00')
   })
 
@@ -83,7 +83,7 @@ describe('SubscriptionProgressMini', () => {
         group: {
           id: 2,
           name: 'codex-pool-19-usd',
-          weekly_limit_usd: 58,
+          weekly_limit_usd: 76,
           daily_limit_usd: null,
           monthly_limit_usd: null,
         },
@@ -108,7 +108,7 @@ describe('SubscriptionProgressMini', () => {
 
     expect(wrapper.text()).toContain('当前周额度窗口尚未激活')
     expect(wrapper.text()).not.toContain('重置于')
-    expect(wrapper.text()).not.toContain('$0/$58')
+    expect(wrapper.text()).not.toContain('$0/$76')
   })
 
   it('公共 Codex 旧日额度 group 行不会在顶部进度显示成日额度', async () => {
@@ -125,7 +125,7 @@ describe('SubscriptionProgressMini', () => {
         },
         daily_usage_usd: 0,
         weekly_usage_usd: 1.2,
-        effective_weekly_limit_usd: 58 / 7,
+        effective_weekly_limit_usd: 76 / 7,
         weekly_window_resets_at: '2026-07-21T00:00:00+09:00',
         expires_at: '2026-07-21T00:00:00+09:00',
       },
@@ -143,7 +143,7 @@ describe('SubscriptionProgressMini', () => {
 
     await wrapper.find('button').trigger('click')
 
-    expect(wrapper.text()).toContain('$1/$8')
+    expect(wrapper.text()).toContain('$1/$11')
     expect(wrapper.text()).not.toContain('$0/$15')
   })
 })
