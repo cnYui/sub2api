@@ -17,7 +17,7 @@ type SubscriptionWeeklyWindow struct {
 	Expired           bool
 }
 
-// CalculateSubscriptionWeeklyWindow 按订阅锚点推进窗口，最后一个窗口按实际时长折算。
+// CalculateSubscriptionWeeklyWindow 按权益锚点推进窗口，最后一个窗口按实际时长折算。
 // weeklyWindowStart 是持久化的上次窗口起点，只用于校验和减少回放，不得改变锚点节奏。
 func CalculateSubscriptionWeeklyWindow(anchorAt time.Time, weeklyWindowStart *time.Time, expiresAt, now time.Time, weeklyLimitUSD float64) SubscriptionWeeklyWindow {
 	if anchorAt.IsZero() || !expiresAt.After(anchorAt) || !now.Before(expiresAt) {
@@ -123,11 +123,7 @@ func (s *UserSubscription) RollingWeeklyWindowForEntitlement(group *Group, perio
 	if !period.ExpiresAt.IsZero() && !now.Before(period.ExpiresAt) {
 		return SubscriptionWeeklyWindow{Expired: true, End: period.ExpiresAt, ResetsAt: period.ExpiresAt}, false
 	}
-	anchor := s.StartsAt
-	if s.WeeklyAnchorAt != nil {
-		anchor = *s.WeeklyAnchorAt
-	}
-	window := CalculateSubscriptionWeeklyWindow(anchor, s.WeeklyWindowStart, period.ExpiresAt, now, *period.WeeklyLimitUSD)
+	window := CalculateSubscriptionWeeklyWindow(period.StartsAt, s.WeeklyWindowStart, period.ExpiresAt, now, *period.WeeklyLimitUSD)
 	return window, !window.Expired
 }
 

@@ -2642,7 +2642,7 @@ func (r *usageLogRepository) getCurrentRollingWeeklyDashboardQuota(ctx context.C
 	var usageUSD float64
 	var weeklyLimit float64
 	err := scanSingleRow(ctx, r.sql, `
-		SELECT us.weekly_anchor_at, us.weekly_window_start, sep.expires_at, us.weekly_usage_usd,
+		SELECT sep.starts_at, us.weekly_window_start, sep.expires_at, us.weekly_usage_usd,
 			sep.weekly_limit_usd
 		FROM user_subscriptions us
 		JOIN groups g ON g.id = us.group_id
@@ -2650,7 +2650,6 @@ func (r *usageLogRepository) getCurrentRollingWeeklyDashboardQuota(ctx context.C
 			AND sep.status = 'active' AND sep.starts_at <= $2 AND sep.expires_at > $2
 		WHERE us.user_id = $1 AND us.status = 'active' AND us.deleted_at IS NULL
 			AND us.expires_at > $2
-			AND us.weekly_anchor_at IS NOT NULL
 			AND g.subscription_type = 'subscription'
 			AND g.name IN ('codex-pool-19-usd', 'codex-pool-29-usd', 'codex-pool-49-usd', 'codex-pool-69-usd', 'codex-pool-89-usd', 'codex-pool-135-usd', 'codex-pool-179-usd')
 			AND sep.weekly_limit_usd IS NOT NULL
