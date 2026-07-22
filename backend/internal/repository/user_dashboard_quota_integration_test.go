@@ -10,6 +10,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	entgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -110,6 +111,62 @@ func TestUsageLogRepository_GetUserDashboardQuota_UsesCurrentPrecisePeriodAndDed
 	require.NotNil(t, quota.PeriodExpiresAt)
 	require.WithinDuration(t, startsAt, *quota.PeriodStartsAt, time.Second)
 	require.WithinDuration(t, expiresAt, *quota.PeriodExpiresAt, time.Second)
+}
+
+func TestUsageLogRepository_RollingWeeklyQuotaStartsAtCurrentEntitlementBoundary(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	client := tx.Client()
+	repo := newUsageLogRepositoryWithSQL(client, tx)
+
+	user := mustCreateUser(t, client, &service.User{Email: "quota-weekly-boundary@example.com"})
+	weeklyLimit := 76.0
+	group, err := client.Group.Query().Where(entgroup.NameEQ("codex-pool-19-usd")).Only(ctx)
+	require.NoError(t, err)
+	now := time.Now().UTC().Truncate(time.Second)
+	legacyStartsAt := now.AddDate(0, 0, -31)
+	legacyExpiresAt := legacyStartsAt.AddDate(0, 0, 30)
+	legacyWindowStart := legacyStartsAt.AddDate(0, 0, 28)
+	currentExpiresAt := legacyExpiresAt.AddDate(0, 0, 28)
+	sub := mustCreateSubscription(t, client, &service.UserSubscription{
+		UserID:         user.ID,
+		GroupID:        group.ID,
+		StartsAt:       legacyStartsAt,
+		ExpiresAt:      currentExpiresAt,
+		WeeklyUsageUSD: 11,
+	})
+	_, err = client.UserSubscription.UpdateOneID(sub.ID).
+		SetWeeklyAnchorAt(legacyStartsAt).
+		SetWeeklyWindowStart(legacyWindowStart).
+		Save(ctx)
+	require.NoError(t, err)
+
+	periodRepo := NewSubscriptionEntitlementPeriodRepository(client)
+	require.NoError(t, periodRepo.Create(ctx, &service.SubscriptionEntitlementPeriod{
+		UserID:         user.ID,
+		SubscriptionID: sub.ID,
+		GroupID:        group.ID,
+		Source: service.SubscriptionEntitlementSource{
+			Type: "payment_order",
+			ID:   "quota-weekly-boundary-" + uuid.NewString(),
+		},
+		StartsAt:        legacyExpiresAt,
+		ExpiresAt:       currentExpiresAt,
+		PeriodDays:      28,
+		WeeklyLimitUSD:  &weeklyLimit,
+		QuotaWindowUnit: "week",
+		QuotaWindowDays: 7,
+		Status:          service.SubscriptionEntitlementPeriodStatusActive,
+	}))
+
+	quota, found, err := repo.getCurrentRollingWeeklyDashboardQuota(ctx, user.ID, now)
+
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, legacyExpiresAt, quota.startsAt)
+	require.Equal(t, legacyExpiresAt.AddDate(0, 0, 7), quota.resetsAt)
+	require.InDelta(t, weeklyLimit, quota.limitUSD, 0.0000001)
+	require.Zero(t, quota.usageUSD)
 }
 
 func TestUsageLogRepository_GetUserDashboardQuota_FallsBackToRolling30LegacyForActiveSubscriptionWithoutPeriod(t *testing.T) {

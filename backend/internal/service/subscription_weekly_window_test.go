@@ -123,6 +123,41 @@ func TestCurrentRollingWeeklyWindowUsesEntitlementExpiry(t *testing.T) {
 	require.InDelta(t, weeklyLimit*5.0/7.0, window.EffectiveLimitUSD, 0.000000001)
 }
 
+func TestCurrentRollingWeeklyWindowStartsAtNewEntitlementBoundary(t *testing.T) {
+	legacyAnchor := time.Date(2026, 7, 1, 9, 30, 0, 0, time.UTC)
+	legacyExpiresAt := legacyAnchor.AddDate(0, 0, 30)
+	weeklyLimit := 76.0
+	legacyWindowStart := legacyAnchor.AddDate(0, 0, 28)
+	group := &Group{
+		Name:             "codex-pool-19-usd",
+		Status:           StatusActive,
+		SubscriptionType: SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	sub := &UserSubscription{
+		StartsAt:          legacyAnchor,
+		ExpiresAt:         legacyExpiresAt.AddDate(0, 0, 28),
+		WeeklyAnchorAt:    &legacyAnchor,
+		WeeklyWindowStart: &legacyWindowStart,
+		WeeklyUsageUSD:    11,
+		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
+			ID:             102,
+			StartsAt:       legacyExpiresAt,
+			ExpiresAt:      legacyExpiresAt.AddDate(0, 0, 28),
+			Status:         SubscriptionEntitlementPeriodStatusActive,
+			WeeklyLimitUSD: &weeklyLimit,
+		},
+	}
+
+	window, ok := sub.CurrentRollingWeeklyWindow(group, legacyExpiresAt.Add(time.Hour))
+
+	require.True(t, ok)
+	require.Equal(t, legacyExpiresAt, window.Start)
+	require.Equal(t, legacyExpiresAt.AddDate(0, 0, 7), window.End)
+	require.Equal(t, weeklyLimit, window.EffectiveLimitUSD)
+	require.Zero(t, sub.RollingWeeklyUsageUSD(window))
+}
+
 func TestValidateAndCheckLimits_RollingWeeklyLimitExceededIncludesResetMetadata(t *testing.T) {
 	anchor := time.Now().UTC().Add(-time.Hour)
 	weeklyLimit := 58.0
