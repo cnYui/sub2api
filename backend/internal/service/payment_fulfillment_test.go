@@ -930,8 +930,8 @@ func TestConfirmPaymentFulfillsPublicCodexSubscriptionFromOrderSnapshotWhenGroup
 			"group_id":               2,
 			"group_name":             "codex-pool-19-usd",
 			"validity_days":          28,
-			"weekly_limit_usd":       72,
-			"period_total_quota_usd": 288,
+			"weekly_limit_usd":       58,
+			"period_total_quota_usd": 232,
 			"quota_window_unit":      "week",
 			"quota_window_days":      7,
 		}).
@@ -972,9 +972,9 @@ func TestConfirmPaymentFulfillsPublicCodexSubscriptionFromOrderSnapshotWhenGroup
 	require.NoError(t, err)
 	require.Equal(t, 28, period.PeriodDays)
 	require.NotNil(t, period.WeeklyLimitUSD)
-	require.InDelta(t, 72, *period.WeeklyLimitUSD, 1e-9)
+	require.InDelta(t, 58, *period.WeeklyLimitUSD, 1e-9)
 	require.NotNil(t, period.PeriodTotalQuotaUSD)
-	require.InDelta(t, 288, *period.PeriodTotalQuotaUSD, 1e-9)
+	require.InDelta(t, 232, *period.PeriodTotalQuotaUSD, 1e-9)
 	require.Equal(t, "week", period.QuotaWindowUnit)
 	require.Equal(t, 7, period.QuotaWindowDays)
 }

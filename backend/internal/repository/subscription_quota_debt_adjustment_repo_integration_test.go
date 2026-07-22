@@ -28,11 +28,11 @@ func TestSubscriptionQuotaDebtAdjustmentRepository_CreateGetAndRejectDuplicateSo
 		GroupID:            group.ID,
 		SourceKey:          sourceKey,
 		OverageUSD:         234.1998836,
-		WeeklyLimitUSD:     72,
-		DailyEquivalentUSD: 72.0 / 7,
-		RawDeductionDays:   22.7694331278,
-		DeductedDays:       22,
-		OriginalExpiresAt:  subscription.ExpiresAt.AddDate(0, 0, 22),
+		WeeklyLimitUSD:     58,
+		DailyEquivalentUSD: 58.0 / 7,
+		RawDeductionDays:   28.2655038828,
+		DeductedDays:       28,
+		OriginalExpiresAt:  subscription.ExpiresAt.AddDate(0, 0, 28),
 		NewExpiresAt:       subscription.ExpiresAt,
 		ApplicationStatus:  service.SubscriptionQuotaDebtStatusAlreadyApplied,
 		AppliedAt:          &appliedAt,
@@ -47,8 +47,8 @@ func TestSubscriptionQuotaDebtAdjustmentRepository_CreateGetAndRejectDuplicateSo
 	require.Equal(t, subscription.ID, loaded.SubscriptionID)
 	require.Equal(t, service.SubscriptionQuotaDebtStatusAlreadyApplied, loaded.ApplicationStatus)
 	require.InDelta(t, 234.1998836, loaded.OverageUSD, 0.0000001)
-	require.InDelta(t, 72.0/7, loaded.DailyEquivalentUSD, 0.0000001)
-	require.Equal(t, 22, loaded.DeductedDays)
+	require.InDelta(t, 58.0/7, loaded.DailyEquivalentUSD, 0.0000001)
+	require.Equal(t, 28, loaded.DeductedDays)
 	require.Equal(t, "本地已扣减，只记录审计事实", loaded.Notes)
 
 	duplicate := *adjustment

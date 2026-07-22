@@ -644,7 +644,7 @@ func TestRequestRefundRejectedGatewayIsRetryableAndReusesFacts(t *testing.T) {
 		errors:    []error{&payment.RefundRejectedError{Err: errors.New("卖家余额不足")}, nil},
 	}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 57.6)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 46.4)
 
 	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "首次退款")
 	require.Error(t, err)
@@ -675,7 +675,7 @@ func TestRequestRefundRejectedGatewayIsRetryableAndReusesFacts(t *testing.T) {
 func TestRequestRefundUnknownGatewayResultIsNotRetryable(t *testing.T) {
 	provider := &refundProviderStub{errors: []error{errors.New("connection reset")}}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 
 	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "未知结果")
 	require.Error(t, err)
@@ -692,7 +692,7 @@ func TestRequestRefundUnknownGatewayResultIsNotRetryable(t *testing.T) {
 func TestRequestRefundPendingDoesNotRevokeSubscription(t *testing.T) {
 	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-pending", Status: payment.ProviderStatusPending}}}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 
 	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "处理中")
 	require.NoError(t, err)
@@ -709,7 +709,7 @@ func TestRequestRefundRevokesPaymentOrderEntitlementSource(t *testing.T) {
 	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-success", Status: payment.ProviderStatusSuccess}}}
 	entitlementRepo := newSubscriptionEntitlementPeriodRepoStub()
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	scenario.svc.subscriptionSvc.entitlementPeriodRepo = entitlementRepo
 
 	err := scenario.svc.RequestRefund(scenario.ctx, scenario.orderID, scenario.userID, "撤销权益周期")
@@ -728,7 +728,7 @@ func TestRequestRefundRetryAfterGatewaySuccessOnlyRevokesEntitlement(t *testing.
 	failingRepo := &refundDeleteOnceRepo{subscriptionUserSubRepoStub: baseRepo}
 	scenario := newAutoGatewayRefundScenario(t, provider, baseRepo)
 	scenario.svc.subscriptionSvc = NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription}}, failingRepo, nil, nil, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	scenario.svc.subscriptionSvc.entitlementPeriodRepo = &refundRevokeOnceEntitlementRepo{
 		refundQuoteEntitlementRepo: &refundQuoteEntitlementRepo{client: scenario.client},
 		err:                        errors.New("revoke entitlement failed"),
@@ -754,7 +754,7 @@ func TestRequestRefundRetryAfterGatewaySuccessOnlyRevokesEntitlement(t *testing.
 func TestRequestRefundContinuesGatewaySucceededRefundingState(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	requestID := "refund-continuation"
 	_, err := scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
 		SetStatus(OrderStatusRefunding).
@@ -1003,7 +1003,7 @@ func TestPrepareRefundRetryReusesOriginalAmount(t *testing.T) {
 func TestAdminSubscriptionRefundQuoteUsesEntitlementUsageFacts(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 36)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 29)
 
 	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
 	require.NoError(t, err)
@@ -1012,8 +1012,8 @@ func TestAdminSubscriptionRefundQuoteUsesEntitlementUsageFacts(t *testing.T) {
 	require.Equal(t, fixture.entitlementID, quote.EntitlementPeriodID)
 	require.InDelta(t, 29, quote.PurchaseBaseAmount, 1e-9)
 	require.InDelta(t, 0.29, quote.NonRefundableFee, 1e-9)
-	require.InDelta(t, 288, quote.PeriodTotalQuotaUSD, 1e-9)
-	require.InDelta(t, 36, quote.UsedQuotaUSD, 1e-9)
+	require.InDelta(t, 232, quote.PeriodTotalQuotaUSD, 1e-9)
+	require.InDelta(t, 29, quote.UsedQuotaUSD, 1e-9)
 	require.InDelta(t, 0.125, quote.UsageRatio, 1e-9)
 	require.InDelta(t, 25.375, quote.EstimatedRefundAmount, 1e-9)
 }
@@ -1021,7 +1021,7 @@ func TestAdminSubscriptionRefundQuoteUsesEntitlementUsageFacts(t *testing.T) {
 func TestAdminSubscriptionRefundQuoteRequiresManualReviewForOverlappingEntitlement(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 
 	_, err := scenario.client.SubscriptionEntitlementPeriod.Create().
 		SetUserID(scenario.userID).
@@ -1032,8 +1032,8 @@ func TestAdminSubscriptionRefundQuoteRequiresManualReviewForOverlappingEntitleme
 		SetStartsAt(fixture.startsAt).
 		SetExpiresAt(fixture.expiresAt).
 		SetPeriodDays(28).
-		SetWeeklyLimitUsd(72).
-		SetPeriodTotalQuotaUsd(288).
+		SetWeeklyLimitUsd(58).
+		SetPeriodTotalQuotaUsd(232).
 		SetQuotaWindowUnit("week").
 		SetQuotaWindowDays(7).
 		SetStatus(SubscriptionEntitlementPeriodStatusActive).
@@ -1049,7 +1049,7 @@ func TestAdminSubscriptionRefundQuoteRequiresManualReviewForOverlappingEntitleme
 func TestAdminSubscriptionRefundQuoteRequiresManualReviewForUnallocatedUsageFact(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	insertRefundQuoteUnallocatedUsageFact(t, scenario.ctx, scenario.client, fixture.subscriptionID, scenario.userID, fixture.startsAt.Add(time.Hour), 18)
 
 	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
@@ -1061,7 +1061,7 @@ func TestAdminSubscriptionRefundQuoteRequiresManualReviewForUnallocatedUsageFact
 func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 72)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 58)
 
 	plan, earlyResult, err := scenario.svc.PrepareRefund(scenario.ctx, scenario.orderID, 29, "管理员按规则退款", false, false)
 	require.NoError(t, err)
@@ -1072,8 +1072,8 @@ func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 	reloaded, err := scenario.client.PaymentOrder.Get(scenario.ctx, scenario.orderID)
 	require.NoError(t, err)
 	require.Equal(t, fixture.entitlementID, int64(reloaded.RefundBasis["entitlement_period_id"].(float64)))
-	require.InDelta(t, 288, reloaded.RefundBasis["period_total_quota_usd"].(float64), 1e-9)
-	require.InDelta(t, 72, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
+	require.InDelta(t, 232, reloaded.RefundBasis["period_total_quota_usd"].(float64), 1e-9)
+	require.InDelta(t, 58, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
 	require.InDelta(t, 0.25, reloaded.RefundBasis["usage_ratio"].(float64), 1e-9)
 	require.InDelta(t, 29, reloaded.RefundBasis["purchase_base_amount"].(float64), 1e-9)
 	require.InDelta(t, 0.29, reloaded.RefundBasis["non_refundable_fee"].(float64), 1e-9)
@@ -1082,7 +1082,7 @@ func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 func TestExecuteRefundRecalculatesAdminSubscriptionQuoteInsideTransaction(t *testing.T) {
 	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-admin-requote", Status: payment.ProviderStatusSuccess}}}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 
 	plan, earlyResult, err := scenario.svc.PrepareRefund(scenario.ctx, scenario.orderID, 29, "管理员事务内重算", false, false)
 	require.NoError(t, err)
@@ -1090,7 +1090,7 @@ func TestExecuteRefundRecalculatesAdminSubscriptionQuoteInsideTransaction(t *tes
 	require.NotNil(t, plan)
 	require.InDelta(t, 29, plan.RefundAmount, 1e-9)
 
-	insertRefundQuoteUsageFact(t, scenario.ctx, scenario.client, fixture.entitlementID, scenario.userID, 72)
+	insertRefundQuoteUsageFact(t, scenario.ctx, scenario.client, fixture.entitlementID, scenario.userID, 58)
 
 	result, err := scenario.svc.ExecuteRefund(scenario.ctx, plan)
 	require.NoError(t, err)
@@ -1102,14 +1102,14 @@ func TestExecuteRefundRecalculatesAdminSubscriptionQuoteInsideTransaction(t *tes
 	require.NoError(t, err)
 	require.InDelta(t, 21.75, reloaded.RefundAmount, 1e-9)
 	require.Equal(t, fixture.entitlementID, int64(reloaded.RefundBasis["entitlement_period_id"].(float64)))
-	require.InDelta(t, 72, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
+	require.InDelta(t, 58, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
 	require.InDelta(t, 0.25, reloaded.RefundBasis["usage_ratio"].(float64), 1e-9)
 }
 
 func TestGatewaySubscriptionRefundRevokesOnlyTargetEntitlementPeriod(t *testing.T) {
 	provider := &refundProviderStub{responses: []*payment.RefundResponse{{RefundID: "refund-target-only", Status: payment.ProviderStatusSuccess}}}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	future, err := scenario.client.SubscriptionEntitlementPeriod.Create().
 		SetUserID(scenario.userID).
 		SetSubscriptionID(fixture.subscriptionID).
@@ -1119,8 +1119,8 @@ func TestGatewaySubscriptionRefundRevokesOnlyTargetEntitlementPeriod(t *testing.
 		SetStartsAt(fixture.expiresAt).
 		SetExpiresAt(fixture.expiresAt.AddDate(0, 0, 28)).
 		SetPeriodDays(28).
-		SetWeeklyLimitUsd(72).
-		SetPeriodTotalQuotaUsd(288).
+		SetWeeklyLimitUsd(58).
+		SetPeriodTotalQuotaUsd(232).
 		SetQuotaWindowUnit("week").
 		SetQuotaWindowDays(7).
 		SetStatus(SubscriptionEntitlementPeriodStatusActive).
@@ -1153,7 +1153,7 @@ func TestGatewaySubscriptionRefundRevokesOnlyTargetEntitlementPeriod(t *testing.
 		Name:             "codex-pool-19-usd",
 		Status:           payment.EntityStatusActive,
 		SubscriptionType: SubscriptionTypeSubscription,
-		WeeklyLimitUSD:   ptrFloat64(72),
+		WeeklyLimitUSD:   ptrFloat64(58),
 	}
 	_, gapErr := scenario.svc.subscriptionSvc.ValidateAndCheckLimits(subscription, gapGroup)
 	require.ErrorIs(t, gapErr, ErrSubscriptionInvalid)
@@ -1163,7 +1163,7 @@ func TestGatewaySubscriptionRefundRevokesOnlyTargetEntitlementPeriod(t *testing.
 		StartsAt:       reloadedFuture.StartsAt,
 		ExpiresAt:      reloadedFuture.ExpiresAt,
 		Status:         SubscriptionEntitlementPeriodStatusActive,
-		WeeklyLimitUSD: ptrFloat64(72),
+		WeeklyLimitUSD: ptrFloat64(58),
 	}, reloadedFuture.StartsAt.Add(time.Hour))
 	require.True(t, ok)
 	require.Equal(t, reloadedFuture.StartsAt, window.Start)
@@ -1172,7 +1172,7 @@ func TestGatewaySubscriptionRefundRevokesOnlyTargetEntitlementPeriod(t *testing.
 func TestExecuteRefundAfterGatewaySuccessOnlyRetriesEntitlement(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	requestID := "refund-admin-entitlement"
 	order, err := scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
 		SetStatus(OrderStatusRefundFailed).
@@ -1210,7 +1210,7 @@ func TestExecuteRefundAfterGatewaySuccessOnlyRetriesEntitlement(t *testing.T) {
 func TestExecuteRefundContinuesGatewaySucceededRefundingState(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 	requestID := "refund-admin-continuation"
 	order, err := scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
 		SetStatus(OrderStatusRefunding).
@@ -1465,13 +1465,13 @@ func TestAdminBalanceSubscriptionRefundCreditsBalanceAndRevokesSubscription(t *t
 		}, subRepo, nil, nil, nil),
 	}
 	scenario := autoGatewayRefundScenario{ctx: ctx, client: client, userID: userEntity.ID, orderID: order.ID, subID: subID, subRepo: subRepo, svc: svc}
-	fixture := attachRefundQuoteEntitlement(t, &scenario, 72, 288, 0)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
 
 	plan, earlyResult, err := svc.PrepareRefund(ctx, order.ID, 29, "管理员余额退款", false, true)
 	require.NoError(t, err)
 	require.Nil(t, earlyResult)
 	require.InDelta(t, 29, plan.RefundAmount, 1e-9)
-	insertRefundQuoteUsageFact(t, ctx, client, fixture.entitlementID, userEntity.ID, 72)
+	insertRefundQuoteUsageFact(t, ctx, client, fixture.entitlementID, userEntity.ID, 58)
 
 	result, err := svc.ExecuteRefund(ctx, plan)
 	require.NoError(t, err)
@@ -1487,7 +1487,7 @@ func TestAdminBalanceSubscriptionRefundCreditsBalanceAndRevokesSubscription(t *t
 	require.InDelta(t, 21.75, reloadedOrder.RefundBalanceAmount, 1e-9)
 	require.Equal(t, RefundGatewaySucceeded, reloadedOrder.RefundBalanceStatus)
 	require.Equal(t, fixture.entitlementID, int64(reloadedOrder.RefundBasis["entitlement_period_id"].(float64)))
-	require.InDelta(t, 72, reloadedOrder.RefundBasis["used_quota_usd"].(float64), 1e-9)
+	require.InDelta(t, 58, reloadedOrder.RefundBasis["used_quota_usd"].(float64), 1e-9)
 	subscription, err := subRepo.GetByID(ctx, scenario.subID)
 	require.NoError(t, err)
 	require.Equal(t, SubscriptionStatusExpired, subscription.Status)
@@ -1578,7 +1578,7 @@ func TestRequestRefundAutomaticallyRefundsAlipaySubscriptionWithoutFeeAndRevokes
 		}, subRepo, nil, nil, nil),
 	}
 	scenario := autoGatewayRefundScenario{ctx: ctx, client: client, userID: user.ID, orderID: order.ID, subID: 99, subRepo: subRepo, svc: svc}
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 57.6)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 46.4)
 
 	err = svc.RequestRefund(ctx, order.ID, user.ID, "用户自动退款")
 	require.NoError(t, err)
@@ -1642,7 +1642,7 @@ func TestRequestRefundAutomaticallyRefundsBalanceSubscriptionWithoutFee(t *testi
 		}, subRepo, nil, nil, nil),
 	}
 	scenario := autoGatewayRefundScenario{ctx: ctx, client: client, userID: user.ID, orderID: order.ID, subID: 100, subRepo: subRepo, svc: svc}
-	attachRefundQuoteEntitlement(t, &scenario, 72, 288, 57.6)
+	attachRefundQuoteEntitlement(t, &scenario, 58, 232, 46.4)
 	require.NoError(t, svc.createAuditLogWithClient(ctx, client, order.ID, "REFUND_REQUESTED", "system", map[string]any{
 		"amount": 23.2, "reason": "旧退款请求",
 	}))

@@ -9,7 +9,7 @@ import (
 )
 
 func TestCalculateSubscriptionRemainingRollingWeeklyRequiresWindowFacts(t *testing.T) {
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &service.Group{
 		ID:               2,
 		Name:             "codex-pool-19-usd",
@@ -33,7 +33,7 @@ func TestCalculateSubscriptionRemainingRollingWeeklyRequiresWindowFacts(t *testi
 }
 
 func TestCalculateSubscriptionRemainingRollingWeeklyUsesEffectiveWindow(t *testing.T) {
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &service.Group{
 		ID:               2,
 		Name:             "codex-pool-19-usd",
@@ -64,5 +64,5 @@ func TestCalculateSubscriptionRemainingRollingWeeklyUsesEffectiveWindow(t *testi
 
 	got := (&GatewayHandler{}).calculateSubscriptionRemaining(group, sub)
 
-	require.InDelta(t, 62, got, 0.0000001)
+	require.InDelta(t, 48, got, 0.0000001)
 }

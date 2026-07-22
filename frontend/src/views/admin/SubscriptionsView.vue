@@ -202,7 +202,7 @@
           <template #cell-group="{ row }">
             <GroupBadge
               v-if="row.group"
-              :name="row.group.name"
+              :name="displayAdminGroupName(row.group.name)"
               :platform="row.group.platform"
               :subscription-type="row.group.subscription_type"
               :rate-multiplier="row.group.rate_multiplier"
@@ -771,6 +771,7 @@ import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
   PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  displayAdminGroupName,
   formatSubscriptionQuotaUSD,
   getRemainingDurationParts,
   isOneTimeDailyQuota,
@@ -985,7 +986,10 @@ const defaultValidityDaysForGroup = (group: Pick<Group, 'name' | 'subscription_t
 // Group options for filter (all groups)
 const groupOptions = computed(() => [
   { value: '', label: t('admin.subscriptions.allGroups') },
-  ...groups.value.map((g) => ({ value: g.id.toString(), label: g.name }))
+  ...groups.value.map((g) => ({
+    value: g.id.toString(),
+    label: displayAdminGroupName(g.name)
+  }))
 ])
 
 const platformFilterOptions = computed(() => [
@@ -1002,7 +1006,7 @@ const subscriptionGroupOptions = computed(() =>
     .filter((g) => g.subscription_type === 'subscription' && g.status === 'active')
     .map((g) => ({
       value: g.id,
-      label: g.name,
+      label: displayAdminGroupName(g.name),
       description: g.description,
       platform: g.platform,
       subscriptionType: g.subscription_type,

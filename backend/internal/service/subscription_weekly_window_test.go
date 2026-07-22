@@ -16,11 +16,11 @@ func TestCalculateSubscriptionWeeklyWindow_NewPurchaseHasFourFullWindows(t *test
 
 	for week := 0; week < 4; week++ {
 		now := anchor.AddDate(0, 0, week*7+1)
-		window := CalculateSubscriptionWeeklyWindow(anchor, nil, expires, now, 72)
+		window := CalculateSubscriptionWeeklyWindow(anchor, nil, expires, now, 58)
 		require.False(t, window.Expired)
 		require.Equal(t, anchor.AddDate(0, 0, week*7), window.Start)
 		require.Equal(t, anchor.AddDate(0, 0, (week+1)*7), window.End)
-		require.Equal(t, 72.0, window.EffectiveLimitUSD)
+		require.Equal(t, 58.0, window.EffectiveLimitUSD)
 	}
 }
 
@@ -29,10 +29,10 @@ func TestCalculateSubscriptionWeeklyWindow_TailWindowUsesExactProportion(t *test
 	expires := anchor.AddDate(0, 0, 13)
 	now := anchor.AddDate(0, 0, 8)
 
-	window := CalculateSubscriptionWeeklyWindow(anchor, nil, expires, now, 72)
+	window := CalculateSubscriptionWeeklyWindow(anchor, nil, expires, now, 58)
 	require.Equal(t, anchor.AddDate(0, 0, 7), window.Start)
 	require.Equal(t, expires, window.End)
-	require.InDelta(t, 72.0*6.0/7.0, window.EffectiveLimitUSD, 0.000000001)
+	require.InDelta(t, 58.0*6.0/7.0, window.EffectiveLimitUSD, 0.000000001)
 	require.False(t, window.Allows(0, window.EffectiveLimitUSD+0.000001))
 	require.True(t, window.Allows(0, window.EffectiveLimitUSD))
 }
@@ -58,17 +58,17 @@ func TestCalculateSubscriptionWeeklyWindowIgnoresMisalignedPersistedStart(t *tes
 	misalignedStart := anchor.AddDate(0, 0, 8)
 	now := anchor.AddDate(0, 0, 10)
 
-	window := CalculateSubscriptionWeeklyWindow(anchor, &misalignedStart, expires, now, 72)
+	window := CalculateSubscriptionWeeklyWindow(anchor, &misalignedStart, expires, now, 58)
 
 	require.False(t, window.Expired)
 	require.Equal(t, anchor.AddDate(0, 0, 7), window.Start)
 	require.Equal(t, anchor.AddDate(0, 0, 14), window.ResetsAt)
-	require.Equal(t, 72.0, window.EffectiveLimitUSD)
+	require.Equal(t, 58.0, window.EffectiveLimitUSD)
 }
 
 func TestCheckWeeklyLimit_RollingWeeklyIgnoresStaleWindowUsage(t *testing.T) {
 	anchor := time.Now().UTC().AddDate(0, 0, -8).Truncate(time.Second)
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &Group{
 		Name:             "codex-pool-19-usd",
 		Status:           StatusActive,
@@ -80,7 +80,7 @@ func TestCheckWeeklyLimit_RollingWeeklyIgnoresStaleWindowUsage(t *testing.T) {
 		ExpiresAt:         anchor.AddDate(0, 0, 28),
 		WeeklyAnchorAt:    &anchor,
 		WeeklyWindowStart: &anchor,
-		WeeklyUsageUSD:    80,
+		WeeklyUsageUSD:    64,
 		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
 			ID:             101,
 			StartsAt:       anchor,
@@ -90,13 +90,13 @@ func TestCheckWeeklyLimit_RollingWeeklyIgnoresStaleWindowUsage(t *testing.T) {
 		},
 	}
 
-	require.True(t, sub.CheckWeeklyLimit(group, 70))
-	require.False(t, sub.CheckWeeklyLimit(group, 73))
+	require.True(t, sub.CheckWeeklyLimit(group, 56))
+	require.False(t, sub.CheckWeeklyLimit(group, 59))
 }
 
 func TestCurrentRollingWeeklyWindowUsesEntitlementExpiry(t *testing.T) {
 	anchor := time.Date(2026, 7, 1, 9, 30, 0, 0, time.UTC)
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &Group{
 		Name:             "codex-pool-19-usd",
 		Status:           StatusActive,
@@ -125,7 +125,7 @@ func TestCurrentRollingWeeklyWindowUsesEntitlementExpiry(t *testing.T) {
 
 func TestValidateAndCheckLimits_RollingWeeklyLimitExceededIncludesResetMetadata(t *testing.T) {
 	anchor := time.Now().UTC().Add(-time.Hour)
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &Group{
 		Name:             "codex-pool-19-usd",
 		Status:           StatusActive,
@@ -159,7 +159,7 @@ func TestValidateAndCheckLimits_RollingWeeklyLimitExceededIncludesResetMetadata(
 
 func TestCheckAndActivateWindow_RollingWeeklyUsesAnchoredWindowStart(t *testing.T) {
 	anchor := time.Now().UTC().AddDate(0, 0, -8).Truncate(time.Second)
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	group := &Group{
 		Name:             "codex-pool-19-usd",
 		Status:           StatusActive,
@@ -224,9 +224,9 @@ func TestPublicCodexSnapshotUsesFixedWeeklyQuotaWithoutMigratedGroupField(t *tes
 	require.Equal(t, "week", snapshot.QuotaWindowUnit)
 	require.Equal(t, subscriptionWeeklyWindowDays, snapshot.QuotaWindowDays)
 	require.NotNil(t, snapshot.WeeklyLimitUSD)
-	require.Equal(t, 72.0, *snapshot.WeeklyLimitUSD)
+	require.Equal(t, 58.0, *snapshot.WeeklyLimitUSD)
 	require.NotNil(t, snapshot.PeriodTotalQuotaUSD)
-	require.Equal(t, 288.0, *snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, 232.0, *snapshot.PeriodTotalQuotaUSD)
 }
 
 func TestPublicCodexPlanQuotaSnapshotUsesSameWindowContract(t *testing.T) {
@@ -237,9 +237,9 @@ func TestPublicCodexPlanQuotaSnapshotUsesSameWindowContract(t *testing.T) {
 	require.Nil(t, snapshot.DailyLimitUSD)
 	require.Nil(t, snapshot.MonthlyLimitUSD)
 	require.NotNil(t, snapshot.WeeklyLimitUSD)
-	require.Equal(t, 97.0, *snapshot.WeeklyLimitUSD)
+	require.Equal(t, 78.0, *snapshot.WeeklyLimitUSD)
 	require.NotNil(t, snapshot.PeriodTotalQuotaUSD)
-	require.Equal(t, 388.0, *snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, 312.0, *snapshot.PeriodTotalQuotaUSD)
 	require.Equal(t, "week", snapshot.QuotaWindowUnit)
 	require.Equal(t, subscriptionWeeklyWindowDays, snapshot.QuotaWindowDays)
 	require.Equal(t, publicCodexSubscriptionValidityDays, snapshot.EffectiveValidityDays)

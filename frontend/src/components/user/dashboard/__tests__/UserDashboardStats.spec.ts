@@ -184,7 +184,7 @@ describe('UserDashboardStats', () => {
             ...stats.quota,
             quota_window_unit: 'week',
             window_usage_usd: 12.4,
-            window_limit_usd: 72,
+            window_limit_usd: 58,
             window_limit_unlimited: false,
             window_starts_at: '2026-07-22T00:00:00Z',
             window_resets_at: '2026-07-29T00:00:00Z',
@@ -196,9 +196,9 @@ describe('UserDashboardStats', () => {
     })
 
     expect(wrapper.text()).toContain('本周额度')
-    expect(wrapper.text()).toContain('$12 / $72')
+    expect(wrapper.text()).toContain('$12 / $58')
     expect(wrapper.text()).toContain('刷新时间')
-    expect(wrapper.text()).not.toContain('今日$12 / $72')
+    expect(wrapper.text()).not.toContain('今日$12 / $58')
   })
 
   it('无精确周期时显示近 30 天额度窗口', () => {

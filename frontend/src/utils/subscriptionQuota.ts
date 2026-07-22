@@ -9,13 +9,23 @@ export interface RemainingDurationParts {
 }
 
 const PUBLIC_CODEX_SUBSCRIPTION_WEEKLY_LIMITS_USD = new Map<string, number>([
-  ['codex-pool-19-usd', 72],
-  ['codex-pool-29-usd', 97],
-  ['codex-pool-49-usd', 148],
-  ['codex-pool-69-usd', 198],
-  ['codex-pool-89-usd', 248],
-  ['codex-pool-135-usd', 374],
-  ['codex-pool-179-usd', 500],
+  ['codex-pool-19-usd', 58],
+  ['codex-pool-29-usd', 78],
+  ['codex-pool-49-usd', 118],
+  ['codex-pool-69-usd', 158],
+  ['codex-pool-89-usd', 198],
+  ['codex-pool-135-usd', 299],
+  ['codex-pool-179-usd', 400],
+])
+
+const PUBLIC_CODEX_SUBSCRIPTION_DISPLAY_NAMES = new Map<string, string>([
+  ['codex-pool-19-usd', '29 元订阅池'],
+  ['codex-pool-29-usd', '39 元订阅池'],
+  ['codex-pool-49-usd', '59 元订阅池'],
+  ['codex-pool-69-usd', '79 元订阅池'],
+  ['codex-pool-89-usd', '99 元订阅池'],
+  ['codex-pool-135-usd', '149 元订阅池'],
+  ['codex-pool-179-usd', '199 元订阅池'],
 ])
 
 export const PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS = 28
@@ -31,6 +41,17 @@ type RollingWeeklySubscriptionLike = Pick<
 export function formatSubscriptionQuotaUSD(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '∞'
   return `$${Math.round(value)}`
+}
+
+export function publicCodexSubscriptionDisplayName(groupName: string | null | undefined): string | null {
+  if (!groupName) return null
+  return PUBLIC_CODEX_SUBSCRIPTION_DISPLAY_NAMES.get(groupName.trim()) ?? null
+}
+
+export function displayAdminGroupName(groupName: string | null | undefined): string {
+  if (!groupName) return ''
+  const normalized = groupName.trim()
+  return publicCodexSubscriptionDisplayName(normalized) ?? normalized
 }
 
 export function isPublicCodexSubscriptionGroupName(groupName: string | null | undefined): boolean {

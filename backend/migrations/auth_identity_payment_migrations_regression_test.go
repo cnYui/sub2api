@@ -340,3 +340,29 @@ func TestMigration174AddsWeeklyRollingSubscriptionQuotaSchemaOnly(t *testing.T) 
 	require.NotContains(t, sql, "UPDATE user_subscriptions")
 	require.NotContains(t, sql, "UPDATE subscription_entitlement_periods")
 }
+
+func TestMigration175ReducesPublicCodexWeeklyQuotaAmounts(t *testing.T) {
+	content, err := FS.ReadFile("175_reduce_public_codex_weekly_quota_amounts.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"'codex-pool-19-usd'::text, 58::numeric",
+		"'codex-pool-29-usd', 78::numeric",
+		"'codex-pool-49-usd', 118::numeric",
+		"'codex-pool-69-usd', 158::numeric",
+		"'codex-pool-89-usd', 198::numeric",
+		"'codex-pool-135-usd', 299::numeric",
+		"'codex-pool-179-usd', 400::numeric",
+		"weekly_limit_usd = p.weekly_usd",
+		"period_total_quota_usd = p.weekly_usd * 4",
+		"quota_window_unit = 'week'",
+		"quota_window_days = 7",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "UPDATE payment_orders")
+	require.NotContains(t, sql, "subscription_snapshot")
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+}

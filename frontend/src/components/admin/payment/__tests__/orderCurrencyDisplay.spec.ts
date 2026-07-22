@@ -125,8 +125,8 @@ describe('admin order currency display', () => {
           entitlement_period_id: 101,
           purchase_base_amount: 29,
           non_refundable_fee: 1.45,
-          period_total_quota_usd: 288,
-          used_quota_usd: 36.2,
+          period_total_quota_usd: 232,
+          used_quota_usd: 29,
           usage_ratio: 0.125,
           estimated_refund_amount: 25.375,
           calculated_at: '2026-07-20T01:00:00Z',
@@ -143,7 +143,7 @@ describe('admin order currency display', () => {
     expect(text).toContain('¥29.00')
     expect(text).toContain('¥1.45')
     expect(text).toContain('¥25.38')
-    expect(text).toContain('$36 / $288')
+    expect(text).toContain('$29 / $232')
     expect(text).not.toContain('$29.00')
   })
 

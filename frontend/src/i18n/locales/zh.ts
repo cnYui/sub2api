@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 元套餐',
-      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 72 刀',
+      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 58 刀',
       multiAccount: '39 元套餐',
-      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 97 刀',
+      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 78 刀',
       balanceQuota: '59 元套餐',
-      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 148 刀',
+      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 118 刀',
       premiumQuota: '99 元套餐',
-      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 248 刀'
+      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 198 刀'
     },
     // 优势对比
     comparison: {
@@ -7321,15 +7321,15 @@ export default {
     planCard: {
       rate: '倍率',
       dailyLimit: '日限额',
-      weeklyLimit: '周额度',
+      weeklyLimit: '周限额',
       periodTotalQuota: '28 天总额度',
       monthlyLimit: '月限额',
       quota: '配额',
       unlimited: '无限制',
       models: '模型',
       refreshTime: '刷新时间',
-      weeklyRefresh: '每 7 天刷新',
-      weeklyDescription: '28 天订阅，每 7 天按购买时间刷新周额度。',
+      weeklyRefresh: '每周刷新',
+      weeklyDescription: '每周 {quota}，{days} 天有效期。',
       dailyRefresh: '24 点刷新',
       validity: '有效期',
       feeDetail: '手续费详情',

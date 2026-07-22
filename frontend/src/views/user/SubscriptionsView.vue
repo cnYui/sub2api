@@ -51,7 +51,7 @@
             :key="subscription.id"
             :title="subscription.group?.name || `Group #${subscription.group_id}`"
             :platform="subscription.group?.platform || ''"
-            :description="subscription.group?.description || ''"
+            :description="subscriptionDescription(subscription)"
             :status="subscription.status"
             :status-label="t(`userSubscriptions.status.${subscription.status}`)"
             :expiration-label="t('userSubscriptions.expires')"
@@ -80,7 +80,15 @@ import Icon from '@/components/icons/Icon.vue'
 import SubscriptionUsageCard from '@/components/user/SubscriptionUsageCard.vue'
 import { formatDateOnly } from '@/utils/format'
 import { grayProgressBarClass } from '@/utils/grayTheme'
-import { formatSubscriptionQuotaUSD, getRemainingDurationParts, isOneTimeDailyQuota, isRollingWeeklySubscription, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import {
+  PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  formatSubscriptionQuotaUSD,
+  getRemainingDurationParts,
+  isOneTimeDailyQuota,
+  isRollingWeeklySubscription,
+  publicCodexSubscriptionWeeklyLimitUSD,
+  type RemainingDurationParts,
+} from '@/utils/subscriptionQuota'
 
 interface SubscriptionUsageRow {
   label: string
@@ -110,6 +118,18 @@ function trafficCreditDescription(credit: TrafficCredit): string {
     remaining: formatTrafficPackUSD(credit.remaining_usd),
     available: formatTrafficPackUSD(credit.available_usd),
   })
+}
+
+function subscriptionDescription(subscription: UserSubscription): string {
+  const weeklyLimit = publicCodexSubscriptionWeeklyLimitUSD(subscription.group?.name)
+  if (weeklyLimit != null) {
+    return t('payment.planCard.weeklyDescription', {
+      quota: formatSubscriptionQuotaUSD(weeklyLimit),
+      days: PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+    })
+  }
+
+  return subscription.group?.description || ''
 }
 
 function trafficCreditUsageRows(credit: TrafficCredit): SubscriptionUsageRow[] {

@@ -37,27 +37,27 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v migration_at="$migration_at" <<'SQL'
 \echo '=== 公共 Codex active 订阅预览 ==='
 WITH plan_limits(group_name, weekly_usd) AS (
   VALUES
-    ('codex-pool-19-usd'::text, 72::numeric),
-    ('codex-pool-29-usd', 97::numeric),
-    ('codex-pool-49-usd', 148::numeric),
-    ('codex-pool-69-usd', 198::numeric),
-    ('codex-pool-89-usd', 248::numeric),
-    ('codex-pool-135-usd', 374::numeric),
-    ('codex-pool-179-usd', 500::numeric)
+    ('codex-pool-19-usd'::text, 58::numeric),
+    ('codex-pool-29-usd', 78::numeric),
+    ('codex-pool-49-usd', 118::numeric),
+    ('codex-pool-69-usd', 158::numeric),
+    ('codex-pool-89-usd', 198::numeric),
+    ('codex-pool-135-usd', 299::numeric),
+    ('codex-pool-179-usd', 400::numeric)
 ),
 public_groups AS (
-  SELECT g.id, g.name, COALESCE(g.weekly_limit_usd, p.weekly_usd) AS target_weekly_limit_usd
+  SELECT g.id, g.name, p.weekly_usd AS target_weekly_limit_usd
   FROM groups g JOIN plan_limits p ON p.group_name = g.name
   WHERE g.name IN ('codex-pool-19-usd','codex-pool-29-usd','codex-pool-49-usd','codex-pool-69-usd','codex-pool-89-usd','codex-pool-135-usd','codex-pool-179-usd')
     AND subscription_type = 'subscription' AND deleted_at IS NULL
 )
 SELECT us.id AS subscription_id, us.user_id, pg.name, us.expires_at,
        sep.id AS entitlement_period_id,
-       COALESCE(sep.weekly_limit_usd, pg.target_weekly_limit_usd) AS entitlement_weekly_limit_usd,
+       pg.target_weekly_limit_usd AS entitlement_weekly_limit_usd,
        GREATEST(us.expires_at - :'migration_at'::timestamptz, interval '0') AS remaining,
        LEAST(us.expires_at, :'migration_at'::timestamptz + interval '7 days') AS first_window_end,
        ROUND(
-         COALESCE(sep.weekly_limit_usd, pg.target_weekly_limit_usd)
+         pg.target_weekly_limit_usd
          * EXTRACT(EPOCH FROM GREATEST(
              LEAST(us.expires_at, :'migration_at'::timestamptz + interval '7 days') - :'migration_at'::timestamptz,
              interval '0'
@@ -214,13 +214,13 @@ LOCK TABLE groups, subscription_plans, user_subscriptions, subscription_entitlem
 
 WITH plan_limits(group_name, weekly_usd, plan_label, price) AS (
   VALUES
-    ('codex-pool-19-usd'::text, 72::numeric, '29 元订阅池'::text, 29.00::numeric),
-    ('codex-pool-29-usd', 97::numeric, '39 元订阅池', 39.00::numeric),
-    ('codex-pool-49-usd', 148::numeric, '59 元订阅池', 59.00::numeric),
-    ('codex-pool-69-usd', 198::numeric, '79 元订阅池', 79.00::numeric),
-    ('codex-pool-89-usd', 248::numeric, '99 元订阅池', 99.00::numeric),
-    ('codex-pool-135-usd', 374::numeric, '149 元订阅池', 149.00::numeric),
-    ('codex-pool-179-usd', 500::numeric, '199 元订阅池', 199.00::numeric)
+    ('codex-pool-19-usd'::text, 58::numeric, '29 元订阅池'::text, 29.00::numeric),
+    ('codex-pool-29-usd', 78::numeric, '39 元订阅池', 39.00::numeric),
+    ('codex-pool-49-usd', 118::numeric, '59 元订阅池', 59.00::numeric),
+    ('codex-pool-69-usd', 158::numeric, '79 元订阅池', 79.00::numeric),
+    ('codex-pool-89-usd', 198::numeric, '99 元订阅池', 99.00::numeric),
+    ('codex-pool-135-usd', 299::numeric, '149 元订阅池', 149.00::numeric),
+    ('codex-pool-179-usd', 400::numeric, '199 元订阅池', 199.00::numeric)
 )
 UPDATE groups g SET daily_limit_usd = NULL, monthly_limit_usd = NULL, weekly_limit_usd = p.weekly_usd,
   default_validity_days = 28, description = p.plan_label || '，每 7 天 ' || trim_scale(p.weekly_usd) || ' USD，28 天有效期', updated_at = NOW()
@@ -250,7 +250,7 @@ UPDATE subscription_entitlement_periods sep SET weekly_limit_usd = g.weekly_limi
   period_total_quota_usd = g.weekly_limit_usd * 4,
   quota_window_unit = 'week', quota_window_days = 7, updated_at = NOW()
 FROM groups g WHERE sep.group_id = g.id AND sep.status = 'active'
-  AND sep.expires_at > :'migration_at'::timestamptz AND sep.weekly_limit_usd IS NULL
+  AND sep.expires_at > :'migration_at'::timestamptz
   AND g.weekly_limit_usd IS NOT NULL
   AND g.name IN ('codex-pool-19-usd','codex-pool-29-usd','codex-pool-49-usd','codex-pool-69-usd','codex-pool-89-usd','codex-pool-135-usd','codex-pool-179-usd');
 
@@ -281,9 +281,9 @@ INSERT INTO subscription_quota_debt_adjustments (
   raw_deduction_days, deducted_days, original_expires_at, new_expires_at, application_status, applied_at, notes
 )
 SELECT us.id, us.user_id, us.group_id, 'weekly_quota_cutover_overage:' || us.id,
-  v.overage_usd, 72, 72.0 / 7, v.raw_days, v.deducted_days, us.expires_at, us.expires_at,
+  v.overage_usd, 58, 58.0 / 7, v.raw_days, v.deducted_days, us.expires_at, us.expires_at,
   'already_applied', NOW(), '本地开发库已在切换前按历史超额扣减有效期；禁止重复扣减'
-FROM (VALUES (21::bigint, 234.1998836::numeric, 22.7694331278::numeric, 22), (53::bigint, 189.9496876::numeric, 18.4673307389::numeric, 18))
+FROM (VALUES (21::bigint, 234.1998836::numeric, 28.2655031931::numeric, 28), (53::bigint, 189.9496876::numeric, 22.9249622966::numeric, 22))
   AS v(subscription_id, overage_usd, raw_days, deducted_days)
 JOIN user_subscriptions us ON us.id = v.subscription_id
 ON CONFLICT (source_key) DO NOTHING;

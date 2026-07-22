@@ -226,8 +226,8 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 				anchor := time.Now().AddDate(0, 0, -8).Truncate(time.Second)
 				currentWindowStart := anchor.AddDate(0, 0, 7)
 				entitlementID := int64(3001)
-				weeklyLimit := 72.0
-				periodTotal := 288.0
+				weeklyLimit := 58.0
+				periodTotal := 232.0
 
 				data := &service.SubscriptionCacheData{
 					Status:                    "active",

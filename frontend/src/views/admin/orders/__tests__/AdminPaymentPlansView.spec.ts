@@ -64,7 +64,7 @@ const planFixture = () => ({
   validity_unit: 'year',
   rate_multiplier: 1,
   daily_limit_usd: null,
-  weekly_limit_usd: 198,
+  weekly_limit_usd: 158,
   monthly_limit_usd: null,
   supported_model_scopes: [],
   features: '',

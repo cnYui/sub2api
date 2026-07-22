@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS,
+  displayAdminGroupName,
   formatSubscriptionQuotaUSD,
   isPublicCodexSubscriptionGroupName,
   isRollingWeeklySubscription,
+  publicCodexSubscriptionDisplayName,
   publicCodexSubscriptionWeeklyLimitUSD,
 } from '../subscriptionQuota'
 
@@ -17,8 +19,8 @@ describe('subscriptionQuota', () => {
 
   it('识别公共 Codex 滚动周订阅，避免页面自行推导刷新时间', () => {
     expect(PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS).toBe(28)
-    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-19-usd')).toBe(72)
-    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-179-usd')).toBe(500)
+    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-19-usd')).toBe(58)
+    expect(publicCodexSubscriptionWeeklyLimitUSD('codex-pool-179-usd')).toBe(400)
     expect(publicCodexSubscriptionWeeklyLimitUSD('OpenAI')).toBeNull()
     expect(isPublicCodexSubscriptionGroupName('codex-pool-19-usd')).toBe(true)
     expect(isPublicCodexSubscriptionGroupName('OpenAI')).toBe(false)
@@ -32,5 +34,13 @@ describe('subscriptionQuota', () => {
       weekly_window_resets_at: null,
       group: { name: 'legacy-weekly' },
     })).toBe(false)
+  })
+
+  it('管理页用人民币套餐名展示公共 Codex 分组，内部组名保持不变', () => {
+    expect(publicCodexSubscriptionDisplayName('codex-pool-19-usd')).toBe('29 元订阅池')
+    expect(publicCodexSubscriptionDisplayName('codex-pool-179-usd')).toBe('199 元订阅池')
+    expect(publicCodexSubscriptionDisplayName('traffic-pack-openai')).toBeNull()
+    expect(displayAdminGroupName('codex-pool-29-usd')).toBe('39 元订阅池')
+    expect(displayAdminGroupName('traffic-pack-openai')).toBe('traffic-pack-openai')
   })
 })

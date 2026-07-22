@@ -109,9 +109,9 @@ func TestOpenAIBillingAuthorization_ReservesTrafficCreditWhenSubscriptionExceede
 }
 
 func TestOpenAIBillingAuthorization_RollingWeeklyIgnoresStaleWindowUsage(t *testing.T) {
-	weeklyLimit := 72.0
+	weeklyLimit := 58.0
 	anchor := time.Now().UTC().AddDate(0, 0, -8).Truncate(time.Second)
-	svc, repo := newOpenAIBillingAuthorizationTestService(70)
+	svc, repo := newOpenAIBillingAuthorizationTestService(56)
 	input := newOpenAIBillingAuthorizationTestInput()
 	input.Group = &Group{
 		ID:               2,
@@ -125,7 +125,7 @@ func TestOpenAIBillingAuthorization_RollingWeeklyIgnoresStaleWindowUsage(t *test
 		ExpiresAt:         anchor.AddDate(0, 0, 28),
 		WeeklyAnchorAt:    &anchor,
 		WeeklyWindowStart: &anchor,
-		WeeklyUsageUSD:    80,
+		WeeklyUsageUSD:    64,
 		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
 			ID:             30,
 			StartsAt:       anchor,

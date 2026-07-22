@@ -100,7 +100,10 @@ vi.mock('@/stores', () => ({
 }))
 
 describe('KeyUsageView daily detail', () => {
+  let animationFrameTimers: ReturnType<typeof window.setTimeout>[] = []
+
   beforeEach(() => {
+    animationFrameTimers = []
     showInfo.mockReset()
     showSuccess.mockReset()
     showError.mockReset()
@@ -111,7 +114,15 @@ describe('KeyUsageView daily detail', () => {
       configurable: true,
       value: vi.fn().mockReturnValue({ matches: false }),
     })
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => window.setTimeout(() => cb(0), 0))
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      const timer = window.setTimeout(() => cb(performance.now()), 0)
+      animationFrameTimers.push(timer)
+      return timer
+    })
+    vi.stubGlobal('cancelAnimationFrame', (timer: ReturnType<typeof window.setTimeout>) => {
+      window.clearTimeout(timer)
+      animationFrameTimers = animationFrameTimers.filter(item => item !== timer)
+    })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -163,7 +174,10 @@ describe('KeyUsageView daily detail', () => {
     }))
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    await new Promise(resolve => window.setTimeout(resolve, 60))
+    animationFrameTimers.forEach(timer => window.clearTimeout(timer))
+    animationFrameTimers = []
     vi.unstubAllGlobals()
   })
 
@@ -219,8 +233,8 @@ describe('KeyUsageView daily detail', () => {
           daily_usage_usd: 0,
           daily_limit_usd: 0,
           weekly_usage_usd: 12.4,
-          weekly_limit_usd: 72,
-          effective_weekly_limit_usd: 72,
+          weekly_limit_usd: 58,
+          effective_weekly_limit_usd: 58,
           weekly_window_resets_at: '2099-01-08T00:00:00Z',
           monthly_usage_usd: 0,
           monthly_limit_usd: 0,
@@ -268,11 +282,11 @@ describe('KeyUsageView daily detail', () => {
 
     const text = wrapper.text()
     expect(text).toContain('Weekly Limit')
-    expect(text).toContain('$12 / $72')
+    expect(text).toContain('$12 / $58')
     expect(text).toContain('Remaining Quota')
     expect(text).toContain('$60')
     expect(text).not.toContain('Daily Limit')
-    expect(text).not.toContain('$12.40 / $72.00')
+    expect(text).not.toContain('$12.40 / $58.00')
     expect(text).not.toContain('$59.60')
 
     wrapper.unmount()
@@ -289,7 +303,7 @@ describe('KeyUsageView daily detail', () => {
           daily_usage_usd: 0,
           daily_limit_usd: 0,
           weekly_usage_usd: 0,
-          weekly_limit_usd: 72,
+          weekly_limit_usd: 58,
           effective_weekly_limit_usd: null,
           weekly_window_resets_at: null,
           monthly_usage_usd: 0,
@@ -322,7 +336,7 @@ describe('KeyUsageView daily detail', () => {
 
     const text = wrapper.text()
     expect(text).toContain('Weekly quota window inactive')
-    expect(text).not.toContain('$0 / $72')
+    expect(text).not.toContain('$0 / $58')
     expect(text).not.toContain('⟳')
 
     wrapper.unmount()

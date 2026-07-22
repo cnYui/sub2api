@@ -613,8 +613,12 @@ function planWeeklyLimitUSD(plan: SubscriptionPlan): number | null {
 }
 
 function planDisplayDescription(plan: SubscriptionPlan): string {
-  if (publicCodexSubscriptionWeeklyLimitUSD(plan.group_name) != null) {
-    return t('payment.planCard.weeklyDescription')
+  const weeklyLimit = publicCodexSubscriptionWeeklyLimitUSD(plan.group_name)
+  if (weeklyLimit != null) {
+    return t('payment.planCard.weeklyDescription', {
+      quota: formatSubscriptionQuotaUSD(weeklyLimit),
+      days: planEffectiveValidityDays(plan),
+    })
   }
   return plan.description || ''
 }

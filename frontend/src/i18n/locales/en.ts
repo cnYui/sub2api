@@ -47,13 +47,13 @@ export default {
     },
     features: {
       unifiedGateway: '29 RMB Plan',
-      unifiedGatewayDesc: '28-day subscription, 72 USD weekly quota, refreshes every 7 days',
+      unifiedGatewayDesc: '28-day subscription, 58 USD weekly quota, refreshes every 7 days',
       multiAccount: '39 RMB Plan',
-      multiAccountDesc: '28-day subscription, 97 USD weekly quota, refreshes every 7 days',
+      multiAccountDesc: '28-day subscription, 78 USD weekly quota, refreshes every 7 days',
       balanceQuota: '59 RMB Plan',
-      balanceQuotaDesc: '28-day subscription, 148 USD weekly quota, refreshes every 7 days',
+      balanceQuotaDesc: '28-day subscription, 118 USD weekly quota, refreshes every 7 days',
       premiumQuota: '99 RMB Plan',
-      premiumQuotaDesc: '28-day subscription, 248 USD weekly quota, refreshes every 7 days'
+      premiumQuotaDesc: '28-day subscription, 198 USD weekly quota, refreshes every 7 days'
     },
     // Comparison section
     comparison: {
@@ -7141,15 +7141,15 @@ export default {
     planCard: {
       rate: 'Rate',
       dailyLimit: 'Daily',
-      weeklyLimit: 'Weekly quota',
+      weeklyLimit: 'Weekly limit',
       periodTotalQuota: '28-day quota',
       monthlyLimit: 'Monthly',
       quota: 'Quota',
       unlimited: 'Unlimited',
       models: 'Models',
       refreshTime: 'Refresh',
-      weeklyRefresh: 'Every 7 days',
-      weeklyDescription: '28-day subscription with weekly quota refreshing every 7 days from purchase time.',
+      weeklyRefresh: 'Weekly refresh',
+      weeklyDescription: 'Weekly {quota}, {days}-day validity.',
       dailyRefresh: 'At 24:00',
       validity: 'Validity',
       feeDetail: 'Fee detail',

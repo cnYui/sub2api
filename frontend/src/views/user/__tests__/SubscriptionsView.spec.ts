@@ -30,6 +30,7 @@ vi.mock('vue-i18n', async () => {
         if (key === 'userSubscriptions.trafficPack.currentAvailable') return `当前可用 ${params?.amount}`
         if (key === 'userSubscriptions.expires') return '到期时间'
         if (key === 'userSubscriptions.weeklyWindowNotActive') return '当前周额度窗口尚未激活'
+        if (key === 'payment.planCard.weeklyDescription') return `每周 ${params?.quota}，${params?.days} 天有效期`
         return key
       },
     }),
@@ -243,10 +244,10 @@ describe('SubscriptionsView traffic packs', () => {
           id: 2,
           name: 'codex-pool-19-usd',
           platform: 'openai',
-          description: '29 元订阅池，每周 72 USD，28 天有效期',
+          description: '29 元订阅池，每周 58 USD，28 天有效期',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 72,
+          weekly_limit_usd: 58,
           monthly_limit_usd: null,
         },
       },
@@ -279,6 +280,8 @@ describe('SubscriptionsView traffic packs', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('codex-pool-19-usd')
+    expect(wrapper.text()).toContain('每周 $58，28 天有效期')
+    expect(wrapper.text()).not.toContain('29 元订阅池，每周 58 USD，28 天有效期')
     expect(wrapper.text()).not.toContain('payment.renewNow')
     expect(wrapper.findAll('button').some(button => button.text().includes('续费'))).toBe(false)
     expect(routerPush).not.toHaveBeenCalled()
@@ -304,10 +307,10 @@ describe('SubscriptionsView traffic packs', () => {
           id: 2,
           name: 'codex-pool-19-usd',
           platform: 'openai',
-          description: '29 元订阅池，每周 72 USD，28 天有效期',
+          description: '29 元订阅池，每周 58 USD，28 天有效期',
           rate_multiplier: 1,
           daily_limit_usd: null,
-          weekly_limit_usd: 72,
+          weekly_limit_usd: 58,
           monthly_limit_usd: null,
         },
       },
@@ -341,7 +344,7 @@ describe('SubscriptionsView traffic packs', () => {
 
     expect(wrapper.text()).toContain('当前周额度窗口尚未激活')
     expect(wrapper.text()).not.toContain('后重置')
-    expect(wrapper.text()).not.toContain('$0 / $72')
+    expect(wrapper.text()).not.toContain('$0 / $58')
   })
 
   it('公共 Codex 订阅即使 group 仍是旧日额度也展示有效周额度', async () => {
@@ -358,7 +361,7 @@ describe('SubscriptionsView traffic packs', () => {
         daily_window_start: '2026-07-20T00:00:00+08:00',
         weekly_window_start: '2026-07-20T00:00:00+08:00',
         weekly_window_resets_at: '2026-07-21T00:00:00+08:00',
-        effective_weekly_limit_usd: 72 / 7,
+        effective_weekly_limit_usd: 58 / 7,
         monthly_window_start: null,
         group: {
           id: 2,
@@ -399,7 +402,7 @@ describe('SubscriptionsView traffic packs', () => {
     })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('$1 / $10')
+    expect(wrapper.text()).toContain('$1 / $8')
     expect(wrapper.text()).not.toContain('$0 / $15')
   })
 })

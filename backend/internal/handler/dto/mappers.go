@@ -166,28 +166,30 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 }
 
 func groupFromServiceBase(g *service.Group) Group {
+	normalized := *g
+	service.NormalizePublicCodexSubscriptionQuota(&normalized)
 	return Group{
-		ID:                              g.ID,
-		Name:                            g.Name,
-		Description:                     g.Description,
-		Platform:                        g.Platform,
-		RateMultiplier:                  g.RateMultiplier,
-		IsExclusive:                     g.IsExclusive,
-		Status:                          g.Status,
-		SubscriptionType:                g.SubscriptionType,
-		DailyLimitUSD:                   g.DailyLimitUSD,
-		WeeklyLimitUSD:                  g.WeeklyLimitUSD,
-		MonthlyLimitUSD:                 g.MonthlyLimitUSD,
-		AllowImageGeneration:            g.AllowImageGeneration,
-		ClaudeCodeOnly:                  g.ClaudeCodeOnly,
-		FallbackGroupID:                 g.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
-		AllowMessagesDispatch:           g.AllowMessagesDispatch,
-		RequireOAuthOnly:                g.RequireOAuthOnly,
-		RequirePrivacySet:               g.RequirePrivacySet,
-		RPMLimit:                        g.RPMLimit,
-		CreatedAt:                       g.CreatedAt,
-		UpdatedAt:                       g.UpdatedAt,
+		ID:                              normalized.ID,
+		Name:                            normalized.Name,
+		Description:                     normalized.Description,
+		Platform:                        normalized.Platform,
+		RateMultiplier:                  normalized.RateMultiplier,
+		IsExclusive:                     normalized.IsExclusive,
+		Status:                          normalized.Status,
+		SubscriptionType:                normalized.SubscriptionType,
+		DailyLimitUSD:                   normalized.DailyLimitUSD,
+		WeeklyLimitUSD:                  normalized.WeeklyLimitUSD,
+		MonthlyLimitUSD:                 normalized.MonthlyLimitUSD,
+		AllowImageGeneration:            normalized.AllowImageGeneration,
+		ClaudeCodeOnly:                  normalized.ClaudeCodeOnly,
+		FallbackGroupID:                 normalized.FallbackGroupID,
+		FallbackGroupIDOnInvalidRequest: normalized.FallbackGroupIDOnInvalidRequest,
+		AllowMessagesDispatch:           normalized.AllowMessagesDispatch,
+		RequireOAuthOnly:                normalized.RequireOAuthOnly,
+		RequirePrivacySet:               normalized.RequirePrivacySet,
+		RPMLimit:                        normalized.RPMLimit,
+		CreatedAt:                       normalized.CreatedAt,
+		UpdatedAt:                       normalized.UpdatedAt,
 	}
 }
 

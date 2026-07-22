@@ -12,9 +12,9 @@ const productFixture = (overrides: Partial<PurchaseProductCardModel> = {}): Purc
   buttonText: '立即开通',
   active: false,
   detailRows: [
-    { label: '周额度', value: '72刀' },
-    { label: '28 天总额度', value: '288刀' },
-    { label: '刷新时间', value: '每 7 天刷新' },
+    { label: '周限额', value: '58刀' },
+    { label: '28 天总额度', value: '232刀' },
+    { label: '刷新时间', value: '每周刷新' },
     { label: '手续费详情', value: '¥29元 + 1%' },
   ],
   ...overrides,
@@ -46,9 +46,9 @@ describe('PurchaseProductCard', () => {
     expect(text).toContain('28 天订阅套餐A')
     expect(text).toContain('价格')
     expect(text).toContain('¥29.29')
-    expect(text).toContain('周额度72刀')
-    expect(text).toContain('28 天总额度288刀')
-    expect(text).toContain('刷新时间每 7 天刷新')
+    expect(text).toContain('周限额58刀')
+    expect(text).toContain('28 天总额度232刀')
+    expect(text).toContain('刷新时间每周刷新')
     expect(text).toContain('手续费详情¥29元 + 1%')
     expect(button.classes()).toEqual(expect.arrayContaining([
       'rounded-full',
