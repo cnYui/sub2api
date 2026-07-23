@@ -17,6 +17,26 @@
 
 ## 最高优先级定论
 
+- 2026-07-23 已将附件 `sub2api-selected-accounts-2026-07-22134906.json` 中 10 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=23..32`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；但管理测试接口显式使用 `gpt-5.4` 对新增 10 个账号均返回上游 `402 deactivated_workspace`，这批账号已入池但不可按可用账号看待。本次 SQL 核对显示内层 OpenAI OAuth 总数 32，当前 active/schedulable 为 10。结果见 `docs/ai/context/20260723-083722-upstream-latest-selected-accounts-import-result_CN.md`。
+
+- 2026-07-22 已将附件 `20260722-210541-sub2-API.json` 中 3 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=19..21`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；内层当前 OpenAI OAuth 账号共 21 个，管理测试接口显式使用 `gpt-5.4` 对新增 3 个账号均返回 200 且无错误信号。结果见 `docs/ai/context/20260722-220808-upstream-latest-three-agent-identity-import-result_CN.md`。
+
+- 2026-07-22 已将附件 `20260722-204504-sub2-API.json` 与 `20260722-205243-sub2-API.json` 中 8 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=11..18`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；内层当前 OpenAI OAuth 账号共 18 个，管理测试接口显式使用 `gpt-5.4` 对新增 8 个账号均返回 200 且无错误信号。结果见 `docs/ai/context/20260722-220259-upstream-latest-batch-agent-identity-import-result_CN.md`。
+
+- 2026-07-22 已将附件 `sub2api-agentIdentity-alive (1).json` 中 5 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=6..10`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；内层当前 OpenAI OAuth 账号共 10 个，管理测试接口对新增 5 个账号均返回 200。结果见 `docs/ai/context/20260722-200430-upstream-latest-agent-identity-import-result_CN.md`。
+
+- 2026-07-22 已完成 CPA 临时去除的双方案与 GitHub original 同步只读准备：当前本地 `origin` 实际指向 `cnYui/sub2api`，已临时抓取 `Wei-Shaw/sub2api` 到 `original/main@60013c5f1`；original 已到 `0.1.163`，本地为 `0.1.138`，共同祖先 `5f022663a`，original ahead 1152、本地 ahead 294，迁移号与本地 durable billing/订阅权益周期严重冲突，禁止直接 merge。推荐先维持 CPA 公网链路，按能力移植 original 的 OpenAI/Codex 协议、调度、Agent Identity、usage 解析补丁，再灰度 Sub2API 单体真实凭证链路。计划见 `docs/ai/context/20260722-185918-cpa-removal-dual-path-and-original-sync-plan_CN.md`。
+
+- 2026-07-22 已在本地完成“外层定制版 Sub2API + 内层 latest Sub2API”桥接并暂停 CPA：latest 克隆在 `D:\CodeWorkSpace\sub2api-upstream-latest`，容器 `sub2api-upstream-latest` 通过 `127.0.0.1:18086` 提供本机控制台；用户提供的 GPT agent identity 凭证已导入内层，内层 `/v1/models` 与 `/v1/responses` 已 200。外层本地 `sub2api-dev:18080` 新增 `sub2api-latest-openai-upstream` 指向 `http://host.docker.internal:18086/v1`，CPA 账号 `cliproxy-local-openai` 已设为不可调度，`cliproxyapi-local-dev` 已停止；外层 `api_key_id=173` 验证 `/v1/responses` 200，`usage_facts` settled，计费仍在外层。结果见 `docs/ai/context/20260722-193400-dual-sub2api-local-bridge-result_CN.md`。
+
+- 2026-07-22 已将内层 latest Sub2API 本地管理账号同步为 `xiaobianfuai@gmail.com`，登录接口 `POST http://127.0.0.1:18086/api/v1/auth/login` 已验证 200；控制台 `http://127.0.0.1:18086`，账号管理 `http://127.0.0.1:18086/admin/accounts`。结果见 `docs/ai/context/20260722-193505-upstream-latest-admin-login-result_CN.md`。
+
+- 2026-07-22 已将附件 4 个 OpenAI agent identity 账号追加到内层 latest Sub2API，内层当前 5 个 OpenAI OAuth 账号均 active/schedulable 且绑定 `internal-openai-upstream`；已用本地 Key 从公网 `https://api.aaccx.pw/v1/responses` 验证链路为公网入口 -> 外层 `sub2api-dev:18080` 计费 -> 内层 `sub2api-upstream-latest:18086` 请求上游，外层 `usage_facts.id=14923` settled、`usage_logs.id=172539 actual_cost=0.0007372500`，内层 `usage_logs.id=32 account_id=3`，CPA 容器停止且未参与。结果见 `docs/ai/context/20260722-194350-public-local-dual-sub2api-billing-smoke-result_CN.md`。
+
+- 2026-07-22 已在当前公网事实源给所有 active 用户批量发放一张 10 USD GPT/OpenAI 流量卡：批次 `grant-20260722-10usd-current-users`，覆盖 `users.deleted_at IS NULL AND status='active'` 的 119 个账号（117 user + 2 admin），写入 `payment_orders/user_traffic_credits/traffic_credit_ledger/payment_audit_logs` 各 119 条，订单金额合计 0，流量卡合计 1190 USD，到期 `2027-07-22 15:24:05 +08`；备份在 `backups/20260722-162105-current-users-10usd-traffic-pack-prechange.sql`。结果见 `docs/ai/context/20260722-162735-current-users-10usd-traffic-pack-grant-result_CN.md`。
+
+- 2026-07-22 已在当前公网事实源手动为 `377293029@qq.com` 补发 29 元套餐：用户 `id=117`、Key `id=173`，补发 `user_subscriptions.id=127`、`subscription_entitlement_periods.id=211`，来源 `manual_zpay/12344239`，有效期 `2026-07-22 15:15:05 +08` 至 `2026-08-19 15:15:05 +08`；公网 `/v1/models`、`/v1/responses`、`/v1/chat/completions` 已用该用户真实 Key 验证 200，usage fact 已 settled。结果见 `docs/ai/context/20260722-162950-user-377293029-manual-subscription-grant-result_CN.md`。
+
 - 2026-07-22 已在本地代码层完成公共 Codex 订阅“28 天有效 + 按订阅锚点每 7 天滚动刷新额度”补齐：schema/Ent、周窗口计算器、订单不可变快照、权益段周额度/周期总额度、usage_facts 归属、退款 quote/二次计算、Dashboard/Key/订阅/API 字段和前端整数 USD 文案均已接入；`go test ./...`、前端 typecheck/lint/test/build 通过。未执行 cutover `--apply`，本地 dry-run 仍阻塞 51 个历史对象；未碰公网、未提交、未推送。结果见 `docs/ai/context/20260722-035013-weekly-rolling-subscription-quota-28day-gap-fix-result_CN.md`。
 
 - 2026-07-21 已在本地开发态完成订阅日额度超额顺延：跨自然日时新日窗口写入 `max(旧日用量 - 日额度 × 已跨天数, 0)`，请求前限额判断、成功结算落库、每日校准和 Dashboard quota 均使用该 carryover；管理员手动重置仍清零，无限额订阅不产生 carryover。已备份并重建本地 `sub2api-dev:8080`，172/173 本地回填迁移已应用，当前 64 个有限额 active 订阅里有 2 个超额，合计约 424.15 USD 将逐日抵扣；未触碰公网。结果见 `docs/ai/context/20260721-212052-subscription-daily-overage-carryover-result_CN.md`。

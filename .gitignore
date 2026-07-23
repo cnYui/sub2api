@@ -119,6 +119,10 @@ deploy/backups/
 deploy/candidate/
 backend/.installed
 deploy/.env.scheme-a.runtime
+deploy/cloudflared-windows-aaccx.yml
+
+# 本地数据库备份可能包含用户与支付数据
+backups/
 
 # ===================
 # 其他

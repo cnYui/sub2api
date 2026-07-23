@@ -1,0 +1,11 @@
+tunnel: 7f5fafd9-8a59-4013-ba42-3116dfc29463
+credentials-file: C:\Users\yui\.cloudflared\7f5fafd9-8a59-4013-ba42-3116dfc29463.json
+
+ingress:
+  - hostname: aaccx.pw
+    service: http://127.0.0.1:8080
+  - hostname: www.aaccx.pw
+    service: http://127.0.0.1:8080
+  - hostname: api.aaccx.pw
+    service: http://127.0.0.1:8080
+  - service: http_status:404
