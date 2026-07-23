@@ -123,7 +123,11 @@ func (s *UserSubscription) RollingWeeklyWindowForEntitlement(group *Group, perio
 	if !period.ExpiresAt.IsZero() && !now.Before(period.ExpiresAt) {
 		return SubscriptionWeeklyWindow{Expired: true, End: period.ExpiresAt, ResetsAt: period.ExpiresAt}, false
 	}
-	window := CalculateSubscriptionWeeklyWindow(period.StartsAt, s.WeeklyWindowStart, period.ExpiresAt, now, *period.WeeklyLimitUSD)
+	anchor := period.StartsAt
+	if period.QuotaWindowAnchorAt != nil {
+		anchor = *period.QuotaWindowAnchorAt
+	}
+	window := CalculateSubscriptionWeeklyWindow(anchor, s.WeeklyWindowStart, period.ExpiresAt, now, *period.WeeklyLimitUSD)
 	return window, !window.Expired
 }
 

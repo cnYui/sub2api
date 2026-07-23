@@ -38,6 +38,8 @@ type SubscriptionEntitlementPeriod struct {
 	StartsAt time.Time `json:"starts_at,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	// QuotaWindowAnchorAt holds the value of the "quota_window_anchor_at" field.
+	QuotaWindowAnchorAt *time.Time `json:"quota_window_anchor_at,omitempty"`
 	// PeriodDays holds the value of the "period_days" field.
 	PeriodDays int `json:"period_days,omitempty"`
 	// DailyLimitUsd holds the value of the "daily_limit_usd" field.
@@ -119,7 +121,7 @@ func (*SubscriptionEntitlementPeriod) scanValues(columns []string) ([]any, error
 			values[i] = new(sql.NullInt64)
 		case subscriptionentitlementperiod.FieldSourceType, subscriptionentitlementperiod.FieldSourceID, subscriptionentitlementperiod.FieldQuotaWindowUnit, subscriptionentitlementperiod.FieldStatus, subscriptionentitlementperiod.FieldRevokedReason:
 			values[i] = new(sql.NullString)
-		case subscriptionentitlementperiod.FieldCreatedAt, subscriptionentitlementperiod.FieldUpdatedAt, subscriptionentitlementperiod.FieldStartsAt, subscriptionentitlementperiod.FieldExpiresAt, subscriptionentitlementperiod.FieldRevokedAt:
+		case subscriptionentitlementperiod.FieldCreatedAt, subscriptionentitlementperiod.FieldUpdatedAt, subscriptionentitlementperiod.FieldStartsAt, subscriptionentitlementperiod.FieldExpiresAt, subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, subscriptionentitlementperiod.FieldRevokedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -195,6 +197,13 @@ func (_m *SubscriptionEntitlementPeriod) assignValues(columns []string, values [
 				return fmt.Errorf("unexpected type %T for field expires_at", values[i])
 			} else if value.Valid {
 				_m.ExpiresAt = value.Time
+			}
+		case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field quota_window_anchor_at", values[i])
+			} else if value.Valid {
+				_m.QuotaWindowAnchorAt = new(time.Time)
+				*_m.QuotaWindowAnchorAt = value.Time
 			}
 		case subscriptionentitlementperiod.FieldPeriodDays:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -331,6 +340,11 @@ func (_m *SubscriptionEntitlementPeriod) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("expires_at=")
 	builder.WriteString(_m.ExpiresAt.Format(time.ANSIC))
+	builder.WriteString(", ")
+	if v := _m.QuotaWindowAnchorAt; v != nil {
+		builder.WriteString("quota_window_anchor_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("period_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PeriodDays))

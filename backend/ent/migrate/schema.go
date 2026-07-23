@@ -1332,6 +1332,7 @@ var (
 		{Name: "source_id", Type: field.TypeString, Size: 128},
 		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "quota_window_anchor_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "period_days", Type: field.TypeInt},
 		{Name: "daily_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
 		{Name: "weekly_limit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "numeric(20,10)"}},
@@ -1353,19 +1354,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "subscription_entitlement_periods_group_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[16]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[17]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
 			{
 				Symbol:     "subscription_entitlement_periods_user_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[17]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[18]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
 			{
 				Symbol:     "subscription_entitlement_periods_subscription_id_fkey",
-				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[18]},
+				Columns:    []*schema.Column{SubscriptionEntitlementPeriodsColumns[19]},
 				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
 				OnDelete:   schema.Restrict,
 			},
@@ -1379,7 +1380,7 @@ var (
 			{
 				Name:    "idx_subscription_entitlement_periods_active_user_expiry",
 				Unique:  false,
-				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[17], SubscriptionEntitlementPeriodsColumns[6], SubscriptionEntitlementPeriodsColumns[5]},
+				Columns: []*schema.Column{SubscriptionEntitlementPeriodsColumns[18], SubscriptionEntitlementPeriodsColumns[6], SubscriptionEntitlementPeriodsColumns[5]},
 				Annotation: &entsql.IndexAnnotation{
 					DescColumns: map[string]bool{
 						SubscriptionEntitlementPeriodsColumns[5].Name: true,

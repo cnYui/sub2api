@@ -1614,23 +1614,23 @@ func init() {
 		}
 	}()
 	// subscriptionentitlementperiodDescQuotaWindowUnit is the schema descriptor for quota_window_unit field.
-	subscriptionentitlementperiodDescQuotaWindowUnit := subscriptionentitlementperiodFields[11].Descriptor()
+	subscriptionentitlementperiodDescQuotaWindowUnit := subscriptionentitlementperiodFields[12].Descriptor()
 	// subscriptionentitlementperiod.DefaultQuotaWindowUnit holds the default value on creation for the quota_window_unit field.
 	subscriptionentitlementperiod.DefaultQuotaWindowUnit = subscriptionentitlementperiodDescQuotaWindowUnit.Default.(string)
 	// subscriptionentitlementperiod.QuotaWindowUnitValidator is a validator for the "quota_window_unit" field. It is called by the builders before save.
 	subscriptionentitlementperiod.QuotaWindowUnitValidator = subscriptionentitlementperiodDescQuotaWindowUnit.Validators[0].(func(string) error)
 	// subscriptionentitlementperiodDescQuotaWindowDays is the schema descriptor for quota_window_days field.
-	subscriptionentitlementperiodDescQuotaWindowDays := subscriptionentitlementperiodFields[12].Descriptor()
+	subscriptionentitlementperiodDescQuotaWindowDays := subscriptionentitlementperiodFields[13].Descriptor()
 	// subscriptionentitlementperiod.DefaultQuotaWindowDays holds the default value on creation for the quota_window_days field.
 	subscriptionentitlementperiod.DefaultQuotaWindowDays = subscriptionentitlementperiodDescQuotaWindowDays.Default.(int)
 	// subscriptionentitlementperiodDescStatus is the schema descriptor for status field.
-	subscriptionentitlementperiodDescStatus := subscriptionentitlementperiodFields[13].Descriptor()
+	subscriptionentitlementperiodDescStatus := subscriptionentitlementperiodFields[14].Descriptor()
 	// subscriptionentitlementperiod.DefaultStatus holds the default value on creation for the status field.
 	subscriptionentitlementperiod.DefaultStatus = subscriptionentitlementperiodDescStatus.Default.(string)
 	// subscriptionentitlementperiod.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	subscriptionentitlementperiod.StatusValidator = subscriptionentitlementperiodDescStatus.Validators[0].(func(string) error)
 	// subscriptionentitlementperiodDescRevokedReason is the schema descriptor for revoked_reason field.
-	subscriptionentitlementperiodDescRevokedReason := subscriptionentitlementperiodFields[15].Descriptor()
+	subscriptionentitlementperiodDescRevokedReason := subscriptionentitlementperiodFields[16].Descriptor()
 	// subscriptionentitlementperiod.DefaultRevokedReason holds the default value on creation for the revoked_reason field.
 	subscriptionentitlementperiod.DefaultRevokedReason = subscriptionentitlementperiodDescRevokedReason.Default.(string)
 	subscriptionplanFields := schema.SubscriptionPlan{}.Fields()

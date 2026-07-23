@@ -642,18 +642,15 @@ func isUsageBillingRollingWeeklySubscription(ctx context.Context, tx *sql.Tx, su
 func incrementUsageBillingRollingWeeklySubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, entitlementPeriodID *int64, costUSD float64, completedAt time.Time) error {
 	type rollingSubscriptionRow struct {
 		ID                int64
-		StartsAt          time.Time
-		ExpiresAt         time.Time
-		WeeklyAnchorAt    sql.NullTime
 		WeeklyWindowStart sql.NullTime
 	}
 	var row rollingSubscriptionRow
 	err := tx.QueryRowContext(ctx, `
-		SELECT id, starts_at, expires_at, weekly_anchor_at, weekly_window_start
+		SELECT id, weekly_window_start
 		FROM user_subscriptions
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR UPDATE
-	`, subscriptionID).Scan(&row.ID, &row.StartsAt, &row.ExpiresAt, &row.WeeklyAnchorAt, &row.WeeklyWindowStart)
+	`, subscriptionID).Scan(&row.ID, &row.WeeklyWindowStart)
 	if errors.Is(err, sql.ErrNoRows) {
 		return service.ErrSubscriptionNotFound
 	}
@@ -661,7 +658,7 @@ func incrementUsageBillingRollingWeeklySubscription(ctx context.Context, tx *sql
 		return err
 	}
 
-	periodID, weeklyLimitUSD, entitlementExpiresAt, err := loadUsageBillingRollingWeeklyEntitlement(ctx, tx, subscriptionID, entitlementPeriodID, completedAt)
+	periodID, weeklyLimitUSD, entitlementAnchorAt, entitlementExpiresAt, err := loadUsageBillingRollingWeeklyEntitlement(ctx, tx, subscriptionID, entitlementPeriodID, completedAt)
 	if err != nil {
 		return err
 	}
@@ -669,15 +666,11 @@ func incrementUsageBillingRollingWeeklySubscription(ctx context.Context, tx *sql
 		return service.ErrSubscriptionNotFound
 	}
 
-	anchor := row.StartsAt
-	if row.WeeklyAnchorAt.Valid {
-		anchor = row.WeeklyAnchorAt.Time
-	}
 	var windowStart *time.Time
 	if row.WeeklyWindowStart.Valid {
 		windowStart = &row.WeeklyWindowStart.Time
 	}
-	window := service.CalculateSubscriptionWeeklyWindow(anchor, windowStart, entitlementExpiresAt, completedAt, weeklyLimitUSD)
+	window := service.CalculateSubscriptionWeeklyWindow(entitlementAnchorAt, windowStart, entitlementExpiresAt, completedAt, weeklyLimitUSD)
 	if window.Expired {
 		return service.ErrSubscriptionNotFound
 	}
@@ -705,15 +698,16 @@ func incrementUsageBillingRollingWeeklySubscription(ctx context.Context, tx *sql
 	return nil
 }
 
-func loadUsageBillingRollingWeeklyEntitlement(ctx context.Context, tx *sql.Tx, subscriptionID int64, entitlementPeriodID *int64, completedAt time.Time) (int64, float64, time.Time, error) {
+func loadUsageBillingRollingWeeklyEntitlement(ctx context.Context, tx *sql.Tx, subscriptionID int64, entitlementPeriodID *int64, completedAt time.Time) (int64, float64, time.Time, time.Time, error) {
 	var (
 		id          int64
+		anchorAt    time.Time
 		expiresAt   time.Time
 		weeklyLimit sql.NullFloat64
 	)
 	if entitlementPeriodID != nil && *entitlementPeriodID > 0 {
 		err := tx.QueryRowContext(ctx, `
-			SELECT id, weekly_limit_usd, expires_at
+			SELECT id, weekly_limit_usd, COALESCE(quota_window_anchor_at, starts_at), expires_at
 			FROM subscription_entitlement_periods
 			WHERE id = $1
 				AND subscription_id = $2
@@ -721,21 +715,21 @@ func loadUsageBillingRollingWeeklyEntitlement(ctx context.Context, tx *sql.Tx, s
 				AND starts_at <= $3
 				AND expires_at > $3
 			FOR SHARE
-		`, *entitlementPeriodID, subscriptionID, completedAt).Scan(&id, &weeklyLimit, &expiresAt)
+		`, *entitlementPeriodID, subscriptionID, completedAt).Scan(&id, &weeklyLimit, &anchorAt, &expiresAt)
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, 0, time.Time{}, service.ErrSubscriptionNotFound
+			return 0, 0, time.Time{}, time.Time{}, service.ErrSubscriptionNotFound
 		}
 		if err != nil {
-			return 0, 0, time.Time{}, err
+			return 0, 0, time.Time{}, time.Time{}, err
 		}
 		if !weeklyLimit.Valid {
-			return 0, 0, time.Time{}, service.ErrSubscriptionNotFound
+			return 0, 0, time.Time{}, time.Time{}, service.ErrSubscriptionNotFound
 		}
-		return id, weeklyLimit.Float64, expiresAt, nil
+		return id, weeklyLimit.Float64, anchorAt, expiresAt, nil
 	}
 
 	err := tx.QueryRowContext(ctx, `
-		SELECT id, weekly_limit_usd, expires_at
+		SELECT id, weekly_limit_usd, COALESCE(quota_window_anchor_at, starts_at), expires_at
 		FROM subscription_entitlement_periods
 		WHERE subscription_id = $1
 			AND status = 'active'
@@ -745,14 +739,14 @@ func loadUsageBillingRollingWeeklyEntitlement(ctx context.Context, tx *sql.Tx, s
 		ORDER BY starts_at DESC, id DESC
 		LIMIT 1
 		FOR SHARE
-	`, subscriptionID, completedAt).Scan(&id, &weeklyLimit, &expiresAt)
+	`, subscriptionID, completedAt).Scan(&id, &weeklyLimit, &anchorAt, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, time.Time{}, service.ErrSubscriptionNotFound
+		return 0, 0, time.Time{}, time.Time{}, service.ErrSubscriptionNotFound
 	}
 	if err != nil {
-		return 0, 0, time.Time{}, err
+		return 0, 0, time.Time{}, time.Time{}, err
 	}
-	return id, weeklyLimit.Float64, expiresAt, nil
+	return id, weeklyLimit.Float64, anchorAt, expiresAt, nil
 }
 
 func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {

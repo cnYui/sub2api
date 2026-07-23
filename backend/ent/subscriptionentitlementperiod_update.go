@@ -135,6 +135,26 @@ func (_u *SubscriptionEntitlementPeriodUpdate) SetNillableExpiresAt(v *time.Time
 	return _u
 }
 
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.SetQuotaWindowAnchorAt(v)
+	return _u
+}
+
+// SetNillableQuotaWindowAnchorAt sets the "quota_window_anchor_at" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdate) SetNillableQuotaWindowAnchorAt(v *time.Time) *SubscriptionEntitlementPeriodUpdate {
+	if v != nil {
+		_u.SetQuotaWindowAnchorAt(*v)
+	}
+	return _u
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (_u *SubscriptionEntitlementPeriodUpdate) ClearQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpdate {
+	_u.mutation.ClearQuotaWindowAnchorAt()
+	return _u
+}
+
 // SetPeriodDays sets the "period_days" field.
 func (_u *SubscriptionEntitlementPeriodUpdate) SetPeriodDays(v int) *SubscriptionEntitlementPeriodUpdate {
 	_u.mutation.ResetPeriodDays()
@@ -455,6 +475,12 @@ func (_u *SubscriptionEntitlementPeriodUpdate) sqlSave(ctx context.Context) (_no
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldExpiresAt, field.TypeTime, value)
 	}
+	if value, ok := _u.mutation.QuotaWindowAnchorAt(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, field.TypeTime, value)
+	}
+	if _u.mutation.QuotaWindowAnchorAtCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.PeriodDays(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldPeriodDays, field.TypeInt, value)
 	}
@@ -717,6 +743,26 @@ func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillableExpiresAt(v *time.T
 	if v != nil {
 		_u.SetExpiresAt(*v)
 	}
+	return _u
+}
+
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.SetQuotaWindowAnchorAt(v)
+	return _u
+}
+
+// SetNillableQuotaWindowAnchorAt sets the "quota_window_anchor_at" field if the given value is not nil.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) SetNillableQuotaWindowAnchorAt(v *time.Time) *SubscriptionEntitlementPeriodUpdateOne {
+	if v != nil {
+		_u.SetQuotaWindowAnchorAt(*v)
+	}
+	return _u
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (_u *SubscriptionEntitlementPeriodUpdateOne) ClearQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpdateOne {
+	_u.mutation.ClearQuotaWindowAnchorAt()
 	return _u
 }
 
@@ -1069,6 +1115,12 @@ func (_u *SubscriptionEntitlementPeriodUpdateOne) sqlSave(ctx context.Context) (
 	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldExpiresAt, field.TypeTime, value)
+	}
+	if value, ok := _u.mutation.QuotaWindowAnchorAt(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, field.TypeTime, value)
+	}
+	if _u.mutation.QuotaWindowAnchorAtCleared() {
+		_spec.ClearField(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.PeriodDays(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldPeriodDays, field.TypeInt, value)

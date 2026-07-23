@@ -33659,6 +33659,7 @@ type SubscriptionEntitlementPeriodMutation struct {
 	source_id                 *string
 	starts_at                 *time.Time
 	expires_at                *time.Time
+	quota_window_anchor_at    *time.Time
 	period_days               *int
 	addperiod_days            *int
 	daily_limit_usd           *float64
@@ -34105,6 +34106,55 @@ func (m *SubscriptionEntitlementPeriodMutation) OldExpiresAt(ctx context.Context
 // ResetExpiresAt resets all changes to the "expires_at" field.
 func (m *SubscriptionEntitlementPeriodMutation) ResetExpiresAt() {
 	m.expires_at = nil
+}
+
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) SetQuotaWindowAnchorAt(t time.Time) {
+	m.quota_window_anchor_at = &t
+}
+
+// QuotaWindowAnchorAt returns the value of the "quota_window_anchor_at" field in the mutation.
+func (m *SubscriptionEntitlementPeriodMutation) QuotaWindowAnchorAt() (r time.Time, exists bool) {
+	v := m.quota_window_anchor_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldQuotaWindowAnchorAt returns the old "quota_window_anchor_at" field's value of the SubscriptionEntitlementPeriod entity.
+// If the SubscriptionEntitlementPeriod object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionEntitlementPeriodMutation) OldQuotaWindowAnchorAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldQuotaWindowAnchorAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldQuotaWindowAnchorAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldQuotaWindowAnchorAt: %w", err)
+	}
+	return oldValue.QuotaWindowAnchorAt, nil
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ClearQuotaWindowAnchorAt() {
+	m.quota_window_anchor_at = nil
+	m.clearedFields[subscriptionentitlementperiod.FieldQuotaWindowAnchorAt] = struct{}{}
+}
+
+// QuotaWindowAnchorAtCleared returns if the "quota_window_anchor_at" field was cleared in this mutation.
+func (m *SubscriptionEntitlementPeriodMutation) QuotaWindowAnchorAtCleared() bool {
+	_, ok := m.clearedFields[subscriptionentitlementperiod.FieldQuotaWindowAnchorAt]
+	return ok
+}
+
+// ResetQuotaWindowAnchorAt resets all changes to the "quota_window_anchor_at" field.
+func (m *SubscriptionEntitlementPeriodMutation) ResetQuotaWindowAnchorAt() {
+	m.quota_window_anchor_at = nil
+	delete(m.clearedFields, subscriptionentitlementperiod.FieldQuotaWindowAnchorAt)
 }
 
 // SetPeriodDays sets the "period_days" field.
@@ -34701,7 +34751,7 @@ func (m *SubscriptionEntitlementPeriodMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionEntitlementPeriodMutation) Fields() []string {
-	fields := make([]string, 0, 18)
+	fields := make([]string, 0, 19)
 	if m.created_at != nil {
 		fields = append(fields, subscriptionentitlementperiod.FieldCreatedAt)
 	}
@@ -34728,6 +34778,9 @@ func (m *SubscriptionEntitlementPeriodMutation) Fields() []string {
 	}
 	if m.expires_at != nil {
 		fields = append(fields, subscriptionentitlementperiod.FieldExpiresAt)
+	}
+	if m.quota_window_anchor_at != nil {
+		fields = append(fields, subscriptionentitlementperiod.FieldQuotaWindowAnchorAt)
 	}
 	if m.period_days != nil {
 		fields = append(fields, subscriptionentitlementperiod.FieldPeriodDays)
@@ -34782,6 +34835,8 @@ func (m *SubscriptionEntitlementPeriodMutation) Field(name string) (ent.Value, b
 		return m.StartsAt()
 	case subscriptionentitlementperiod.FieldExpiresAt:
 		return m.ExpiresAt()
+	case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+		return m.QuotaWindowAnchorAt()
 	case subscriptionentitlementperiod.FieldPeriodDays:
 		return m.PeriodDays()
 	case subscriptionentitlementperiod.FieldDailyLimitUsd:
@@ -34827,6 +34882,8 @@ func (m *SubscriptionEntitlementPeriodMutation) OldField(ctx context.Context, na
 		return m.OldStartsAt(ctx)
 	case subscriptionentitlementperiod.FieldExpiresAt:
 		return m.OldExpiresAt(ctx)
+	case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+		return m.OldQuotaWindowAnchorAt(ctx)
 	case subscriptionentitlementperiod.FieldPeriodDays:
 		return m.OldPeriodDays(ctx)
 	case subscriptionentitlementperiod.FieldDailyLimitUsd:
@@ -34916,6 +34973,13 @@ func (m *SubscriptionEntitlementPeriodMutation) SetField(name string, value ent.
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetExpiresAt(v)
+		return nil
+	case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetQuotaWindowAnchorAt(v)
 		return nil
 	case subscriptionentitlementperiod.FieldPeriodDays:
 		v, ok := value.(int)
@@ -35073,6 +35137,9 @@ func (m *SubscriptionEntitlementPeriodMutation) AddField(name string, value ent.
 // mutation.
 func (m *SubscriptionEntitlementPeriodMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt) {
+		fields = append(fields, subscriptionentitlementperiod.FieldQuotaWindowAnchorAt)
+	}
 	if m.FieldCleared(subscriptionentitlementperiod.FieldDailyLimitUsd) {
 		fields = append(fields, subscriptionentitlementperiod.FieldDailyLimitUsd)
 	}
@@ -35099,6 +35166,9 @@ func (m *SubscriptionEntitlementPeriodMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *SubscriptionEntitlementPeriodMutation) ClearField(name string) error {
 	switch name {
+	case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+		m.ClearQuotaWindowAnchorAt()
+		return nil
 	case subscriptionentitlementperiod.FieldDailyLimitUsd:
 		m.ClearDailyLimitUsd()
 		return nil
@@ -35145,6 +35215,9 @@ func (m *SubscriptionEntitlementPeriodMutation) ResetField(name string) error {
 		return nil
 	case subscriptionentitlementperiod.FieldExpiresAt:
 		m.ResetExpiresAt()
+		return nil
+	case subscriptionentitlementperiod.FieldQuotaWindowAnchorAt:
+		m.ResetQuotaWindowAnchorAt()
 		return nil
 	case subscriptionentitlementperiod.FieldPeriodDays:
 		m.ResetPeriodDays()

@@ -123,6 +123,40 @@ func TestCurrentRollingWeeklyWindowUsesEntitlementExpiry(t *testing.T) {
 	require.InDelta(t, weeklyLimit*5.0/7.0, window.EffectiveLimitUSD, 0.000000001)
 }
 
+func TestCurrentRollingWeeklyWindowPreservesHistoricalMigrationAnchorUsage(t *testing.T) {
+	migrationAnchor := time.Date(2026, 7, 22, 0, 0, 0, 0, time.FixedZone("Asia/Shanghai", 8*60*60))
+	originalPurchaseAt := time.Date(2026, 7, 21, 9, 26, 12, 0, time.FixedZone("Asia/Shanghai", 8*60*60))
+	weeklyLimit := 76.0
+	group := &Group{
+		Name:             "codex-pool-19-usd",
+		Status:           StatusActive,
+		SubscriptionType: SubscriptionTypeSubscription,
+		WeeklyLimitUSD:   &weeklyLimit,
+	}
+	sub := &UserSubscription{
+		StartsAt:          originalPurchaseAt,
+		ExpiresAt:         originalPurchaseAt.AddDate(0, 0, 30),
+		WeeklyAnchorAt:    &migrationAnchor,
+		WeeklyWindowStart: &migrationAnchor,
+		WeeklyUsageUSD:    11.75,
+		CurrentEntitlementPeriod: &SubscriptionEntitlementPeriod{
+			ID:                  101,
+			StartsAt:            originalPurchaseAt,
+			ExpiresAt:           originalPurchaseAt.AddDate(0, 0, 30),
+			QuotaWindowAnchorAt: &migrationAnchor,
+			Status:              SubscriptionEntitlementPeriodStatusActive,
+			WeeklyLimitUSD:      &weeklyLimit,
+		},
+	}
+
+	window, ok := sub.CurrentRollingWeeklyWindow(group, migrationAnchor.Add(24*time.Hour))
+
+	require.True(t, ok)
+	require.Equal(t, migrationAnchor, window.Start)
+	require.Equal(t, migrationAnchor.AddDate(0, 0, 7), window.ResetsAt)
+	require.Equal(t, sub.WeeklyUsageUSD, sub.RollingWeeklyUsageUSD(window))
+}
+
 func TestCurrentRollingWeeklyWindowStartsAtNewEntitlementBoundary(t *testing.T) {
 	legacyAnchor := time.Date(2026, 7, 1, 9, 30, 0, 0, time.UTC)
 	legacyExpiresAt := legacyAnchor.AddDate(0, 0, 30)

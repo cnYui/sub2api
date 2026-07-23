@@ -95,6 +95,20 @@ func (_c *SubscriptionEntitlementPeriodCreate) SetExpiresAt(v time.Time) *Subscr
 	return _c
 }
 
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (_c *SubscriptionEntitlementPeriodCreate) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodCreate {
+	_c.mutation.SetQuotaWindowAnchorAt(v)
+	return _c
+}
+
+// SetNillableQuotaWindowAnchorAt sets the "quota_window_anchor_at" field if the given value is not nil.
+func (_c *SubscriptionEntitlementPeriodCreate) SetNillableQuotaWindowAnchorAt(v *time.Time) *SubscriptionEntitlementPeriodCreate {
+	if v != nil {
+		_c.SetQuotaWindowAnchorAt(*v)
+	}
+	return _c
+}
+
 // SetPeriodDays sets the "period_days" field.
 func (_c *SubscriptionEntitlementPeriodCreate) SetPeriodDays(v int) *SubscriptionEntitlementPeriodCreate {
 	_c.mutation.SetPeriodDays(v)
@@ -413,6 +427,10 @@ func (_c *SubscriptionEntitlementPeriodCreate) createSpec() (*SubscriptionEntitl
 		_spec.SetField(subscriptionentitlementperiod.FieldExpiresAt, field.TypeTime, value)
 		_node.ExpiresAt = value
 	}
+	if value, ok := _c.mutation.QuotaWindowAnchorAt(); ok {
+		_spec.SetField(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, field.TypeTime, value)
+		_node.QuotaWindowAnchorAt = &value
+	}
 	if value, ok := _c.mutation.PeriodDays(); ok {
 		_spec.SetField(subscriptionentitlementperiod.FieldPeriodDays, field.TypeInt, value)
 		_node.PeriodDays = value
@@ -645,6 +663,24 @@ func (u *SubscriptionEntitlementPeriodUpsert) SetExpiresAt(v time.Time) *Subscri
 // UpdateExpiresAt sets the "expires_at" field to the value that was provided on create.
 func (u *SubscriptionEntitlementPeriodUpsert) UpdateExpiresAt() *SubscriptionEntitlementPeriodUpsert {
 	u.SetExcluded(subscriptionentitlementperiod.FieldExpiresAt)
+	return u
+}
+
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsert) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodUpsert {
+	u.Set(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt, v)
+	return u
+}
+
+// UpdateQuotaWindowAnchorAt sets the "quota_window_anchor_at" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsert) UpdateQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsert {
+	u.SetExcluded(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt)
+	return u
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsert) ClearQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsert {
+	u.SetNull(subscriptionentitlementperiod.FieldQuotaWindowAnchorAt)
 	return u
 }
 
@@ -964,6 +1000,27 @@ func (u *SubscriptionEntitlementPeriodUpsertOne) SetExpiresAt(v time.Time) *Subs
 func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateExpiresAt() *SubscriptionEntitlementPeriodUpsertOne {
 	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
 		s.UpdateExpiresAt()
+	})
+}
+
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowAnchorAt(v)
+	})
+}
+
+// UpdateQuotaWindowAnchorAt sets the "quota_window_anchor_at" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertOne) UpdateQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowAnchorAt()
+	})
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsertOne) ClearQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsertOne {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearQuotaWindowAnchorAt()
 	})
 }
 
@@ -1476,6 +1533,27 @@ func (u *SubscriptionEntitlementPeriodUpsertBulk) SetExpiresAt(v time.Time) *Sub
 func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateExpiresAt() *SubscriptionEntitlementPeriodUpsertBulk {
 	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
 		s.UpdateExpiresAt()
+	})
+}
+
+// SetQuotaWindowAnchorAt sets the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) SetQuotaWindowAnchorAt(v time.Time) *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.SetQuotaWindowAnchorAt(v)
+	})
+}
+
+// UpdateQuotaWindowAnchorAt sets the "quota_window_anchor_at" field to the value that was provided on create.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) UpdateQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.UpdateQuotaWindowAnchorAt()
+	})
+}
+
+// ClearQuotaWindowAnchorAt clears the value of the "quota_window_anchor_at" field.
+func (u *SubscriptionEntitlementPeriodUpsertBulk) ClearQuotaWindowAnchorAt() *SubscriptionEntitlementPeriodUpsertBulk {
+	return u.Update(func(s *SubscriptionEntitlementPeriodUpsert) {
+		s.ClearQuotaWindowAnchorAt()
 	})
 }
 

@@ -32,6 +32,8 @@ const (
 	FieldStartsAt = "starts_at"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
+	// FieldQuotaWindowAnchorAt holds the string denoting the quota_window_anchor_at field in the database.
+	FieldQuotaWindowAnchorAt = "quota_window_anchor_at"
 	// FieldPeriodDays holds the string denoting the period_days field in the database.
 	FieldPeriodDays = "period_days"
 	// FieldDailyLimitUsd holds the string denoting the daily_limit_usd field in the database.
@@ -93,6 +95,7 @@ var Columns = []string{
 	FieldSourceID,
 	FieldStartsAt,
 	FieldExpiresAt,
+	FieldQuotaWindowAnchorAt,
 	FieldPeriodDays,
 	FieldDailyLimitUsd,
 	FieldWeeklyLimitUsd,
@@ -190,6 +193,11 @@ func ByStartsAt(opts ...sql.OrderTermOption) OrderOption {
 // ByExpiresAt orders the results by the expires_at field.
 func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldExpiresAt, opts...).ToFunc()
+}
+
+// ByQuotaWindowAnchorAt orders the results by the quota_window_anchor_at field.
+func ByQuotaWindowAnchorAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldQuotaWindowAnchorAt, opts...).ToFunc()
 }
 
 // ByPeriodDays orders the results by the period_days field.

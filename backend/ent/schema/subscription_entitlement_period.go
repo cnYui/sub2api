@@ -52,6 +52,10 @@ func (SubscriptionEntitlementPeriod) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("expires_at").
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("quota_window_anchor_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Int("period_days"),
 		field.Float("daily_limit_usd").
 			Optional().

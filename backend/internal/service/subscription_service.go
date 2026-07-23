@@ -631,6 +631,8 @@ func (s *SubscriptionService) assignSubscriptionWithAdminAssignmentEntitlement(
 			Status:         SubscriptionEntitlementPeriodStatusActive,
 		}
 		if group.UsesRollingWeeklyQuota() {
+			anchor := subscription.StartsAt
+			period.QuotaWindowAnchorAt = &anchor
 			period.WeeklyLimitUSD = cloneOptionalFloat64(group.EffectiveWeeklyLimitUSD())
 			if period.WeeklyLimitUSD != nil {
 				total := *period.WeeklyLimitUSD * 4
@@ -851,6 +853,8 @@ func (s *SubscriptionService) ExtendSubscription(ctx context.Context, subscripti
 						Status:         SubscriptionEntitlementPeriodStatusActive,
 					}
 					if group.UsesRollingWeeklyQuota() {
+						anchor := startsAt
+						period.QuotaWindowAnchorAt = &anchor
 						period.WeeklyLimitUSD = cloneOptionalFloat64(group.EffectiveWeeklyLimitUSD())
 						if period.WeeklyLimitUSD != nil {
 							total := *period.WeeklyLimitUSD * 4

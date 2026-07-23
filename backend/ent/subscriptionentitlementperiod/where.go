@@ -100,6 +100,11 @@ func ExpiresAt(v time.Time) predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldExpiresAt, v))
 }
 
+// QuotaWindowAnchorAt applies equality check predicate on the "quota_window_anchor_at" field. It's identical to QuotaWindowAnchorAtEQ.
+func QuotaWindowAnchorAt(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowAnchorAt, v))
+}
+
 // PeriodDays applies equality check predicate on the "period_days" field. It's identical to PeriodDaysEQ.
 func PeriodDays(v int) predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldPeriodDays, v))
@@ -493,6 +498,56 @@ func ExpiresAtLT(v time.Time) predicate.SubscriptionEntitlementPeriod {
 // ExpiresAtLTE applies the LTE predicate on the "expires_at" field.
 func ExpiresAtLTE(v time.Time) predicate.SubscriptionEntitlementPeriod {
 	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldExpiresAt, v))
+}
+
+// QuotaWindowAnchorAtEQ applies the EQ predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtEQ(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldEQ(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtNEQ applies the NEQ predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtNEQ(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNEQ(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtIn applies the In predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtIn(vs ...time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIn(FieldQuotaWindowAnchorAt, vs...))
+}
+
+// QuotaWindowAnchorAtNotIn applies the NotIn predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtNotIn(vs ...time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotIn(FieldQuotaWindowAnchorAt, vs...))
+}
+
+// QuotaWindowAnchorAtGT applies the GT predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtGT(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGT(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtGTE applies the GTE predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtGTE(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldGTE(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtLT applies the LT predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtLT(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLT(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtLTE applies the LTE predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtLTE(v time.Time) predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldLTE(FieldQuotaWindowAnchorAt, v))
+}
+
+// QuotaWindowAnchorAtIsNil applies the IsNil predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtIsNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldIsNull(FieldQuotaWindowAnchorAt))
+}
+
+// QuotaWindowAnchorAtNotNil applies the NotNil predicate on the "quota_window_anchor_at" field.
+func QuotaWindowAnchorAtNotNil() predicate.SubscriptionEntitlementPeriod {
+	return predicate.SubscriptionEntitlementPeriod(sql.FieldNotNull(FieldQuotaWindowAnchorAt))
 }
 
 // PeriodDaysEQ applies the EQ predicate on the "period_days" field.

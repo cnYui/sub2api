@@ -56,6 +56,7 @@ func (r *subscriptionEntitlementPeriodRepository) Create(
 		SetSourceID(period.Source.ID).
 		SetStartsAt(period.StartsAt).
 		SetExpiresAt(period.ExpiresAt).
+		SetNillableQuotaWindowAnchorAt(period.QuotaWindowAnchorAt).
 		SetPeriodDays(period.PeriodDays).
 		SetNillableDailyLimitUsd(period.DailyLimitUSD).
 		SetNillableWeeklyLimitUsd(period.WeeklyLimitUSD).
@@ -142,6 +143,7 @@ func subscriptionEntitlementPeriodEntityToService(
 		},
 		StartsAt:            period.StartsAt,
 		ExpiresAt:           period.ExpiresAt,
+		QuotaWindowAnchorAt: cloneTime(period.QuotaWindowAnchorAt),
 		PeriodDays:          period.PeriodDays,
 		DailyLimitUSD:       cloneFloat64(period.DailyLimitUsd),
 		WeeklyLimitUSD:      cloneFloat64(period.WeeklyLimitUsd),

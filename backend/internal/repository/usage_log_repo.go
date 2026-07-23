@@ -2642,7 +2642,7 @@ func (r *usageLogRepository) getCurrentRollingWeeklyDashboardQuota(ctx context.C
 	var usageUSD float64
 	var weeklyLimit float64
 	err := scanSingleRow(ctx, r.sql, `
-		SELECT sep.starts_at, us.weekly_window_start, sep.expires_at, us.weekly_usage_usd,
+		SELECT COALESCE(sep.quota_window_anchor_at, sep.starts_at), us.weekly_window_start, sep.expires_at, us.weekly_usage_usd,
 			sep.weekly_limit_usd
 		FROM user_subscriptions us
 		JOIN groups g ON g.id = us.group_id

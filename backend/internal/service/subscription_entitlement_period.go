@@ -70,6 +70,7 @@ type SubscriptionEntitlementPeriod struct {
 	Source              SubscriptionEntitlementSource
 	StartsAt            time.Time
 	ExpiresAt           time.Time
+	QuotaWindowAnchorAt *time.Time
 	PeriodDays          int
 	DailyLimitUSD       *float64
 	WeeklyLimitUSD      *float64
@@ -293,6 +294,8 @@ func (s *SubscriptionService) grantSubscriptionEntitlementInTx(ctx context.Conte
 		Status:         SubscriptionEntitlementPeriodStatusActive,
 	}
 	if group.UsesRollingWeeklyQuota() {
+		anchor := startsAt
+		period.QuotaWindowAnchorAt = &anchor
 		period.WeeklyLimitUSD = cloneOptionalFloat64(input.WeeklyLimitUSD)
 		if period.WeeklyLimitUSD == nil {
 			period.WeeklyLimitUSD = cloneOptionalFloat64(group.EffectiveWeeklyLimitUSD())

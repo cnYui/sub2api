@@ -54,22 +54,23 @@ func billingSubInvalidationPayload(userID, groupID int64) string {
 }
 
 const (
-	subFieldStatus        = "status"
-	subFieldExpiresAt     = "expires_at"
-	subFieldDailyUsage    = "daily_usage"
-	subFieldWeeklyUsage   = "weekly_usage"
-	subFieldMonthlyUsage  = "monthly_usage"
-	subFieldVersion       = "version"
-	subFieldDailyWindow   = "daily_window_start"
-	subFieldWeeklyWindow  = "weekly_window_start"
-	subFieldWeeklyAnchor  = "weekly_anchor_at"
-	subFieldMonthlyWindow = "monthly_window_start"
-	subFieldEntitlementID = "entitlement_period_id"
-	subFieldEntWeekly     = "entitlement_weekly_limit_usd"
-	subFieldPeriodTotal   = "period_total_quota_usd"
-	subFieldEntExpiresAt  = "entitlement_expires_at"
-	subFieldWindowUnit    = "quota_window_unit"
-	subFieldWindowDays    = "quota_window_days"
+	subFieldStatus          = "status"
+	subFieldExpiresAt       = "expires_at"
+	subFieldDailyUsage      = "daily_usage"
+	subFieldWeeklyUsage     = "weekly_usage"
+	subFieldMonthlyUsage    = "monthly_usage"
+	subFieldVersion         = "version"
+	subFieldDailyWindow     = "daily_window_start"
+	subFieldWeeklyWindow    = "weekly_window_start"
+	subFieldWeeklyAnchor    = "weekly_anchor_at"
+	subFieldMonthlyWindow   = "monthly_window_start"
+	subFieldEntitlementID   = "entitlement_period_id"
+	subFieldEntWeekly       = "entitlement_weekly_limit_usd"
+	subFieldPeriodTotal     = "period_total_quota_usd"
+	subFieldEntWindowAnchor = "entitlement_quota_window_anchor_at"
+	subFieldEntExpiresAt    = "entitlement_expires_at"
+	subFieldWindowUnit      = "quota_window_unit"
+	subFieldWindowDays      = "quota_window_days"
 )
 
 // billingRateLimitKey generates the Redis key for API key rate limit cache.
@@ -109,7 +110,7 @@ var (
 		local quota_window_unit = redis.call('HGET', KEYS[1], 'quota_window_unit') or ''
 		local entitlement_weekly_limit = redis.call('HGET', KEYS[1], 'entitlement_weekly_limit_usd') or ''
 		if quota_window_unit == 'week' and entitlement_weekly_limit ~= '' then
-			local anchor = tonumber(redis.call('HGET', KEYS[1], 'weekly_anchor_at') or redis.call('HGET', KEYS[1], 'weekly_window_start') or 0)
+			local anchor = tonumber(redis.call('HGET', KEYS[1], 'entitlement_quota_window_anchor_at') or redis.call('HGET', KEYS[1], 'weekly_anchor_at') or redis.call('HGET', KEYS[1], 'weekly_window_start') or 0)
 			local start = tonumber(redis.call('HGET', KEYS[1], 'weekly_window_start') or anchor or 0)
 			local expires_at = tonumber(redis.call('HGET', KEYS[1], 'entitlement_expires_at') or redis.call('HGET', KEYS[1], 'expires_at') or 0)
 			if anchor > 0 and expires_at > now then
@@ -276,6 +277,7 @@ func (c *billingCache) parseSubscriptionCache(data map[string]string) (*service.
 	result.EntitlementPeriodID = parseOptionalInt64Ptr(data, subFieldEntitlementID)
 	result.EntitlementWeeklyLimitUSD = parseOptionalFloat64Ptr(data, subFieldEntWeekly)
 	result.PeriodTotalQuotaUSD = parseOptionalFloat64Ptr(data, subFieldPeriodTotal)
+	result.EntitlementQuotaWindowAnchorAt = parseOptionalUnixTimePtr(data, subFieldEntWindowAnchor)
 	result.EntitlementExpiresAt = parseOptionalUnixTimePtr(data, subFieldEntExpiresAt)
 	result.QuotaWindowUnit = strings.TrimSpace(data[subFieldWindowUnit])
 	if daysStr := strings.TrimSpace(data[subFieldWindowDays]); daysStr != "" {
@@ -343,22 +345,23 @@ func (c *billingCache) SetSubscriptionCache(ctx context.Context, userID, groupID
 	key := billingSubKey(userID, groupID)
 
 	fields := map[string]any{
-		subFieldStatus:        data.Status,
-		subFieldExpiresAt:     data.ExpiresAt.Unix(),
-		subFieldDailyUsage:    data.DailyUsage,
-		subFieldWeeklyUsage:   data.WeeklyUsage,
-		subFieldMonthlyUsage:  data.MonthlyUsage,
-		subFieldVersion:       data.Version,
-		subFieldDailyWindow:   formatUnixTimePtr(data.DailyWindowStart),
-		subFieldWeeklyWindow:  formatUnixTimePtr(data.WeeklyWindowStart),
-		subFieldWeeklyAnchor:  formatUnixTimePtr(data.WeeklyAnchorAt),
-		subFieldMonthlyWindow: formatUnixTimePtr(data.MonthlyWindowStart),
-		subFieldEntitlementID: formatInt64Ptr(data.EntitlementPeriodID),
-		subFieldEntWeekly:     formatFloat64Ptr(data.EntitlementWeeklyLimitUSD),
-		subFieldPeriodTotal:   formatFloat64Ptr(data.PeriodTotalQuotaUSD),
-		subFieldEntExpiresAt:  formatUnixTimePtr(data.EntitlementExpiresAt),
-		subFieldWindowUnit:    data.QuotaWindowUnit,
-		subFieldWindowDays:    data.QuotaWindowDays,
+		subFieldStatus:          data.Status,
+		subFieldExpiresAt:       data.ExpiresAt.Unix(),
+		subFieldDailyUsage:      data.DailyUsage,
+		subFieldWeeklyUsage:     data.WeeklyUsage,
+		subFieldMonthlyUsage:    data.MonthlyUsage,
+		subFieldVersion:         data.Version,
+		subFieldDailyWindow:     formatUnixTimePtr(data.DailyWindowStart),
+		subFieldWeeklyWindow:    formatUnixTimePtr(data.WeeklyWindowStart),
+		subFieldWeeklyAnchor:    formatUnixTimePtr(data.WeeklyAnchorAt),
+		subFieldMonthlyWindow:   formatUnixTimePtr(data.MonthlyWindowStart),
+		subFieldEntitlementID:   formatInt64Ptr(data.EntitlementPeriodID),
+		subFieldEntWeekly:       formatFloat64Ptr(data.EntitlementWeeklyLimitUSD),
+		subFieldPeriodTotal:     formatFloat64Ptr(data.PeriodTotalQuotaUSD),
+		subFieldEntWindowAnchor: formatUnixTimePtr(data.EntitlementQuotaWindowAnchorAt),
+		subFieldEntExpiresAt:    formatUnixTimePtr(data.EntitlementExpiresAt),
+		subFieldWindowUnit:      data.QuotaWindowUnit,
+		subFieldWindowDays:      data.QuotaWindowDays,
 	}
 
 	pipe := c.rdb.Pipeline()
