@@ -390,6 +390,74 @@ function checkoutInfoWithSevenZPayPlansFixture() {
   }
 }
 
+function checkoutInfoWithTenManualPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithSevenManualPlansFixture().data,
+      plans: [
+        ...checkoutInfoWithSevenManualPlansFixture().data.plans,
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 10,
+          group_id: 14,
+          name: '49 元订阅池',
+          price: 49,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 128,
+          period_total_quota_usd: 512,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
+          group_name: 'codex-pool-128-usd',
+          sort_order: 49,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 8,
+          group_id: 12,
+          name: '249 元订阅池',
+          price: 249,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 651,
+          period_total_quota_usd: 2604,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
+          group_name: 'codex-pool-651-usd',
+          sort_order: 249,
+        },
+        {
+          ...checkoutInfoWithPlansFixture().data.plans[0],
+          id: 9,
+          group_id: 13,
+          name: '299 元订阅池',
+          price: 299,
+          validity_days: 28,
+          daily_limit_usd: null,
+          weekly_limit_usd: 781,
+          period_total_quota_usd: 3124,
+          quota_window_unit: 'week',
+          quota_window_days: 7,
+          effective_validity_days: 28,
+          group_name: 'codex-pool-781-usd',
+          sort_order: 299,
+        },
+      ],
+    },
+  }
+}
+
+function checkoutInfoWithTenZPayPlansFixture() {
+  return {
+    data: {
+      ...checkoutInfoWithTenManualPlansFixture().data,
+      methods: checkoutInfoWithFiveZPayPlansFixture().data.methods,
+    },
+  }
+}
+
 function jsapiOrderFixture(resumeToken: string) {
   return {
     order_id: 123,
@@ -1191,6 +1259,57 @@ describe('PaymentView tab defaults', () => {
             monthly_limit_usd: null,
             period_total_quota_usd: null,
           },
+          {
+            ...checkoutInfoWithPlansFixture().data.plans[0],
+            id: 49,
+            group_id: 14,
+            group_name: 'codex-pool-128-usd',
+            name: '49 元订阅池',
+            description: '月度订阅-时间 30天，日限额 45刀，24点刷新',
+            price: 49,
+            validity_days: 30,
+            effective_validity_days: undefined,
+            quota_window_unit: '',
+            quota_window_days: 0,
+            daily_limit_usd: 45,
+            weekly_limit_usd: null,
+            monthly_limit_usd: null,
+            period_total_quota_usd: null,
+          },
+          {
+            ...checkoutInfoWithPlansFixture().data.plans[0],
+            id: 249,
+            group_id: 12,
+            group_name: 'codex-pool-651-usd',
+            name: '249 元订阅池',
+            description: '月度订阅-时间 30天，日限额 180刀，24点刷新',
+            price: 249,
+            validity_days: 30,
+            effective_validity_days: undefined,
+            quota_window_unit: '',
+            quota_window_days: 0,
+            daily_limit_usd: 180,
+            weekly_limit_usd: null,
+            monthly_limit_usd: null,
+            period_total_quota_usd: null,
+          },
+          {
+            ...checkoutInfoWithPlansFixture().data.plans[0],
+            id: 299,
+            group_id: 13,
+            group_name: 'codex-pool-781-usd',
+            name: '299 元订阅池',
+            description: '月度订阅-时间 30天，日限额 220刀，24点刷新',
+            price: 299,
+            validity_days: 30,
+            effective_validity_days: undefined,
+            quota_window_unit: '',
+            quota_window_days: 0,
+            daily_limit_usd: 220,
+            weekly_limit_usd: null,
+            monthly_limit_usd: null,
+            period_total_quota_usd: null,
+          },
         ],
       },
     })
@@ -1214,9 +1333,18 @@ describe('PaymentView tab defaults', () => {
     const textBeforeConfirm = wrapper.text()
     expect(textBeforeConfirm).toContain('周限额$76')
     expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$304')
+    expect(textBeforeConfirm).toContain('周限额$128')
+    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$512')
+    expect(textBeforeConfirm).toContain('周限额$651')
+    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$2604')
+    expect(textBeforeConfirm).toContain('周限额$781')
+    expect(textBeforeConfirm).toContain('payment.planCard.periodTotalQuota$3124')
     expect(textBeforeConfirm).toContain('刷新时间每周刷新')
     expect(textBeforeConfirm).toContain('payment.planCard.validity28 payment.days')
     expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$15')
+    expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$45')
+    expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$180')
+    expect(textBeforeConfirm).not.toContain('payment.planCard.dailyLimit$220')
     expect(textBeforeConfirm).not.toContain('payment.planCard.dailyRefresh')
     expect(textBeforeConfirm).not.toContain('月度订阅-时间 30天，日限额 15刀，24点刷新')
 
@@ -1356,6 +1484,47 @@ describe('PaymentView tab defaults', () => {
       is_mobile: true,
     }))
     expect(wrapper.find('[data-testid="payment-status-panel"]').text()).toContain('https://zpayz.cn/qrcode/199.jpg')
+  })
+
+  it('renders the 49, 249 and 299 yuan tiers with one percent fee in purchase cards', async () => {
+    getCheckoutInfo.mockResolvedValue({
+      data: {
+        ...checkoutInfoWithTenZPayPlansFixture().data,
+        recharge_fee_rate: 1,
+      },
+    })
+
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+          PurchaseProductCard: purchaseProductCardStub,
+        },
+      },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('49 元订阅池')
+    expect(text).toContain('周限额$128')
+    expect(text).toContain('payment.planCard.periodTotalQuota$512')
+    expect(text).toContain('¥49.49')
+    expect(text).toContain('payment.planCard.feeDetail¥49元 + 1%')
+    expect(text).toContain('249 元订阅池')
+    expect(text).toContain('周限额$651')
+    expect(text).toContain('payment.planCard.periodTotalQuota$2604')
+    expect(text).toContain('¥251.49')
+    expect(text).toContain('payment.planCard.feeDetail¥249元 + 1%')
+    expect(text).toContain('299 元订阅池')
+    expect(text).toContain('周限额$781')
+    expect(text).toContain('payment.planCard.periodTotalQuota$3124')
+    expect(text).toContain('¥301.99')
+    expect(text).toContain('payment.planCard.feeDetail¥299元 + 1%')
   })
 
   it('does not render traffic packs when backend returns none', async () => {

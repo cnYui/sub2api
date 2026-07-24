@@ -407,3 +407,44 @@ func TestMigration176IncreasesPublicCodexWeeklyQuotaAmountsAndSnapshots(t *testi
 	require.NotContains(t, sql, "INSERT INTO account_groups")
 	require.NotContains(t, sql, "UPDATE account_groups")
 }
+
+func TestMigration178SeedsCodex249And299SubscriptionPlans(t *testing.T) {
+	content, err := FS.ReadFile("178_seed_codex_249_299_subscription_plans.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"'codex-pool-651-usd'::TEXT, '249 元订阅池'::TEXT, 249.00::NUMERIC, 651::NUMERIC, 249::INTEGER",
+		"'codex-pool-781-usd'::TEXT, '299 元订阅池'::TEXT, 299.00::NUMERIC, 781::NUMERIC, 299::INTEGER",
+		"weekly_limit_usd",
+		"default_validity_days",
+		"28",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+	require.NotContains(t, sql, "DELETE")
+	require.NotContains(t, sql, "TRUNCATE")
+	require.NotContains(t, sql, "DROP")
+}
+
+func TestMigration179SeedsCodex49SubscriptionPlan(t *testing.T) {
+	content, err := FS.ReadFile("179_seed_codex_49_subscription_plan.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	for _, expected := range []string{
+		"'codex-pool-128-usd'::TEXT, '49 元订阅池'::TEXT, 49.00::NUMERIC, 128::NUMERIC, 49::INTEGER",
+		"weekly_limit_usd",
+		"default_validity_days",
+		"28",
+	} {
+		require.Contains(t, sql, expected)
+	}
+	require.NotContains(t, sql, "INSERT INTO account_groups")
+	require.NotContains(t, sql, "UPDATE account_groups")
+	require.NotContains(t, sql, "DELETE")
+	require.NotContains(t, sql, "TRUNCATE")
+	require.NotContains(t, sql, "DROP")
+}

@@ -2651,7 +2651,7 @@ func (r *usageLogRepository) getCurrentRollingWeeklyDashboardQuota(ctx context.C
 		WHERE us.user_id = $1 AND us.status = 'active' AND us.deleted_at IS NULL
 			AND us.expires_at > $2
 			AND g.subscription_type = 'subscription'
-			AND g.name IN ('codex-pool-19-usd', 'codex-pool-29-usd', 'codex-pool-49-usd', 'codex-pool-69-usd', 'codex-pool-89-usd', 'codex-pool-135-usd', 'codex-pool-179-usd')
+			AND g.name IN ('codex-pool-19-usd', 'codex-pool-29-usd', 'codex-pool-128-usd', 'codex-pool-49-usd', 'codex-pool-69-usd', 'codex-pool-89-usd', 'codex-pool-135-usd', 'codex-pool-179-usd', 'codex-pool-651-usd', 'codex-pool-781-usd')
 			AND sep.weekly_limit_usd IS NOT NULL
 			AND sep.weekly_limit_usd > 0
 		ORDER BY us.expires_at ASC, sep.starts_at DESC, sep.id DESC

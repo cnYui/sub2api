@@ -313,3 +313,25 @@ func TestPublicCodexPlanQuotaSnapshotUsesSameWindowContract(t *testing.T) {
 	require.Equal(t, subscriptionWeeklyWindowDays, snapshot.QuotaWindowDays)
 	require.Equal(t, publicCodexSubscriptionValidityDays, snapshot.EffectiveValidityDays)
 }
+
+func TestPublicCodexWeeklyLimitsIncludeLinearExtendedHighTiers(t *testing.T) {
+	limit49, ok49 := PublicCodexSubscriptionWeeklyLimitUSD("codex-pool-128-usd")
+	require.True(t, ok49)
+	require.Equal(t, 128.0, limit49)
+
+	limit249, ok249 := PublicCodexSubscriptionWeeklyLimitUSD("codex-pool-651-usd")
+	require.True(t, ok249)
+	require.Equal(t, 651.0, limit249)
+
+	limit299, ok299 := PublicCodexSubscriptionWeeklyLimitUSD("codex-pool-781-usd")
+	require.True(t, ok299)
+	require.Equal(t, 781.0, limit299)
+
+	snapshot := BuildPlanQuotaSnapshot("codex-pool-781-usd", nil, nil, nil, 30, "day")
+	require.NotNil(t, snapshot.WeeklyLimitUSD)
+	require.Equal(t, 781.0, *snapshot.WeeklyLimitUSD)
+	require.NotNil(t, snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, 3124.0, *snapshot.PeriodTotalQuotaUSD)
+	require.Equal(t, "week", snapshot.QuotaWindowUnit)
+	require.Equal(t, publicCodexSubscriptionValidityDays, snapshot.EffectiveValidityDays)
+}

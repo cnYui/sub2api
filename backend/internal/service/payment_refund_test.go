@@ -1018,6 +1018,60 @@ func TestAdminSubscriptionRefundQuoteUsesEntitlementUsageFacts(t *testing.T) {
 	require.InDelta(t, 25.375, quote.EstimatedRefundAmount, 1e-9)
 }
 
+func TestAdminSubscriptionRefundQuoteUsesCodex299TierQuota(t *testing.T) {
+	provider := &refundProviderStub{}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	_, err := scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
+		SetAmount(299).
+		SetPayAmount(301.99).
+		SetFeeRate(1).
+		Save(scenario.ctx)
+	require.NoError(t, err)
+
+	weeklyLimit, ok := PublicCodexSubscriptionWeeklyLimitUSD("codex-pool-781-usd")
+	require.True(t, ok)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, weeklyLimit, weeklyLimit*4, weeklyLimit)
+
+	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
+	require.NoError(t, err)
+	require.True(t, quote.Eligible)
+	require.False(t, quote.ManualReviewRequired)
+	require.Equal(t, fixture.entitlementID, quote.EntitlementPeriodID)
+	require.InDelta(t, 299, quote.PurchaseBaseAmount, 1e-9)
+	require.InDelta(t, 2.99, quote.NonRefundableFee, 1e-9)
+	require.InDelta(t, 3124, quote.PeriodTotalQuotaUSD, 1e-9)
+	require.InDelta(t, 781, quote.UsedQuotaUSD, 1e-9)
+	require.InDelta(t, 0.25, quote.UsageRatio, 1e-9)
+	require.InDelta(t, 224.25, quote.EstimatedRefundAmount, 1e-9)
+}
+
+func TestAdminSubscriptionRefundQuoteUsesCodex49TierQuota(t *testing.T) {
+	provider := &refundProviderStub{}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	_, err := scenario.client.PaymentOrder.UpdateOneID(scenario.orderID).
+		SetAmount(49).
+		SetPayAmount(49.49).
+		SetFeeRate(1).
+		Save(scenario.ctx)
+	require.NoError(t, err)
+
+	weeklyLimit, ok := PublicCodexSubscriptionWeeklyLimitUSD("codex-pool-128-usd")
+	require.True(t, ok)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, weeklyLimit, weeklyLimit*4, weeklyLimit)
+
+	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
+	require.NoError(t, err)
+	require.True(t, quote.Eligible)
+	require.False(t, quote.ManualReviewRequired)
+	require.Equal(t, fixture.entitlementID, quote.EntitlementPeriodID)
+	require.InDelta(t, 49, quote.PurchaseBaseAmount, 1e-9)
+	require.InDelta(t, 0.49, quote.NonRefundableFee, 1e-9)
+	require.InDelta(t, 512, quote.PeriodTotalQuotaUSD, 1e-9)
+	require.InDelta(t, 128, quote.UsedQuotaUSD, 1e-9)
+	require.InDelta(t, 0.25, quote.UsageRatio, 1e-9)
+	require.InDelta(t, 36.75, quote.EstimatedRefundAmount, 1e-9)
+}
+
 func TestAdminSubscriptionRefundQuoteRequiresManualReviewForOverlappingEntitlement(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)

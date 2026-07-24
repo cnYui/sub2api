@@ -1,6 +1,7 @@
 export function calculateFeeAmount(amount: number, feeRate: number): number {
   if (!Number.isFinite(amount) || !Number.isFinite(feeRate) || amount <= 0 || feeRate <= 0) return 0
-  return Math.ceil(((amount * feeRate) / 100) * 100) / 100
+  const feeCents = Number((amount * feeRate).toFixed(8))
+  return Math.ceil(feeCents) / 100
 }
 
 export function calculatePayableAmount(amount: number, feeRate: number): number {

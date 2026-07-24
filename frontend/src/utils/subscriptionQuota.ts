@@ -11,21 +11,27 @@ export interface RemainingDurationParts {
 const PUBLIC_CODEX_SUBSCRIPTION_WEEKLY_LIMITS_USD = new Map<string, number>([
   ['codex-pool-19-usd', 76],
   ['codex-pool-29-usd', 102],
+  ['codex-pool-128-usd', 128],
   ['codex-pool-49-usd', 154],
   ['codex-pool-69-usd', 206],
   ['codex-pool-89-usd', 258],
   ['codex-pool-135-usd', 389],
   ['codex-pool-179-usd', 520],
+  ['codex-pool-651-usd', 651],
+  ['codex-pool-781-usd', 781],
 ])
 
 const PUBLIC_CODEX_SUBSCRIPTION_DISPLAY_NAMES = new Map<string, string>([
   ['codex-pool-19-usd', '29 元订阅池'],
   ['codex-pool-29-usd', '39 元订阅池'],
+  ['codex-pool-128-usd', '49 元订阅池'],
   ['codex-pool-49-usd', '59 元订阅池'],
   ['codex-pool-69-usd', '79 元订阅池'],
   ['codex-pool-89-usd', '99 元订阅池'],
   ['codex-pool-135-usd', '149 元订阅池'],
   ['codex-pool-179-usd', '199 元订阅池'],
+  ['codex-pool-651-usd', '249 元订阅池'],
+  ['codex-pool-781-usd', '299 元订阅池'],
 ])
 
 export const PUBLIC_CODEX_SUBSCRIPTION_VALIDITY_DAYS = 28
