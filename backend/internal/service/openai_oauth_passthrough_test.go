@@ -59,6 +59,37 @@ func (u *httpUpstreamRecorder) DoWithTLS(req *http.Request, proxyURL string, acc
 	return u.Do(req, proxyURL, accountID, accountConcurrency)
 }
 
+type passthroughBillingAuthorizerStub struct {
+	authorization       *OpenAIBillingAuthorization
+	err                 error
+	authorizeCalls      int
+	markDispatchedCalls int
+	releaseCalls        int
+	markUnknownCalls    int
+	lastInput           OpenAIBillingAuthorizationInput
+}
+
+func (s *passthroughBillingAuthorizerStub) Authorize(ctx context.Context, input OpenAIBillingAuthorizationInput) (*OpenAIBillingAuthorization, error) {
+	s.authorizeCalls++
+	s.lastInput = input
+	return s.authorization, s.err
+}
+
+func (s *passthroughBillingAuthorizerStub) MarkDispatched(ctx context.Context, reservationID int64) error {
+	s.markDispatchedCalls++
+	return nil
+}
+
+func (s *passthroughBillingAuthorizerStub) MarkUnknown(ctx context.Context, reservationID int64, reason string) error {
+	s.markUnknownCalls++
+	return nil
+}
+
+func (s *passthroughBillingAuthorizerStub) Release(ctx context.Context, reservationID int64) error {
+	s.releaseCalls++
+	return nil
+}
+
 func TestOpenAIGatewayService_ResponsesUnknownModelDoesNotFallbackToGPT54(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1222,6 +1253,136 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PreservesBodyAndUsesResponsesEnd
 	require.Equal(t, "Bearer sk-api-key", upstream.lastReq.Header.Get("Authorization"))
 	require.Equal(t, "curl/8.0", upstream.lastReq.Header.Get("User-Agent"))
 	require.Empty(t, upstream.lastReq.Header.Get("X-Test"))
+}
+
+func TestOpenAIGatewayService_APIKeyPassthrough_BillingPreauthBlocksBeforeUpstream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+	c.Request.Header.Set("User-Agent", "curl/8.0")
+
+	groupID := int64(10)
+	c.Set("api_key", &APIKey{
+		ID:      41,
+		UserID:  35,
+		User:    &User{ID: 35, Status: StatusActive},
+		GroupID: &groupID,
+		Group: &Group{
+			ID:             groupID,
+			Platform:       PlatformOpenAI,
+			RateMultiplier: 1,
+		},
+	})
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"output":[],"usage":{"input_tokens":1,"output_tokens":1}}`)),
+	}}
+	authorizer := &passthroughBillingAuthorizerStub{err: ErrTrafficCreditDebtOutstanding}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+
+	account := &Account{
+		ID:          456,
+		Name:        "apikey-acc",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-api-key", "base_url": "https://api.openai.com"},
+		Extra:       map[string]any{"openai_passthrough": true},
+		Status:      StatusActive,
+		Schedulable: true,
+	}
+	body := []byte(`{"model":"gpt-5.6-terra","stream":false,"input":[{"type":"text","text":"hi"}]}`)
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+
+	require.ErrorIs(t, err, ErrTrafficCreditDebtOutstanding)
+	require.Nil(t, result)
+	require.Equal(t, http.StatusPaymentRequired, rec.Code)
+	require.Contains(t, rec.Body.String(), "billing_debt_outstanding")
+	require.Nil(t, upstream.lastReq)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, int64(41), authorizer.lastInput.APIKeyID)
+	require.Equal(t, int64(35), authorizer.lastInput.UserID)
+	require.Equal(t, PlatformOpenAI, authorizer.lastInput.Platform)
+	require.Equal(t, "gpt-5.6-terra", authorizer.lastInput.Model)
+	require.Zero(t, authorizer.markDispatchedCalls)
+	require.Zero(t, authorizer.releaseCalls)
+	require.Zero(t, authorizer.markUnknownCalls)
+}
+
+func TestOpenAIGatewayService_APIKeyPassthrough_AttachesBillingAuthorization(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+	c.Request.Header.Set("User-Agent", "curl/8.0")
+
+	groupID := int64(10)
+	c.Set("api_key", &APIKey{
+		ID:      41,
+		UserID:  35,
+		User:    &User{ID: 35, Status: StatusActive},
+		GroupID: &groupID,
+		Group: &Group{
+			ID:             groupID,
+			Platform:       PlatformOpenAI,
+			RateMultiplier: 1,
+		},
+	})
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid-billing-auth"}},
+		Body:       io.NopCloser(strings.NewReader(`{"output":[],"usage":{"input_tokens":1,"output_tokens":1,"input_tokens_details":{"cached_tokens":0}}}`)),
+	}
+	upstream := &httpUpstreamRecorder{resp: resp}
+	reservationID := int64(9123)
+	authorizer := &passthroughBillingAuthorizerStub{authorization: &OpenAIBillingAuthorization{
+		Source:             BillingSourceTrafficCredit,
+		ReservationID:      &reservationID,
+		RequestFingerprint: "passthrough-fingerprint",
+		Enforced:           true,
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:                         &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
+		httpUpstream:                upstream,
+		billingAuthorizationService: authorizer,
+	}
+
+	account := &Account{
+		ID:          456,
+		Name:        "apikey-acc",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-api-key", "base_url": "https://api.openai.com"},
+		Extra:       map[string]any{"openai_passthrough": true},
+		Status:      StatusActive,
+		Schedulable: true,
+	}
+	body := []byte(`{"model":"gpt-5.6-terra","stream":false,"input":[{"type":"text","text":"hi"}]}`)
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.BillingAuthorization)
+	require.Equal(t, reservationID, *result.BillingAuthorization.ReservationID)
+	require.Equal(t, "passthrough-fingerprint", result.BillingAuthorization.RequestFingerprint)
+	require.NotNil(t, upstream.lastReq)
+	require.Equal(t, 1, authorizer.authorizeCalls)
+	require.Equal(t, 1, authorizer.markDispatchedCalls)
+	require.Zero(t, authorizer.releaseCalls)
+	require.Zero(t, authorizer.markUnknownCalls)
 }
 
 func TestOpenAIGatewayService_OAuthPassthrough_WarnOnTimeoutHeadersForStream(t *testing.T) {

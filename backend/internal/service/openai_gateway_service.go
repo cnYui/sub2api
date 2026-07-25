@@ -3575,6 +3575,21 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		imageInputSize = imageCfg.InputSize
 	}
 
+	billingModel := strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	if billingModel == "" {
+		billingModel = reqModel
+	}
+	billingAuthorization, effectiveBody, err := s.authorizeOpenAIForward(ctx, c, billingModel, body, body, "max_output_tokens")
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(effectiveBody, body) {
+		body = effectiveBody
+		reqStream = gjson.GetBytes(body, "stream").Bool()
+		reasoningEffort = extractOpenAIReasoningEffortFromBody(body, reqModel)
+		reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, account.GetMappedModel(reqModel))
+	}
+
 	logger.LegacyPrintf("service.openai_gateway",
 		"[OpenAI 自动透传] 命中自动透传分支: account=%d name=%s type=%s model=%s stream=%v",
 		account.ID,
@@ -3601,14 +3616,14 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	// Get access token
 	token, _, err := s.GetAccessToken(ctx, account)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	upstreamReq, err := s.buildUpstreamRequestOpenAIPassthrough(upstreamCtx, c, account, body, token)
 	releaseUpstreamCtx()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
 	}
 
 	proxyURL := ""
@@ -3620,10 +3635,14 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		c.Set("openai_passthrough", true)
 	}
 
+	if err := s.markOpenAIBillingDispatched(ctx, c, billingAuthorization); err != nil {
+		return nil, errors.Join(err, s.releaseOpenAIBillingReservation(ctx, c, billingAuthorization))
+	}
 	upstreamStart := time.Now()
 	resp, err := s.httpUpstream.Do(upstreamReq, proxyURL, account.ID, account.Concurrency)
 	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 	if err != nil {
+		s.markOpenAIBillingUnknown(ctx, c, billingAuthorization, err.Error())
 		// Transport-level failure (proxy/DNS/TCP/TLS — no HTTP response). Convert to
 		// a failover so the handler switches to a healthy account, and temporarily
 		// unschedule the account on durable faults (e.g. rejected proxy credentials).
@@ -3678,19 +3697,20 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	}
 
 	forwardResult := &OpenAIForwardResult{
-		RequestID:         resp.Header.Get("x-request-id"),
-		ResponseID:        responseID,
-		Usage:             *usage,
-		Model:             reqModel,
-		MainBillingModel:  forwardResultBillingModel(reqModel, upstreamPassthroughModel),
-		ImageBillingModel: imageBillingModel,
-		UpstreamModel:     upstreamPassthroughModel,
-		ServiceTier:       serviceTier,
-		ReasoningEffort:   reasoningEffort,
-		Stream:            reqStream,
-		OpenAIWSMode:      false,
-		Duration:          time.Since(startTime),
-		FirstTokenMs:      firstTokenMs,
+		RequestID:            resp.Header.Get("x-request-id"),
+		ResponseID:           responseID,
+		Usage:                *usage,
+		Model:                reqModel,
+		MainBillingModel:     forwardResultBillingModel(reqModel, upstreamPassthroughModel),
+		ImageBillingModel:    imageBillingModel,
+		UpstreamModel:        upstreamPassthroughModel,
+		ServiceTier:          serviceTier,
+		ReasoningEffort:      reasoningEffort,
+		Stream:               reqStream,
+		OpenAIWSMode:         false,
+		Duration:             time.Since(startTime),
+		FirstTokenMs:         firstTokenMs,
+		BillingAuthorization: billingAuthorization,
 	}
 	if imageCount > 0 {
 		forwardResult.ImageCount = imageCount
