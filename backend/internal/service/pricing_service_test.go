@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,6 +93,29 @@ func TestGetModelPricing_GPT56DoesNotFallbackToGenericAlias(t *testing.T) {
 	require.Same(t, sol, svc.GetModelPricing("gpt-5.6-sol-20260710"))
 	require.Nil(t, svc.GetModelPricing("gpt-5.6-terra"))
 	require.Nil(t, svc.GetModelPricing("gpt-5.6-unknown"))
+}
+
+func TestGetModelPricing_AppliesUnitPriceMultiplier(t *testing.T) {
+	raw := &LiteLLMModelPricing{
+		InputCostPerToken:       2e-6,
+		OutputCostPerToken:      5e-6,
+		CacheReadInputTokenCost: 1e-6,
+	}
+	svc := &PricingService{
+		cfg: &config.Config{
+			Billing: config.BillingConfig{UnitPriceMultiplier: 1.8},
+		},
+		pricingData: map[string]*LiteLLMModelPricing{
+			"custom-model": raw,
+		},
+	}
+
+	got := svc.GetModelPricing("custom-model")
+	require.NotNil(t, got)
+	require.InDelta(t, 3.6e-6, got.InputCostPerToken, 1e-12)
+	require.InDelta(t, 9e-6, got.OutputCostPerToken, 1e-12)
+	require.InDelta(t, 1.8e-6, got.CacheReadInputTokenCost, 1e-12)
+	require.InDelta(t, 2e-6, raw.InputCostPerToken, 1e-12)
 }
 
 func TestGetModelPricing_Gpt53CodexSparkUsesGpt51CodexPricing(t *testing.T) {

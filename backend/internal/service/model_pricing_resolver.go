@@ -54,6 +54,13 @@ func NewModelPricingResolver(channelService *ChannelService, billingService *Bil
 	}
 }
 
+func (r *ModelPricingResolver) unitPriceMultiplier() float64 {
+	if r == nil || r.billingService == nil {
+		return 1
+	}
+	return r.billingService.unitPriceMultiplier()
+}
+
 // PricingInput 定价解析输入
 type PricingInput struct {
 	Model   string
@@ -68,6 +75,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 	if input.GroupID != nil && r.channelService != nil {
 		chPricing = r.channelService.GetChannelModelPricing(ctx, *input.GroupID, input.Model)
 		if chPricing != nil {
+			chPricing = scaleChannelModelPricing(chPricing, r.unitPriceMultiplier())
 			mode := chPricing.BillingMode
 			if mode == "" {
 				mode = BillingModeToken
@@ -130,6 +138,7 @@ func (r *ModelPricingResolver) ResolveToken(ctx context.Context, input PricingIn
 	if mode != BillingModeToken {
 		return resolved
 	}
+	chPricing = scaleChannelModelPricing(chPricing, r.unitPriceMultiplier())
 	resolved.Source = PricingSourceChannel
 	resolved.channelPricing = chPricing
 	r.applyTokenOverrides(chPricing, resolved)
@@ -153,6 +162,7 @@ func (r *ModelPricingResolver) applyChannelOverrides(ctx context.Context, groupI
 	if chPricing == nil {
 		return
 	}
+	chPricing = scaleChannelModelPricing(chPricing, r.unitPriceMultiplier())
 
 	resolved.Source = PricingSourceChannel
 	resolved.channelPricing = chPricing

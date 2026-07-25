@@ -176,6 +176,51 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 }
 
+func TestCalculateCostUnified_PerRequestMode_UnitPriceMultiplier(t *testing.T) {
+	cs := newTestChannelServiceWithCache(t, &channelCache{
+		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{
+			{groupID: 3, model: "claude-sonnet-4"}: {
+				BillingMode:     BillingModePerRequest,
+				PerRequestPrice: testPtrFloat64(0.05),
+			},
+		},
+		channelByGroupID: map[int64]*Channel{
+			3: {ID: 3, Status: StatusActive},
+		},
+		groupPlatform:           map[int64]string{3: ""},
+		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
+		mappingByGroupModel:     map[channelModelKey]string{},
+		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
+		byID:                    map[int64]*Channel{},
+	})
+
+	bs := newTestBillingService()
+	bs.cfg = &config.Config{
+		Billing: config.BillingConfig{
+			UnitPriceMultiplier: 1.8,
+		},
+	}
+	resolver := NewModelPricingResolver(cs, bs)
+	groupID := int64(3)
+
+	cost, err := bs.CalculateCostUnified(CostInput{
+		Ctx:            context.Background(),
+		Model:          "claude-sonnet-4",
+		GroupID:        &groupID,
+		Tokens:         UsageTokens{InputTokens: 100, OutputTokens: 50},
+		RequestCount:   2,
+		RateMultiplier: 1.0,
+		Resolver:       resolver,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, cost)
+
+	// 2 * $0.05 = $0.10，基础单价倍率 1.8 后应为 $0.18
+	require.InDelta(t, 0.18, cost.TotalCost, 1e-10)
+	require.InDelta(t, 0.18, cost.ActualCost, 1e-10)
+	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
+}
+
 func TestCalculateCostUnified_ImageMode(t *testing.T) {
 	cs := newTestChannelServiceWithCache(t, &channelCache{
 		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{

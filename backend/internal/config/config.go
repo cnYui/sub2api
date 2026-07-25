@@ -649,6 +649,8 @@ type BillingConfig struct {
 	// Requests in balance mode are rejected when the cached balance is below this
 	// amount, even if it is still positive. Set to 0 to keep the legacy balance > 0 gate.
 	MinimumBalanceReserve                  float64 `mapstructure:"minimum_balance_reserve"`
+	// UnitPriceMultiplier 用于整体抬升模型/渠道基础单价，不影响用户倍率快照。
+	UnitPriceMultiplier                   float64 `mapstructure:"unit_price_multiplier"`
 	TrafficCreditReservationEnabled        bool    `mapstructure:"traffic_credit_reservation_enabled"`
 	TrafficCreditReservationShadow         bool    `mapstructure:"traffic_credit_reservation_shadow"`
 	TrafficCreditMinimumReserveUSD         float64 `mapstructure:"traffic_credit_minimum_reserve_usd"`
@@ -1604,6 +1606,7 @@ func setDefaults() {
 	viper.SetDefault("billing.circuit_breaker.reset_timeout_seconds", 30)
 	viper.SetDefault("billing.circuit_breaker.half_open_requests", 3)
 	viper.SetDefault("billing.minimum_balance_reserve", 0.000001)
+	viper.SetDefault("billing.unit_price_multiplier", 1.0)
 	viper.SetDefault("billing.traffic_credit_reservation_enabled", false)
 	viper.SetDefault("billing.traffic_credit_reservation_shadow", true)
 	viper.SetDefault("billing.traffic_credit_minimum_reserve_usd", 0.01)
@@ -2269,6 +2272,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Billing.MinimumBalanceReserve < 0 {
 		return fmt.Errorf("billing.minimum_balance_reserve must be non-negative")
+	}
+	if c.Billing.UnitPriceMultiplier <= 0 {
+		return fmt.Errorf("billing.unit_price_multiplier must be positive")
 	}
 	if c.Billing.TrafficCreditMinimumReserveUSD < 0 {
 		return fmt.Errorf("billing.traffic_credit_minimum_reserve_usd must be non-negative")

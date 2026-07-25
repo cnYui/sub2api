@@ -539,8 +539,8 @@ func (s *PricingService) validatePricingURL(raw string) (string, error) {
 	return normalized, nil
 }
 
-// GetModelPricing 获取模型价格（带模糊匹配）
-func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing {
+// getModelPricingRaw 获取模型原始价格（带模糊匹配，不做倍率缩放）。
+func (s *PricingService) getModelPricingRaw(modelName string) *LiteLLMModelPricing {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -592,6 +592,19 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 	}
 
 	return nil
+}
+
+// GetModelPricing 获取模型价格（带模糊匹配，并应用 billing.unit_price_multiplier）。
+func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing {
+	raw := s.getModelPricingRaw(modelName)
+	return scaleLiteLLMModelPricing(raw, s.unitPriceMultiplier())
+}
+
+func (s *PricingService) unitPriceMultiplier() float64 {
+	if s == nil || s.cfg == nil {
+		return 1
+	}
+	return normalizeUnitPriceMultiplier(s.cfg.Billing.UnitPriceMultiplier)
 }
 
 func (s *PricingService) buildModelLookupCandidates(modelLower string) []string {

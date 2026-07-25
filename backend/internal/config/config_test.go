@@ -81,6 +81,19 @@ func TestLoadDefaultSchedulingConfig(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultBillingConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	if cfg.Billing.UnitPriceMultiplier != 1.0 {
+		t.Fatalf("UnitPriceMultiplier = %v, want 1.0", cfg.Billing.UnitPriceMultiplier)
+	}
+}
+
 func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 	resetViperWithJWTSecret(t)
 
@@ -1234,6 +1247,11 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "billing minimum balance reserve",
 			mutate:  func(c *Config) { c.Billing.MinimumBalanceReserve = -0.01 },
 			wantErr: "billing.minimum_balance_reserve",
+		},
+		{
+			name:    "billing unit price multiplier",
+			mutate:  func(c *Config) { c.Billing.UnitPriceMultiplier = -0.01 },
+			wantErr: "billing.unit_price_multiplier",
 		},
 		{
 			name:    "database max open conns",

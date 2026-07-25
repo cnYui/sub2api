@@ -5,6 +5,7 @@ package service
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,4 +34,26 @@ func TestCalculateCost_RateMultiplier_NegativeClampedToZero(t *testing.T) {
 			require.InDelta(t, tt.wantRatio*cost.TotalCost, cost.ActualCost, 1e-9)
 		})
 	}
+}
+
+func TestCalculateCost_UnitPriceMultiplierAppliesToBasePricing(t *testing.T) {
+	svc := newTestBillingService()
+	svc.cfg = &config.Config{
+		Billing: config.BillingConfig{
+			UnitPriceMultiplier: 1.8,
+		},
+	}
+	tokens := UsageTokens{
+		InputTokens:         1000,
+		OutputTokens:        500,
+		CacheCreationTokens: 2000,
+		CacheReadTokens:     3000,
+	}
+
+	cost, err := svc.CalculateCost("claude-sonnet-4", tokens, 1.2)
+	require.NoError(t, err)
+
+	expectedBase := (1000*3e-6 + 500*15e-6 + 2000*3.75e-6 + 3000*0.3e-6) * 1.8
+	require.InDelta(t, expectedBase, cost.TotalCost, 1e-10)
+	require.InDelta(t, expectedBase*1.2, cost.ActualCost, 1e-10)
 }

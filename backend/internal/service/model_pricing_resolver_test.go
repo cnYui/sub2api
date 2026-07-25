@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -218,6 +219,37 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerTokenPriority, 1e-12)
 	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
 	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerTokenPriority, 1e-12)
+}
+
+func TestResolve_WithChannelOverride_TokenFlat_UnitPriceMultiplier(t *testing.T) {
+	r := newResolverWithChannel(t, []ChannelModelPricing{{
+		Platform:        "anthropic",
+		Models:          []string{"claude-sonnet-4"},
+		BillingMode:     BillingModeToken,
+		InputPrice:      testPtrFloat64(10e-6),
+		OutputPrice:     testPtrFloat64(50e-6),
+		CacheWritePrice: testPtrFloat64(20e-6),
+		CacheReadPrice:  testPtrFloat64(5e-6),
+	}})
+	r.billingService.cfg = &config.Config{
+		Billing: config.BillingConfig{UnitPriceMultiplier: 1.8},
+	}
+
+	resolved := r.Resolve(context.Background(), PricingInput{
+		Model:   "claude-sonnet-4",
+		GroupID: groupIDPtr(),
+	})
+
+	require.NotNil(t, resolved)
+	require.Equal(t, BillingModeToken, resolved.Mode)
+	require.Equal(t, "channel", resolved.Source)
+	require.NotNil(t, resolved.BasePricing)
+	require.InDelta(t, 18e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 18e-6, resolved.BasePricing.InputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 90e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 90e-6, resolved.BasePricing.OutputPricePerTokenPriority, 1e-12)
+	require.InDelta(t, 36e-6, resolved.BasePricing.CacheCreationPricePerToken, 1e-12)
+	require.InDelta(t, 9e-6, resolved.BasePricing.CacheReadPricePerToken, 1e-12)
 }
 
 func TestModelPricingResolverForceTokenIgnoresImageChannelMode(t *testing.T) {

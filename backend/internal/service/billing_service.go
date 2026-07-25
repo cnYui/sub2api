@@ -258,6 +258,13 @@ func NewBillingService(cfg *config.Config, pricingService *PricingService) *Bill
 	return s
 }
 
+func (s *BillingService) unitPriceMultiplier() float64 {
+	if s == nil || s.cfg == nil {
+		return 1
+	}
+	return normalizeUnitPriceMultiplier(s.cfg.Billing.UnitPriceMultiplier)
+}
+
 // initFallbackPricing 初始化硬编码回退价格（当动态价格不可用时使用）
 // 价格单位：USD per token（与LiteLLM格式一致）
 func (s *BillingService) initFallbackPricing() {
@@ -753,7 +760,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 
 	// 1. 优先从动态价格服务获取
 	if s.pricingService != nil {
-		litellmPricing := s.pricingService.GetModelPricing(model)
+		litellmPricing := s.pricingService.getModelPricingRaw(model)
 		if litellmPricing != nil {
 			// 启用 5m/1h 分类计费的条件：
 			// 1. 存在 1h 价格
@@ -778,7 +785,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				ImageInputPricePerToken:        litellmPricing.InputCostPerImageToken,
 				ImageOutputPricePerToken:       litellmPricing.OutputCostPerImageToken,
 			})
-			return withPriorityServiceTierPrices(model, pricing), nil
+			return scaleModelPricing(withPriorityServiceTierPrices(model, pricing), s.unitPriceMultiplier()), nil
 		}
 	}
 
@@ -786,7 +793,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	fallback := s.getFallbackPricing(model)
 	if fallback != nil {
 		log.Printf("[Billing] Using fallback pricing for model: %s", model)
-		return withPriorityServiceTierPrices(model, s.applyModelSpecificPricingPolicy(model, fallback)), nil
+		return scaleModelPricing(withPriorityServiceTierPrices(model, s.applyModelSpecificPricingPolicy(model, fallback)), s.unitPriceMultiplier()), nil
 	}
 
 	return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
@@ -802,25 +809,27 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	if channelPricing == nil {
 		return pricing, nil
 	}
-	if channelPricing.InputPrice != nil {
-		pricing.InputPricePerToken = *channelPricing.InputPrice
-		pricing.InputPricePerTokenPriority = *channelPricing.InputPrice
+	multiplier := s.unitPriceMultiplier()
+	scaledChannelPricing := scaleChannelModelPricing(channelPricing, multiplier)
+	if scaledChannelPricing.InputPrice != nil {
+		pricing.InputPricePerToken = *scaledChannelPricing.InputPrice
+		pricing.InputPricePerTokenPriority = *scaledChannelPricing.InputPrice
 	}
-	if channelPricing.OutputPrice != nil {
-		pricing.OutputPricePerToken = *channelPricing.OutputPrice
-		pricing.OutputPricePerTokenPriority = *channelPricing.OutputPrice
+	if scaledChannelPricing.OutputPrice != nil {
+		pricing.OutputPricePerToken = *scaledChannelPricing.OutputPrice
+		pricing.OutputPricePerTokenPriority = *scaledChannelPricing.OutputPrice
 	}
-	if channelPricing.CacheWritePrice != nil {
-		pricing.CacheCreationPricePerToken = *channelPricing.CacheWritePrice
-		pricing.CacheCreation5mPrice = *channelPricing.CacheWritePrice
-		pricing.CacheCreation1hPrice = *channelPricing.CacheWritePrice
+	if scaledChannelPricing.CacheWritePrice != nil {
+		pricing.CacheCreationPricePerToken = *scaledChannelPricing.CacheWritePrice
+		pricing.CacheCreation5mPrice = *scaledChannelPricing.CacheWritePrice
+		pricing.CacheCreation1hPrice = *scaledChannelPricing.CacheWritePrice
 	}
-	if channelPricing.CacheReadPrice != nil {
-		pricing.CacheReadPricePerToken = *channelPricing.CacheReadPrice
-		pricing.CacheReadPricePerTokenPriority = *channelPricing.CacheReadPrice
+	if scaledChannelPricing.CacheReadPrice != nil {
+		pricing.CacheReadPricePerToken = *scaledChannelPricing.CacheReadPrice
+		pricing.CacheReadPricePerTokenPriority = *scaledChannelPricing.CacheReadPrice
 	}
-	if channelPricing.ImageOutputPrice != nil {
-		pricing.ImageOutputPricePerToken = *channelPricing.ImageOutputPrice
+	if scaledChannelPricing.ImageOutputPrice != nil {
+		pricing.ImageOutputPricePerToken = *scaledChannelPricing.ImageOutputPrice
 	} else {
 		pricing.ImageOutputPricePerToken = 0
 	}
