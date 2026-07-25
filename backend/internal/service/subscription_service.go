@@ -744,21 +744,7 @@ func (s *SubscriptionService) RevokeSubscription(ctx context.Context, subscripti
 			return err
 		}
 
-		if s.entitlementPeriodRepo != nil {
-			if err := s.entitlementPeriodRepo.RevokeUnexpiredBySubscription(
-				txCtx,
-				subscriptionID,
-				s.currentTime(),
-				"subscription_revoked",
-			); err != nil {
-				return fmt.Errorf("revoke subscription entitlement periods: %w", err)
-			}
-		}
-
-		if err := s.userSubRepo.UpdateStatus(txCtx, subscriptionID, SubscriptionStatusExpired); err != nil {
-			return err
-		}
-		return s.userSubRepo.Delete(txCtx, subscriptionID)
+		return s.userSubRepo.HardDelete(txCtx, subscriptionID)
 	}); err != nil {
 		return err
 	}

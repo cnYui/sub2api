@@ -3009,7 +3009,7 @@ export default {
       assignFirstSubscription: 'Assign a subscription to get started.',
       subscriptionAssigned: 'Subscription assigned successfully',
       subscriptionAdjusted: 'Subscription adjusted successfully',
-      subscriptionRevoked: 'Subscription revoked successfully',
+      subscriptionRevoked: 'Subscription permanently deleted',
       failedToLoad: 'Failed to load subscriptions',
       failedToAssign: 'Failed to assign subscription',
       failedToAdjust: 'Failed to adjust subscription',
@@ -3020,7 +3020,7 @@ export default {
       pleaseSelectGroup: 'Please select a group',
       validityDaysRequired: 'Please enter a valid number of days (at least 1)',
       revokeConfirm:
-        "Are you sure you want to revoke the subscription for '{user}'? This action cannot be undone.",
+        "Permanently delete the subscription record for '{user}'? This cannot be undone; orders and usage records will be retained.",
       guide: {
         title: 'Subscription Management Guide',
         subtitle: 'Subscription mode lets you assign time-based usage quotas to users, with daily/weekly/monthly limits. Follow these steps to get started.',
@@ -3047,7 +3047,7 @@ export default {
           resetQuota: 'Reset Quota',
           resetQuotaDesc: 'Reset the current subscription usage window; Public Codex uses the current rolling weekly window',
           revoke: 'Revoke',
-          revokeDesc: 'Immediately terminate the subscription (irreversible)'
+          revokeDesc: 'Permanently delete the subscription record; orders and usage records are retained'
         },
         tip: 'Tip: Only groups with billing type "Subscription" and status "Active" appear in the group dropdown. If no options are available, create one in Group Management first.'
       }

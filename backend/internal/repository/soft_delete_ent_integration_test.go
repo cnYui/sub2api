@@ -12,6 +12,8 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
@@ -213,4 +215,69 @@ func TestEntSoftDelete_UserSubscription_ListExcludesDeleted(t *testing.T) {
 	require.NoError(t, err, "ListByUserID")
 	require.Len(t, subs, 1, "should only return non-deleted subscriptions")
 	require.Equal(t, sub2.ID, subs[0].ID, "expected sub2 to be returned")
+}
+
+func TestUserSubscriptionRepository_HardDeleteRemovesRequiredDependents(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+
+	u := createEntUser(t, ctx, client, uniqueSoftDeleteValue(t, "hard-delete-user")+"@example.com")
+	g := createEntGroup(t, ctx, client, uniqueSoftDeleteValue(t, "hard-delete-group"))
+	repo := NewUserSubscriptionRepository(client)
+	now := time.Now().UTC()
+	sub := &service.UserSubscription{
+		UserID:    u.ID,
+		GroupID:   g.ID,
+		Status:    service.SubscriptionStatusActive,
+		ExpiresAt: now.Add(24 * time.Hour),
+	}
+	require.NoError(t, repo.Create(ctx, sub), "create subscription")
+
+	_, err := client.SubscriptionEntitlementPeriod.Create().
+		SetUserID(u.ID).
+		SetSubscriptionID(sub.ID).
+		SetGroupID(g.ID).
+		SetSourceType("hard_delete_test").
+		SetSourceID(uniqueSoftDeleteValue(t, "period")).
+		SetStartsAt(now).
+		SetExpiresAt(now.Add(24 * time.Hour)).
+		SetPeriodDays(1).
+		Save(ctx)
+	require.NoError(t, err, "create entitlement period")
+
+	_, err = client.SubscriptionQuotaDebtAdjustment.Create().
+		SetSubscriptionID(sub.ID).
+		SetUserID(u.ID).
+		SetGroupID(g.ID).
+		SetSourceKey(uniqueSoftDeleteValue(t, "debt-adjustment")).
+		SetOverageUsd(1).
+		SetWeeklyLimitUsd(1).
+		SetDailyEquivalentUsd(1).
+		SetRawDeductionDays(1).
+		SetDeductedDays(1).
+		SetOriginalExpiresAt(now.Add(24 * time.Hour)).
+		SetNewExpiresAt(now.Add(23 * time.Hour)).
+		SetApplicationStatus(service.SubscriptionQuotaDebtStatusApplied).
+		SetNotes("hard-delete test").
+		Save(ctx)
+	require.NoError(t, err, "create quota debt adjustment")
+
+	require.NoError(t, repo.HardDelete(ctx, sub.ID), "hard delete subscription")
+
+	_, err = client.UserSubscription.Query().
+		Where(usersubscription.IDEQ(sub.ID)).
+		Only(mixins.SkipSoftDelete(ctx))
+	require.True(t, dbent.IsNotFound(err), "subscription should be physically deleted")
+
+	periodCount, err := client.SubscriptionEntitlementPeriod.Query().
+		Where(subscriptionentitlementperiod.SubscriptionIDEQ(sub.ID)).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, periodCount, "entitlement periods should be physically deleted")
+
+	adjustmentCount, err := client.SubscriptionQuotaDebtAdjustment.Query().
+		Where(subscriptionquotadebtadjustment.SubscriptionIDEQ(sub.ID)).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, adjustmentCount, "quota debt adjustments should be physically deleted")
 }

@@ -316,7 +316,7 @@ func TestAssignSubscription_WithoutEntitlementSource_DoesNotCreatePeriod(t *test
 	require.Empty(t, entitlementRepo.periods)
 }
 
-func TestRevokeSubscription_RevokesUnexpiredEntitlementPeriodsBeforeDeletingSubscription(t *testing.T) {
+func TestRevokeSubscription_DoesNotRevokeEntitlementPeriodsBeforeHardDelete(t *testing.T) {
 	now := time.Date(2030, 7, 16, 9, 0, 0, 0, time.UTC)
 	userSubRepo := &subscriptionRevokeRepoStub{sub: &UserSubscription{
 		ID:        88,
@@ -341,11 +341,11 @@ func TestRevokeSubscription_RevokesUnexpiredEntitlementPeriodsBeforeDeletingSubs
 	svc := newEntitlementSubscriptionServiceForTest(groupRepoNoop{}, userSubRepo, entitlementRepo, now)
 
 	require.NoError(t, svc.RevokeSubscription(context.Background(), 88))
-	require.Equal(t, []int64{88}, entitlementRepo.revokeSubscriptionCalls)
-	require.Equal(t, "revoked", period.Status)
-	require.NotNil(t, period.RevokedAt)
-	require.Equal(t, "subscription_revoked", period.RevokedReason)
-	require.Equal(t, []string{"get", "status", "delete"}, userSubRepo.callOrder)
+	require.Empty(t, entitlementRepo.revokeSubscriptionCalls)
+	require.Equal(t, "active", period.Status)
+	require.Nil(t, period.RevokedAt)
+	require.Empty(t, period.RevokedReason)
+	require.Equal(t, []string{"get", "hard_delete"}, userSubRepo.callOrder)
 }
 
 func TestExtendSubscription_PositiveAdjustmentAppendsAdminAdjustmentEntitlementPeriod(t *testing.T) {
