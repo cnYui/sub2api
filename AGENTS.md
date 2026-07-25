@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-26 管理端 `admin/subscriptions` 的撤销已改为物理删除订阅及其权益周期、额度债务调整，不再写 `deleted_at`；提交后失效 L1/Redis/PubSub 缓存，订单和用量历史仍保留。已物理清理本地运行态历史软删除订阅 `user_subscriptions.id=53`，关联 3386 条用量因数据库外键自动置空订阅关联；用户 `id=35` 已是 disabled，API Key、订单和流量卡未删除。结果见 `docs/ai/context/20260726-083450-admin-subscription-hard-revoke-result_CN.md`。
+
 - 2026-07-23 已将附件 `sub2api-selected-accounts-2026-07-22134906.json` 中 10 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=23..32`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；但管理测试接口显式使用 `gpt-5.4` 对新增 10 个账号均返回上游 `402 deactivated_workspace`，这批账号已入池但不可按可用账号看待。本次 SQL 核对显示内层 OpenAI OAuth 总数 32，当前 active/schedulable 为 10。结果见 `docs/ai/context/20260723-083722-upstream-latest-selected-accounts-import-result_CN.md`。
 
 - 2026-07-22 已将附件 `20260722-210541-sub2-API.json` 中 3 个 OpenAI agent identity 账号追加到内层 latest Sub2API，新增账号 `id=19..21`，均 active/schedulable 并绑定 `internal-openai-upstream`（`groups.id=2`）；内层当前 OpenAI OAuth 账号共 21 个，管理测试接口显式使用 `gpt-5.4` 对新增 3 个账号均返回 200 且无错误信号。结果见 `docs/ai/context/20260722-220808-upstream-latest-three-agent-identity-import-result_CN.md`。

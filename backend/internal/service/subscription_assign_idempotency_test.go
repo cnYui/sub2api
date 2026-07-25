@@ -82,7 +82,8 @@ func (userSubRepoNoop) GetActiveByUserIDAndGroupID(context.Context, int64, int64
 func (userSubRepoNoop) Update(context.Context, *UserSubscription) error {
 	panic("unexpected Update call")
 }
-func (userSubRepoNoop) Delete(context.Context, int64) error { panic("unexpected Delete call") }
+func (userSubRepoNoop) Delete(context.Context, int64) error     { panic("unexpected Delete call") }
+func (userSubRepoNoop) HardDelete(context.Context, int64) error { panic("unexpected HardDelete call") }
 func (userSubRepoNoop) ListByUserID(context.Context, int64) ([]UserSubscription, error) {
 	panic("unexpected ListByUserID call")
 }

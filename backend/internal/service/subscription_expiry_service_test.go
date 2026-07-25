@@ -38,6 +38,10 @@ func (r *subscriptionExpiryRepoStub) Delete(context.Context, int64) error {
 	return nil
 }
 
+func (r *subscriptionExpiryRepoStub) HardDelete(context.Context, int64) error {
+	return nil
+}
+
 func (r *subscriptionExpiryRepoStub) ListByUserID(context.Context, int64) ([]UserSubscription, error) {
 	return nil, nil
 }

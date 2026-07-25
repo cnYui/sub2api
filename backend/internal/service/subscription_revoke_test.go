@@ -11,11 +11,12 @@ import (
 type subscriptionRevokeRepoStub struct {
 	userSubRepoNoop
 
-	sub       *UserSubscription
-	callOrder []string
-	statusID  int64
-	status    string
-	deleteID  int64
+	sub          *UserSubscription
+	callOrder    []string
+	statusID     int64
+	status       string
+	deleteID     int64
+	hardDeleteID int64
 }
 
 func (s *subscriptionRevokeRepoStub) GetByID(_ context.Context, id int64) (*UserSubscription, error) {
@@ -40,7 +41,13 @@ func (s *subscriptionRevokeRepoStub) Delete(_ context.Context, id int64) error {
 	return nil
 }
 
-func TestRevokeSubscriptionMarksExpiredBeforeSoftDelete(t *testing.T) {
+func (s *subscriptionRevokeRepoStub) HardDelete(_ context.Context, id int64) error {
+	s.callOrder = append(s.callOrder, "hard_delete")
+	s.hardDeleteID = id
+	return nil
+}
+
+func TestRevokeSubscriptionHardDeletesWithoutChangingStatus(t *testing.T) {
 	repo := &subscriptionRevokeRepoStub{
 		sub: &UserSubscription{
 			ID:        88,
@@ -55,8 +62,9 @@ func TestRevokeSubscriptionMarksExpiredBeforeSoftDelete(t *testing.T) {
 	err := svc.RevokeSubscription(context.Background(), 88)
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"get", "status", "delete"}, repo.callOrder)
-	require.Equal(t, int64(88), repo.statusID)
-	require.Equal(t, SubscriptionStatusExpired, repo.status)
-	require.Equal(t, int64(88), repo.deleteID)
+	require.Equal(t, []string{"get", "hard_delete"}, repo.callOrder)
+	require.Zero(t, repo.statusID)
+	require.Empty(t, repo.status)
+	require.Zero(t, repo.deleteID)
+	require.Equal(t, int64(88), repo.hardDeleteID)
 }

@@ -6,7 +6,9 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionentitlementperiod"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionquotadebtadjustment"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
@@ -151,6 +153,27 @@ func (r *userSubscriptionRepository) Delete(ctx context.Context, id int64) error
 	// Match GORM semantics: deleting a missing row is not an error.
 	client := clientFromContext(ctx, r.client)
 	_, err := client.UserSubscription.Delete().Where(usersubscription.IDEQ(id)).Exec(ctx)
+	return err
+}
+
+// HardDelete 按外键依赖顺序物理删除订阅，避免管理员撤销留下无法再次分配的软删除记录。
+func (r *userSubscriptionRepository) HardDelete(ctx context.Context, id int64) error {
+	client := clientFromContext(ctx, r.client)
+	hardDeleteCtx := mixins.SkipSoftDelete(ctx)
+
+	if _, err := client.SubscriptionQuotaDebtAdjustment.Delete().
+		Where(subscriptionquotadebtadjustment.SubscriptionIDEQ(id)).
+		Exec(hardDeleteCtx); err != nil {
+		return err
+	}
+	if _, err := client.SubscriptionEntitlementPeriod.Delete().
+		Where(subscriptionentitlementperiod.SubscriptionIDEQ(id)).
+		Exec(hardDeleteCtx); err != nil {
+		return err
+	}
+	_, err := client.UserSubscription.Delete().
+		Where(usersubscription.IDEQ(id)).
+		Exec(hardDeleteCtx)
 	return err
 }
 

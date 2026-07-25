@@ -3086,7 +3086,7 @@ export default {
       assignFirstSubscription: '分配一个订阅以开始使用。',
       subscriptionAssigned: '订阅分配成功',
       subscriptionAdjusted: '订阅调整成功',
-      subscriptionRevoked: '订阅撤销成功',
+      subscriptionRevoked: '订阅已永久删除',
       failedToLoad: '加载订阅列表失败',
       failedToAssign: '分配订阅失败',
       failedToAdjust: '调整订阅失败',
@@ -3096,7 +3096,7 @@ export default {
       pleaseSelectUser: '请选择用户',
       pleaseSelectGroup: '请选择分组',
       validityDaysRequired: '请输入有效的天数（至少1天）',
-      revokeConfirm: "确定要撤销 '{user}' 的订阅吗？此操作无法撤销。",
+      revokeConfirm: "确定要永久删除 '{user}' 的订阅记录吗？此操作无法恢复；订单与用量记录会保留。",
       guide: {
         title: '订阅管理教程',
         subtitle: '订阅模式允许你按时间周期为用户分配使用额度，支持日/周/月配额限制。按照以下步骤即可完成配置。',
@@ -3123,7 +3123,7 @@ export default {
           resetQuota: '重置配额',
           resetQuotaDesc: '将当前订阅用量窗口归零，公共 Codex 为当前滚动周窗',
           revoke: '撤销',
-          revokeDesc: '立即终止该用户的订阅，不可恢复'
+          revokeDesc: '永久删除该用户的订阅记录，不可恢复；订单与用量记录会保留'
         },
         tip: '提示：订阅分组下拉列表中只会显示计费类型为「订阅」且状态为「正常」的分组。如果没有可选项，请先到分组管理中创建。'
       }

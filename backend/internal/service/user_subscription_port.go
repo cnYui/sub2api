@@ -26,6 +26,7 @@ type UserSubscriptionRepository interface {
 	GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*UserSubscription, error)
 	Update(ctx context.Context, sub *UserSubscription) error
 	Delete(ctx context.Context, id int64) error
+	HardDelete(ctx context.Context, id int64) error
 
 	ListByUserID(ctx context.Context, userID int64) ([]UserSubscription, error)
 	ListActiveByUserID(ctx context.Context, userID int64) ([]UserSubscription, error)
