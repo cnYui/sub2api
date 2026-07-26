@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-26 已按用户指定清理 12 组独立 PKB/Supabase 容器及对应镜像；`supabase_edge_runtime_SW` 和其镜像已不存在。为遵守公网运行保护，保留 `sub2api-public-nginx-local` 与 18080/18086 当前依赖的两套 Redis，未删 PostgreSQL、Redis 数据、卷和构建缓存；清理后 `18080/18086` 均 healthy、`/health` 返回 200。结果见 `docs/ai/context/20260726-095900-selective-container-image-cleanup-result_CN.md`。
+
 - 2026-07-26 `18080/18086` 不可用的根因是 Docker Desktop 后端和 `docker-desktop` WSL2 发行版停止，桌面前端进程仍残留，并非 Sub2API 应用崩溃。重启 Docker 后端后两套 PostgreSQL 自动恢复，`sub2api-dev:18080` 与 `sub2api-upstream-latest:18086` 均回到 healthy、`/health` 返回 200；已清理未被容器引用的旧镜像并释放 3.89GB，未删除容器、卷和构建缓存。结果见 `docs/ai/context/20260726-094700-docker-desktop-recovery-and-image-cleanup-result_CN.md`。
 
 - 2026-07-26 已完成本地 `main` 未提交内容、71 份历史上下文文档与周额度流量卡兜底分支的整理合并；外层 `18080` 重建时发现迁移 `178/179` 在 `168` 删除图片定价列后仍引用旧列，已移除五个过期字段引用并补回归测试。`sub2api-dev:18080` 与 `sub2api-upstream-latest:18086` 已分别重建为 healthy，两个 `/health` 返回 200；外层数据库已执行并记录 `178/179`，PostgreSQL/Redis 数据容器未重建。结果见 `docs/ai/context/20260726-120900-worktree-consolidation-and-container-rebuild-result_CN.md`。
