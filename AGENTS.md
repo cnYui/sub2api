@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-26 已完成本地 `main` 未提交内容、71 份历史上下文文档与周额度流量卡兜底分支的整理合并；外层 `18080` 重建时发现迁移 `178/179` 在 `168` 删除图片定价列后仍引用旧列，已移除五个过期字段引用并补回归测试。`sub2api-dev:18080` 与 `sub2api-upstream-latest:18086` 已分别重建为 healthy，两个 `/health` 返回 200；外层数据库已执行并记录 `178/179`，PostgreSQL/Redis 数据容器未重建。结果见 `docs/ai/context/20260726-120900-worktree-consolidation-and-container-rebuild-result_CN.md`。
+
 - 2026-07-26 管理端 `admin/subscriptions` 的撤销已改为物理删除订阅及其权益周期、额度债务调整，不再写 `deleted_at`；提交后失效 L1/Redis/PubSub 缓存，订单和用量历史仍保留。已物理清理本地运行态历史软删除订阅 `user_subscriptions.id=53`，关联 3386 条用量因数据库外键自动置空订阅关联；用户 `id=35` 已是 disabled，API Key、订单和流量卡未删除。结果见 `docs/ai/context/20260726-083450-admin-subscription-hard-revoke-result_CN.md`。
 
 - 2026-07-26 已通过内层 latest Sub2API（`18086`）正式管理员界面为 `xiaobianfuai@gmail.com/users.id=1` 增加 `10000000.00000000` 余额；写入后核对余额为 `10006870.46572295`，最新 `redeem_codes` 审计记录为 `type=admin_balance/status=used`，`18086/health` 200。外层 `18080` 的用户计费、价格和账号池未改；变更前备份为 `deploy/backups/20260726-080646-upstream-latest-admin-balance-prechange.dump`。内层部署初始化密码已与现有管理员凭据漂移且未配置管理 API Key，后续应单独轮换并验证登录；本轮未重置凭据。结果见 `docs/ai/context/20260726-081942-upstream-latest-admin-balance-expansion-result_CN.md`。

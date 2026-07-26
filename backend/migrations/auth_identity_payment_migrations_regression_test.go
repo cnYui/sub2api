@@ -427,6 +427,15 @@ func TestMigration178SeedsCodex249And299SubscriptionPlans(t *testing.T) {
 	require.NotContains(t, sql, "DELETE")
 	require.NotContains(t, sql, "TRUNCATE")
 	require.NotContains(t, sql, "DROP")
+	for _, removedColumn := range []string{
+		"image_rate_independent",
+		"image_rate_multiplier",
+		"image_price_1k",
+		"image_price_2k",
+		"image_price_4k",
+	} {
+		require.NotContains(t, sql, removedColumn)
+	}
 }
 
 func TestMigration179SeedsCodex49SubscriptionPlan(t *testing.T) {
@@ -447,4 +456,13 @@ func TestMigration179SeedsCodex49SubscriptionPlan(t *testing.T) {
 	require.NotContains(t, sql, "DELETE")
 	require.NotContains(t, sql, "TRUNCATE")
 	require.NotContains(t, sql, "DROP")
+	for _, removedColumn := range []string{
+		"image_rate_independent",
+		"image_rate_multiplier",
+		"image_price_1k",
+		"image_price_2k",
+		"image_price_4k",
+	} {
+		require.NotContains(t, sql, removedColumn)
+	}
 }
