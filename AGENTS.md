@@ -17,6 +17,8 @@
 
 ## 最高优先级定论
 
+- 2026-07-26 `18080/18086` 不可用的根因是 Docker Desktop 后端和 `docker-desktop` WSL2 发行版停止，桌面前端进程仍残留，并非 Sub2API 应用崩溃。重启 Docker 后端后两套 PostgreSQL 自动恢复，`sub2api-dev:18080` 与 `sub2api-upstream-latest:18086` 均回到 healthy、`/health` 返回 200；已清理未被容器引用的旧镜像并释放 3.89GB，未删除容器、卷和构建缓存。结果见 `docs/ai/context/20260726-094700-docker-desktop-recovery-and-image-cleanup-result_CN.md`。
+
 - 2026-07-26 已完成本地 `main` 未提交内容、71 份历史上下文文档与周额度流量卡兜底分支的整理合并；外层 `18080` 重建时发现迁移 `178/179` 在 `168` 删除图片定价列后仍引用旧列，已移除五个过期字段引用并补回归测试。`sub2api-dev:18080` 与 `sub2api-upstream-latest:18086` 已分别重建为 healthy，两个 `/health` 返回 200；外层数据库已执行并记录 `178/179`，PostgreSQL/Redis 数据容器未重建。结果见 `docs/ai/context/20260726-120900-worktree-consolidation-and-container-rebuild-result_CN.md`。
 
 - 2026-07-26 管理端 `admin/subscriptions` 的撤销已改为物理删除订阅及其权益周期、额度债务调整，不再写 `deleted_at`；提交后失效 L1/Redis/PubSub 缓存，订单和用量历史仍保留。已物理清理本地运行态历史软删除订阅 `user_subscriptions.id=53`，关联 3386 条用量因数据库外键自动置空订阅关联；用户 `id=35` 已是 disabled，API Key、订单和流量卡未删除。结果见 `docs/ai/context/20260726-083450-admin-subscription-hard-revoke-result_CN.md`。
