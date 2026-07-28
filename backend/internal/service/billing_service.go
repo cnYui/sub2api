@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -112,6 +113,19 @@ type ModelPricing struct {
 	LongContextOutputMultiplier    float64 // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken       float64 // 图片输出 token 价格 (USD)
 	ImageOutputPriceExplicit       bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
+}
+
+type OpenAIBillingPricingSnapshot struct {
+	SourceHash               string  `json:"source_hash"`
+	Model                    string  `json:"model"`
+	ServiceTier              string  `json:"service_tier"`
+	GroupRateMultiplier      float64 `json:"group_rate_multiplier"`
+	InputUSDPerToken         float64 `json:"input_usd_per_token"`
+	OutputUSDPerToken        float64 `json:"output_usd_per_token"`
+	ImageInputUSDPerToken    float64 `json:"image_input_usd_per_token"`
+	ImageOutputUSDPerToken   float64 `json:"image_output_usd_per_token"`
+	CacheCreationUSDPerToken float64 `json:"cache_creation_usd_per_token"`
+	CacheReadUSDPerToken     float64 `json:"cache_read_usd_per_token"`
 }
 
 const (
@@ -836,6 +850,40 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	pricing.ImageOutputPriceExplicit = true
 	applyPriorityServiceTierPrices(model, pricing)
 	return pricing, nil
+}
+
+// OpenAIBillingPricingSnapshot 固化请求实际采用的单价，防止结算时受价格表更新影响。
+func (s *BillingService) OpenAIBillingPricingSnapshot(model, serviceTier string, groupRateMultiplier float64) (json.RawMessage, error) {
+	pricing, err := s.GetModelPricing(model)
+	if err != nil {
+		return nil, err
+	}
+
+	tierMultiplier := modelServiceTierCostMultiplier(model, serviceTier)
+	if groupRateMultiplier < 0 {
+		groupRateMultiplier = 0
+	}
+	finalMultiplier := tierMultiplier * groupRateMultiplier
+	sourceHash := "fallback"
+	if s.pricingService != nil {
+		if hash := s.pricingService.PricingSourceHash(); hash != "" {
+			sourceHash = hash
+		}
+	}
+
+	snapshot := OpenAIBillingPricingSnapshot{
+		SourceHash:               sourceHash,
+		Model:                    model,
+		ServiceTier:              normalizeBillingServiceTier(serviceTier),
+		GroupRateMultiplier:      groupRateMultiplier,
+		InputUSDPerToken:         pricing.InputPricePerToken * finalMultiplier,
+		OutputUSDPerToken:        pricing.OutputPricePerToken * finalMultiplier,
+		ImageInputUSDPerToken:    pricing.ImageInputPricePerToken * finalMultiplier,
+		ImageOutputUSDPerToken:   pricing.ImageOutputPricePerToken * finalMultiplier,
+		CacheCreationUSDPerToken: pricing.CacheCreationPricePerToken * finalMultiplier,
+		CacheReadUSDPerToken:     pricing.CacheReadPricePerToken * finalMultiplier,
+	}
+	return json.Marshal(snapshot)
 }
 
 // --- 统一计费入口 ---

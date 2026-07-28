@@ -600,6 +600,16 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 	return scaleLiteLLMModelPricing(raw, s.unitPriceMultiplier())
 }
 
+// PricingSourceHash 返回当前内存价格表的内容标识，供授权记录复现当时单价。
+func (s *PricingService) PricingSourceHash() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.localHash
+}
+
 func (s *PricingService) unitPriceMultiplier() float64 {
 	if s == nil || s.cfg == nil {
 		return 1
