@@ -1,0 +1,177 @@
+name: sub2api-openai-billing-candidate
+
+services:
+  billing-outer:
+    image: ${BILLING_OUTER_IMAGE:?BILLING_OUTER_IMAGE is required}
+    container_name: sub2api-openai-billing-outer
+    restart: "no"
+    ports:
+      - "127.0.0.1:18081:8080"
+    volumes:
+      - ./openai-billing-candidate/outer/data:/app/data:Z
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: "8080"
+      SERVER_MODE: release
+      RUN_MODE: candidate
+      DATABASE_HOST: billing-outer-postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${OUTER_POSTGRES_USER:-sub2api}
+      DATABASE_PASSWORD: ${OUTER_POSTGRES_PASSWORD:?OUTER_POSTGRES_PASSWORD is required}
+      DATABASE_DBNAME: ${OUTER_POSTGRES_DB:-sub2api}
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: billing-outer-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${OUTER_REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      OPS_ENABLED: "false"
+      OPS_CLEANUP_ENABLED: "false"
+      OPS_AGGREGATION_ENABLED: "false"
+      UPDATE_PROXY_URL: ""
+      TZ: ${TZ:-Asia/Tokyo}
+    depends_on:
+      billing-outer-postgres:
+        condition: service_healthy
+      billing-outer-redis:
+        condition: service_healthy
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  billing-outer-postgres:
+    image: postgres:18-alpine
+    container_name: sub2api-openai-billing-outer-postgres
+    restart: "no"
+    volumes:
+      - ./openai-billing-candidate/outer/postgres_data:/var/lib/postgresql/data:Z
+      - ./openai-billing-candidate/dumps:/candidate/dumps:ro
+    environment:
+      POSTGRES_USER: ${OUTER_POSTGRES_USER:-sub2api}
+      POSTGRES_PASSWORD: ${OUTER_POSTGRES_PASSWORD:?OUTER_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${OUTER_POSTGRES_DB:-sub2api}
+      PGDATA: /var/lib/postgresql/data
+      TZ: ${TZ:-Asia/Tokyo}
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  billing-outer-redis:
+    image: redis:8-alpine
+    container_name: sub2api-openai-billing-outer-redis
+    restart: "no"
+    volumes:
+      - ./openai-billing-candidate/outer/redis_data:/data:Z
+    command: ["sh", "-c", "exec redis-server --save \"\" --appendonly no $${REDIS_PASSWORD:+--requirepass \"$$REDIS_PASSWORD\"}"]
+    environment:
+      REDIS_PASSWORD: ${OUTER_REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${OUTER_REDIS_PASSWORD:-}
+      TZ: ${TZ:-Asia/Tokyo}
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping; else env -u REDISCLI_AUTH redis-cli ping; fi"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  billing-inner:
+    image: ${BILLING_INNER_IMAGE:?BILLING_INNER_IMAGE is required}
+    container_name: sub2api-openai-billing-inner
+    restart: "no"
+    ports:
+      - "127.0.0.1:18087:8080"
+    volumes:
+      - ./openai-billing-candidate/inner/data:/app/data:Z
+    environment:
+      AUTO_SETUP: "true"
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: "8080"
+      SERVER_MODE: release
+      RUN_MODE: candidate
+      DATABASE_HOST: billing-inner-postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${INNER_POSTGRES_USER:-sub2api}
+      DATABASE_PASSWORD: ${INNER_POSTGRES_PASSWORD:?INNER_POSTGRES_PASSWORD is required}
+      DATABASE_DBNAME: ${INNER_POSTGRES_DB:-sub2api}
+      DATABASE_SSLMODE: disable
+      REDIS_HOST: billing-inner-redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${INNER_REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      OPS_ENABLED: "false"
+      OPS_CLEANUP_ENABLED: "false"
+      OPS_AGGREGATION_ENABLED: "false"
+      UPDATE_PROXY_URL: ""
+      TZ: ${TZ:-Asia/Tokyo}
+    depends_on:
+      billing-inner-postgres:
+        condition: service_healthy
+      billing-inner-redis:
+        condition: service_healthy
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "5", "-O", "/dev/null", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  billing-inner-postgres:
+    image: postgres:18-alpine
+    container_name: sub2api-openai-billing-inner-postgres
+    restart: "no"
+    volumes:
+      - ./openai-billing-candidate/inner/postgres_data:/var/lib/postgresql/data:Z
+      - ./openai-billing-candidate/dumps:/candidate/dumps:ro
+    environment:
+      POSTGRES_USER: ${INNER_POSTGRES_USER:-sub2api}
+      POSTGRES_PASSWORD: ${INNER_POSTGRES_PASSWORD:?INNER_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${INNER_POSTGRES_DB:-sub2api}
+      PGDATA: /var/lib/postgresql/data
+      TZ: ${TZ:-Asia/Tokyo}
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+  billing-inner-redis:
+    image: redis:8-alpine
+    container_name: sub2api-openai-billing-inner-redis
+    restart: "no"
+    volumes:
+      - ./openai-billing-candidate/inner/redis_data:/data:Z
+    command: ["sh", "-c", "exec redis-server --save \"\" --appendonly no $${REDIS_PASSWORD:+--requirepass \"$$REDIS_PASSWORD\"}"]
+    environment:
+      REDIS_PASSWORD: ${INNER_REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${INNER_REDIS_PASSWORD:-}
+      TZ: ${TZ:-Asia/Tokyo}
+    networks:
+      - openai-billing-candidate
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping; else env -u REDISCLI_AUTH redis-cli ping; fi"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+networks:
+  openai-billing-candidate:
+    name: sub2api-openai-billing-candidate
+    driver: bridge
