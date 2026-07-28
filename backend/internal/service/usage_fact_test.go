@@ -52,3 +52,15 @@ func TestNewUsageFactRejectsMissingRequestID(t *testing.T) {
 	_, err := NewUsageFact(UsageFactPayload{})
 	require.ErrorIs(t, err, ErrUsageFactRequestIDRequired)
 }
+
+func TestNewUsageFactUsesBillingAuthorizationID(t *testing.T) {
+	authorizationID := int64(88)
+	fact, err := NewUsageFact(UsageFactPayload{BillingCommand: UsageBillingCommand{
+		RequestID:       "req-authorization",
+		APIKeyID:        9,
+		UserID:          7,
+		AuthorizationID: &authorizationID,
+	}})
+	require.NoError(t, err)
+	require.Equal(t, &authorizationID, fact.AuthorizationID)
+}

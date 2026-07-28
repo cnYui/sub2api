@@ -43,7 +43,10 @@ type UsageBillingCommand struct {
 	BalanceCost      float64
 	SubscriptionCost float64
 	TrafficPackCost  float64
-	// TrafficCreditReservationID 固定请求前预授权的流量卡预留，避免响应后重新判断计费来源。
+	// AuthorizationID 关联请求前已固定资金来源的通用授权，避免结算阶段重新选源。
+	AuthorizationID  *int64
+	OpenAIActualCost float64
+	// TrafficCreditReservationID 在旧结算仓储替换前临时保留，避免迁移中的入口出现不兼容。
 	TrafficCreditReservationID *int64
 	APIKeyQuotaCost            float64
 	APIKeyRateLimitCost        float64
