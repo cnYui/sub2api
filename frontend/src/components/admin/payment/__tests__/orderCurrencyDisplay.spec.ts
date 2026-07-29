@@ -128,6 +128,8 @@ describe('admin order currency display', () => {
           period_total_quota_usd: 232,
           used_quota_usd: 29,
           usage_ratio: 0.125,
+          time_ratio: 0.75,
+          consumption_ratio: 0.75,
           estimated_refund_amount: 25.375,
           calculated_at: '2026-07-20T01:00:00Z',
         },
@@ -144,6 +146,9 @@ describe('admin order currency display', () => {
     expect(text).toContain('¥1.45')
     expect(text).toContain('¥25.38')
     expect(text).toContain('$29 / $232')
+    expect(text).toContain('payment.refundQuote.timeRatio')
+    expect(text).toContain('payment.refundQuote.consumptionRatio')
+    expect(text).toContain('75%')
     expect(text).not.toContain('$29.00')
   })
 

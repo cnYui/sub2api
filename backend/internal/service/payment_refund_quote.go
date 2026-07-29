@@ -24,8 +24,19 @@ type SubscriptionRefundQuote struct {
 	PeriodTotalQuotaUSD   float64   `json:"period_total_quota_usd"`
 	UsedQuotaUSD          float64   `json:"used_quota_usd"`
 	UsageRatio            float64   `json:"usage_ratio"`
+	TimeRatio             float64   `json:"time_ratio"`
+	ConsumptionRatio      float64   `json:"consumption_ratio"`
 	EstimatedRefundAmount float64   `json:"estimated_refund_amount"`
 	CalculatedAt          time.Time `json:"calculated_at"`
+	EntitlementStartsAt   time.Time `json:"-"`
+	EntitlementExpiresAt  time.Time `json:"-"`
+}
+
+type refundEntitlement struct {
+	ID                  int64
+	PeriodTotalQuotaUSD float64
+	StartsAt            time.Time
+	ExpiresAt           time.Time
 }
 
 var ErrRefundManualReviewRequired = infraerrors.Conflict("REFUND_MANUAL_REVIEW_REQUIRED", "refund requires manual review because historical usage cannot be allocated unambiguously")
@@ -61,7 +72,7 @@ func (s *PaymentService) calculateSubscriptionRefundQuoteWithClient(ctx context.
 		return nil, infraerrors.InternalServer("PAYMENT_REPOSITORY_UNAVAILABLE", "payment repository is unavailable")
 	}
 	quote := &SubscriptionRefundQuote{PurchaseBaseAmount: o.Amount, NonRefundableFee: math.Max(o.PayAmount-o.Amount, 0), CalculatedAt: time.Now()}
-	periodID, totalQuota, found, err := s.findRefundEntitlementWithClient(ctx, client, o.ID, lockFacts)
+	entitlement, found, err := s.findRefundEntitlementWithClient(ctx, client, o.ID, lockFacts)
 	if err != nil {
 		if errors.Is(err, ErrRefundManualReviewRequired) {
 			quote.ManualReviewRequired = true
@@ -69,18 +80,26 @@ func (s *PaymentService) calculateSubscriptionRefundQuoteWithClient(ctx context.
 		}
 		return nil, err
 	}
-	if !found || totalQuota <= 0 {
+	if !found || entitlement.PeriodTotalQuotaUSD <= 0 {
 		quote.ManualReviewRequired = true
 		return quote, nil
 	}
-	quote.EntitlementPeriodID = periodID
-	quote.PeriodTotalQuotaUSD = totalQuota
-	used, allocatedFacts, err := s.sumRefundEntitlementUsageFactsWithClient(ctx, client, periodID, lockFacts)
+	timeRatio, validWindow := calculateRefundTimeRatio(entitlement.StartsAt, entitlement.ExpiresAt, quote.CalculatedAt)
+	if !validWindow {
+		quote.ManualReviewRequired = true
+		return quote, nil
+	}
+	quote.EntitlementPeriodID = entitlement.ID
+	quote.PeriodTotalQuotaUSD = entitlement.PeriodTotalQuotaUSD
+	quote.TimeRatio = timeRatio
+	quote.EntitlementStartsAt = entitlement.StartsAt
+	quote.EntitlementExpiresAt = entitlement.ExpiresAt
+	used, allocatedFacts, err := s.sumRefundEntitlementUsageFactsWithClient(ctx, client, entitlement.ID, lockFacts)
 	if err != nil {
 		return nil, err
 	}
 	if !allocatedFacts {
-		hasUnallocated, err := s.hasUnallocatedRefundUsageFactsWithClient(ctx, client, periodID, lockFacts)
+		hasUnallocated, err := s.hasUnallocatedRefundUsageFactsWithClient(ctx, client, entitlement.ID, lockFacts)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +107,7 @@ func (s *PaymentService) calculateSubscriptionRefundQuoteWithClient(ctx context.
 			quote.ManualReviewRequired = true
 			return quote, nil
 		}
-		ambiguous, err := s.hasAmbiguousRefundEntitlementWithClient(ctx, client, periodID)
+		ambiguous, err := s.hasAmbiguousRefundEntitlementWithClient(ctx, client, entitlement.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -96,48 +115,58 @@ func (s *PaymentService) calculateSubscriptionRefundQuoteWithClient(ctx context.
 			quote.ManualReviewRequired = true
 			return quote, nil
 		}
-		used, err = s.sumRefundLegacyUsageLogs(ctx, periodID)
+		used, err = s.sumRefundLegacyUsageLogs(ctx, entitlement.ID)
 		if err != nil {
 			return nil, err
 		}
 	}
 	quote.UsedQuotaUSD = math.Max(used, 0)
 	quote.UsageRatio = math.Min(math.Max(quote.UsedQuotaUSD/quote.PeriodTotalQuotaUSD, 0), 1)
-	quote.EstimatedRefundAmount = math.Max(quote.PurchaseBaseAmount*(1-quote.UsageRatio), 0)
+	quote.ConsumptionRatio = math.Max(quote.UsageRatio, quote.TimeRatio)
+	quote.EstimatedRefundAmount = math.Max(quote.PurchaseBaseAmount*(1-quote.ConsumptionRatio), 0)
 	quote.Eligible = quote.EstimatedRefundAmount > 0
 	return quote, nil
 }
 
-func (s *PaymentService) findRefundEntitlement(ctx context.Context, orderID int64) (int64, float64, bool, error) {
+func calculateRefundTimeRatio(startsAt, expiresAt, now time.Time) (float64, bool) {
+	duration := expiresAt.Sub(startsAt)
+	if duration <= 0 {
+		return 0, false
+	}
+	return math.Min(math.Max(now.Sub(startsAt).Seconds()/duration.Seconds(), 0), 1), true
+}
+
+func (s *PaymentService) findRefundEntitlement(ctx context.Context, orderID int64) (refundEntitlement, bool, error) {
 	return s.findRefundEntitlementWithClient(ctx, s.entClient, orderID, false)
 }
 
-func (s *PaymentService) findRefundEntitlementWithClient(ctx context.Context, client *dbent.Client, orderID int64, lockRow bool) (int64, float64, bool, error) {
+func (s *PaymentService) findRefundEntitlementWithClient(ctx context.Context, client *dbent.Client, orderID int64, lockRow bool) (refundEntitlement, bool, error) {
 	var rows entsql.Rows
-	query := `SELECT id, period_total_quota_usd FROM subscription_entitlement_periods WHERE source_type = 'payment_order' AND source_id = $1 AND status = 'active' ORDER BY id LIMIT 2`
+	query := `SELECT id, period_total_quota_usd, starts_at, expires_at FROM subscription_entitlement_periods WHERE source_type = 'payment_order' AND source_id = $1 AND status = 'active' ORDER BY id LIMIT 2`
 	if lockRow && isPostgresEntClient(client) {
 		query += ` FOR UPDATE`
 	}
 	err := client.Driver().Query(ctx, query, []any{fmt.Sprint(orderID)}, &rows)
 	if err != nil {
-		return 0, 0, false, err
+		return refundEntitlement{}, false, err
 	}
 	defer rows.Close()
 	if !rows.Next() {
-		return 0, 0, false, rows.Err()
+		return refundEntitlement{}, false, rows.Err()
 	}
-	var id int64
+	var entitlement refundEntitlement
 	var total stdsql.NullFloat64
-	if err := rows.Scan(&id, &total); err != nil {
-		return 0, 0, false, err
+	if err := rows.Scan(&entitlement.ID, &total, &entitlement.StartsAt, &entitlement.ExpiresAt); err != nil {
+		return refundEntitlement{}, false, err
 	}
 	if rows.Next() {
-		return 0, 0, false, ErrRefundManualReviewRequired
+		return refundEntitlement{}, false, ErrRefundManualReviewRequired
 	}
 	if err := rows.Err(); err != nil {
-		return 0, 0, false, err
+		return refundEntitlement{}, false, err
 	}
-	return id, total.Float64, total.Valid, nil
+	entitlement.PeriodTotalQuotaUSD = total.Float64
+	return entitlement, total.Valid, nil
 }
 
 func (s *PaymentService) sumRefundEntitlementUsageFacts(ctx context.Context, periodID int64) (float64, bool, error) {
@@ -291,7 +320,7 @@ func (q *SubscriptionRefundQuote) Basis() map[string]any {
 	if q == nil {
 		return nil
 	}
-	return map[string]any{"entitlement_period_id": q.EntitlementPeriodID, "period_total_quota_usd": q.PeriodTotalQuotaUSD, "used_quota_usd": q.UsedQuotaUSD, "usage_ratio": q.UsageRatio, "purchase_base_amount": q.PurchaseBaseAmount, "non_refundable_fee": q.NonRefundableFee, "calculated_at": q.CalculatedAt.UTC().Format(time.RFC3339Nano)}
+	return map[string]any{"entitlement_period_id": q.EntitlementPeriodID, "period_total_quota_usd": q.PeriodTotalQuotaUSD, "used_quota_usd": q.UsedQuotaUSD, "usage_ratio": q.UsageRatio, "time_ratio": q.TimeRatio, "consumption_ratio": q.ConsumptionRatio, "entitlement_starts_at": q.EntitlementStartsAt.UTC().Format(time.RFC3339Nano), "entitlement_expires_at": q.EntitlementExpiresAt.UTC().Format(time.RFC3339Nano), "purchase_base_amount": q.PurchaseBaseAmount, "non_refundable_fee": q.NonRefundableFee, "calculated_at": q.CalculatedAt.UTC().Format(time.RFC3339Nano)}
 }
 
 func (s *PaymentService) persistSubscriptionRefundBasis(ctx context.Context, orderID int64, quote *SubscriptionRefundQuote) error {
@@ -322,7 +351,7 @@ func (s *PaymentService) requireSubscriptionRefundQuoteWithClient(ctx context.Co
 		return nil, ErrRefundManualReviewRequired
 	}
 	if !quote.Eligible {
-		return nil, infraerrors.BadRequest("NO_REFUNDABLE_QUOTA", "subscription quota has been fully used")
+		return nil, infraerrors.BadRequest("NO_REFUNDABLE_QUOTA", "subscription entitlement has been fully consumed")
 	}
 	return quote, nil
 }

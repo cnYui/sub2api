@@ -156,6 +156,8 @@ export interface SubscriptionRefundQuote {
   period_total_quota_usd: number
   used_quota_usd: number
   usage_ratio: number
+  time_ratio: number
+  consumption_ratio: number
   estimated_refund_amount: number
   calculated_at: string
 }

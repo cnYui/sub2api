@@ -7240,6 +7240,8 @@ export default {
       nonRefundableFee: '手续费（不退）',
       periodQuotaUsage: '已用 / 28 天总额度',
       usageRatio: '使用比例',
+      timeRatio: '时间消耗比例',
+      consumptionRatio: '实际消耗比例',
       estimatedRefund: '预计退款',
       manualReviewRequired: '历史用量无法唯一归属，本订单需要人工审核退款。',
       loading: '正在计算额度退款报价…',

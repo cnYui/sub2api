@@ -119,6 +119,14 @@
                 <span>{{ t('payment.refundQuote.usageRatio') }}</span>
                 <span>{{ Math.round(refundQuote.usage_ratio * 100) }}%</span>
               </div>
+              <div v-if="!refundQuote.manual_review_required" class="flex justify-between">
+                <span>{{ t('payment.refundQuote.timeRatio') }}</span>
+                <span>{{ Math.round(refundQuote.time_ratio * 100) }}%</span>
+              </div>
+              <div v-if="!refundQuote.manual_review_required" class="flex justify-between">
+                <span>{{ t('payment.refundQuote.consumptionRatio') }}</span>
+                <span>{{ Math.round(refundQuote.consumption_ratio * 100) }}%</span>
+              </div>
               <div class="flex justify-between font-medium">
                 <span>{{ t('payment.refundQuote.estimatedRefund') }}</span>
                 <span>{{ creditedAmountSymbol }}{{ refundQuote.estimated_refund_amount.toFixed(2) }}</span>

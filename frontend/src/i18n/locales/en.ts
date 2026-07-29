@@ -7060,6 +7060,8 @@ export default {
       nonRefundableFee: 'Fee (non-refundable)',
       periodQuotaUsage: 'Used / 28-day quota',
       usageRatio: 'Usage ratio',
+      timeRatio: 'Time consumption ratio',
+      consumptionRatio: 'Effective consumption ratio',
       estimatedRefund: 'Estimated refund',
       manualReviewRequired: 'Historical usage cannot be allocated unambiguously. This order requires manual refund review.',
       loading: 'Calculating quota-based refund quote…',

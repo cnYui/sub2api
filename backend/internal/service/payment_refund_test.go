@@ -344,7 +344,7 @@ func attachRefundQuoteEntitlement(t *testing.T, scenario *autoGatewayRefundScena
 		Save(scenario.ctx)
 	require.NoError(t, err)
 
-	startsAt := time.Now().AddDate(0, 0, -3)
+	startsAt := time.Now().Add(time.Hour)
 	expiresAt := startsAt.AddDate(0, 0, 28)
 	subscriptionEntity, err := scenario.client.UserSubscription.Create().
 		SetUserID(scenario.userID).
@@ -1072,6 +1072,72 @@ func TestAdminSubscriptionRefundQuoteUsesCodex49TierQuota(t *testing.T) {
 	require.InDelta(t, 36.75, quote.EstimatedRefundAmount, 1e-9)
 }
 
+func setRefundQuoteEntitlementWindow(t *testing.T, scenario *autoGatewayRefundScenario, entitlementID int64, startsAt, expiresAt time.Time) {
+	t.Helper()
+	_, err := scenario.client.SubscriptionEntitlementPeriod.UpdateOneID(entitlementID).
+		SetStartsAt(startsAt).
+		SetExpiresAt(expiresAt).
+		Save(scenario.ctx)
+	require.NoError(t, err)
+}
+
+func TestAdminSubscriptionRefundQuoteUsesElapsedTimeWhenHigherThanQuota(t *testing.T) {
+	provider := &refundProviderStub{}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
+	now := time.Now()
+	setRefundQuoteEntitlementWindow(t, &scenario, fixture.entitlementID, now.Add(-21*24*time.Hour), now.Add(7*24*time.Hour))
+
+	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
+	require.NoError(t, err)
+	require.True(t, quote.Eligible)
+	require.False(t, quote.ManualReviewRequired)
+	require.InDelta(t, 0, quote.UsageRatio, 1e-9)
+	require.InDelta(t, 0.75, quote.TimeRatio, 1e-3)
+	require.InDelta(t, 0.75, quote.ConsumptionRatio, 1e-3)
+	require.InDelta(t, 7.25, quote.EstimatedRefundAmount, 1e-2)
+}
+
+func TestAdminSubscriptionRefundQuoteUsesQuotaWhenHigherThanElapsedTime(t *testing.T) {
+	provider := &refundProviderStub{}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 116)
+	now := time.Now()
+	setRefundQuoteEntitlementWindow(t, &scenario, fixture.entitlementID, now.Add(-7*24*time.Hour), now.Add(21*24*time.Hour))
+
+	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
+	require.NoError(t, err)
+	require.True(t, quote.Eligible)
+	require.InDelta(t, 0.5, quote.UsageRatio, 1e-9)
+	require.InDelta(t, 0.25, quote.TimeRatio, 1e-3)
+	require.InDelta(t, 0.5, quote.ConsumptionRatio, 1e-3)
+	require.InDelta(t, 14.5, quote.EstimatedRefundAmount, 1e-2)
+}
+
+func TestAdminSubscriptionRefundQuoteAtExpiryIsNotEligible(t *testing.T) {
+	provider := &refundProviderStub{}
+	scenario := newAutoGatewayRefundScenario(t, provider, nil)
+	fixture := attachRefundQuoteEntitlement(t, &scenario, 58, 232, 0)
+	now := time.Now()
+	setRefundQuoteEntitlementWindow(t, &scenario, fixture.entitlementID, now.Add(-28*24*time.Hour), now.Add(-time.Second))
+
+	quote, err := scenario.svc.AdminGetSubscriptionRefundQuote(scenario.ctx, scenario.orderID)
+	require.NoError(t, err)
+	require.False(t, quote.Eligible)
+	require.False(t, quote.ManualReviewRequired)
+	require.InDelta(t, 1, quote.TimeRatio, 1e-9)
+	require.InDelta(t, 1, quote.ConsumptionRatio, 1e-9)
+	require.Zero(t, quote.EstimatedRefundAmount)
+}
+
+func TestCalculateRefundTimeRatioRejectsInvalidEntitlementWindow(t *testing.T) {
+	now := time.Now()
+	ratio, valid := calculateRefundTimeRatio(now, now, now)
+
+	require.False(t, valid)
+	require.Zero(t, ratio)
+}
+
 func TestAdminSubscriptionRefundQuoteRequiresManualReviewForOverlappingEntitlement(t *testing.T) {
 	provider := &refundProviderStub{}
 	scenario := newAutoGatewayRefundScenario(t, provider, nil)
@@ -1121,7 +1187,7 @@ func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, earlyResult)
 	require.NotNil(t, plan)
-	require.InDelta(t, 23.463815789473685, plan.RefundAmount, 1e-9)
+	require.InDelta(t, 23.467105263157894, plan.RefundAmount, 1e-9)
 
 	reloaded, err := scenario.client.PaymentOrder.Get(scenario.ctx, scenario.orderID)
 	require.NoError(t, err)
@@ -1129,8 +1195,11 @@ func TestPrepareRefundUsesSubscriptionQuoteAndPersistsBasis(t *testing.T) {
 	require.InDelta(t, 304, reloaded.RefundBasis["period_total_quota_usd"].(float64), 1e-9)
 	require.InDelta(t, 58, reloaded.RefundBasis["used_quota_usd"].(float64), 1e-9)
 	require.InDelta(t, 0.19078947368421054, reloaded.RefundBasis["usage_ratio"].(float64), 1e-9)
+	require.InDelta(t, 0.19078947368421054, reloaded.RefundBasis["consumption_ratio"].(float64), 1e-9)
 	require.InDelta(t, 29, reloaded.RefundBasis["purchase_base_amount"].(float64), 1e-9)
 	require.InDelta(t, 0.29, reloaded.RefundBasis["non_refundable_fee"].(float64), 1e-9)
+	require.NotEmpty(t, reloaded.RefundBasis["entitlement_starts_at"])
+	require.NotEmpty(t, reloaded.RefundBasis["entitlement_expires_at"])
 }
 
 func TestExecuteRefundRecalculatesAdminSubscriptionQuoteInsideTransaction(t *testing.T) {
