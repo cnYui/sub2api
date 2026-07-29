@@ -31,8 +31,11 @@
 - 根因是请求已派发后的 HTTP/SSE/流式失败没有统一终结 reservation，以及 Embeddings、OpenAI Messages、WebSocket turn 等入口未统一请求前授权。
 - 目标固定为：套餐原子 hold -> 流量卡 reservation -> 无来源请求前 402。账户余额不参与模型请求；一次请求只能有一个 authorization，结算禁止重新选源。
 - 所有 OpenAI 请求单请求预算硬上限为 2 USD；按最终文本输入、输出上限、附件处理和图片数量精确预算，不固定冻结 2 USD，不用金额阈值判断生图。
+- 2 USD 不是最低授权额；资金不足时在原子事务内使用 `min(2 USD, 单一资金来源真实可用额度)` 作为动态上限，精确收紧未显式指定的输出或多图数量，不采用阶梯重试，也不保留固定 0.5 USD 死区。
 - GPT-5.5 为 2x，GPT-5.6 为 2.5x，GPT Image 2 为 2x；倍率只应用一次。文字与生图混合仍使用同一个 authorization。
-- 最低输出预算为 256 Token，允许多图；历史 reservation/debt reconciliation、migration、部署和真实 Key 验证暂缓。Token 精确统计和多图超预算策略仍待最终确认。
+- 最低输出预算为 256 Token；取消固定 10% 安全系数，按最终变换后的文本精确 Token 和附件保守上界预算。允许多图，超出同一 authorization 的剩余 2 USD 预算时只生成可覆盖部分并停止新增图片。
+- 当前内层 ChatGPT OAuth 上游不支持官方 `POST /v1/responses/input_tokens`，不能作为生产计费预授权的唯一依赖；内部预授权统一使用本地预算器，公开端点明确返回 501。
+- 本次 P0/P1 开发采用隔离双层候选环境：外层 `18081` 使用外层数据库克隆，内层 `18087` 使用内层数据库克隆，两套 Redis 均为空且独立；真实请求只走 `18081 -> 18087`，公网 `18080/18086` 不迁移、不重启、不写入。最终设计见 `docs/ai/context/20260728-162444-openai-billing-atomic-hold-final-design_CN.md`。
 - 截至 2026-07-28 08:18，内层 OpenAI OAuth 共 399 个，`active/schedulable` 320 个；`active/schedulable` 不等于已验证支持 `gpt-5.4`。
 - 详细事实、状态机、预算公式和账号池规范见最新压缩记忆，不在本文件重复流水。
 

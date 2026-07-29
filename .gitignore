@@ -116,7 +116,9 @@ deploy/config.yaml
 deploy/.env.*
 deploy/backups/
 !deploy/.env.candidate.local.example
+!deploy/.env.openai-billing-candidate.local.example
 deploy/candidate/
+deploy/openai-billing-candidate/
 backend/.installed
 deploy/.env.scheme-a.runtime
 deploy/cloudflared-windows-aaccx.yml

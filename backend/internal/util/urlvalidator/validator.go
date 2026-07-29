@@ -111,18 +111,31 @@ func ValidateResolvedIP(host string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	_, err := ResolvePublicHost(ctx, host)
+	return err
+}
+
+// ResolvePublicHost 在实际连接前解析并校验地址，避免 DNS 重绑定把请求导向私网。
+func ResolvePublicHost(ctx context.Context, host string) ([]net.IP, error) {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return nil, errors.New("host is required")
+	}
 	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
 	if err != nil {
-		return fmt.Errorf("dns resolution failed: %w", err)
+		return nil, fmt.Errorf("dns resolution failed: %w", err)
 	}
 
 	for _, ip := range ips {
 		if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
 			ip.IsLinkLocalMulticast() || ip.IsUnspecified() {
-			return fmt.Errorf("resolved ip %s is not allowed", ip.String())
+			return nil, fmt.Errorf("resolved ip %s is not allowed", ip.String())
 		}
 	}
-	return nil
+	if len(ips) == 0 {
+		return nil, errors.New("dns resolution returned no addresses")
+	}
+	return ips, nil
 }
 
 func normalizeAllowlist(values []string) []string {

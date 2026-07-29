@@ -118,8 +118,9 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 		"debt",
 		"failed",
 	)
-	requireColumn(t, tx, "usage_facts", "reservation_id", "bigint", 0, true)
-	requireIndex(t, tx, "usage_facts", "idx_usage_facts_reservation_id")
+	requireColumn(t, tx, "usage_facts", "authorization_id", "bigint", 0, true)
+	requireNoColumn(t, tx, "usage_facts", "reservation_id")
+	requireIndex(t, tx, "usage_facts", "idx_usage_facts_authorization_id")
 	requireIndex(t, tx, "usage_facts", "idx_usage_facts_dashboard_user_completed")
 	requireIndexDefinitionContains(
 		t,
@@ -214,19 +215,25 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 		"'revoked'",
 	)
 
-	// traffic credit reservations: 请求前预留与 debt gate
+	// 通用计费授权：请求前固定资金来源与债务拦截。
 	requireColumn(t, tx, "user_traffic_credits", "reserved_usd", "numeric", 0, false)
 	var reservationsRegclass sql.NullString
-	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_reservations')").Scan(&reservationsRegclass))
-	require.True(t, reservationsRegclass.Valid, "expected traffic_credit_reservations table to exist")
-	requireColumn(t, tx, "traffic_credit_reservations", "reserved_usd", "numeric", 0, false)
-	requireColumn(t, tx, "traffic_credit_reservations", "debt_usd", "numeric", 0, false)
-	requireIndex(t, tx, "traffic_credit_reservations", "idx_traffic_credit_reservations_request_api_key")
-	requireIndex(t, tx, "traffic_credit_reservations", "idx_traffic_credit_reservations_user_debt")
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.billing_authorizations')").Scan(&reservationsRegclass))
+	require.True(t, reservationsRegclass.Valid, "expected billing_authorizations table to exist")
+	requireColumn(t, tx, "billing_authorizations", "reserved_usd", "numeric", 0, false)
+	requireColumn(t, tx, "billing_authorizations", "debt_usd", "numeric", 0, false)
+	requireColumn(t, tx, "billing_authorizations", "billing_source", "character varying", 20, false)
+	requireColumn(t, tx, "billing_authorizations", "estimate_breakdown", "jsonb", 0, false)
+	requireColumn(t, tx, "billing_authorizations", "estimator_version", "character varying", 64, false)
+	requireColumn(t, tx, "billing_authorizations", "suspense_usd", "numeric", 0, false)
+	requireIndex(t, tx, "billing_authorizations", "idx_traffic_credit_reservations_request_api_key")
+	requireIndex(t, tx, "billing_authorizations", "idx_traffic_credit_reservations_user_debt")
+	requireIndex(t, tx, "billing_authorizations", "idx_billing_authorizations_subscription_active")
+	requireIndex(t, tx, "billing_authorizations", "idx_billing_authorizations_unknown_reconcile")
 
 	var reservationItemsRegclass sql.NullString
-	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_reservation_items')").Scan(&reservationItemsRegclass))
-	require.True(t, reservationItemsRegclass.Valid, "expected traffic_credit_reservation_items table to exist")
+	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.billing_authorization_traffic_credit_items')").Scan(&reservationItemsRegclass))
+	require.True(t, reservationItemsRegclass.Valid, "expected billing_authorization_traffic_credit_items table to exist")
 
 	var exhaustionEventsRegclass sql.NullString
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.traffic_credit_exhaustion_events')").Scan(&exhaustionEventsRegclass))

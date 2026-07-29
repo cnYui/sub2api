@@ -92,6 +92,62 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
 }
 
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEditReadsUploadDimensions(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = part.Write(inlinePNGBytes(t, 1024, 768))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body.Bytes())
+
+	require.NoError(t, err)
+	require.Len(t, parsed.Uploads, 1)
+	require.Equal(t, 1024, parsed.Uploads[0].Width)
+	require.Equal(t, 768, parsed.Uploads[0].Height)
+}
+
+func TestOpenAIImagesInputTokenUpperBoundUsesUploadDimensions(t *testing.T) {
+	parsed := &OpenAIImagesRequest{
+		Endpoint: openAIImagesEditsEndpoint,
+		Uploads: []OpenAIImagesUpload{{
+			ContentType: "image/png",
+			Data:        inlinePNGBytes(t, 1024, 768),
+			Width:       1024,
+			Height:      768,
+		}},
+	}
+
+	got := openAIImagesInputTokenUpperBound(parsed)
+
+	require.Equal(t, 765, got)
+}
+
+func TestInspectOpenAIImagesInputTokensIncludesURLAndMask(t *testing.T) {
+	imageData := inlinePNGDataURL(t, 512, 512)
+	parsed := &OpenAIImagesRequest{
+		Endpoint:       openAIImagesEditsEndpoint,
+		Model:          "gpt-image-2",
+		InputImageURLs: []string{imageData},
+		MaskImageURL:   imageData,
+	}
+
+	got, err := inspectOpenAIImagesInputTokens(context.Background(), parsed)
+
+	require.NoError(t, err)
+	require.Equal(t, 2*(85+170), got)
+}
+
 func TestOpenAIImagesBudgetBody_ExcludesMultipartUploadBytes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	var body bytes.Buffer

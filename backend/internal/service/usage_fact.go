@@ -42,12 +42,14 @@ type UsageSettlementEffectsPayload struct {
 }
 
 type UsageFact struct {
-	ID                  int64
-	RequestID           string
-	APIKeyID            int64
-	UserID              int64
-	AccountID           int64
-	RequestFingerprint  string
+	ID                 int64
+	RequestID          string
+	APIKeyID           int64
+	UserID             int64
+	AccountID          int64
+	RequestFingerprint string
+	AuthorizationID    *int64
+	// ReservationID 在旧仓储仍读取该字段期间保留，后续统一改为 authorization_id。
 	ReservationID       *int64
 	EntitlementPeriodID *int64
 	PayloadVersion      int
@@ -106,6 +108,7 @@ func NewUsageFact(payload UsageFactPayload) (*UsageFact, error) {
 		UserID:              payload.BillingCommand.UserID,
 		AccountID:           payload.BillingCommand.AccountID,
 		RequestFingerprint:  payload.BillingCommand.RequestFingerprint,
+		AuthorizationID:     payload.BillingCommand.AuthorizationID,
 		ReservationID:       payload.BillingCommand.TrafficCreditReservationID,
 		EntitlementPeriodID: payload.BillingCommand.EntitlementPeriodID,
 		PayloadVersion:      UsageFactPayloadVersion1,

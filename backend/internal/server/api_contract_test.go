@@ -5,6 +5,8 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"io"
 	"math"
@@ -2025,6 +2027,9 @@ func (stubUserSubscriptionRepo) Update(ctx context.Context, sub *service.UserSub
 func (stubUserSubscriptionRepo) Delete(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }
+func (stubUserSubscriptionRepo) HardDelete(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
+}
 func (r *stubUserSubscriptionRepo) ListByUserID(ctx context.Context, userID int64) ([]service.UserSubscription, error) {
 	if r.byUser == nil {
 		return nil, nil
@@ -2153,6 +2158,20 @@ func (r *stubApiKeyRepo) GetByKey(ctx context.Context, key string) (*service.API
 	}
 	clone := *found
 	return &clone, nil
+}
+
+func (r *stubApiKeyRepo) GetActiveBySHA256Hash(ctx context.Context, hash string) (*service.APIKey, error) {
+	for _, candidate := range r.byID {
+		if candidate.Status != service.StatusActive {
+			continue
+		}
+		sum := sha256.Sum256([]byte(candidate.Key))
+		if hex.EncodeToString(sum[:]) == hash {
+			clone := *candidate
+			return &clone, nil
+		}
+	}
+	return nil, service.ErrAPIKeyNotFound
 }
 
 func (r *stubApiKeyRepo) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
