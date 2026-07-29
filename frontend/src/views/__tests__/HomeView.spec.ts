@@ -90,9 +90,9 @@ describe('HomeView', () => {
     })
   })
 
-  it('未登录首页只保留 Hero 区一个登录入口', () => {
+  it('未登录首页 Hero 区只保留一个主登录入口', () => {
     const wrapper = mountHomeView()
-    const loginLinks = wrapper.findAll('a[href="/login"]')
+    const loginLinks = wrapper.findAll('a.btn[href="/login"]')
 
     expect(loginLinks).toHaveLength(1)
   })
@@ -127,14 +127,42 @@ describe('HomeView', () => {
     expect(source).not.toContain('使用 cc-switch 项目，一键接入 API 到 Codex')
   })
 
-  it('只展示当前支持的模型', () => {
-    const source = readSource('src/views/HomeView.vue')
+  it('只展示 GPT-5.6 模型', () => {
+    const wrapper = mountHomeView()
 
-    expect(source).toContain('GPT 5.3')
-    expect(source).toContain('Codex 5.4')
-    expect(source).toContain('GPT 5.5')
-    expect(source).not.toContain('home.providers.claude')
-    expect(source).not.toContain('home.providers.gemini')
-    expect(source).not.toContain('home.providers.antigravity')
+    expect(wrapper.text()).toContain('gpt-5.6-luna')
+    expect(wrapper.text()).toContain('gpt-5.6-sol')
+    expect(wrapper.text()).toContain('gpt-5.6-terra')
+    expect(wrapper.text()).not.toContain('GPT 5.3')
+    expect(wrapper.text()).not.toContain('Codex 5.4')
+    expect(wrapper.text()).not.toContain('GPT 5.5')
+  })
+
+  it('完整展示订阅套餐与流量卡价格', () => {
+    const wrapper = mountHomeView()
+    const priceList = wrapper.get('[data-testid="home-price-list"]')
+
+    expect(priceList.findAll('[data-testid="home-product-card"]')).toHaveLength(13)
+    for (const price of ['¥29', '¥39', '¥49', '¥59', '¥79', '¥99', '¥149', '¥199', '¥249', '¥299']) {
+      expect(priceList.text()).toContain(price)
+    }
+    expect(priceList.text()).toContain('5 刀额度')
+    expect(priceList.text()).toContain('¥2')
+    expect(priceList.text()).toContain('10 刀额度')
+    expect(priceList.text()).toContain('¥3')
+    expect(priceList.text()).toContain('20 刀额度')
+    expect(priceList.text()).toContain('¥5')
+    expect(priceList.text()).toContain('365 天有效')
+  })
+
+  it('商品卡按登录状态前往登录页或购买页', () => {
+    const loggedOut = mountHomeView()
+    const loggedOutLinks = loggedOut.findAll('[data-testid="home-product-link"]')
+    expect(loggedOutLinks).toHaveLength(13)
+    loggedOutLinks.forEach(link => expect(link.attributes('href')).toBe('/login'))
+
+    mockStores.authStore.isAuthenticated = true
+    const loggedIn = mountHomeView()
+    loggedIn.findAll('[data-testid="home-product-link"]').forEach(link => expect(link.attributes('href')).toBe('/purchase'))
   })
 })

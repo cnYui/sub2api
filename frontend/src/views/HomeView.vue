@@ -283,9 +283,10 @@
           </p>
         </div>
 
-        <div class="mb-16 flex flex-wrap items-center justify-center gap-4">
-          <!-- GPT 5.3 - Supported -->
+        <div class="mb-12 flex flex-wrap items-center justify-center gap-4">
           <div
+            v-for="model in supportedModels"
+            :key="model"
             class="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 dark:border-dark-700 dark:bg-dark-900"
           >
             <div
@@ -293,44 +294,39 @@
             >
               <span class="text-xs font-bold text-white dark:text-dark-950">G</span>
             </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT 5.3</span>
-            <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-dark-700 dark:text-gray-200"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- Codex 5.4 - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-md bg-gray-900 dark:bg-gray-100"
-            >
-              <span class="text-xs font-bold text-white dark:text-dark-950">C</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">Codex 5.4</span>
-            <span
-              class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-dark-700 dark:text-gray-200"
-              >{{ t('home.providers.supported') }}</span
-            >
-          </div>
-          <!-- GPT 5.5 - Supported -->
-          <div
-            class="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-5 py-3 dark:border-dark-700 dark:bg-dark-900"
-          >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-md bg-gray-900 dark:bg-gray-100"
-            >
-              <span class="text-xs font-bold text-white dark:text-dark-950">G</span>
-            </div>
-            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">GPT 5.5</span>
+            <span class="text-sm font-medium text-gray-700 dark:text-dark-200">{{ model }}</span>
             <span
               class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-dark-700 dark:text-gray-200"
               >{{ t('home.providers.supported') }}</span
             >
           </div>
         </div>
-      </div>
+
+        <section data-testid="home-price-list" class="mb-16">
+          <div class="mb-6 text-center">
+            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">套餐与流量卡</h2>
+            <p class="mt-2 text-sm text-gray-600 dark:text-dark-400">订阅套餐 28 天有效，流量卡 365 天有效</p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <router-link
+              v-for="product in homeProducts"
+              :key="product.title"
+              :to="purchasePath"
+              data-testid="home-product-link"
+              class="group block rounded-lg border border-gray-200 bg-white p-5 transition-colors hover:border-gray-400 dark:border-dark-700 dark:bg-dark-900 dark:hover:border-dark-500"
+            >
+              <article data-testid="home-product-card">
+                <p class="text-xs font-medium text-gray-500 dark:text-dark-400">{{ product.category }}</p>
+                <div class="mt-2 flex items-baseline justify-between gap-3">
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ product.title }}</h3>
+                  <span class="text-lg font-bold text-gray-950 dark:text-gray-100">{{ product.price }}</span>
+                </div>
+                <p class="mt-3 text-sm text-gray-600 dark:text-dark-300">{{ product.detail }}</p>
+              </article>
+            </router-link>
+          </div>
+        </section>
+        </div>
     </main>
 
     <!-- Footer -->
@@ -400,10 +396,29 @@ const isDark = ref(document.documentElement.classList.contains('dark'))
 // GitHub URL
 const githubUrl = 'https://github.com/Wei-Shaw/sub2api'
 
+const supportedModels = ['gpt-5.6-luna', 'gpt-5.6-sol', 'gpt-5.6-terra'] as const
+
+const homeProducts = [
+  { category: '订阅套餐', title: '29 元套餐', price: '¥29', detail: '28 天有效' },
+  { category: '订阅套餐', title: '39 元套餐', price: '¥39', detail: '28 天有效' },
+  { category: '订阅套餐', title: '49 元套餐', price: '¥49', detail: '28 天有效' },
+  { category: '订阅套餐', title: '59 元套餐', price: '¥59', detail: '28 天有效' },
+  { category: '订阅套餐', title: '79 元套餐', price: '¥79', detail: '28 天有效' },
+  { category: '订阅套餐', title: '99 元套餐', price: '¥99', detail: '28 天有效' },
+  { category: '订阅套餐', title: '149 元套餐', price: '¥149', detail: '28 天有效' },
+  { category: '订阅套餐', title: '199 元套餐', price: '¥199', detail: '28 天有效' },
+  { category: '订阅套餐', title: '249 元套餐', price: '¥249', detail: '28 天有效' },
+  { category: '订阅套餐', title: '299 元套餐', price: '¥299', detail: '28 天有效' },
+  { category: 'GPT 流量卡', title: '5 刀额度', price: '¥2', detail: '365 天有效' },
+  { category: 'GPT 流量卡', title: '10 刀额度', price: '¥3', detail: '365 天有效' },
+  { category: 'GPT 流量卡', title: '20 刀额度', price: '¥5', detail: '365 天有效' },
+] as const
+
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
 const dashboardPath = computed(() => isAdmin.value ? '/admin/dashboard' : '/dashboard')
+const purchasePath = computed(() => isAuthenticated.value ? '/purchase' : '/login')
 const userInitial = computed(() => {
   const user = authStore.user
   if (!user || !user.email) return ''
