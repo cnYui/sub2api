@@ -22,6 +22,7 @@ var ErrOpenAIBillingBudgetInvalidPlan = errors.New("openai billing budget plan i
 type OpenAIBillingBudgetPlan struct {
 	OriginalBody           []byte
 	OutputLimitField       string
+	ImageCountField        string
 	ExplicitOutputLimit    bool
 	RequestedOutputTokens  int
 	DefaultOutputTokens    int
@@ -55,36 +56,53 @@ type OpenAIBillingBudgetFit struct {
 func FitOpenAIBillingBudget(plan OpenAIBillingBudgetPlan, availableUSD float64, mode BillingAuthorizationReserveMode) (OpenAIBillingBudgetFit, error) {
 	requestedOutputTokens := plan.requestedOutputTokens()
 	minimumOutputTokens := plan.minimumOutputTokens()
-	fixedCostUSD, imageOutputUSD, err := plan.fixedCostUSD()
+	fixedInputUSD, err := plan.fixedInputCostUSD()
 	if err != nil {
 		return OpenAIBillingBudgetFit{}, err
 	}
-	fullCostUSD := fixedCostUSD + float64(requestedOutputTokens)*plan.OutputUSDPerToken
+	fullImageCount := len(plan.ImageOutputUSDPerImage)
+	fullImageOutputUSD := plan.imageOutputCostUSD(fullImageCount)
+	fullCostUSD := fixedInputUSD + fullImageOutputUSD + float64(requestedOutputTokens)*plan.OutputUSDPerToken
 	if fullCostUSD > OpenAIBillingHardCapUSD && mode == BillingAuthorizationReserveFull {
 		return OpenAIBillingBudgetFit{}, ErrOpenAIBillingBudgetExceedsHardCap
 	}
 
 	capUSD := math.Min(OpenAIBillingHardCapUSD, math.Max(0, availableUSD))
 	if fullCostUSD <= capUSD {
-		return plan.newFit(requestedOutputTokens, fixedCostUSD, imageOutputUSD)
+		return plan.newFit(requestedOutputTokens, fullImageCount, fixedInputUSD, fullImageOutputUSD)
 	}
-	if mode == BillingAuthorizationReserveFull || plan.ExplicitOutputLimit || plan.OutputUSDPerToken <= 0 {
+	if mode == BillingAuthorizationReserveFull {
 		return OpenAIBillingBudgetFit{}, ErrOpenAIBillingBudgetInsufficient
 	}
 
-	availableOutputUSD := capUSD - fixedCostUSD
-	if availableOutputUSD < 0 {
-		return OpenAIBillingBudgetFit{}, ErrOpenAIBillingBudgetInsufficient
+	minimumImageCount := 0
+	if fullImageCount > 0 {
+		minimumImageCount = 1
 	}
-	effectiveOutputTokens := int(math.Floor(availableOutputUSD/plan.OutputUSDPerToken + 1e-9))
-	if effectiveOutputTokens > requestedOutputTokens {
-		effectiveOutputTokens = requestedOutputTokens
-	}
-	if effectiveOutputTokens < minimumOutputTokens {
-		return OpenAIBillingBudgetFit{}, ErrOpenAIBillingBudgetInsufficient
+	for imageCount := fullImageCount; imageCount >= minimumImageCount; imageCount-- {
+		if imageCount < fullImageCount && plan.ImageCountField == "" {
+			break
+		}
+		imageOutputUSD := plan.imageOutputCostUSD(imageCount)
+		availableOutputUSD := capUSD - fixedInputUSD - imageOutputUSD
+		if availableOutputUSD < 0 {
+			continue
+		}
+
+		effectiveOutputTokens := requestedOutputTokens
+		if float64(effectiveOutputTokens)*plan.OutputUSDPerToken > availableOutputUSD {
+			if plan.ExplicitOutputLimit || plan.OutputUSDPerToken <= 0 {
+				continue
+			}
+			effectiveOutputTokens = int(math.Floor(availableOutputUSD/plan.OutputUSDPerToken + 1e-9))
+		}
+		if effectiveOutputTokens < minimumOutputTokens && requestedOutputTokens > 0 {
+			continue
+		}
+		return plan.newFit(effectiveOutputTokens, imageCount, fixedInputUSD, imageOutputUSD)
 	}
 
-	return plan.newFit(effectiveOutputTokens, fixedCostUSD, imageOutputUSD)
+	return OpenAIBillingBudgetFit{}, ErrOpenAIBillingBudgetInsufficient
 }
 
 func (p OpenAIBillingBudgetPlan) requestedOutputTokens() int {
@@ -104,23 +122,35 @@ func (p OpenAIBillingBudgetPlan) minimumOutputTokens() int {
 	return OpenAIBillingMinOutputTokens
 }
 
-func (p OpenAIBillingBudgetPlan) fixedCostUSD() (float64, float64, error) {
+func (p OpenAIBillingBudgetPlan) fixedInputCostUSD() (float64, error) {
 	if p.FixedInputUSD < 0 || p.OutputUSDPerToken < 0 {
-		return 0, 0, ErrOpenAIBillingBudgetInvalidPlan
+		return 0, ErrOpenAIBillingBudgetInvalidPlan
 	}
 
-	imageOutputUSD := 0.0
 	for _, costUSD := range p.ImageOutputUSDPerImage {
 		if costUSD < 0 {
-			return 0, 0, ErrOpenAIBillingBudgetInvalidPlan
+			return 0, ErrOpenAIBillingBudgetInvalidPlan
 		}
-		imageOutputUSD += costUSD
 	}
-	return p.FixedInputUSD + imageOutputUSD, imageOutputUSD, nil
+	return p.FixedInputUSD, nil
 }
 
-func (p OpenAIBillingBudgetPlan) newFit(outputTokens int, fixedCostUSD, imageOutputUSD float64) (OpenAIBillingBudgetFit, error) {
-	body, err := p.withOutputLimit(outputTokens)
+func (p OpenAIBillingBudgetPlan) imageOutputCostUSD(imageCount int) float64 {
+	if imageCount <= 0 {
+		return 0
+	}
+	if imageCount > len(p.ImageOutputUSDPerImage) {
+		imageCount = len(p.ImageOutputUSDPerImage)
+	}
+	costUSD := 0.0
+	for _, imageCostUSD := range p.ImageOutputUSDPerImage[:imageCount] {
+		costUSD += imageCostUSD
+	}
+	return costUSD
+}
+
+func (p OpenAIBillingBudgetPlan) newFit(outputTokens, imageCount int, fixedInputUSD, imageOutputUSD float64) (OpenAIBillingBudgetFit, error) {
+	body, err := p.withEffectiveLimits(outputTokens, imageCount)
 	if err != nil {
 		return OpenAIBillingBudgetFit{}, err
 	}
@@ -136,16 +166,18 @@ func (p OpenAIBillingBudgetPlan) newFit(outputTokens int, fixedCostUSD, imageOut
 
 	return OpenAIBillingBudgetFit{
 		EffectiveBody:            body,
-		EffectiveImageCount:      len(p.ImageOutputUSDPerImage),
+		EffectiveImageCount:      imageCount,
 		EffectiveMaxOutputTokens: outputTokens,
-		ReserveUSD:               roundOpenAIBillingUSD(fixedCostUSD + breakdown.OutputUSD),
+		ReserveUSD:               roundOpenAIBillingUSD(fixedInputUSD + imageOutputUSD + breakdown.OutputUSD),
 		PricingSnapshot:          append(json.RawMessage(nil), p.PricingSnapshot...),
 		EstimateBreakdown:        breakdownJSON,
 	}, nil
 }
 
-func (p OpenAIBillingBudgetPlan) withOutputLimit(outputTokens int) ([]byte, error) {
-	if p.ExplicitOutputLimit || p.OutputLimitField == "" || outputTokens <= 0 {
+func (p OpenAIBillingBudgetPlan) withEffectiveLimits(outputTokens, imageCount int) ([]byte, error) {
+	updateOutput := !p.ExplicitOutputLimit && p.OutputLimitField != "" && outputTokens > 0
+	updateImageCount := p.ImageCountField != "" && imageCount >= 0 && imageCount != len(p.ImageOutputUSDPerImage)
+	if !updateOutput && !updateImageCount {
 		return append([]byte(nil), p.OriginalBody...), nil
 	}
 
@@ -153,11 +185,20 @@ func (p OpenAIBillingBudgetPlan) withOutputLimit(outputTokens int) ([]byte, erro
 	if err := json.Unmarshal(p.OriginalBody, &body); err != nil {
 		return nil, ErrOpenAIBillingBudgetInvalidPlan
 	}
-	encodedTokens, err := json.Marshal(outputTokens)
-	if err != nil {
-		return nil, err
+	if updateOutput {
+		encodedTokens, err := json.Marshal(outputTokens)
+		if err != nil {
+			return nil, err
+		}
+		body[p.OutputLimitField] = encodedTokens
 	}
-	body[p.OutputLimitField] = encodedTokens
+	if updateImageCount {
+		encodedCount, err := json.Marshal(imageCount)
+		if err != nil {
+			return nil, err
+		}
+		body[p.ImageCountField] = encodedCount
+	}
 	return json.Marshal(body)
 }
 
@@ -177,6 +218,45 @@ func EstimateOpenAITextInputTokens(body []byte) (int, error) {
 		return 1, nil
 	}
 	return tokens, nil
+}
+
+// EstimateOpenAIAttachmentInputTokens 将已解析附件换算为文本、图片和 PDF 的输入预算组件。
+func EstimateOpenAIAttachmentInputTokens(model string, inspection OpenAIAttachmentInspection) (int, int) {
+	imageTokens := 0
+	for _, imageInput := range inspection.Images {
+		imageTokens += estimateOpenAIImageInputTokens(model, imageInput)
+	}
+
+	pdfTokens := 0
+	for _, pdfInput := range inspection.PDFs {
+		pdfTokens += pdfInput.TextTokens
+		for _, page := range pdfInput.Pages {
+			pdfTokens += estimateOpenAIImageInputTokens(model, page)
+		}
+	}
+	return imageTokens, pdfTokens
+}
+
+func estimateOpenAIImageInputTokens(_ string, imageInput OpenAIImageInput) int {
+	if imageInput.Width <= 0 || imageInput.Height <= 0 {
+		return 0
+	}
+	if strings.EqualFold(strings.TrimSpace(imageInput.Detail), "low") {
+		return 85
+	}
+
+	width := imageInput.Width
+	height := imageInput.Height
+	if width > 2048 || height > 2048 {
+		scale := math.Min(2048/float64(width), 2048/float64(height))
+		width = int(math.Ceil(float64(width) * scale))
+		height = int(math.Ceil(float64(height) * scale))
+	}
+	tiles := int(math.Ceil(float64(width)/512)) * int(math.Ceil(float64(height)/512))
+	if tiles < 1 {
+		tiles = 1
+	}
+	return 85 + tiles*170
 }
 
 func estimateOpenAIJSONTokens(value any, field string) int {

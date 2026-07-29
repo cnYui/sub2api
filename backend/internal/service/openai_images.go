@@ -391,7 +391,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			partContentType := strings.TrimSpace(part.Header.Get("Content-Type"))
 			if name == "mask" && len(data) > 0 {
 				req.HasMask = true
-				width, height := parseOpenAIImageDimensions(part.Header)
+				width, height := parseOpenAIImageDimensions(data)
 				maskUpload := OpenAIImagesUpload{
 					FieldName:   name,
 					FileName:    fileName,
@@ -403,7 +403,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 				req.MaskUpload = &maskUpload
 			}
 			if name == "image" || strings.HasPrefix(name, "image[") {
-				width, height := parseOpenAIImageDimensions(part.Header)
+				width, height := parseOpenAIImageDimensions(data)
 				req.Uploads = append(req.Uploads, OpenAIImagesUpload{
 					FieldName:   name,
 					FileName:    fileName,
@@ -485,8 +485,12 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 	return nil
 }
 
-func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {
-	return 0, 0
+func parseOpenAIImageDimensions(data []byte) (int, int) {
+	imageInput, err := inspectOpenAIImageBytes(data, http.DetectContentType(data), "auto")
+	if err != nil {
+		return 0, 0
+	}
+	return imageInput.Width, imageInput.Height
 }
 
 func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
@@ -612,14 +616,15 @@ func openAIImagesInputTokenUpperBound(req *OpenAIImagesRequest) int {
 	if req == nil || !req.IsEdits() {
 		return 0
 	}
-	imageCount := len(req.InputImageURLs) + len(req.Uploads)
-	if strings.TrimSpace(req.MaskImageURL) != "" || req.MaskUpload != nil {
-		imageCount++
+	inspection := OpenAIAttachmentInspection{}
+	for _, upload := range append(append([]OpenAIImagesUpload(nil), req.Uploads...), dereferenceOpenAIImageUpload(req.MaskUpload)...) {
+		if upload.Width <= 0 || upload.Height <= 0 {
+			return 0
+		}
+		inspection.Images = append(inspection.Images, OpenAIImageInput{Width: upload.Width, Height: upload.Height, Detail: "auto"})
 	}
-	if imageCount <= 0 {
-		return 0
-	}
-	return imageCount * gptImage2UnknownOutputTokenUpperBound
+	imageTokens, _ := EstimateOpenAIAttachmentInputTokens(req.Model, inspection)
+	return imageTokens
 }
 
 func (s *OpenAIGatewayService) AuthorizeImagesRequest(
@@ -647,6 +652,11 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		requestModel = "gpt-image-2"
 	}
 	if err := validateOpenAIImagesModel(requestModel); err != nil {
+		return nil, nil, err
+	}
+	imageInputTokens, err := inspectOpenAIImagesInputTokens(ctx, parsed)
+	if err != nil {
+		writeOpenAIBillingAuthorizationError(c, err)
 		return nil, nil, err
 	}
 	fingerprint := HashUsageRequestPayload(body)
@@ -687,7 +697,7 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		RateMultiplier:             rateMultiplier,
 		Body:                       body,
 		BudgetBody:                 buildOpenAIImagesBudgetBody(parsed),
-		ImageInputTokenUpperBound:  openAIImagesInputTokenUpperBound(parsed),
+		ImageInputTokenUpperBound:  imageInputTokens,
 		ImageOutputTokenUpperBound: openAIImagesOutputTokenUpperBound(parsed),
 		DoNotClampOutputLimit:      true,
 	})
@@ -706,6 +716,47 @@ func (s *OpenAIGatewayService) AuthorizeImagesRequest(
 		return authorization, authorization.EffectiveBody, nil
 	}
 	return authorization, append([]byte(nil), body...), nil
+}
+
+func inspectOpenAIImagesInputTokens(ctx context.Context, req *OpenAIImagesRequest) (int, error) {
+	if req == nil || !req.IsEdits() {
+		return 0, nil
+	}
+	inspection := OpenAIAttachmentInspection{}
+	for _, upload := range append(append([]OpenAIImagesUpload(nil), req.Uploads...), dereferenceOpenAIImageUpload(req.MaskUpload)...) {
+		if upload.Width <= 0 || upload.Height <= 0 {
+			return 0, ErrOpenAIAttachmentInvalid
+		}
+		inspection.Images = append(inspection.Images, OpenAIImageInput{Width: upload.Width, Height: upload.Height, Detail: "auto"})
+	}
+	imageURLs := append([]string(nil), req.InputImageURLs...)
+	if maskURL := strings.TrimSpace(req.MaskImageURL); maskURL != "" {
+		imageURLs = append(imageURLs, maskURL)
+	}
+	if len(imageURLs) > 0 {
+		input := make([]map[string]string, 0, len(imageURLs))
+		for _, imageURL := range imageURLs {
+			input = append(input, map[string]string{"type": "input_image", "image_url": imageURL, "detail": "auto"})
+		}
+		body, err := json.Marshal(map[string]any{"input": input})
+		if err != nil {
+			return 0, err
+		}
+		remoteInspection, err := NewOpenAIAttachmentInspector().Inspect(ctx, body)
+		if err != nil {
+			return 0, err
+		}
+		inspection.Images = append(inspection.Images, remoteInspection.Images...)
+	}
+	imageTokens, _ := EstimateOpenAIAttachmentInputTokens(req.Model, inspection)
+	return imageTokens, nil
+}
+
+func dereferenceOpenAIImageUpload(upload *OpenAIImagesUpload) []OpenAIImagesUpload {
+	if upload == nil {
+		return nil
+	}
+	return []OpenAIImagesUpload{*upload}
 }
 
 func (s *OpenAIGatewayService) ForwardImages(

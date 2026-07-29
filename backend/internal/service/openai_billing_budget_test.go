@@ -132,6 +132,37 @@ func TestEstimateOpenAITextInputTokensIncludesToolsAndJSONSchema(t *testing.T) {
 	require.Greater(t, withTools, plain)
 }
 
+func TestEstimateOpenAIAttachmentInputTokensIncludesPDFTextAndPages(t *testing.T) {
+	inspection := OpenAIAttachmentInspection{
+		Images: []OpenAIImageInput{{Width: 1024, Height: 768, Detail: "high"}},
+		PDFs: []OpenAIPDFInspection{{
+			TextTokens: 41,
+			Pages:      []OpenAIImageInput{{Width: 612, Height: 792, Detail: "high"}, {Width: 612, Height: 792, Detail: "high"}},
+		}},
+	}
+
+	imageTokens, pdfTokens := EstimateOpenAIAttachmentInputTokens("gpt-5.6-terra", inspection)
+
+	require.Greater(t, imageTokens, 0)
+	require.Greater(t, pdfTokens, inspection.PDFs[0].TextTokens)
+}
+
+func TestFitOpenAIBillingBudgetReducesImageCountButKeepsAtLeastOne(t *testing.T) {
+	plan := OpenAIBillingBudgetPlan{
+		OriginalBody:           []byte(`{"model":"gpt-image-2","n":4}`),
+		ImageCountField:        "n",
+		FixedInputUSD:          0.05,
+		ImageOutputUSDPerImage: []float64{0.30, 0.30, 0.30, 0.30},
+	}
+
+	got, err := FitOpenAIBillingBudget(plan, 0.70, BillingAuthorizationReserveFit)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, got.EffectiveImageCount)
+	require.LessOrEqual(t, got.ReserveUSD, 0.70)
+	require.Equal(t, 2, effectiveOutputLimit(t, got.EffectiveBody, "n"))
+}
+
 func testTextBudgetPlan(fullCostUSD float64, explicit bool) OpenAIBillingBudgetPlan {
 	return OpenAIBillingBudgetPlan{
 		OriginalBody:          []byte(`{"model":"gpt-5.6-terra"}`),
