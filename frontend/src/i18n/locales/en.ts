@@ -13,11 +13,6 @@ export default {
     // User-focused value proposition
     heroSubtitle: 'One Key, All AI Models',
     heroDescription: 'No need to manage multiple subscriptions. Access GPT and Codex models with a single API key',
-    tags: {
-      subscriptionToApi: 'Subscription to API',
-      stickySession: 'Session Persistence',
-      realtimeBilling: '7-Day Refresh'
-    },
     // Pain points section
     painPoints: {
       title: 'Sound Familiar?',
@@ -44,16 +39,6 @@ export default {
     solutions: {
       title: 'We Solve These Problems',
       subtitle: 'Three simple steps to stress-free AI access'
-    },
-    features: {
-      unifiedGateway: '29 RMB Plan',
-      unifiedGatewayDesc: '28-day subscription, 76 USD weekly quota, refreshes every 7 days',
-      multiAccount: '39 RMB Plan',
-      multiAccountDesc: '28-day subscription, 102 USD weekly quota, refreshes every 7 days',
-      balanceQuota: '59 RMB Plan',
-      balanceQuotaDesc: '28-day subscription, 154 USD weekly quota, refreshes every 7 days',
-      premiumQuota: '99 RMB Plan',
-      premiumQuotaDesc: '28-day subscription, 258 USD weekly quota, refreshes every 7 days'
     },
     // Comparison section
     comparison: {

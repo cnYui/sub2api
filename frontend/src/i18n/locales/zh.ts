@@ -13,11 +13,6 @@ export default {
     // 新增：面向用户的价值主张
     heroSubtitle: '一个密钥，畅用多个 AI 模型',
     heroDescription: '无需管理多个订阅账号，一站式接入 GPT 与 Codex 等 AI 服务',
-    tags: {
-      subscriptionToApi: '订阅转 API',
-      stickySession: '会话保持',
-      realtimeBilling: '每 7 天刷新'
-    },
     // 用户痛点区块
     painPoints: {
       title: '你是否也遇到这些问题？',
@@ -44,16 +39,6 @@ export default {
     solutions: {
       title: '我们帮你解决',
       subtitle: '简单三步，开始省心使用 AI'
-    },
-    features: {
-      unifiedGateway: '29 元套餐',
-      unifiedGatewayDesc: '28 天订阅，每 7 天刷新，周额度 76 刀',
-      multiAccount: '39 元套餐',
-      multiAccountDesc: '28 天订阅，每 7 天刷新，周额度 102 刀',
-      balanceQuota: '59 元套餐',
-      balanceQuotaDesc: '28 天订阅，每 7 天刷新，周额度 154 刀',
-      premiumQuota: '99 元套餐',
-      premiumQuotaDesc: '28 天订阅，每 7 天刷新，周额度 258 刀'
     },
     // 优势对比
     comparison: {

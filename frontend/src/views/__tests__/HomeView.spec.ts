@@ -110,21 +110,24 @@ describe('HomeView', () => {
     expect(wrapper.text()).not.toContain('AI API Gateway')
   })
 
-  it('中文首页文案展示 28 天订阅、周额度和刷新规则', () => {
-    const source = readSource('src/i18n/locales/zh.ts')
+  it('不展示旧套餐卡与功能标签', () => {
+    const wrapper = mountHomeView()
 
-    expect(source).toContain("getStarted: '立即登录'")
-    expect(source).toContain("unifiedGateway: '29 元套餐'")
-    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 76 刀')
-    expect(source).toContain("multiAccount: '39 元套餐'")
-    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 102 刀')
-    expect(source).toContain("balanceQuota: '59 元套餐'")
-    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 154 刀')
-    expect(source).toContain("premiumQuota: '99 元套餐'")
-    expect(source).toContain('28 天订阅，每 7 天刷新，周额度 258 刀')
-    expect(source).not.toContain("getStarted: '立即开始'")
-    expect(source).not.toContain("realtimeBilling: '按量计费'")
-    expect(source).not.toContain('使用 cc-switch 项目，一键接入 API 到 Codex')
+    for (const key of [
+      'home.tags.subscriptionToApi',
+      'home.tags.stickySession',
+      'home.tags.realtimeBilling',
+      'home.features.unifiedGateway',
+      'home.features.multiAccount',
+      'home.features.balanceQuota',
+      'home.features.premiumQuota',
+    ]) {
+      expect(wrapper.text()).not.toContain(key)
+    }
+
+    const homeSource = readSource('src/views/HomeView.vue')
+    expect(homeSource).not.toContain('home.tags.')
+    expect(homeSource).not.toContain('home.features.')
   })
 
   it('只展示 GPT-5.6 模型', () => {
