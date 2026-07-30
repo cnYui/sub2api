@@ -97,6 +97,10 @@ func NewUsageFact(payload UsageFactPayload) (*UsageFact, error) {
 	if strings.TrimSpace(payload.BillingCommand.RequestID) == "" {
 		return nil, ErrUsageFactRequestIDRequired
 	}
+	if payload.BillingCommand.AuthorizationID == nil {
+		// 旧流量卡 reservation 已原地演进为通用 authorization，持久化负载与事实表必须引用同一授权。
+		payload.BillingCommand.AuthorizationID = payload.BillingCommand.TrafficCreditReservationID
+	}
 	raw, err := EncodeUsageFactPayload(payload)
 	if err != nil {
 		return nil, err

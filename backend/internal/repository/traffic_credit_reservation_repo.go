@@ -51,7 +51,7 @@ func (r *trafficCreditReservationRepository) Reserve(ctx context.Context, input 
 
 	var reservationID int64
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO traffic_credit_reservations (
+		INSERT INTO billing_authorizations (
 			request_id, api_key_id, user_id, platform, model,
 			request_fingerprint, pricing_snapshot, reserved_usd, expires_at
 		)
@@ -102,7 +102,7 @@ func (r *trafficCreditReservationRepository) Reserve(ctx context.Context, input 
 			return nil, false, err
 		}
 		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO traffic_credit_reservation_items (reservation_id, credit_id, reserved_usd)
+			INSERT INTO billing_authorization_traffic_credit_items (reservation_id, credit_id, reserved_usd)
 			VALUES ($1, $2, $3)
 		`, reservationID, item.CreditID, item.ReservedUSD); err != nil {
 			return nil, false, err
@@ -120,7 +120,7 @@ func (r *trafficCreditReservationRepository) Reserve(ctx context.Context, input 
 
 func (r *trafficCreditReservationRepository) MarkDispatched(ctx context.Context, reservationID int64) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET status = 'dispatched', updated_at = NOW()
 		WHERE id = $1 AND status = 'reserved'
 	`, reservationID)
@@ -129,7 +129,7 @@ func (r *trafficCreditReservationRepository) MarkDispatched(ctx context.Context,
 
 func (r *trafficCreditReservationRepository) MarkUnknown(ctx context.Context, reservationID int64, reason string) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET status = 'unknown', last_error = $2, updated_at = NOW()
 		WHERE id = $1 AND status IN ('reserved', 'dispatched')
 	`, reservationID, reason)
@@ -146,7 +146,7 @@ func (r *trafficCreditReservationRepository) Release(ctx context.Context, reserv
 	var status string
 	if err := tx.QueryRowContext(ctx, `
 		SELECT status
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE id = $1
 		FOR UPDATE
 	`, reservationID).Scan(&status); err != nil {
@@ -160,7 +160,7 @@ func (r *trafficCreditReservationRepository) Release(ctx context.Context, reserv
 	}
 	rows, err := tx.QueryContext(ctx, `
 		SELECT credit_id, reserved_usd
-		FROM traffic_credit_reservation_items
+		FROM billing_authorization_traffic_credit_items
 		WHERE reservation_id = $1
 		ORDER BY credit_id
 		FOR UPDATE
@@ -204,7 +204,7 @@ func (r *trafficCreditReservationRepository) Release(ctx context.Context, reserv
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET status = 'released', updated_at = $2
 		WHERE id = $1
 	`, reservationID, now); err != nil {
@@ -228,7 +228,7 @@ func (r *trafficCreditReservationRepository) ReleaseExpiredReserved(ctx context.
 
 	rows, err := tx.QueryContext(ctx, `
 		SELECT id
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE status = 'reserved' AND expires_at <= $1
 		ORDER BY expires_at ASC, id ASC
 		FOR UPDATE SKIP LOCKED
@@ -268,7 +268,7 @@ func (r *trafficCreditReservationRepository) HasOutstandingDebt(ctx context.Cont
 	err := r.db.QueryRowContext(ctx, `
 		SELECT EXISTS (
 			SELECT 1
-			FROM traffic_credit_reservations
+			FROM billing_authorizations
 			WHERE user_id = $1 AND platform = $2 AND status = 'debt' AND debt_usd > 0
 		)
 	`, userID, platform).Scan(&exists)
@@ -278,7 +278,7 @@ func (r *trafficCreditReservationRepository) HasOutstandingDebt(ctx context.Cont
 func releaseTrafficCreditReservationLocked(ctx context.Context, tx *sql.Tx, reservationID int64, now time.Time) error {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT credit_id, reserved_usd
-		FROM traffic_credit_reservation_items
+		FROM billing_authorization_traffic_credit_items
 		WHERE reservation_id = $1
 		ORDER BY credit_id
 		FOR UPDATE
@@ -326,7 +326,7 @@ func releaseTrafficCreditReservationLocked(ctx context.Context, tx *sql.Tx, rese
 		}
 	}
 	result, err := tx.ExecContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET status = 'released',
 			last_error = 'expired before dispatch',
 			updated_at = $2
@@ -397,7 +397,7 @@ func loadTrafficCreditReservation(ctx context.Context, tx *sql.Tx, requestID str
 		SELECT id, request_id, api_key_id, user_id, platform, model, request_fingerprint,
 			pricing_snapshot, reserved_usd, settled_usd, debt_usd, status, last_error,
 			expires_at, created_at, updated_at
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE request_id = $1 AND api_key_id = $2
 	`, requestID, apiKeyID), tx, ctx)
 }
@@ -407,7 +407,7 @@ func loadTrafficCreditReservationByID(ctx context.Context, tx *sql.Tx, id int64)
 		SELECT id, request_id, api_key_id, user_id, platform, model, request_fingerprint,
 			pricing_snapshot, reserved_usd, settled_usd, debt_usd, status, last_error,
 			expires_at, created_at, updated_at
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE id = $1
 	`, id), tx, ctx)
 }
@@ -438,7 +438,7 @@ func scanTrafficCreditReservation(scanner trafficCreditReservationScanner, tx *s
 	reservation.PricingSnapshot = append(json.RawMessage(nil), pricingSnapshot...)
 	rows, err := tx.QueryContext(ctx, `
 		SELECT credit_id, reserved_usd, settled_usd
-		FROM traffic_credit_reservation_items
+		FROM billing_authorization_traffic_credit_items
 		WHERE reservation_id = $1
 		ORDER BY credit_id
 	`, reservation.ID)

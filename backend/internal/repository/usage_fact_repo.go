@@ -47,12 +47,12 @@ func (r *usageFactRepository) CreatePending(ctx context.Context, fact *service.U
 	created, err := scanUsageFact(r.db.QueryRowContext(ctx, `
 			INSERT INTO usage_facts (
 				request_id, api_key_id, user_id, account_id, request_fingerprint,
-				payload_version, payload, billing_status, next_attempt_at, completed_at, reservation_id, entitlement_period_id
+				payload_version, payload, billing_status, next_attempt_at, completed_at, authorization_id, entitlement_period_id
 			)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
 			RETURNING id, request_id, api_key_id, user_id, account_id,
-				request_fingerprint, reservation_id, entitlement_period_id, payload_version, payload, billing_status,
+				request_fingerprint, authorization_id, entitlement_period_id, payload_version, payload, billing_status,
 				attempt_count, next_attempt_at, last_error, completed_at,
 				settled_at, created_at, updated_at
 		`,
@@ -65,7 +65,7 @@ func (r *usageFactRepository) CreatePending(ctx context.Context, fact *service.U
 		[]byte(fact.Payload),
 		fact.NextAttemptAt,
 		fact.CompletedAt,
-		fact.ReservationID,
+		fact.AuthorizationID,
 		fact.EntitlementPeriodID,
 	))
 	if err == nil {
@@ -77,7 +77,7 @@ func (r *usageFactRepository) CreatePending(ctx context.Context, fact *service.U
 
 	existing, err := scanUsageFact(r.db.QueryRowContext(ctx, `
 			SELECT id, request_id, api_key_id, user_id, account_id,
-				request_fingerprint, reservation_id, entitlement_period_id, payload_version, payload, billing_status,
+				request_fingerprint, authorization_id, entitlement_period_id, payload_version, payload, billing_status,
 				attempt_count, next_attempt_at, last_error, completed_at,
 				settled_at, created_at, updated_at
 			FROM usage_facts
@@ -102,7 +102,7 @@ func (r *usageFactRepository) FindByRequestID(ctx context.Context, requestID str
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, request_id, api_key_id, user_id, account_id,
-			request_fingerprint, reservation_id, entitlement_period_id, payload_version, payload, billing_status,
+			request_fingerprint, authorization_id, entitlement_period_id, payload_version, payload, billing_status,
 			attempt_count, next_attempt_at, last_error, completed_at,
 			settled_at, created_at, updated_at
 		FROM usage_facts
@@ -155,7 +155,7 @@ func (r *usageFactRepository) ClaimPending(ctx context.Context, limit int, now, 
 		FROM candidates
 			WHERE f.id = candidates.id
 			RETURNING f.id, f.request_id, f.api_key_id, f.user_id, f.account_id,
-				f.request_fingerprint, f.reservation_id, f.entitlement_period_id, f.payload_version, f.payload, f.billing_status,
+				f.request_fingerprint, f.authorization_id, f.entitlement_period_id, f.payload_version, f.payload, f.billing_status,
 				f.attempt_count, f.next_attempt_at, f.last_error, f.completed_at,
 				f.settled_at, f.created_at, f.updated_at
 	`, now, limit, leaseUntil)
@@ -219,7 +219,7 @@ func scanUsageFact(scanner usageFactScanner) (*service.UsageFact, error) {
 		&fact.UserID,
 		&fact.AccountID,
 		&fact.RequestFingerprint,
-		&fact.ReservationID,
+		&fact.AuthorizationID,
 		&entitlementPeriodID,
 		&fact.PayloadVersion,
 		&payload,
@@ -240,6 +240,10 @@ func scanUsageFact(scanner usageFactScanner) (*service.UsageFact, error) {
 	}
 	if entitlementPeriodID.Valid {
 		fact.EntitlementPeriodID = &entitlementPeriodID.Int64
+	}
+	if fact.AuthorizationID != nil {
+		// 保留内存兼容字段，避免未迁移的结算调用方丢失同一条授权关联。
+		fact.ReservationID = fact.AuthorizationID
 	}
 	return &fact, nil
 }

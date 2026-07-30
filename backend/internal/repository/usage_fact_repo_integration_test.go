@@ -30,6 +30,31 @@ func TestUsageFactRepository_CreatePendingIsIdempotent(t *testing.T) {
 	require.Equal(t, created.RequestFingerprint, again.RequestFingerprint)
 }
 
+func TestUsageFactRepository_PersistsAndClaimsAuthorizationID(t *testing.T) {
+	resetUsageFacts(t)
+	ctx := context.Background()
+	repo := NewUsageFactRepository(integrationDB)
+	fact := newUsageFactRepositoryTestFact("authorization-id")
+	authorizationID := int64(71)
+	fact.AuthorizationID = &authorizationID
+
+	created, inserted, err := repo.CreatePending(ctx, fact)
+	require.NoError(t, err)
+	require.True(t, inserted)
+	require.Equal(t, &authorizationID, created.AuthorizationID)
+
+	claimAt := time.Now().Add(time.Minute)
+	claimed, err := repo.ClaimPending(ctx, 1, claimAt, claimAt.Add(time.Minute))
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	require.Equal(t, &authorizationID, claimed[0].AuthorizationID)
+
+	found, err := repo.FindByRequestID(ctx, created.RequestID)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+	require.Equal(t, &authorizationID, found[0].AuthorizationID)
+}
+
 func TestUsageFactRepository_CreatePendingRejectsFingerprintConflict(t *testing.T) {
 	resetUsageFacts(t)
 	repo := NewUsageFactRepository(integrationDB)

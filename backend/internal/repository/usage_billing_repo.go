@@ -248,7 +248,7 @@ func settleUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx,
 		lastError = service.ErrInsufficientBalance.Error()
 	}
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET settled_usd = $2,
 			debt_usd = $3,
 			status = $4,
@@ -266,7 +266,7 @@ func loadUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx, r
 	err := tx.QueryRowContext(ctx, `
 		SELECT id, request_id, api_key_id, user_id, platform, request_fingerprint,
 			reserved_usd, debt_usd, status
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE id = $1
 		FOR UPDATE
 	`, reservationID).Scan(
@@ -295,7 +295,7 @@ func loadUsageBillingTrafficCreditReservation(ctx context.Context, tx *sql.Tx, r
 func listUsageBillingTrafficCreditReservationItems(ctx context.Context, tx *sql.Tx, reservationID int64) ([]usageBillingTrafficCreditReservationItem, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT i.credit_id, i.reserved_usd, i.settled_usd
-		FROM traffic_credit_reservation_items i
+		FROM billing_authorization_traffic_credit_items i
 		JOIN user_traffic_credits c ON c.id = i.credit_id
 		WHERE i.reservation_id = $1
 		ORDER BY c.expires_at ASC, c.credited_at ASC, c.id ASC
@@ -367,7 +367,7 @@ func settleUsageBillingTrafficCreditReservationItem(
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE traffic_credit_reservation_items
+		UPDATE billing_authorization_traffic_credit_items
 		SET settled_usd = settled_usd + $3
 		WHERE reservation_id = $1 AND credit_id = $2
 	`, reservationID, creditID, settleUSD); err != nil {

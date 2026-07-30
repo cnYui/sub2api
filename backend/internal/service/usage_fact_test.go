@@ -64,3 +64,20 @@ func TestNewUsageFactUsesBillingAuthorizationID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &authorizationID, fact.AuthorizationID)
 }
+
+func TestNewUsageFactMapsTrafficCreditReservationToAuthorizationID(t *testing.T) {
+	reservationID := int64(91)
+	fact, err := NewUsageFact(UsageFactPayload{BillingCommand: UsageBillingCommand{
+		RequestID:                  "req-legacy-traffic-credit",
+		APIKeyID:                   9,
+		UserID:                     7,
+		TrafficCreditReservationID: &reservationID,
+	}})
+	require.NoError(t, err)
+	require.Equal(t, &reservationID, fact.AuthorizationID)
+	require.Equal(t, &reservationID, fact.ReservationID)
+
+	storedPayload, err := DecodeUsageFactPayload(fact.PayloadVersion, fact.Payload)
+	require.NoError(t, err)
+	require.Equal(t, &reservationID, storedPayload.BillingCommand.AuthorizationID)
+}

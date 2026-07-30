@@ -393,7 +393,7 @@ func TestUsageBillingRepository_ReservationDebtDoesNotRollbackUsageFact(t *testi
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
 		SELECT COUNT(*)
 		FROM usage_facts
-		WHERE request_id = $1 AND api_key_id = $2 AND reservation_id = $3
+		WHERE request_id = $1 AND api_key_id = $2 AND authorization_id = $3
 	`, fixture.requestID, fixture.apiKeyID, fixture.reservationID).Scan(&factCount))
 	require.Equal(t, 1, factCount)
 }
@@ -645,7 +645,7 @@ func insertUsageBillingFactFixture(t *testing.T, fixture usageBillingReservation
 	_, err := integrationDB.ExecContext(ctx, `
 		INSERT INTO usage_facts (
 			request_id, api_key_id, user_id, account_id, request_fingerprint,
-			payload_version, payload, billing_status, completed_at, reservation_id
+			payload_version, payload, billing_status, completed_at, authorization_id
 		)
 		VALUES ($1, $2, $3, 0, $4, 1, '{}'::jsonb, 'pending', NOW(), $5)
 	`, fixture.requestID, fixture.apiKeyID, fixture.userID, fixture.fingerprint, fixture.reservationID)
@@ -677,7 +677,7 @@ func assertTrafficCreditReservationState(
 	var status string
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
 		SELECT settled_usd, debt_usd, status
-		FROM traffic_credit_reservations
+		FROM billing_authorizations
 		WHERE id = $1
 	`, reservationID).Scan(&settledUSD, &debtUSD, &status))
 	require.InDelta(t, wantSettledUSD, settledUSD, 1e-10)

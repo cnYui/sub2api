@@ -108,7 +108,7 @@ func TestTrafficCreditReservationRepository_ReleaseRestoresAvailableAmount(t *te
 	require.Zero(t, reservedUSD)
 
 	var status string
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM traffic_credit_reservations WHERE id = $1", reservation.ID).Scan(&status))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM billing_authorizations WHERE id = $1", reservation.ID).Scan(&status))
 	require.Equal(t, string(service.TrafficCreditReservationReleased), status)
 }
 
@@ -146,7 +146,7 @@ func TestTrafficCreditReservationRepository_ReleasesUndispatchedExpiredReservati
 	require.NoError(t, err)
 	now := time.Now().UTC()
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET expires_at = $2
 		WHERE id = $1
 		RETURNING id
@@ -168,7 +168,7 @@ func TestTrafficCreditReservationRepository_ReleasesUndispatchedExpiredReservati
 	require.Zero(t, reservedUSD)
 
 	var status string
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM traffic_credit_reservations WHERE id = $1", reservation.ID).Scan(&status))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM billing_authorizations WHERE id = $1", reservation.ID).Scan(&status))
 	require.Equal(t, string(service.TrafficCreditReservationReleased), status)
 }
 
@@ -181,7 +181,7 @@ func TestTrafficCreditReservationRepository_DoesNotReleaseDispatchedExpiredReser
 	require.NoError(t, repo.MarkDispatched(ctx, reservation.ID))
 	now := time.Now().UTC()
 	require.NoError(t, integrationDB.QueryRowContext(ctx, `
-		UPDATE traffic_credit_reservations
+		UPDATE billing_authorizations
 		SET expires_at = $2
 		WHERE id = $1
 		RETURNING id
@@ -201,7 +201,7 @@ func TestTrafficCreditReservationRepository_DoesNotReleaseDispatchedExpiredReser
 	require.InDelta(t, 0.6, reservedUSD, 1e-10)
 
 	var status string
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM traffic_credit_reservations WHERE id = $1", reservation.ID).Scan(&status))
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT status FROM billing_authorizations WHERE id = $1", reservation.ID).Scan(&status))
 	require.Equal(t, string(service.TrafficCreditReservationDispatched), status)
 }
 
