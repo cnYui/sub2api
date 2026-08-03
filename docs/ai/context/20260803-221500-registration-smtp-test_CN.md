@@ -12,5 +12,7 @@
 
 ## 验证
 
-- 待执行：确认 `registration_enabled=true` 持久化。
-- 待执行：确认测试邮件接口成功，并检查 `sub2api-official-18082` 日志。
+- `GET http://127.0.0.1:18082/api/v1/settings/public` 返回 `registration_enabled=true`，确认注册已开启并持久化。
+- `POST /api/v1/admin/settings/send-test-email` 返回 `code=0`、`Test email sent successfully`。
+- `sub2api-official-18082` 日志记录该发送接口 HTTP 200，耗时约 2522 ms。
+- 当前 SMTP 发件配置为 `smtp.gmail.com:587`、发件人 `xiaobianfuai@gmail.com`；密码未读取或输出。
