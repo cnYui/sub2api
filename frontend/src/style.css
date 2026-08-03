@@ -57,7 +57,7 @@
 
   /* 选中文本样式 */
   ::selection {
-    @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;
+    @apply bg-primary-200 text-gray-950 dark:bg-dark-700 dark:text-gray-100;
   }
 
 
@@ -69,16 +69,16 @@
     @apply inline-flex items-center justify-center gap-2;
     @apply rounded-xl px-4 py-2.5 text-sm font-medium;
     @apply transition-all duration-200 ease-out;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2;
+    @apply focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-2;
+    @apply dark:focus:ring-gray-100/30 dark:focus:ring-offset-dark-950;
     @apply disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50;
     @apply active:scale-[0.98];
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-600;
-    @apply text-white shadow-md shadow-primary-500/25;
-    @apply hover:from-primary-600 hover:to-primary-700 hover:shadow-lg hover:shadow-primary-500/30;
-    @apply dark:shadow-primary-500/20;
+    @apply bg-gray-900 text-white shadow-sm;
+    @apply hover:bg-gray-800 active:bg-black;
+    @apply dark:bg-gray-100 dark:text-dark-950 dark:hover:bg-white;
   }
 
   .btn-secondary {
@@ -101,17 +101,15 @@
   }
 
   .btn-success {
-    @apply bg-gradient-to-r from-emerald-500 to-emerald-600;
-    @apply text-white shadow-md shadow-emerald-500/25;
-    @apply hover:from-emerald-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-emerald-500/30;
-    @apply dark:shadow-emerald-500/20;
+    @apply bg-gray-900 text-white shadow-sm;
+    @apply hover:bg-gray-800;
+    @apply dark:bg-gray-100 dark:text-dark-950 dark:hover:bg-white;
   }
 
   .btn-warning {
-    @apply bg-gradient-to-r from-amber-500 to-amber-600;
-    @apply text-white shadow-md shadow-amber-500/25;
-    @apply hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-500/30;
-    @apply dark:shadow-amber-500/20;
+    @apply bg-gray-900 text-white shadow-sm;
+    @apply hover:bg-gray-800;
+    @apply dark:bg-gray-100 dark:text-dark-950 dark:hover:bg-white;
   }
 
   .btn-stripe {
@@ -221,7 +219,7 @@
 
   /* ============ 卡片样式 ============ */
   .card {
-    @apply bg-white dark:bg-dark-800/50;
+    @apply bg-white dark:bg-dark-900;
     @apply rounded-2xl;
     @apply border border-gray-100 dark:border-dark-700/50;
     @apply shadow-card;
