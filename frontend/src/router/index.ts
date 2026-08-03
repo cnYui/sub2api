@@ -303,7 +303,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/purchase',
     name: 'PurchaseSubscription',
-    component: () => import('@/views/user/PaymentView.vue'),
+    component: () => import('@/views/user/PurchaseShopView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
