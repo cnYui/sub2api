@@ -189,6 +189,20 @@ describe('decidePaymentLaunch', () => {
     expect(decision.paymentState.qrCode).toBe('https://pay.example.com/qr/session')
   })
 
+  it('keeps QR flow when ZPay returns a hosted QR image only', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      qr_image_url: 'https://zpayz.cn/qrcode/order-101.jpg',
+    }), {
+      visibleMethod: 'alipay',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('qr_waiting')
+    expect(decision.paymentState.qrCode).toBe('')
+    expect(decision.paymentState.qrImageUrl).toBe('https://zpayz.cn/qrcode/order-101.jpg')
+  })
+
   it('returns wechat oauth launch when backend requires in-app authorization', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       result_type: 'oauth_required',
@@ -381,6 +395,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 33,
       amount: 18,
       qrCode: '',
+      qrImageUrl: '',
       expiresAt: '2099-01-01T00:10:00.000Z',
       paymentType: 'alipay',
       payUrl: 'https://pay.example.com/session/33',
@@ -410,6 +425,7 @@ describe('readPaymentRecoverySnapshot', () => {
       orderId: 55,
       amount: 18,
       qrCode: '',
+      qrImageUrl: '',
       expiresAt: '2024-01-01T00:10:00.000Z',
       paymentType: 'wxpay',
       payUrl: 'https://pay.example.com/session/55',

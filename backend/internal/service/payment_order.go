@@ -501,6 +501,7 @@ func sanitizeCreatePaymentResponseDetails(pr *payment.CreatePaymentResponse) {
 	pr.TradeNo = removePostgresTextNUL(pr.TradeNo)
 	pr.PayURL = removePostgresTextNUL(pr.PayURL)
 	pr.QRCode = removePostgresTextNUL(pr.QRCode)
+	pr.QRImageURL = removePostgresTextNUL(pr.QRImageURL)
 }
 
 func removePostgresTextNUL(value string) string {
@@ -741,6 +742,7 @@ func buildCreateOrderResponse(order *dbent.PaymentOrder, req CreateOrderRequest,
 		OutTradeNo:   order.OutTradeNo,
 		PayURL:       pr.PayURL,
 		QRCode:       pr.QRCode,
+		QRImageURL:   pr.QRImageURL,
 		ClientSecret: pr.ClientSecret,
 		IntentID:     pr.IntentID,
 		Currency:     pr.Currency,

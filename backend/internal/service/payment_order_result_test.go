@@ -80,8 +80,9 @@ func TestBuildCreateOrderResponseDefaultsToOrderCreated(t *testing.T) {
 		12.71,
 		&payment.InstanceSelection{PaymentMode: "qrcode"},
 		&payment.CreatePaymentResponse{
-			TradeNo: "sub2_42",
-			QRCode:  "weixin://wxpay/bizpayurl?pr=test",
+			TradeNo:    "sub2_42",
+			QRCode:     "weixin://wxpay/bizpayurl?pr=test",
+			QRImageURL: "https://zpayz.cn/qrcode/test.jpg",
 		},
 		payment.CreatePaymentResultOrderCreated,
 	)
@@ -94,6 +95,9 @@ func TestBuildCreateOrderResponseDefaultsToOrderCreated(t *testing.T) {
 	}
 	if resp.QRCode != "weixin://wxpay/bizpayurl?pr=test" {
 		t.Fatalf("qr_code = %q, want %q", resp.QRCode, "weixin://wxpay/bizpayurl?pr=test")
+	}
+	if resp.QRImageURL != "https://zpayz.cn/qrcode/test.jpg" {
+		t.Fatalf("qr_image_url = %q, want ZPay image URL", resp.QRImageURL)
 	}
 	if resp.JSAPI != nil || resp.JSAPIPayload != nil {
 		t.Fatal("order_created response should not include jsapi payload")
@@ -151,6 +155,7 @@ func TestSanitizeCreatePaymentResponseDetailsRemovesNULBytes(t *testing.T) {
 		TradeNo:      "trade\x00-no",
 		PayURL:       "https://pay.example.com/\x00checkout",
 		QRCode:       "wxp://payment-token\x00",
+		QRImageURL:   "https://pay.example.com/qr\x00.png",
 		ClientSecret: "secret\x00unchanged",
 	}
 
@@ -165,6 +170,9 @@ func TestSanitizeCreatePaymentResponseDetailsRemovesNULBytes(t *testing.T) {
 	if strings.ContainsRune(resp.QRCode, 0) {
 		t.Fatalf("qr_code still contains NUL: %q", resp.QRCode)
 	}
+	if strings.ContainsRune(resp.QRImageURL, 0) {
+		t.Fatalf("qr_image_url still contains NUL: %q", resp.QRImageURL)
+	}
 	if resp.TradeNo != "trade-no" {
 		t.Fatalf("trade_no = %q, want trade-no", resp.TradeNo)
 	}
@@ -173,6 +181,9 @@ func TestSanitizeCreatePaymentResponseDetailsRemovesNULBytes(t *testing.T) {
 	}
 	if resp.QRCode != "wxp://payment-token" {
 		t.Fatalf("qr_code = %q, want sanitized QR code", resp.QRCode)
+	}
+	if resp.QRImageURL != "https://pay.example.com/qr.png" {
+		t.Fatalf("qr_image_url = %q, want sanitized QR image URL", resp.QRImageURL)
 	}
 	if resp.ClientSecret != "secret\x00unchanged" {
 		t.Fatalf("client_secret = %q, should not be touched by payment detail sanitization", resp.ClientSecret)

@@ -132,6 +132,30 @@ describe('PaymentStatusPanel', () => {
     openSpy.mockRestore()
   })
 
+  it('shows a provider-hosted QR image when ZPay does not return QR content', async () => {
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: '',
+        qrImageUrl: 'https://zpayz.cn/qrcode/42.jpg',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'balance',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const image = wrapper.get('[data-testid="payment-qr-image"]')
+    expect(image.attributes('src')).toBe('https://zpayz.cn/qrcode/42.jpg')
+    expect(toCanvas).not.toHaveBeenCalled()
+  })
+
   it('uses generic QR copy for custom methods that contain built-in names', async () => {
     const wrapper = mount(PaymentStatusPanel, {
       props: {

@@ -171,9 +171,16 @@
         <div class="flex flex-col items-center space-y-4">
           <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ scanTitle }}</p>
           <div :class="['relative rounded-lg border-2 p-4', qrBorderClass]">
-            <canvas ref="qrCanvas" class="mx-auto"></canvas>
+            <canvas v-if="qrUrl" ref="qrCanvas" class="mx-auto"></canvas>
+            <img
+              v-else
+              :src="qrImageUrl"
+              alt=""
+              data-testid="payment-qr-image"
+              class="mx-auto h-56 w-56 object-contain"
+            />
             <!-- Brand logo overlay -->
-            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div v-if="qrUrl" class="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span :class="['rounded-full p-2 shadow ring-2 ring-white', qrLogoBgClass]">
                 <img :src="qrLogoIcon" alt="" class="h-5 w-5 brightness-0 invert" />
               </span>
@@ -243,6 +250,7 @@ const props = defineProps<{
   amount?: number
   payAmount?: number
   qrCode: string
+  qrImageUrl?: string
   expiresAt: string
   paymentType: string
   payUrl?: string
@@ -263,6 +271,7 @@ const appStore = useAppStore()
 
 const qrCanvas = ref<HTMLCanvasElement | null>(null)
 const qrUrl = ref('')
+const qrImageUrl = computed(() => props.qrImageUrl || '')
 const remainingSeconds = ref(0)
 const cancelling = ref(false)
 const paidOrder = ref<PaymentOrder | null>(null)
@@ -294,7 +303,9 @@ const VERIFY_RETRY_MAX_ATTEMPTS = 6
 const isAlipay = computed(() => isBuiltInAlipayMethod(props.paymentType))
 const isWxpay = computed(() => isBuiltInWxpayMethod(props.paymentType))
 const isMobileAlipayDeepLink = computed(() => props.mobileAlipayDeepLink === true && isAlipay.value && !!qrUrl.value)
-const showQRCode = computed(() => !!qrUrl.value && (!isMobileAlipayDeepLink.value || deepLinkFallbackVisible.value))
+const showQRCode = computed(() =>
+  (!!qrUrl.value || !!qrImageUrl.value) && (!isMobileAlipayDeepLink.value || deepLinkFallbackVisible.value),
+)
 
 const qrBorderClass = computed(() => {
   if (isAlipay.value) return 'border-[#00AEEF] bg-blue-50 dark:border-[#00AEEF]/70 dark:bg-blue-950/20'

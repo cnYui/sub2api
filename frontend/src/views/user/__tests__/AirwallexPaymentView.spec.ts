@@ -42,6 +42,7 @@ function airwallexSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}): Pa
     orderId: 101,
     amount: 88,
     qrCode: '',
+    qrImageUrl: '',
     expiresAt: '2099-01-01T00:10:00.000Z',
     paymentType: 'airwallex',
     payUrl: '/payment/airwallex?order_id=101&out_trade_no=sub2_awx_101&resume_token=resume-awx',
