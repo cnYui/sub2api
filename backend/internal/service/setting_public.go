@@ -341,7 +341,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ModelPlazaEnabled:     settings[SettingKeyModelPlazaEnabled] == "true",
 		ModelPlazaRequireAuth: settings[SettingKeyModelPlazaRequireAuth] == "true",
 
-		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
+		AffiliateEnabled: !isFalseSettingValue(settings[SettingKeyAffiliateEnabled]),
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 

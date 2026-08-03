@@ -121,12 +121,19 @@ func (r *affiliateRepository) AccrueQuota(ctx context.Context, inviterID, invite
 
 	var applied bool
 	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
-		// freezeHours > 0: add to frozen quota; == 0: add to available quota directly
-		var updateSQL string
-		if freezeHours > 0 {
-			updateSQL = "UPDATE user_affiliates SET aff_frozen_quota = aff_frozen_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
-		} else {
-			updateSQL = "UPDATE user_affiliates SET aff_quota = aff_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		// 返利一经确认即进入账户余额；冻结额度只用于记录 24 小时内的受限来源。
+		updateSQL := `
+UPDATE user_affiliates
+SET aff_frozen_quota = aff_frozen_quota + $1,
+    aff_history_quota = aff_history_quota + $1,
+    updated_at = NOW()
+WHERE user_id = $2`
+		if freezeHours <= 0 {
+			updateSQL = `
+UPDATE user_affiliates
+SET aff_history_quota = aff_history_quota + $1,
+    updated_at = NOW()
+WHERE user_id = $2`
 		}
 		res, err := txClient.ExecContext(txCtx, updateSQL, amount, inviterID)
 		if err != nil {
@@ -136,6 +143,18 @@ func (r *affiliateRepository) AccrueQuota(ctx context.Context, inviterID, invite
 		if affected == 0 {
 			applied = false
 			return nil
+		}
+
+		credited, err := txClient.User.Update().
+			Where(user.IDEQ(inviterID)).
+			AddBalance(amount).
+			AddTotalRecharged(amount).
+			Save(txCtx)
+		if err != nil {
+			return fmt.Errorf("credit user balance by affiliate rebate: %w", err)
+		}
+		if credited == 0 {
+			return service.ErrUserNotFound
 		}
 
 		if freezeHours > 0 {
@@ -190,7 +209,8 @@ func (r *affiliateRepository) ThawFrozenQuota(ctx context.Context, userID int64)
 	return thawed, err
 }
 
-// thawFrozenQuotaTx moves matured frozen quota to available quota within an existing tx.
+// thawFrozenQuotaTx releases matured rebate freeze markers within an existing tx.
+// 返利在产生时已经进入余额，因此解冻不能再次增加余额。
 func thawFrozenQuotaTx(txCtx context.Context, txClient *dbent.Client, userID int64) (float64, error) {
 	rows, err := txClient.QueryContext(txCtx, `
 WITH matured AS (
@@ -222,12 +242,11 @@ SELECT COALESCE(SUM(amount), 0) FROM matured`, userID)
 
 	_, err = txClient.ExecContext(txCtx, `
 UPDATE user_affiliates
-SET aff_quota = aff_quota + $1,
-    aff_frozen_quota = GREATEST(aff_frozen_quota - $1, 0),
+SET aff_frozen_quota = GREATEST(aff_frozen_quota - $1, 0),
     updated_at = NOW()
 WHERE user_id = $2`, thawed, userID)
 	if err != nil {
-		return 0, fmt.Errorf("move thawed quota: %w", err)
+		return 0, fmt.Errorf("release matured rebate freeze: %w", err)
 	}
 	return thawed, nil
 }

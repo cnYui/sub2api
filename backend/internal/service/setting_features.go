@@ -72,7 +72,7 @@ func (s *SettingService) GetCustomMenuItemsRaw(ctx context.Context) string {
 func (s *SettingService) IsAffiliateEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateEnabled)
 	if err != nil {
-		return false // 默认关闭
+		return AffiliateEnabledDefault
 	}
 	return value == "true"
 }

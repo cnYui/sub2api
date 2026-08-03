@@ -243,11 +243,28 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
 	var newBalance float64
 	err := tx.QueryRowContext(ctx, `
-		UPDATE users
-		SET balance = balance - $1,
-			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
-		RETURNING balance
+		WITH charged AS (
+			UPDATE users
+			SET balance = balance - $1,
+				updated_at = NOW()
+			WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+			RETURNING id, balance, balance + $1 AS balance_before
+		), frozen_rebate_consumed AS (
+			UPDATE user_affiliates ua
+			SET aff_frozen_quota = GREATEST(
+					ua.aff_frozen_quota - LEAST(
+						ua.aff_frozen_quota,
+						GREATEST($1 - GREATEST(charged.balance_before - ua.aff_frozen_quota, 0), 0)
+					),
+					0
+				),
+				updated_at = NOW()
+			FROM charged
+			WHERE ua.user_id = charged.id AND ua.aff_frozen_quota > 0
+			RETURNING ua.user_id
+		)
+		SELECT charged.balance FROM charged
+		LEFT JOIN frozen_rebate_consumed ON TRUE
 	`, amount, userID).Scan(&newBalance)
 	if err == nil {
 		return newBalance, true, nil
@@ -257,11 +274,28 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 	}
 
 	err = tx.QueryRowContext(ctx, `
-		UPDATE users
-		SET balance = balance - $1,
-			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
-		RETURNING balance
+		WITH charged AS (
+			UPDATE users
+			SET balance = balance - $1,
+				updated_at = NOW()
+			WHERE id = $2 AND deleted_at IS NULL
+			RETURNING id, balance, balance + $1 AS balance_before
+		), frozen_rebate_consumed AS (
+			UPDATE user_affiliates ua
+			SET aff_frozen_quota = GREATEST(
+					ua.aff_frozen_quota - LEAST(
+						ua.aff_frozen_quota,
+						GREATEST($1 - GREATEST(charged.balance_before - ua.aff_frozen_quota, 0), 0)
+					),
+					0
+				),
+				updated_at = NOW()
+			FROM charged
+			WHERE ua.user_id = charged.id AND ua.aff_frozen_quota > 0
+			RETURNING ua.user_id
+		)
+		SELECT charged.balance FROM charged
+		LEFT JOIN frozen_rebate_consumed ON TRUE
 	`, amount, userID).Scan(&newBalance)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, service.ErrUserNotFound

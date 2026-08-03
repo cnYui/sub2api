@@ -23,3 +23,15 @@
 
 - 2026-08-03：当前 `18082` 实例的公开注册通过数据库 `settings.registration_enabled` 控制；本次任务按管理员请求开启。
 - SMTP 测试复用已有管理端发送测试邮件接口，收件人为 `xiaobianfuai@gmail.com`，不在仓库或输出中暴露 SMTP 密码。
+
+## 充值手续费配置上下文
+
+- 2026-08-03：当前 `18082` 实例通过数据库 `settings.RECHARGE_FEE_RATE` 配置充值手续费，已按管理员要求设为 `1%`（数据库值为 `1`）。
+
+## 邀请返利上下文
+
+- 邀请返利默认开启，默认比例为 8%，返利产生时直接增加邀请人 `users.balance`，并在 `user_affiliate_ledger.frozen_until` 记录 24 小时冻结截止时间。
+- 冻结返利不影响模型扣费：余额扣费事务会在普通余额不足时同步扣减 `user_affiliates.aff_frozen_quota`，冻结期只限制冻结状态，不限制模型使用。
+- 旧版尚未手动转入余额的 `aff_quota` / `aff_frozen_quota` 由 `backend/migrations/197_affiliate_auto_balance_rebate.sql` 一次性归集，迁移标记防止重复入账。
+- 设计与验证记录见 `docs/ai/context/20260803-223829-affiliate-auto-balance-rebate_CN.md`。
+- 2026-08-03：18082 实例已重建并执行 197 迁移；数据库实测 `affiliate_enabled=true`、`affiliate_rebate_rate=8`、`affiliate_rebate_freeze_hours=24`，应用健康检查通过。

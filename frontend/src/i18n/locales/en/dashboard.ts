@@ -570,7 +570,7 @@ export default {
 
   affiliate: {
     title: 'Affiliate Rebates',
-    description: 'Invite new users and convert your rebate quota into account balance',
+    description: 'Invite new users and receive rebates directly in your balance for model usage',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
     copyCode: 'Copy Code',
@@ -578,15 +578,15 @@ export default {
     codeCopied: 'Affiliate code copied',
     linkCopied: 'Invite link copied',
     loadFailed: 'Failed to load affiliate data',
-    transferFailed: 'Failed to transfer affiliate quota',
+    transferFailed: 'Failed to credit affiliate rebate',
     stats: {
       rebateRate: 'My Rebate Rate',
       rebateRateHint: 'What you earn each time an invitee recharges',
       invitedUsers: 'Invited Users',
-      availableQuota: 'Available Rebate Quota',
-      frozenQuota: 'Frozen',
-      frozenQuotaHint: 'Recently earned rebates pending release',
-      totalQuota: 'Historical Rebate Quota'
+      availableQuota: 'Available Rebate',
+      frozenQuota: 'Frozen Rebate',
+      frozenQuotaHint: 'Already in your balance and available for model usage during the freeze',
+      totalQuota: 'Total Rebate'
     },
     transfer: {
       title: 'Transfer Rebate Quota',
@@ -609,9 +609,9 @@ export default {
     tips: {
       title: 'How It Works',
       line1: 'Share your affiliate code or invite link with new users.',
-      line2: 'When invitees recharge, you receive {rate} of the recharge as rebate quota.',
-      line3: 'Transfer rebate quota to balance at any time.',
-      line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
+      line2: 'When invitees recharge, you receive {rate} of the recharge as a rebate.',
+      line3: 'The rebate is added to your balance automatically and can be used for model charges.',
+      line4: 'New rebates are frozen for {hours} hours but remain usable for model charges.'
     }
   },
 

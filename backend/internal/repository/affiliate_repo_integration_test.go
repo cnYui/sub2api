@@ -145,14 +145,20 @@ func TestAffiliateRepository_AccrueQuota_ReusesOuterTransaction(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, bound, "invitee must bind to inviter")
 
-	applied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 3.5, 0, nil)
+	applied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 3.5, 24, nil)
 	require.NoError(t, err)
 	require.True(t, applied, "AccrueQuota must report applied=true")
 
-	// Visible inside the outer tx.
-	innerQuota := querySingleFloat(t, txCtx, client,
-		"SELECT aff_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
-	require.InDelta(t, 3.5, innerQuota, 1e-9)
+	// 返利在外层事务内已直接进入邀请人余额，同时保留 24 小时冻结额度。
+	innerBalance := querySingleFloat(t, txCtx, client,
+		"SELECT balance::double precision FROM users WHERE id = $1", inviter.ID)
+	require.InDelta(t, 3.5, innerBalance, 1e-9)
+	innerFrozen := querySingleFloat(t, txCtx, client,
+		"SELECT aff_frozen_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	require.InDelta(t, 3.5, innerFrozen, 1e-9)
+	ledgerCount := querySingleInt(t, txCtx, client,
+		"SELECT COUNT(*) FROM user_affiliate_ledger WHERE user_id = $1 AND action = 'accrue' AND frozen_until IS NOT NULL", inviter.ID)
+	require.Equal(t, 1, ledgerCount)
 
 	// Roll back the outer tx; if AccrueQuota had opened its own inner tx and
 	// committed it, the rows would still be visible to the global client.

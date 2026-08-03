@@ -575,7 +575,7 @@ export default {
 
   affiliate: {
     title: '邀请返利',
-    description: '邀请新用户注册，并将返利额度转入账户余额',
+    description: '邀请新用户注册，返利会自动计入账户余额并可用于模型扣费',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
     copyCode: '复制邀请码',
@@ -583,15 +583,15 @@ export default {
     codeCopied: '邀请码已复制',
     linkCopied: '邀请链接已复制',
     loadFailed: '加载邀请返利数据失败',
-    transferFailed: '转入余额失败',
+    transferFailed: '返利入账失败',
     stats: {
       rebateRate: '我的返利比例',
       rebateRateHint: '被邀请用户每次充值后你可获得的返利比例',
       invitedUsers: '邀请人数',
-      availableQuota: '可转返利额度',
-      frozenQuota: '冻结中',
-      frozenQuotaHint: '新产生的返利正在冻结期中',
-      totalQuota: '历史返利额度'
+      availableQuota: '可用返利',
+      frozenQuota: '冻结中返利',
+      frozenQuotaHint: '返利已计入余额，冻结期内仍可用于模型扣费',
+      totalQuota: '累计返利额度'
     },
     transfer: {
       title: '返利额度转余额',
@@ -614,9 +614,9 @@ export default {
     tips: {
       title: '使用说明',
       line1: '将邀请码或邀请链接分享给新用户。',
-      line2: '被邀请用户充值后，你可获得 {rate} 的返利额度。',
-      line3: '返利额度可随时转入账户余额。',
-      line4: '新产生的返利需要经过冻结期后才能提现。'
+      line2: '被邀请用户充值后，你可获得 {rate} 的返利。',
+      line3: '返利会自动计入账户余额，可直接参与模型扣费。',
+      line4: '新产生的返利冻结 {hours} 小时，冻结期内仍可用于模型扣费。'
     }
   },
 

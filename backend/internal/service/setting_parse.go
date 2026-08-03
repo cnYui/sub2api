@@ -195,8 +195,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyModelPlazaRequireAuth: "false",
 		SettingKeyModelPlazaDescription: "",
 
-		// Affiliate (邀请返利) feature (default disabled; opt-in)
-		SettingKeyAffiliateEnabled:              "false",
+		// 邀请返利默认开启；具体比例和冻结期由同一份默认配置统一控制。
+		SettingKeyAffiliateEnabled:              strconv.FormatBool(AffiliateEnabledDefault),
 		SettingKeyAffiliateAdminRechargeEnabled: strconv.FormatBool(AdminRechargeRebateEnabledDefault),
 
 		// 风控中心功能（默认关闭，显式启用）
@@ -774,8 +774,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.ModelPlazaRequireAuth = settings[SettingKeyModelPlazaRequireAuth] == "true"
 	result.ModelPlazaDescription = settings[SettingKeyModelPlazaDescription]
 
-	// Affiliate (邀请返利) feature (default: disabled; strict true)
-	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
+	// 邀请返利默认开启，只有显式 false 才关闭。
+	result.AffiliateEnabled = !isFalseSettingValue(settings[SettingKeyAffiliateEnabled])
 
 	// 风控中心功能（默认关闭，严格 true 才启用）
 	result.RiskControlEnabled = settings[SettingKeyRiskControlEnabled] == "true"

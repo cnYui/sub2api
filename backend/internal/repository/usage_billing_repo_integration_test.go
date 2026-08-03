@@ -80,6 +80,44 @@ func TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling(t *testing.T) {
 	require.Equal(t, 1, dedupCount)
 }
 
+func TestUsageBillingRepositoryApply_ConsumesAffiliateFrozenBalanceForModelCharge(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-affiliate-user-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      12,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-usage-billing-affiliate-" + uuid.NewString(),
+		Name:   "billing-affiliate",
+	})
+	_, err := client.ExecContext(ctx, `
+INSERT INTO user_affiliates (user_id, aff_code, aff_frozen_quota, aff_history_quota, created_at, updated_at)
+VALUES ($1, $2, 10, 10, NOW(), NOW())`, user.ID, "AFF"+uuid.NewString()[:20])
+	require.NoError(t, err)
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:   uuid.NewString(),
+		APIKeyID:    apiKey.ID,
+		UserID:      user.ID,
+		BalanceCost: 7,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, 5, balance, 0.000001)
+
+	var frozenQuota float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT aff_frozen_quota FROM user_affiliates WHERE user_id = $1", user.ID).Scan(&frozenQuota))
+	require.InDelta(t, 5, frozenQuota, 0.000001)
+}
+
 func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

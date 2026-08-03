@@ -15,7 +15,7 @@ import (
 // global rate, and that out-of-range exclusive rates are clamped silently.
 //
 // SettingService is left nil here so globalRebateRatePercent returns the
-// documented default (AffiliateRebateRateDefault = 20%) — this exercises the
+// documented default (AffiliateRebateRateDefault = 8%) — this exercises the
 // fallback path without spinning up a settings stub.
 func TestResolveRebateRatePercent_PerUserOverride(t *testing.T) {
 	t.Parallel()
@@ -48,12 +48,12 @@ func TestResolveRebateRatePercent_PerUserOverride(t *testing.T) {
 
 // TestIsEnabled_NilSettingServiceReturnsDefault verifies that IsEnabled
 // safely handles a nil settingService dependency by returning the default
-// (off). This protects callers from nil-pointer crashes in misconfigured
+// (on). This protects callers from nil-pointer crashes in misconfigured
 // environments.
 func TestIsEnabled_NilSettingServiceReturnsDefault(t *testing.T) {
 	t.Parallel()
 	svc := &AffiliateService{}
-	require.False(t, svc.IsEnabled(context.Background()))
+	require.True(t, svc.IsEnabled(context.Background()))
 	require.Equal(t, AffiliateEnabledDefault, svc.IsEnabled(context.Background()))
 }
 

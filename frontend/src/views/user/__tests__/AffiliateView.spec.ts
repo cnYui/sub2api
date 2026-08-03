@@ -57,6 +57,7 @@ describe('AffiliateView', () => {
       aff_frozen_quota: 0,
       aff_history_quota: 0,
       effective_rebate_rate_percent: 10,
+      rebate_freeze_hours: 24,
       invitees: [],
     })
   })

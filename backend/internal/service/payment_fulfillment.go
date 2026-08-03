@@ -716,6 +716,7 @@ func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *db
 			})
 			return fmt.Errorf("commit affiliate rebate tx: %w", err)
 		}
+		s.affiliateService.InvalidateInviterBalanceForInvitee(ctx, o.UserID)
 		return nil
 	}
 
@@ -735,6 +736,7 @@ func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *db
 		})
 		return fmt.Errorf("commit affiliate rebate tx: %w", err)
 	}
+	s.affiliateService.InvalidateInviterBalanceForInvitee(ctx, o.UserID)
 	return nil
 }
 

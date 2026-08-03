@@ -91,6 +91,7 @@ type AffiliateDetail struct {
 	// 优先用户自己的专属比例（aff_rebate_rate_percent），否则回退到全局比例。
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
 	EffectiveRebateRatePercent float64            `json:"effective_rebate_rate_percent"`
+	RebateFreezeHours          int                `json:"rebate_freeze_hours"`
 	Invitees                   []AffiliateInvitee `json:"invitees"`
 }
 
@@ -262,8 +263,16 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
+		RebateFreezeHours:          s.rebateFreezeHours(ctx),
 		Invitees:                   invitees,
 	}, nil
+}
+
+func (s *AffiliateService) rebateFreezeHours(ctx context.Context) int {
+	if s == nil || s.settingService == nil {
+		return AffiliateRebateFreezeHoursDefault
+	}
+	return s.settingService.GetAffiliateRebateFreezeHours(ctx)
 }
 
 func (s *AffiliateService) BindInviterByCode(ctx context.Context, userID int64, rawCode string) error {
@@ -383,6 +392,8 @@ func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, invit
 	if !applied {
 		return 0, nil
 	}
+	// 返利已直接记入邀请人余额，必须刷新余额鉴权缓存。
+	s.invalidateAffiliateCaches(ctx, *inviteeSummary.InviterID)
 	return rebate, nil
 }
 
@@ -421,6 +432,19 @@ func (s *AffiliateService) TransferAffiliateQuota(ctx context.Context, userID in
 		s.invalidateAffiliateCaches(ctx, userID)
 	}
 	return transferred, balance, nil
+}
+
+// InvalidateInviterBalanceForInvitee 用于外层支付事务提交后刷新邀请人余额缓存。
+// 独立充值路径会在返利事务内直接刷新；支付履约提交后再次刷新，避免旧余额重新写回缓存。
+func (s *AffiliateService) InvalidateInviterBalanceForInvitee(ctx context.Context, inviteeUserID int64) {
+	if s == nil || s.repo == nil || inviteeUserID <= 0 {
+		return
+	}
+	summary, err := s.repo.EnsureUserAffiliate(ctx, inviteeUserID)
+	if err != nil || summary == nil || summary.InviterID == nil || *summary.InviterID <= 0 {
+		return
+	}
+	s.invalidateAffiliateCaches(ctx, *summary.InviterID)
 }
 
 func (s *AffiliateService) listInvitees(ctx context.Context, inviterID int64) ([]AffiliateInvitee, error) {
