@@ -1,0 +1,19 @@
+services:
+  sub2api:
+    container_name: sub2api-official-18082
+    ports: !override
+      - "127.0.0.1:18082:8080"
+    volumes:
+      - ./data-18082:/app/data:Z
+    environment:
+      - BILLING_FINAL_MULTIPLIER=10
+
+  postgres:
+    container_name: sub2api-official-18082-postgres
+    volumes:
+      - ./postgres_data-18082:/var/lib/postgresql/data:Z
+
+  redis:
+    container_name: sub2api-official-18082-redis
+    volumes:
+      - ./redis_data-18082:/data:Z

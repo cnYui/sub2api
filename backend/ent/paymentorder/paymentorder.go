@@ -46,6 +46,16 @@ const (
 	FieldOrderType = "order_type"
 	// FieldPlanID holds the string denoting the plan_id field in the database.
 	FieldPlanID = "plan_id"
+	// FieldBalancePackagePlanID holds the string denoting the balance_package_plan_id field in the database.
+	FieldBalancePackagePlanID = "balance_package_plan_id"
+	// FieldBalancePackageWeeklyCreditUsd holds the string denoting the balance_package_weekly_credit_usd field in the database.
+	FieldBalancePackageWeeklyCreditUsd = "balance_package_weekly_credit_usd"
+	// FieldBalancePackageRefreshCount holds the string denoting the balance_package_refresh_count field in the database.
+	FieldBalancePackageRefreshCount = "balance_package_refresh_count"
+	// FieldBalancePackageRefreshIntervalDays holds the string denoting the balance_package_refresh_interval_days field in the database.
+	FieldBalancePackageRefreshIntervalDays = "balance_package_refresh_interval_days"
+	// FieldBalancePackageValidityDays holds the string denoting the balance_package_validity_days field in the database.
+	FieldBalancePackageValidityDays = "balance_package_validity_days"
 	// FieldSubscriptionGroupID holds the string denoting the subscription_group_id field in the database.
 	FieldSubscriptionGroupID = "subscription_group_id"
 	// FieldSubscriptionDays holds the string denoting the subscription_days field in the database.
@@ -124,6 +134,11 @@ var Columns = []string{
 	FieldQrCodeImg,
 	FieldOrderType,
 	FieldPlanID,
+	FieldBalancePackagePlanID,
+	FieldBalancePackageWeeklyCreditUsd,
+	FieldBalancePackageRefreshCount,
+	FieldBalancePackageRefreshIntervalDays,
+	FieldBalancePackageValidityDays,
 	FieldSubscriptionGroupID,
 	FieldSubscriptionDays,
 	FieldProviderInstanceID,
@@ -292,6 +307,31 @@ func ByOrderType(opts ...sql.OrderTermOption) OrderOption {
 // ByPlanID orders the results by the plan_id field.
 func ByPlanID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPlanID, opts...).ToFunc()
+}
+
+// ByBalancePackagePlanID orders the results by the balance_package_plan_id field.
+func ByBalancePackagePlanID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackagePlanID, opts...).ToFunc()
+}
+
+// ByBalancePackageWeeklyCreditUsd orders the results by the balance_package_weekly_credit_usd field.
+func ByBalancePackageWeeklyCreditUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageWeeklyCreditUsd, opts...).ToFunc()
+}
+
+// ByBalancePackageRefreshCount orders the results by the balance_package_refresh_count field.
+func ByBalancePackageRefreshCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageRefreshCount, opts...).ToFunc()
+}
+
+// ByBalancePackageRefreshIntervalDays orders the results by the balance_package_refresh_interval_days field.
+func ByBalancePackageRefreshIntervalDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageRefreshIntervalDays, opts...).ToFunc()
+}
+
+// ByBalancePackageValidityDays orders the results by the balance_package_validity_days field.
+func ByBalancePackageValidityDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageValidityDays, opts...).ToFunc()
 }
 
 // BySubscriptionGroupID orders the results by the subscription_group_id field.

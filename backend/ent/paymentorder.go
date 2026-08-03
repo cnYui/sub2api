@@ -51,6 +51,16 @@ type PaymentOrder struct {
 	OrderType string `json:"order_type,omitempty"`
 	// PlanID holds the value of the "plan_id" field.
 	PlanID *int64 `json:"plan_id,omitempty"`
+	// BalancePackagePlanID holds the value of the "balance_package_plan_id" field.
+	BalancePackagePlanID *int64 `json:"balance_package_plan_id,omitempty"`
+	// BalancePackageWeeklyCreditUsd holds the value of the "balance_package_weekly_credit_usd" field.
+	BalancePackageWeeklyCreditUsd *float64 `json:"balance_package_weekly_credit_usd,omitempty"`
+	// BalancePackageRefreshCount holds the value of the "balance_package_refresh_count" field.
+	BalancePackageRefreshCount *int `json:"balance_package_refresh_count,omitempty"`
+	// BalancePackageRefreshIntervalDays holds the value of the "balance_package_refresh_interval_days" field.
+	BalancePackageRefreshIntervalDays *int `json:"balance_package_refresh_interval_days,omitempty"`
+	// BalancePackageValidityDays holds the value of the "balance_package_validity_days" field.
+	BalancePackageValidityDays *int `json:"balance_package_validity_days,omitempty"`
 	// SubscriptionGroupID holds the value of the "subscription_group_id" field.
 	SubscriptionGroupID *int64 `json:"subscription_group_id,omitempty"`
 	// SubscriptionDays holds the value of the "subscription_days" field.
@@ -132,9 +142,9 @@ func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case paymentorder.FieldForceRefund:
 			values[i] = new(sql.NullBool)
-		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldRefundAmount:
+		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldBalancePackageWeeklyCreditUsd, paymentorder.FieldRefundAmount:
 			values[i] = new(sql.NullFloat64)
-		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays:
+		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldBalancePackagePlanID, paymentorder.FieldBalancePackageRefreshCount, paymentorder.FieldBalancePackageRefreshIntervalDays, paymentorder.FieldBalancePackageValidityDays, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays:
 			values[i] = new(sql.NullInt64)
 		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
 			values[i] = new(sql.NullString)
@@ -261,6 +271,41 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.PlanID = new(int64)
 				*_m.PlanID = value.Int64
+			}
+		case paymentorder.FieldBalancePackagePlanID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_plan_id", values[i])
+			} else if value.Valid {
+				_m.BalancePackagePlanID = new(int64)
+				*_m.BalancePackagePlanID = value.Int64
+			}
+		case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_weekly_credit_usd", values[i])
+			} else if value.Valid {
+				_m.BalancePackageWeeklyCreditUsd = new(float64)
+				*_m.BalancePackageWeeklyCreditUsd = value.Float64
+			}
+		case paymentorder.FieldBalancePackageRefreshCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_refresh_count", values[i])
+			} else if value.Valid {
+				_m.BalancePackageRefreshCount = new(int)
+				*_m.BalancePackageRefreshCount = int(value.Int64)
+			}
+		case paymentorder.FieldBalancePackageRefreshIntervalDays:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_refresh_interval_days", values[i])
+			} else if value.Valid {
+				_m.BalancePackageRefreshIntervalDays = new(int)
+				*_m.BalancePackageRefreshIntervalDays = int(value.Int64)
+			}
+		case paymentorder.FieldBalancePackageValidityDays:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_validity_days", values[i])
+			} else if value.Valid {
+				_m.BalancePackageValidityDays = new(int)
+				*_m.BalancePackageValidityDays = int(value.Int64)
 			}
 		case paymentorder.FieldSubscriptionGroupID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -512,6 +557,31 @@ func (_m *PaymentOrder) String() string {
 	builder.WriteString(", ")
 	if v := _m.PlanID; v != nil {
 		builder.WriteString("plan_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackagePlanID; v != nil {
+		builder.WriteString("balance_package_plan_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackageWeeklyCreditUsd; v != nil {
+		builder.WriteString("balance_package_weekly_credit_usd=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackageRefreshCount; v != nil {
+		builder.WriteString("balance_package_refresh_count=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackageRefreshIntervalDays; v != nil {
+		builder.WriteString("balance_package_refresh_interval_days=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackageValidityDays; v != nil {
+		builder.WriteString("balance_package_validity_days=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

@@ -221,7 +221,51 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
 	if o.OrderType == payment.OrderTypeSubscription {
 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
 	}
+	if o.OrderType == payment.OrderTypeBalanceSubscription {
+		return s.ExecuteBalancePackageFulfillment(ctx, oid)
+	}
 	return s.ExecuteBalanceFulfillment(ctx, oid)
+}
+
+func (s *PaymentService) ExecuteBalancePackageFulfillment(ctx context.Context, oid int64) error {
+	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.Status == OrderStatusCompleted {
+		return nil
+	}
+	if psIsRefundStatus(o.Status) {
+		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
+	}
+	if o.Status != OrderStatusPaid && o.Status != OrderStatusFailed && o.Status != OrderStatusRecharging {
+		return infraerrors.BadRequest("INVALID_STATUS", "order cannot fulfill in status "+o.Status)
+	}
+	lease, err := s.acquirePaymentFulfillmentLease(ctx, o)
+	if err != nil || lease == nil {
+		return err
+	}
+	if err := s.doBalancePackage(ctx, o, lease); err != nil {
+		s.markFailed(ctx, oid, lease, err)
+		return err
+	}
+	return nil
+}
+
+func (s *PaymentService) doBalancePackage(ctx context.Context, o *dbent.PaymentOrder, lease *paymentFulfillmentLease) error {
+	if err := validateBalancePackageOrderSnapshot(o); err != nil {
+		return err
+	}
+	if s.balancePackageService == nil {
+		return errors.New("balance package service is unavailable")
+	}
+	if err := s.balancePackageService.CreditInitialBalance(ctx, o); err != nil {
+		return err
+	}
+	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
+		return err
+	}
+	return s.markCompleted(ctx, o, lease, "BALANCE_PACKAGE_SUCCESS")
 }
 
 func (s *PaymentService) ExecuteBalanceFulfillment(ctx context.Context, oid int64) error {
@@ -699,7 +743,7 @@ func affiliateRebateBaseAmount(o *dbent.PaymentOrder) float64 {
 		return 0
 	}
 	switch o.OrderType {
-	case payment.OrderTypeBalance, payment.OrderTypeSubscription:
+	case payment.OrderTypeBalance, payment.OrderTypeSubscription, payment.OrderTypeBalanceSubscription:
 		return o.Amount
 	default:
 		return 0

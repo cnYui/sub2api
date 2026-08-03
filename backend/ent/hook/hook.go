@@ -93,6 +93,18 @@ func (f AuthIdentityChannelFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuthIdentityChannelMutation", m)
 }
 
+// The BalancePackagePlanFunc type is an adapter to allow the use of ordinary
+// function as BalancePackagePlan mutator.
+type BalancePackagePlanFunc func(context.Context, *ent.BalancePackagePlanMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f BalancePackagePlanFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.BalancePackagePlanMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.BalancePackagePlanMutation", m)
+}
+
 // The BatchImageEventFunc type is an adapter to allow the use of ordinary
 // function as BatchImageEvent mutator.
 type BatchImageEventFunc func(context.Context, *ent.BatchImageEventMutation) (ent.Value, error)
@@ -451,6 +463,18 @@ func (f UserAttributeValueFunc) Mutate(ctx context.Context, m ent.Mutation) (ent
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserAttributeValueMutation", m)
+}
+
+// The UserBalancePackageFunc type is an adapter to allow the use of ordinary
+// function as UserBalancePackage mutator.
+type UserBalancePackageFunc func(context.Context, *ent.UserBalancePackageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f UserBalancePackageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.UserBalancePackageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserBalancePackageMutation", m)
 }
 
 // The UserPlatformQuotaFunc type is an adapter to allow the use of ordinary

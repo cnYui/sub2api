@@ -11,7 +11,8 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
-  PaymentOrder
+  PaymentOrder,
+  BalancePackageRefundQuote
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -82,6 +83,11 @@ export const paymentAPI = {
   /** Request a refund for a completed order */
   requestRefund(id: number, data: { reason: string }) {
     return apiClient.post(`/payment/orders/${id}/refund-request`, data)
+  },
+
+  /** 获取余额套餐的退款报价 */
+  getRefundQuote(id: number) {
+    return apiClient.get<BalancePackageRefundQuote>(`/payment/orders/${id}/refund-quote`)
   },
 
   /** Get provider instance IDs that allow user refund */

@@ -49,6 +49,15 @@ func TestLoadRedisUsernameFromEnvironment(t *testing.T) {
 	require.Equal(t, "app-user", cfg.Redis.Username)
 }
 
+func TestLoadBillingFinalMultiplierFromEnvironment(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("BILLING_FINAL_MULTIPLIER", "10")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 10.0, cfg.Billing.FinalMultiplier)
+}
+
 func TestLoadHTTPIngressSafetyDefaults(t *testing.T) {
 	resetViperWithJWTSecret(t)
 	cfg, err := Load()

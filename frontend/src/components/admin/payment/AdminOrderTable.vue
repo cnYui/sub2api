@@ -229,6 +229,7 @@ const orderTypeFilterOptions = computed(() => [
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {
+  if (order.payment_type === 'admin_grant') return false
   return canRefund(order.status)
 }
 

@@ -5,6 +5,7 @@ package service
 import (
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,4 +61,57 @@ func TestCalculateImageCost_RateMultiplier_NegativeClampedToZero(t *testing.T) {
 			require.InDelta(t, tt.wantRatio*cost.TotalCost, cost.ActualCost, 1e-9)
 		})
 	}
+}
+
+// TestFinalBillingMultiplierOnlyChangesActualCost 验证最终倍率覆盖所有计费模式，
+// 且不污染 TotalCost 这一基础成本字段。
+func TestFinalBillingMultiplierOnlyChangesActualCost(t *testing.T) {
+	svc := NewBillingService(&config.Config{
+		Billing: config.BillingConfig{FinalMultiplier: 10},
+	}, nil)
+
+	tokenCost, err := svc.CalculateCost("claude-sonnet-4", UsageTokens{InputTokens: 1000, OutputTokens: 500}, 1.5)
+	require.NoError(t, err)
+	require.InDelta(t, 0.0105, tokenCost.TotalCost, 1e-12)
+	require.InDelta(t, 0.0105*1.5*10, tokenCost.ActualCost, 1e-12)
+
+	imageCost := svc.CalculateImageCost("gemini-3-pro-image", "2K", 1, nil, 1.2)
+	require.InDelta(t, 0.201, imageCost.TotalCost, 1e-12)
+	require.InDelta(t, 0.201*1.2*10, imageCost.ActualCost, 1e-12)
+
+	videoCost := svc.CalculateVideoCost("grok-imagine-video", "720p", 2, 3, nil, 0.5)
+	require.InDelta(t, 0.07*2*3, videoCost.TotalCost, 1e-12)
+	require.InDelta(t, 0.07*2*3*0.5*10, videoCost.ActualCost, 1e-12)
+
+	webSearchCost := svc.CalculateWebSearchCost(2, nil, 0.75)
+	require.InDelta(t, 0.02, webSearchCost.TotalCost, 1e-12)
+	require.InDelta(t, 0.02*0.75*10, webSearchCost.ActualCost, 1e-12)
+
+	resolver := NewModelPricingResolver(nil, svc)
+	groupID := int64(1)
+	perRequestCost, err := svc.CalculateCostUnified(CostInput{
+		Model:          "claude-sonnet-4",
+		GroupID:        &groupID,
+		RequestCount:   2,
+		RateMultiplier: 0.8,
+		Resolver:       resolver,
+		Resolved: &ResolvedPricing{
+			Mode:                   BillingModePerRequest,
+			DefaultPerRequestPrice: 0.04,
+		},
+	})
+	require.NoError(t, err)
+	require.InDelta(t, 0.08, perRequestCost.TotalCost, 1e-12)
+	require.InDelta(t, 0.08*0.8*10, perRequestCost.ActualCost, 1e-12)
+}
+
+func TestGetEstimatedCostExcludesFinalBillingMultiplier(t *testing.T) {
+	svc := NewBillingService(&config.Config{
+		Billing: config.BillingConfig{FinalMultiplier: 10},
+		Default: config.DefaultConfig{RateMultiplier: 1.25},
+	}, nil)
+
+	estimate, err := svc.GetEstimatedCost("claude-sonnet-4", 1000, 500)
+	require.NoError(t, err)
+	require.InDelta(t, 0.0105*1.25, estimate, 1e-12)
 }

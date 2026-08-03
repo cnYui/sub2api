@@ -435,6 +435,34 @@ var (
 			},
 		},
 	}
+	// BalancePackagePlansColumns holds the columns for the "balance_package_plans" table.
+	BalancePackagePlansColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "code", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "name", Type: field.TypeString, Size: 100},
+		{Name: "price_cny", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "weekly_credit_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "validity_days", Type: field.TypeInt, Default: 28},
+		{Name: "refresh_count", Type: field.TypeInt, Default: 4},
+		{Name: "refresh_interval_days", Type: field.TypeInt, Default: 7},
+		{Name: "for_sale", Type: field.TypeBool, Default: true},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// BalancePackagePlansTable holds the schema information for the "balance_package_plans" table.
+	BalancePackagePlansTable = &schema.Table{
+		Name:       "balance_package_plans",
+		Columns:    BalancePackagePlansColumns,
+		PrimaryKey: []*schema.Column{BalancePackagePlansColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "balancepackageplan_for_sale_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{BalancePackagePlansColumns[8], BalancePackagePlansColumns[9]},
+			},
+		},
+	}
 	// BatchImageEventsColumns holds the columns for the "batch_image_events" table.
 	BatchImageEventsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1118,6 +1146,11 @@ var (
 		{Name: "qr_code_img", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "order_type", Type: field.TypeString, Size: 20, Default: "balance"},
 		{Name: "plan_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "balance_package_plan_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "balance_package_weekly_credit_usd", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "balance_package_refresh_count", Type: field.TypeInt, Nullable: true},
+		{Name: "balance_package_refresh_interval_days", Type: field.TypeInt, Nullable: true},
+		{Name: "balance_package_validity_days", Type: field.TypeInt, Nullable: true},
 		{Name: "subscription_group_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "subscription_days", Type: field.TypeInt, Nullable: true},
 		{Name: "provider_instance_id", Type: field.TypeString, Nullable: true, Size: 64},
@@ -1151,7 +1184,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "payment_orders_users_payment_orders",
-				Columns:    []*schema.Column{PaymentOrdersColumns[39]},
+				Columns:    []*schema.Column{PaymentOrdersColumns[44]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1168,37 +1201,42 @@ var (
 			{
 				Name:    "paymentorder_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[39]},
+				Columns: []*schema.Column{PaymentOrdersColumns[44]},
 			},
 			{
 				Name:    "paymentorder_status",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[21]},
+				Columns: []*schema.Column{PaymentOrdersColumns[26]},
 			},
 			{
 				Name:    "paymentorder_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[29]},
+				Columns: []*schema.Column{PaymentOrdersColumns[34]},
 			},
 			{
 				Name:    "paymentorder_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[37]},
+				Columns: []*schema.Column{PaymentOrdersColumns[42]},
 			},
 			{
 				Name:    "paymentorder_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[30]},
+				Columns: []*schema.Column{PaymentOrdersColumns[35]},
 			},
 			{
 				Name:    "paymentorder_payment_type_paid_at",
 				Unique:  false,
-				Columns: []*schema.Column{PaymentOrdersColumns[9], PaymentOrdersColumns[30]},
+				Columns: []*schema.Column{PaymentOrdersColumns[9], PaymentOrdersColumns[35]},
 			},
 			{
 				Name:    "paymentorder_order_type",
 				Unique:  false,
 				Columns: []*schema.Column{PaymentOrdersColumns[14]},
+			},
+			{
+				Name:    "paymentorder_balance_package_plan_id",
+				Unique:  false,
+				Columns: []*schema.Column{PaymentOrdersColumns[16]},
 			},
 		},
 	}
@@ -1774,7 +1812,7 @@ var (
 		{Name: "role", Type: field.TypeString, Size: 20, Default: "user"},
 		{Name: "balance", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "frozen_balance", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
-		{Name: "concurrency", Type: field.TypeInt, Default: 5},
+		{Name: "concurrency", Type: field.TypeInt, Default: 20},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
 		{Name: "username", Type: field.TypeString, Size: 100, Default: ""},
 		{Name: "notes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
@@ -1928,6 +1966,49 @@ var (
 			},
 		},
 	}
+	// UserBalancePackagesColumns holds the columns for the "user_balance_packages" table.
+	UserBalancePackagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "plan_id", Type: field.TypeInt64},
+		{Name: "payment_order_id", Type: field.TypeInt64, Unique: true},
+		{Name: "weekly_credit_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "credited_count", Type: field.TypeInt, Default: 0},
+		{Name: "refresh_count", Type: field.TypeInt},
+		{Name: "refresh_interval_days", Type: field.TypeInt},
+		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "next_credit_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// UserBalancePackagesTable holds the schema information for the "user_balance_packages" table.
+	UserBalancePackagesTable = &schema.Table{
+		Name:       "user_balance_packages",
+		Columns:    UserBalancePackagesColumns,
+		PrimaryKey: []*schema.Column{UserBalancePackagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "user_balance_packages_users_balance_packages",
+				Columns:    []*schema.Column{UserBalancePackagesColumns[13]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "userbalancepackage_user_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{UserBalancePackagesColumns[13], UserBalancePackagesColumns[10]},
+			},
+			{
+				Name:    "userbalancepackage_status_next_credit_at",
+				Unique:  false,
+				Columns: []*schema.Column{UserBalancePackagesColumns[10], UserBalancePackagesColumns[8]},
+			},
+		},
+	}
 	// UserPlatformQuotasColumns holds the columns for the "user_platform_quotas" table.
 	UserPlatformQuotasColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2073,6 +2154,7 @@ var (
 		AnnouncementReadsTable,
 		AuthIdentitiesTable,
 		AuthIdentityChannelsTable,
+		BalancePackagePlansTable,
 		BatchImageEventsTable,
 		BatchImageItemsTable,
 		BatchImageJobsTable,
@@ -2103,6 +2185,7 @@ var (
 		UserAllowedGroupsTable,
 		UserAttributeDefinitionsTable,
 		UserAttributeValuesTable,
+		UserBalancePackagesTable,
 		UserPlatformQuotasTable,
 		UserSubscriptionsTable,
 	}
@@ -2139,6 +2222,9 @@ func init() {
 	AuthIdentityChannelsTable.ForeignKeys[0].RefTable = AuthIdentitiesTable
 	AuthIdentityChannelsTable.Annotation = &entsql.Annotation{
 		Table: "auth_identity_channels",
+	}
+	BalancePackagePlansTable.Annotation = &entsql.Annotation{
+		Table: "balance_package_plans",
 	}
 	BatchImageEventsTable.Annotation = &entsql.Annotation{
 		Table: "batch_image_events",
@@ -2251,6 +2337,10 @@ func init() {
 	UserAttributeValuesTable.ForeignKeys[1].RefTable = UserAttributeDefinitionsTable
 	UserAttributeValuesTable.Annotation = &entsql.Annotation{
 		Table: "user_attribute_values",
+	}
+	UserBalancePackagesTable.ForeignKeys[0].RefTable = UsersTable
+	UserBalancePackagesTable.Annotation = &entsql.Annotation{
+		Table: "user_balance_packages",
 	}
 	UserPlatformQuotasTable.ForeignKeys[0].RefTable = UsersTable
 	UserPlatformQuotasTable.Annotation = &entsql.Annotation{

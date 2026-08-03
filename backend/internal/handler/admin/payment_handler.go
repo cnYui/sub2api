@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -15,6 +16,40 @@ import (
 type PaymentHandler struct {
 	paymentService *service.PaymentService
 	configService  *service.PaymentConfigService
+}
+
+type GrantBalancePackageRequest struct {
+	UserID               int64 `json:"user_id" binding:"required"`
+	BalancePackagePlanID int64 `json:"balance_package_plan_id" binding:"required"`
+}
+
+// ListBalancePackages 返回当前购买页可售的余额套餐。
+// GET /api/v1/admin/payment/balance-packages
+func (h *PaymentHandler) ListBalancePackages(c *gin.Context) {
+	plans, err := h.paymentService.ListBalancePackagePlansForSale(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, plans)
+}
+
+// GrantBalancePackage 为用户手动发放一个购买页余额套餐。
+// POST /api/v1/admin/payment/balance-packages/grant
+func (h *PaymentHandler) GrantBalancePackage(c *gin.Context) {
+	var req GrantBalancePackageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	adminID := getAdminIDFromContext(c)
+	executeAdminIdempotentJSON(c, "admin.balance_packages.grant", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.paymentService.GrantBalancePackage(ctx, service.GrantBalancePackageInput{
+			UserID:               req.UserID,
+			BalancePackagePlanID: req.BalancePackagePlanID,
+			AdminUserID:          adminID,
+		})
+	})
 }
 
 // NewPaymentHandler creates a new admin PaymentHandler.

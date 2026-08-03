@@ -135,6 +135,31 @@ func PlanID(v int64) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldPlanID, v))
 }
 
+// BalancePackagePlanID applies equality check predicate on the "balance_package_plan_id" field. It's identical to BalancePackagePlanIDEQ.
+func BalancePackagePlanID(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackageWeeklyCreditUsd applies equality check predicate on the "balance_package_weekly_credit_usd" field. It's identical to BalancePackageWeeklyCreditUsdEQ.
+func BalancePackageWeeklyCreditUsd(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageRefreshCount applies equality check predicate on the "balance_package_refresh_count" field. It's identical to BalancePackageRefreshCountEQ.
+func BalancePackageRefreshCount(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshIntervalDays applies equality check predicate on the "balance_package_refresh_interval_days" field. It's identical to BalancePackageRefreshIntervalDaysEQ.
+func BalancePackageRefreshIntervalDays(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageValidityDays applies equality check predicate on the "balance_package_validity_days" field. It's identical to BalancePackageValidityDaysEQ.
+func BalancePackageValidityDays(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageValidityDays, v))
+}
+
 // SubscriptionGroupID applies equality check predicate on the "subscription_group_id" field. It's identical to SubscriptionGroupIDEQ.
 func SubscriptionGroupID(v int64) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldSubscriptionGroupID, v))
@@ -1188,6 +1213,256 @@ func PlanIDIsNil() predicate.PaymentOrder {
 // PlanIDNotNil applies the NotNil predicate on the "plan_id" field.
 func PlanIDNotNil() predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldNotNull(FieldPlanID))
+}
+
+// BalancePackagePlanIDEQ applies the EQ predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDEQ(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDNEQ applies the NEQ predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNEQ(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDIn applies the In predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDIn(vs ...int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBalancePackagePlanID, vs...))
+}
+
+// BalancePackagePlanIDNotIn applies the NotIn predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNotIn(vs ...int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBalancePackagePlanID, vs...))
+}
+
+// BalancePackagePlanIDGT applies the GT predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDGT(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDGTE applies the GTE predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDGTE(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDLT applies the LT predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDLT(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDLTE applies the LTE predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDLTE(v int64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDIsNil applies the IsNil predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldBalancePackagePlanID))
+}
+
+// BalancePackagePlanIDNotNil applies the NotNil predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldBalancePackagePlanID))
+}
+
+// BalancePackageWeeklyCreditUsdEQ applies the EQ predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdEQ(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdNEQ applies the NEQ predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdNEQ(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdIn applies the In predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdIn(vs ...float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBalancePackageWeeklyCreditUsd, vs...))
+}
+
+// BalancePackageWeeklyCreditUsdNotIn applies the NotIn predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdNotIn(vs ...float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBalancePackageWeeklyCreditUsd, vs...))
+}
+
+// BalancePackageWeeklyCreditUsdGT applies the GT predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdGT(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdGTE applies the GTE predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdGTE(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdLT applies the LT predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdLT(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdLTE applies the LTE predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdLTE(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBalancePackageWeeklyCreditUsd, v))
+}
+
+// BalancePackageWeeklyCreditUsdIsNil applies the IsNil predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldBalancePackageWeeklyCreditUsd))
+}
+
+// BalancePackageWeeklyCreditUsdNotNil applies the NotNil predicate on the "balance_package_weekly_credit_usd" field.
+func BalancePackageWeeklyCreditUsdNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldBalancePackageWeeklyCreditUsd))
+}
+
+// BalancePackageRefreshCountEQ applies the EQ predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountNEQ applies the NEQ predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountNEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountIn applies the In predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBalancePackageRefreshCount, vs...))
+}
+
+// BalancePackageRefreshCountNotIn applies the NotIn predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountNotIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBalancePackageRefreshCount, vs...))
+}
+
+// BalancePackageRefreshCountGT applies the GT predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountGT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountGTE applies the GTE predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountGTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountLT applies the LT predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountLT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountLTE applies the LTE predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountLTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBalancePackageRefreshCount, v))
+}
+
+// BalancePackageRefreshCountIsNil applies the IsNil predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldBalancePackageRefreshCount))
+}
+
+// BalancePackageRefreshCountNotNil applies the NotNil predicate on the "balance_package_refresh_count" field.
+func BalancePackageRefreshCountNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldBalancePackageRefreshCount))
+}
+
+// BalancePackageRefreshIntervalDaysEQ applies the EQ predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysNEQ applies the NEQ predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysNEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysIn applies the In predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBalancePackageRefreshIntervalDays, vs...))
+}
+
+// BalancePackageRefreshIntervalDaysNotIn applies the NotIn predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysNotIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBalancePackageRefreshIntervalDays, vs...))
+}
+
+// BalancePackageRefreshIntervalDaysGT applies the GT predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysGT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysGTE applies the GTE predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysGTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysLT applies the LT predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysLT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysLTE applies the LTE predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysLTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBalancePackageRefreshIntervalDays, v))
+}
+
+// BalancePackageRefreshIntervalDaysIsNil applies the IsNil predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldBalancePackageRefreshIntervalDays))
+}
+
+// BalancePackageRefreshIntervalDaysNotNil applies the NotNil predicate on the "balance_package_refresh_interval_days" field.
+func BalancePackageRefreshIntervalDaysNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldBalancePackageRefreshIntervalDays))
+}
+
+// BalancePackageValidityDaysEQ applies the EQ predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysNEQ applies the NEQ predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysNEQ(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysIn applies the In predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBalancePackageValidityDays, vs...))
+}
+
+// BalancePackageValidityDaysNotIn applies the NotIn predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysNotIn(vs ...int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBalancePackageValidityDays, vs...))
+}
+
+// BalancePackageValidityDaysGT applies the GT predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysGT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysGTE applies the GTE predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysGTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysLT applies the LT predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysLT(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysLTE applies the LTE predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysLTE(v int) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBalancePackageValidityDays, v))
+}
+
+// BalancePackageValidityDaysIsNil applies the IsNil predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysIsNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIsNull(FieldBalancePackageValidityDays))
+}
+
+// BalancePackageValidityDaysNotNil applies the NotNil predicate on the "balance_package_validity_days" field.
+func BalancePackageValidityDaysNotNil() predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotNull(FieldBalancePackageValidityDays))
 }
 
 // SubscriptionGroupIDEQ applies the EQ predicate on the "subscription_group_id" field.

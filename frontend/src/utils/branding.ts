@@ -1,5 +1,8 @@
 import { sanitizeUrl } from '@/utils/url'
 
+export const LOCAL_SITE_NAME = '天才程序员小站'
+export const LOCAL_SITE_NAME_EN = 'Genius Programmer Hub'
+
 export function updateFavicon(logoUrl: string): void {
   const sanitizedLogoUrl = sanitizeUrl(logoUrl, {
     allowRelative: true,

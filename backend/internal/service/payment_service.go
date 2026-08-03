@@ -71,20 +71,21 @@ func generateRandomString(n int) string {
 }
 
 type CreateOrderRequest struct {
-	UserID          int64
-	Amount          float64
-	PaymentType     string
-	OpenID          string
-	ClientIP        string
-	IsMobile        bool
-	IsWeChatBrowser bool
-	SrcHost         string
-	SrcURL          string
-	ReturnURL       string
-	PaymentSource   string
-	OrderType       string
-	PlanID          int64
-	Locale          string
+	UserID               int64
+	Amount               float64
+	PaymentType          string
+	OpenID               string
+	ClientIP             string
+	IsMobile             bool
+	IsWeChatBrowser      bool
+	SrcHost              string
+	SrcURL               string
+	ReturnURL            string
+	PaymentSource        string
+	OrderType            string
+	PlanID               int64
+	BalancePackagePlanID int64
+	Locale               string
 }
 
 type CreateOrderResponse struct {
@@ -134,6 +135,7 @@ type RefundPlan struct {
 	BalanceToDeduct float64
 	SubDaysToDeduct int
 	SubscriptionID  int64
+	Operator        string
 }
 
 type RefundResult struct {
@@ -199,12 +201,20 @@ type PaymentService struct {
 	resumeService            *PaymentResumeService
 	affiliateService         *AffiliateService
 	notificationEmailService *NotificationEmailService
+	balancePackageService    *BalancePackageService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {
-	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService}
+	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService, balancePackageService: NewBalancePackageService(entClient)}
 	svc.resumeService = psNewPaymentResumeService(configService)
 	return svc
+}
+
+func (s *PaymentService) ListBalancePackagePlansForSale(ctx context.Context) ([]*dbent.BalancePackagePlan, error) {
+	if s == nil || s.balancePackageService == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.ListPlansForSale(ctx)
 }
 
 func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {

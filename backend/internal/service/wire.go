@@ -758,6 +758,8 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountExpiryService,
 	ProvideProxyExpiryService,
 	ProvideSubscriptionExpiryService,
+	NewBalancePackageService,
+	ProvideBalancePackageCreditService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,
@@ -820,6 +822,14 @@ func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, 
 // ProvidePaymentOrderExpiryService creates and starts PaymentOrderExpiryService.
 func ProvidePaymentOrderExpiryService(paymentSvc *PaymentService, lockCache LeaderLockCache, db *sql.DB) *PaymentOrderExpiryService {
 	svc := NewPaymentOrderExpiryService(paymentSvc, 60*time.Second)
+	svc.SetLeaderLock(lockCache, db)
+	svc.Start()
+	return svc
+}
+
+// ProvideBalancePackageCreditService 创建并启动周期余额到账任务。
+func ProvideBalancePackageCreditService(packages *BalancePackageService, lockCache LeaderLockCache, db *sql.DB) *BalancePackageCreditService {
+	svc := NewBalancePackageCreditService(packages, time.Minute)
 	svc.SetLeaderLock(lockCache, db)
 	svc.Start()
 	return svc

@@ -19,9 +19,9 @@ export type OrderStatus =
   | 'REFUNDED'
   | 'REFUND_FAILED'
 
-export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex'
+export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex' | 'admin_grant'
 
-export type OrderType = 'balance' | 'subscription'
+export type OrderType = 'balance' | 'subscription' | 'balance_subscription'
 
 // ==================== Configuration ====================
 
@@ -66,6 +66,7 @@ export interface CheckoutInfoResponse {
   global_min: number
   global_max: number
   plans: SubscriptionPlan[]
+  balance_packages?: BalancePackagePlan[]
   balance_disabled: boolean
   balance_recharge_multiplier: number
   /** Subscription CNY conversion rate (1 USD = X CNY); 0 = disabled, plan price is charged as-is */
@@ -106,6 +107,20 @@ export interface PaymentOrder {
   provider_instance_id?: string
 }
 
+export interface BalancePackageRefundQuote {
+  eligible: boolean
+  manual_review_required: boolean
+  purchase_base_amount: number
+  non_refundable_fee: number
+  period_total_quota_usd: number
+  used_quota_usd: number
+  usage_ratio: number
+  time_ratio: number
+  consumption_ratio: number
+  estimated_refund_amount: number
+  calculated_at: string
+}
+
 // ==================== Plans & Channels ====================
 
 export interface SubscriptionPlan {
@@ -132,6 +147,19 @@ export interface SubscriptionPlan {
   validity_unit: string
   /** Stored as JSON string in backend; API layer should parse before use */
   features: string[]
+  for_sale: boolean
+  sort_order: number
+}
+
+export interface BalancePackagePlan {
+  id: number
+  code: string
+  name: string
+  price_cny: number
+  weekly_credit_usd: number
+  validity_days: number
+  refresh_count: number
+  refresh_interval_days: number
   for_sale: boolean
   sort_order: number
 }
@@ -171,6 +199,7 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  balance_package_plan_id?: number
   return_url?: string
   payment_source?: string
   openid?: string

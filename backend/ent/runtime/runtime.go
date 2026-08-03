@@ -12,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -43,6 +44,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
+	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -436,6 +438,74 @@ func init() {
 	authidentitychannelDescMetadata := authidentitychannelFields[6].Descriptor()
 	// authidentitychannel.DefaultMetadata holds the default value on creation for the metadata field.
 	authidentitychannel.DefaultMetadata = authidentitychannelDescMetadata.Default.(func() map[string]interface{})
+	balancepackageplanFields := schema.BalancePackagePlan{}.Fields()
+	_ = balancepackageplanFields
+	// balancepackageplanDescCode is the schema descriptor for code field.
+	balancepackageplanDescCode := balancepackageplanFields[0].Descriptor()
+	// balancepackageplan.CodeValidator is a validator for the "code" field. It is called by the builders before save.
+	balancepackageplan.CodeValidator = func() func(string) error {
+		validators := balancepackageplanDescCode.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(code string) error {
+			for _, fn := range fns {
+				if err := fn(code); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// balancepackageplanDescName is the schema descriptor for name field.
+	balancepackageplanDescName := balancepackageplanFields[1].Descriptor()
+	// balancepackageplan.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	balancepackageplan.NameValidator = func() func(string) error {
+		validators := balancepackageplanDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// balancepackageplanDescValidityDays is the schema descriptor for validity_days field.
+	balancepackageplanDescValidityDays := balancepackageplanFields[4].Descriptor()
+	// balancepackageplan.DefaultValidityDays holds the default value on creation for the validity_days field.
+	balancepackageplan.DefaultValidityDays = balancepackageplanDescValidityDays.Default.(int)
+	// balancepackageplanDescRefreshCount is the schema descriptor for refresh_count field.
+	balancepackageplanDescRefreshCount := balancepackageplanFields[5].Descriptor()
+	// balancepackageplan.DefaultRefreshCount holds the default value on creation for the refresh_count field.
+	balancepackageplan.DefaultRefreshCount = balancepackageplanDescRefreshCount.Default.(int)
+	// balancepackageplanDescRefreshIntervalDays is the schema descriptor for refresh_interval_days field.
+	balancepackageplanDescRefreshIntervalDays := balancepackageplanFields[6].Descriptor()
+	// balancepackageplan.DefaultRefreshIntervalDays holds the default value on creation for the refresh_interval_days field.
+	balancepackageplan.DefaultRefreshIntervalDays = balancepackageplanDescRefreshIntervalDays.Default.(int)
+	// balancepackageplanDescForSale is the schema descriptor for for_sale field.
+	balancepackageplanDescForSale := balancepackageplanFields[7].Descriptor()
+	// balancepackageplan.DefaultForSale holds the default value on creation for the for_sale field.
+	balancepackageplan.DefaultForSale = balancepackageplanDescForSale.Default.(bool)
+	// balancepackageplanDescSortOrder is the schema descriptor for sort_order field.
+	balancepackageplanDescSortOrder := balancepackageplanFields[8].Descriptor()
+	// balancepackageplan.DefaultSortOrder holds the default value on creation for the sort_order field.
+	balancepackageplan.DefaultSortOrder = balancepackageplanDescSortOrder.Default.(int)
+	// balancepackageplanDescCreatedAt is the schema descriptor for created_at field.
+	balancepackageplanDescCreatedAt := balancepackageplanFields[9].Descriptor()
+	// balancepackageplan.DefaultCreatedAt holds the default value on creation for the created_at field.
+	balancepackageplan.DefaultCreatedAt = balancepackageplanDescCreatedAt.Default.(func() time.Time)
+	// balancepackageplanDescUpdatedAt is the schema descriptor for updated_at field.
+	balancepackageplanDescUpdatedAt := balancepackageplanFields[10].Descriptor()
+	// balancepackageplan.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	balancepackageplan.DefaultUpdatedAt = balancepackageplanDescUpdatedAt.Default.(func() time.Time)
+	// balancepackageplan.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	balancepackageplan.UpdateDefaultUpdatedAt = balancepackageplanDescUpdatedAt.UpdateDefault.(func() time.Time)
 	batchimageeventFields := schema.BatchImageEvent{}.Fields()
 	_ = batchimageeventFields
 	// batchimageeventDescJobID is the schema descriptor for job_id field.
@@ -1318,45 +1388,45 @@ func init() {
 	// paymentorder.OrderTypeValidator is a validator for the "order_type" field. It is called by the builders before save.
 	paymentorder.OrderTypeValidator = paymentorderDescOrderType.Validators[0].(func(string) error)
 	// paymentorderDescProviderInstanceID is the schema descriptor for provider_instance_id field.
-	paymentorderDescProviderInstanceID := paymentorderFields[18].Descriptor()
+	paymentorderDescProviderInstanceID := paymentorderFields[23].Descriptor()
 	// paymentorder.ProviderInstanceIDValidator is a validator for the "provider_instance_id" field. It is called by the builders before save.
 	paymentorder.ProviderInstanceIDValidator = paymentorderDescProviderInstanceID.Validators[0].(func(string) error)
 	// paymentorderDescProviderKey is the schema descriptor for provider_key field.
-	paymentorderDescProviderKey := paymentorderFields[19].Descriptor()
+	paymentorderDescProviderKey := paymentorderFields[24].Descriptor()
 	// paymentorder.ProviderKeyValidator is a validator for the "provider_key" field. It is called by the builders before save.
 	paymentorder.ProviderKeyValidator = paymentorderDescProviderKey.Validators[0].(func(string) error)
 	// paymentorderDescStatus is the schema descriptor for status field.
-	paymentorderDescStatus := paymentorderFields[21].Descriptor()
+	paymentorderDescStatus := paymentorderFields[26].Descriptor()
 	// paymentorder.DefaultStatus holds the default value on creation for the status field.
 	paymentorder.DefaultStatus = paymentorderDescStatus.Default.(string)
 	// paymentorder.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	paymentorder.StatusValidator = paymentorderDescStatus.Validators[0].(func(string) error)
 	// paymentorderDescRefundAmount is the schema descriptor for refund_amount field.
-	paymentorderDescRefundAmount := paymentorderFields[22].Descriptor()
+	paymentorderDescRefundAmount := paymentorderFields[27].Descriptor()
 	// paymentorder.DefaultRefundAmount holds the default value on creation for the refund_amount field.
 	paymentorder.DefaultRefundAmount = paymentorderDescRefundAmount.Default.(float64)
 	// paymentorderDescForceRefund is the schema descriptor for force_refund field.
-	paymentorderDescForceRefund := paymentorderFields[25].Descriptor()
+	paymentorderDescForceRefund := paymentorderFields[30].Descriptor()
 	// paymentorder.DefaultForceRefund holds the default value on creation for the force_refund field.
 	paymentorder.DefaultForceRefund = paymentorderDescForceRefund.Default.(bool)
 	// paymentorderDescRefundRequestedBy is the schema descriptor for refund_requested_by field.
-	paymentorderDescRefundRequestedBy := paymentorderFields[28].Descriptor()
+	paymentorderDescRefundRequestedBy := paymentorderFields[33].Descriptor()
 	// paymentorder.RefundRequestedByValidator is a validator for the "refund_requested_by" field. It is called by the builders before save.
 	paymentorder.RefundRequestedByValidator = paymentorderDescRefundRequestedBy.Validators[0].(func(string) error)
 	// paymentorderDescClientIP is the schema descriptor for client_ip field.
-	paymentorderDescClientIP := paymentorderFields[34].Descriptor()
+	paymentorderDescClientIP := paymentorderFields[39].Descriptor()
 	// paymentorder.ClientIPValidator is a validator for the "client_ip" field. It is called by the builders before save.
 	paymentorder.ClientIPValidator = paymentorderDescClientIP.Validators[0].(func(string) error)
 	// paymentorderDescSrcHost is the schema descriptor for src_host field.
-	paymentorderDescSrcHost := paymentorderFields[35].Descriptor()
+	paymentorderDescSrcHost := paymentorderFields[40].Descriptor()
 	// paymentorder.SrcHostValidator is a validator for the "src_host" field. It is called by the builders before save.
 	paymentorder.SrcHostValidator = paymentorderDescSrcHost.Validators[0].(func(string) error)
 	// paymentorderDescCreatedAt is the schema descriptor for created_at field.
-	paymentorderDescCreatedAt := paymentorderFields[37].Descriptor()
+	paymentorderDescCreatedAt := paymentorderFields[42].Descriptor()
 	// paymentorder.DefaultCreatedAt holds the default value on creation for the created_at field.
 	paymentorder.DefaultCreatedAt = paymentorderDescCreatedAt.Default.(func() time.Time)
 	// paymentorderDescUpdatedAt is the schema descriptor for updated_at field.
-	paymentorderDescUpdatedAt := paymentorderFields[38].Descriptor()
+	paymentorderDescUpdatedAt := paymentorderFields[43].Descriptor()
 	// paymentorder.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	paymentorder.DefaultUpdatedAt = paymentorderDescUpdatedAt.Default.(func() time.Time)
 	// paymentorder.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -2349,6 +2419,28 @@ func init() {
 	userattributevalueDescValue := userattributevalueFields[2].Descriptor()
 	// userattributevalue.DefaultValue holds the default value on creation for the value field.
 	userattributevalue.DefaultValue = userattributevalueDescValue.Default.(string)
+	userbalancepackageFields := schema.UserBalancePackage{}.Fields()
+	_ = userbalancepackageFields
+	// userbalancepackageDescCreditedCount is the schema descriptor for credited_count field.
+	userbalancepackageDescCreditedCount := userbalancepackageFields[4].Descriptor()
+	// userbalancepackage.DefaultCreditedCount holds the default value on creation for the credited_count field.
+	userbalancepackage.DefaultCreditedCount = userbalancepackageDescCreditedCount.Default.(int)
+	// userbalancepackageDescStatus is the schema descriptor for status field.
+	userbalancepackageDescStatus := userbalancepackageFields[10].Descriptor()
+	// userbalancepackage.DefaultStatus holds the default value on creation for the status field.
+	userbalancepackage.DefaultStatus = userbalancepackageDescStatus.Default.(string)
+	// userbalancepackage.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	userbalancepackage.StatusValidator = userbalancepackageDescStatus.Validators[0].(func(string) error)
+	// userbalancepackageDescCreatedAt is the schema descriptor for created_at field.
+	userbalancepackageDescCreatedAt := userbalancepackageFields[11].Descriptor()
+	// userbalancepackage.DefaultCreatedAt holds the default value on creation for the created_at field.
+	userbalancepackage.DefaultCreatedAt = userbalancepackageDescCreatedAt.Default.(func() time.Time)
+	// userbalancepackageDescUpdatedAt is the schema descriptor for updated_at field.
+	userbalancepackageDescUpdatedAt := userbalancepackageFields[12].Descriptor()
+	// userbalancepackage.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	userbalancepackage.DefaultUpdatedAt = userbalancepackageDescUpdatedAt.Default.(func() time.Time)
+	// userbalancepackage.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	userbalancepackage.UpdateDefaultUpdatedAt = userbalancepackageDescUpdatedAt.UpdateDefault.(func() time.Time)
 	userplatformquotaMixin := schema.UserPlatformQuota{}.Mixin()
 	userplatformquotaMixinHooks1 := userplatformquotaMixin[1].Hooks()
 	userplatformquota.Hooks[0] = userplatformquotaMixinHooks1[0]

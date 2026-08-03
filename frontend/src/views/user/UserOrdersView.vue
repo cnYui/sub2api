@@ -24,7 +24,7 @@
             </button>
             <button v-if="canRequestRefund(row)" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
               <Icon name="dollar" size="sm" />
-              <span>{{ t('payment.orders.requestRefund') }}</span>
+              <span>{{ t(refundActionKey(row)) }}</span>
             </button>
           </div>
         </template>
@@ -53,7 +53,7 @@
     </BaseDialog>
 
     <!-- Refund Dialog -->
-    <BaseDialog :show="!!refundTarget" :title="t('payment.orders.requestRefund')" @close="refundTarget = null">
+    <BaseDialog :show="!!refundTarget" :title="t(refundActionKey(refundTarget))" @close="refundTarget = null">
       <div v-if="refundTarget" class="space-y-4">
         <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
           <div class="flex justify-between text-sm">
@@ -62,8 +62,21 @@
           </div>
           <div class="mt-2 flex justify-between text-sm">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.amount') }}</span>
-            <span class="text-gray-900 dark:text-white">${{ refundTarget.amount.toFixed(2) }}</span>
+            <span class="text-gray-900 dark:text-white">{{ formatPaymentAmount(refundTarget.amount, refundTarget.currency) }}</span>
           </div>
+          <div v-if="refundQuote" class="mt-2 border-t border-gray-200 pt-2 text-sm dark:border-dark-700">
+            <div class="flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.purchaseBase') }}</span><span>{{ formatPaymentAmount(refundQuote.purchase_base_amount, refundTarget.currency) }}</span></div>
+            <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.nonRefundableFee') }}</span><span>{{ formatPaymentAmount(refundQuote.non_refundable_fee, refundTarget.currency) }}</span></div>
+            <template v-if="!refundQuote.manual_review_required">
+              <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.periodQuotaUsage') }}</span><span>{{ usdSymbol }}{{ refundQuote.used_quota_usd.toFixed(2) }} / {{ usdSymbol }}{{ refundQuote.period_total_quota_usd.toFixed(2) }}</span></div>
+              <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.usageRatio') }}</span><span>{{ Math.round(refundQuote.usage_ratio * 100) }}%</span></div>
+              <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.timeRatio') }}</span><span>{{ Math.round(refundQuote.time_ratio * 100) }}%</span></div>
+              <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.consumptionRatio') }}</span><span>{{ Math.round(refundQuote.consumption_ratio * 100) }}%</span></div>
+            </template>
+            <div class="mt-2 flex justify-between font-medium text-gray-900 dark:text-white"><span>{{ t('payment.refundQuote.estimatedRefund') }}</span><span>{{ formatPaymentAmount(refundQuote.estimated_refund_amount, refundTarget.currency) }}</span></div>
+            <p v-if="refundQuote.manual_review_required" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.manualReviewRequired') }}</p>
+          </div>
+          <p v-else-if="quoteLoading" class="mt-2 text-xs text-gray-500">{{ t('payment.refundQuote.loading') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('payment.refundReason') }}</label>
@@ -73,7 +86,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" @click="refundTarget = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="actionLoading || !refundReason.trim()" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t('payment.orders.requestRefund') }}</button>
+          <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundReason.trim() || (refundTarget?.order_type === 'balance_subscription' && (!refundQuote?.eligible || refundQuote.manual_review_required))" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -87,13 +100,14 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import type { PaymentOrder } from '@/types/payment'
+import type { PaymentOrder, BalancePackageRefundQuote } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
+import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -107,6 +121,9 @@ const currentFilter = ref('')
 const cancelTargetId = ref<number | null>(null)
 const refundTarget = ref<PaymentOrder | null>(null)
 const refundReason = ref('')
+const refundQuote = ref<BalancePackageRefundQuote | null>(null)
+const quoteLoading = ref(false)
+const usdSymbol = currencySymbol('USD')
 const pagination = reactive({ page: 1, page_size: 20, total: 0 })
 
 const statusFilters = computed(() => [
@@ -154,7 +171,21 @@ async function confirmCancel() {
   }
 }
 
-function openRefundDialog(order: PaymentOrder) { refundTarget.value = order; refundReason.value = '' }
+async function openRefundDialog(order: PaymentOrder) {
+  refundTarget.value = order
+  refundReason.value = ''
+  refundQuote.value = null
+  if (order.order_type !== 'balance_subscription') return
+  quoteLoading.value = true
+  try {
+    const res = await paymentAPI.getRefundQuote(order.id)
+    refundQuote.value = res.data
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    quoteLoading.value = false
+  }
+}
 
 async function confirmRefund() {
   if (!refundTarget.value || !refundReason.value.trim()) return
@@ -173,9 +204,21 @@ async function confirmRefund() {
 }
 
 function canRequestRefund(order: PaymentOrder): boolean {
+  if (order.order_type === 'balance_subscription') {
+    if (order.status !== 'COMPLETED' && order.status !== 'REFUND_FAILED') return false
+    return !!order.provider_instance_id && refundEligibleProviders.value.has(order.provider_instance_id)
+  }
   if (order.status !== 'COMPLETED') return false
   if (!order.provider_instance_id) return false
   return refundEligibleProviders.value.has(order.provider_instance_id)
+}
+
+function refundActionKey(order: PaymentOrder | null): string {
+  return order?.status === 'REFUND_FAILED' ? 'payment.orders.retryRefund' : 'payment.orders.requestRefund'
+}
+
+function formatPaymentAmount(value: number, currency?: string): string {
+  return `${currencySymbol(currency)}${Number.isFinite(value) ? value.toFixed(2) : '0.00'}`
 }
 
 async function loadRefundEligibility() {

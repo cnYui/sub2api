@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -1111,7 +1112,7 @@ func (s *BillingService) computeTokenBreakdown(
 
 	bd.TotalCost = bd.InputCost + bd.ImageInputCost + bd.OutputCost + bd.ImageOutputCost +
 		bd.CacheCreationCost + bd.CacheReadCost
-	bd.ActualCost = bd.TotalCost * rateMultiplier
+	bd.ActualCost = s.applyFinalBillingMultiplier(bd.TotalCost * rateMultiplier)
 	bd.LongContextBillingApplied = baselineCost != nil && bd.ActualCost > baselineCost.ActualCost
 
 	return bd
@@ -1155,7 +1156,7 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 	}
 
 	totalCost := unitPrice * float64(count)
-	actualCost := totalCost * input.RateMultiplier
+	actualCost := s.applyFinalBillingMultiplier(totalCost * input.RateMultiplier)
 
 	return &CostBreakdown{
 		TotalCost:  totalCost,
@@ -1272,6 +1273,19 @@ func (s *BillingService) CalculateCostWithConfig(model string, tokens UsageToken
 	return s.CalculateCost(model, tokens, multiplier)
 }
 
+// applyFinalBillingMultiplier 只放大实际扣费额，保留 TotalCost 作为未加最终倍率的基础成本。
+// 配置对象为空或值异常时回退到 1，避免测试/旧调用方因零值配置改变既有计费语义。
+func (s *BillingService) applyFinalBillingMultiplier(actualCost float64) float64 {
+	multiplier := 1.0
+	if s != nil && s.cfg != nil {
+		configured := s.cfg.Billing.FinalMultiplier
+		if configured > 0 && !math.IsNaN(configured) && !math.IsInf(configured, 0) {
+			multiplier = configured
+		}
+	}
+	return actualCost * multiplier
+}
+
 // CalculateCostWithLongContext 计算费用，支持长上下文双倍计费
 // threshold: 阈值（如 200000），超过此值的部分按 extraMultiplier 倍计费
 // extraMultiplier: 超出部分的倍率（如 2.0 表示双倍）
@@ -1380,7 +1394,12 @@ func (s *BillingService) GetEstimatedCost(model string, estimatedInputTokens, es
 		return 0, err
 	}
 
-	return breakdown.ActualCost, nil
+	// 估算接口用于前端展示，不包含仅服务端生效的最终扣费倍率。
+	multiplier := 1.0
+	if s != nil && s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
+		multiplier = s.cfg.Default.RateMultiplier
+	}
+	return breakdown.TotalCost * multiplier, nil
 }
 
 // GetPricingServiceStatus 获取价格服务状态
@@ -1456,7 +1475,7 @@ func (s *BillingService) CalculateWebSearchCost(callCount int, groupPrice *float
 	}
 	return &CostBreakdown{
 		TotalCost:   totalCost,
-		ActualCost:  totalCost * rateMultiplier,
+		ActualCost:  s.applyFinalBillingMultiplier(totalCost * rateMultiplier),
 		BillingMode: string(BillingModePerRequest),
 	}
 }
@@ -1487,7 +1506,7 @@ func (s *BillingService) CalculateImageCost(model string, imageSize string, imag
 
 	return &CostBreakdown{
 		TotalCost:   totalCost,
-		ActualCost:  actualCost,
+		ActualCost:  s.applyFinalBillingMultiplier(actualCost),
 		BillingMode: string(BillingModeImage),
 	}
 }
@@ -1516,7 +1535,7 @@ func (s *BillingService) CalculateVideoCost(model string, resolution string, vid
 
 	return &CostBreakdown{
 		TotalCost:   totalCost,
-		ActualCost:  actualCost,
+		ActualCost:  s.applyFinalBillingMultiplier(actualCost),
 		BillingMode: string(BillingModeVideo),
 	}
 }

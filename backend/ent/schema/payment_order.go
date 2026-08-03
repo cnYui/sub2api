@@ -81,6 +81,22 @@ func (PaymentOrder) Fields() []ent.Field {
 		field.Int64("plan_id").
 			Optional().
 			Nillable(),
+		field.Int64("balance_package_plan_id").
+			Optional().
+			Nillable(),
+		field.Float("balance_package_weekly_credit_usd").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		field.Int("balance_package_refresh_count").
+			Optional().
+			Nillable(),
+		field.Int("balance_package_refresh_interval_days").
+			Optional().
+			Nillable(),
+		field.Int("balance_package_validity_days").
+			Optional().
+			Nillable(),
 		field.Int64("subscription_group_id").
 			Optional().
 			Nillable(),
@@ -195,5 +211,6 @@ func (PaymentOrder) Indexes() []ent.Index {
 		index.Fields("paid_at"),
 		index.Fields("payment_type", "paid_at"),
 		index.Fields("order_type"),
+		index.Fields("balance_package_plan_id"),
 	}
 }

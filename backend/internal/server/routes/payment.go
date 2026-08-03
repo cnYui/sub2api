@@ -40,6 +40,7 @@ func RegisterPaymentRoutes(
 			orders.POST("/verify", paymentHandler.VerifyOrder)
 			orders.GET("/my", paymentHandler.GetMyOrders)
 			orders.GET("/:id", paymentHandler.GetOrder)
+			orders.GET("/:id/refund-quote", paymentHandler.GetRefundQuote)
 			orders.POST("/:id/cancel", paymentHandler.CancelOrder)
 			orders.POST("/:id/refund-request", paymentHandler.RequestRefund)
 			orders.GET("/refund-eligible-providers", paymentHandler.GetRefundEligibleProviders)
@@ -99,6 +100,13 @@ func RegisterPaymentRoutes(
 			plans.POST("", adminPaymentHandler.CreatePlan)
 			plans.PUT("/:id", adminPaymentHandler.UpdatePlan)
 			plans.DELETE("/:id", adminPaymentHandler.DeletePlan)
+		}
+
+		// Balance Packages
+		balancePackages := adminGroup.Group("/balance-packages")
+		{
+			balancePackages.GET("", adminPaymentHandler.ListBalancePackages)
+			balancePackages.POST("/grant", adminPaymentHandler.GrantBalancePackage)
 		}
 
 		// Provider Instances

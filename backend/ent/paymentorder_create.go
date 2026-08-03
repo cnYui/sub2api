@@ -183,6 +183,76 @@ func (_c *PaymentOrderCreate) SetNillablePlanID(v *int64) *PaymentOrderCreate {
 	return _c
 }
 
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_c *PaymentOrderCreate) SetBalancePackagePlanID(v int64) *PaymentOrderCreate {
+	_c.mutation.SetBalancePackagePlanID(v)
+	return _c
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalancePackagePlanID(v *int64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalancePackagePlanID(*v)
+	}
+	return _c
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (_c *PaymentOrderCreate) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderCreate {
+	_c.mutation.SetBalancePackageWeeklyCreditUsd(v)
+	return _c
+}
+
+// SetNillableBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalancePackageWeeklyCreditUsd(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalancePackageWeeklyCreditUsd(*v)
+	}
+	return _c
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (_c *PaymentOrderCreate) SetBalancePackageRefreshCount(v int) *PaymentOrderCreate {
+	_c.mutation.SetBalancePackageRefreshCount(v)
+	return _c
+}
+
+// SetNillableBalancePackageRefreshCount sets the "balance_package_refresh_count" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalancePackageRefreshCount(v *int) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalancePackageRefreshCount(*v)
+	}
+	return _c
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (_c *PaymentOrderCreate) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderCreate {
+	_c.mutation.SetBalancePackageRefreshIntervalDays(v)
+	return _c
+}
+
+// SetNillableBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalancePackageRefreshIntervalDays(v *int) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalancePackageRefreshIntervalDays(*v)
+	}
+	return _c
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (_c *PaymentOrderCreate) SetBalancePackageValidityDays(v int) *PaymentOrderCreate {
+	_c.mutation.SetBalancePackageValidityDays(v)
+	return _c
+}
+
+// SetNillableBalancePackageValidityDays sets the "balance_package_validity_days" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBalancePackageValidityDays(v *int) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBalancePackageValidityDays(*v)
+	}
+	return _c
+}
+
 // SetSubscriptionGroupID sets the "subscription_group_id" field.
 func (_c *PaymentOrderCreate) SetSubscriptionGroupID(v int64) *PaymentOrderCreate {
 	_c.mutation.SetSubscriptionGroupID(v)
@@ -761,6 +831,26 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldPlanID, field.TypeInt64, value)
 		_node.PlanID = &value
 	}
+	if value, ok := _c.mutation.BalancePackagePlanID(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64, value)
+		_node.BalancePackagePlanID = &value
+	}
+	if value, ok := _c.mutation.BalancePackageWeeklyCreditUsd(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64, value)
+		_node.BalancePackageWeeklyCreditUsd = &value
+	}
+	if value, ok := _c.mutation.BalancePackageRefreshCount(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt, value)
+		_node.BalancePackageRefreshCount = &value
+	}
+	if value, ok := _c.mutation.BalancePackageRefreshIntervalDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt, value)
+		_node.BalancePackageRefreshIntervalDays = &value
+	}
+	if value, ok := _c.mutation.BalancePackageValidityDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt, value)
+		_node.BalancePackageValidityDays = &value
+	}
 	if value, ok := _c.mutation.SubscriptionGroupID(); ok {
 		_spec.SetField(paymentorder.FieldSubscriptionGroupID, field.TypeInt64, value)
 		_node.SubscriptionGroupID = &value
@@ -1165,6 +1255,126 @@ func (u *PaymentOrderUpsert) AddPlanID(v int64) *PaymentOrderUpsert {
 // ClearPlanID clears the value of the "plan_id" field.
 func (u *PaymentOrderUpsert) ClearPlanID() *PaymentOrderUpsert {
 	u.SetNull(paymentorder.FieldPlanID)
+	return u
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsert) SetBalancePackagePlanID(v int64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalancePackagePlanID, v)
+	return u
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalancePackagePlanID() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalancePackagePlanID)
+	return u
+}
+
+// AddBalancePackagePlanID adds v to the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsert) AddBalancePackagePlanID(v int64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalancePackagePlanID, v)
+	return u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsert) ClearBalancePackagePlanID() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldBalancePackagePlanID)
+	return u
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsert) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalancePackageWeeklyCreditUsd, v)
+	return u
+}
+
+// UpdateBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalancePackageWeeklyCreditUsd() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalancePackageWeeklyCreditUsd)
+	return u
+}
+
+// AddBalancePackageWeeklyCreditUsd adds v to the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsert) AddBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalancePackageWeeklyCreditUsd, v)
+	return u
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsert) ClearBalancePackageWeeklyCreditUsd() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldBalancePackageWeeklyCreditUsd)
+	return u
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsert) SetBalancePackageRefreshCount(v int) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalancePackageRefreshCount, v)
+	return u
+}
+
+// UpdateBalancePackageRefreshCount sets the "balance_package_refresh_count" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalancePackageRefreshCount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalancePackageRefreshCount)
+	return u
+}
+
+// AddBalancePackageRefreshCount adds v to the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsert) AddBalancePackageRefreshCount(v int) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalancePackageRefreshCount, v)
+	return u
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsert) ClearBalancePackageRefreshCount() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldBalancePackageRefreshCount)
+	return u
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsert) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalancePackageRefreshIntervalDays, v)
+	return u
+}
+
+// UpdateBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalancePackageRefreshIntervalDays() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalancePackageRefreshIntervalDays)
+	return u
+}
+
+// AddBalancePackageRefreshIntervalDays adds v to the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsert) AddBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalancePackageRefreshIntervalDays, v)
+	return u
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsert) ClearBalancePackageRefreshIntervalDays() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldBalancePackageRefreshIntervalDays)
+	return u
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsert) SetBalancePackageValidityDays(v int) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBalancePackageValidityDays, v)
+	return u
+}
+
+// UpdateBalancePackageValidityDays sets the "balance_package_validity_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBalancePackageValidityDays() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBalancePackageValidityDays)
+	return u
+}
+
+// AddBalancePackageValidityDays adds v to the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsert) AddBalancePackageValidityDays(v int) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBalancePackageValidityDays, v)
+	return u
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsert) ClearBalancePackageValidityDays() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldBalancePackageValidityDays)
 	return u
 }
 
@@ -1869,6 +2079,146 @@ func (u *PaymentOrderUpsertOne) UpdatePlanID() *PaymentOrderUpsertOne {
 func (u *PaymentOrderUpsertOne) ClearPlanID() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearPlanID()
+	})
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertOne) SetBalancePackagePlanID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackagePlanID(v)
+	})
+}
+
+// AddBalancePackagePlanID adds v to the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertOne) AddBalancePackagePlanID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackagePlanID(v)
+	})
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalancePackagePlanID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackagePlanID()
+	})
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertOne) ClearBalancePackagePlanID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackagePlanID()
+	})
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertOne) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageWeeklyCreditUsd(v)
+	})
+}
+
+// AddBalancePackageWeeklyCreditUsd adds v to the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertOne) AddBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageWeeklyCreditUsd(v)
+	})
+}
+
+// UpdateBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalancePackageWeeklyCreditUsd() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageWeeklyCreditUsd()
+	})
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertOne) ClearBalancePackageWeeklyCreditUsd() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageWeeklyCreditUsd()
+	})
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertOne) SetBalancePackageRefreshCount(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageRefreshCount(v)
+	})
+}
+
+// AddBalancePackageRefreshCount adds v to the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertOne) AddBalancePackageRefreshCount(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageRefreshCount(v)
+	})
+}
+
+// UpdateBalancePackageRefreshCount sets the "balance_package_refresh_count" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalancePackageRefreshCount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageRefreshCount()
+	})
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertOne) ClearBalancePackageRefreshCount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageRefreshCount()
+	})
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertOne) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageRefreshIntervalDays(v)
+	})
+}
+
+// AddBalancePackageRefreshIntervalDays adds v to the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertOne) AddBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageRefreshIntervalDays(v)
+	})
+}
+
+// UpdateBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalancePackageRefreshIntervalDays() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageRefreshIntervalDays()
+	})
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertOne) ClearBalancePackageRefreshIntervalDays() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageRefreshIntervalDays()
+	})
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertOne) SetBalancePackageValidityDays(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageValidityDays(v)
+	})
+}
+
+// AddBalancePackageValidityDays adds v to the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertOne) AddBalancePackageValidityDays(v int) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageValidityDays(v)
+	})
+}
+
+// UpdateBalancePackageValidityDays sets the "balance_package_validity_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBalancePackageValidityDays() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageValidityDays()
+	})
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertOne) ClearBalancePackageValidityDays() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageValidityDays()
 	})
 }
 
@@ -2801,6 +3151,146 @@ func (u *PaymentOrderUpsertBulk) UpdatePlanID() *PaymentOrderUpsertBulk {
 func (u *PaymentOrderUpsertBulk) ClearPlanID() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearPlanID()
+	})
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertBulk) SetBalancePackagePlanID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackagePlanID(v)
+	})
+}
+
+// AddBalancePackagePlanID adds v to the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertBulk) AddBalancePackagePlanID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackagePlanID(v)
+	})
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalancePackagePlanID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackagePlanID()
+	})
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *PaymentOrderUpsertBulk) ClearBalancePackagePlanID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackagePlanID()
+	})
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertBulk) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageWeeklyCreditUsd(v)
+	})
+}
+
+// AddBalancePackageWeeklyCreditUsd adds v to the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertBulk) AddBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageWeeklyCreditUsd(v)
+	})
+}
+
+// UpdateBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalancePackageWeeklyCreditUsd() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageWeeklyCreditUsd()
+	})
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (u *PaymentOrderUpsertBulk) ClearBalancePackageWeeklyCreditUsd() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageWeeklyCreditUsd()
+	})
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertBulk) SetBalancePackageRefreshCount(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageRefreshCount(v)
+	})
+}
+
+// AddBalancePackageRefreshCount adds v to the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertBulk) AddBalancePackageRefreshCount(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageRefreshCount(v)
+	})
+}
+
+// UpdateBalancePackageRefreshCount sets the "balance_package_refresh_count" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalancePackageRefreshCount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageRefreshCount()
+	})
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (u *PaymentOrderUpsertBulk) ClearBalancePackageRefreshCount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageRefreshCount()
+	})
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertBulk) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageRefreshIntervalDays(v)
+	})
+}
+
+// AddBalancePackageRefreshIntervalDays adds v to the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertBulk) AddBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageRefreshIntervalDays(v)
+	})
+}
+
+// UpdateBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalancePackageRefreshIntervalDays() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageRefreshIntervalDays()
+	})
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (u *PaymentOrderUpsertBulk) ClearBalancePackageRefreshIntervalDays() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageRefreshIntervalDays()
+	})
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertBulk) SetBalancePackageValidityDays(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBalancePackageValidityDays(v)
+	})
+}
+
+// AddBalancePackageValidityDays adds v to the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertBulk) AddBalancePackageValidityDays(v int) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBalancePackageValidityDays(v)
+	})
+}
+
+// UpdateBalancePackageValidityDays sets the "balance_package_validity_days" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBalancePackageValidityDays() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBalancePackageValidityDays()
+	})
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (u *PaymentOrderUpsertBulk) ClearBalancePackageValidityDays() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearBalancePackageValidityDays()
 	})
 }
 

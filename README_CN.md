@@ -552,7 +552,7 @@ jwt:
   expire_hour: 24
 
 default:
-  user_concurrency: 5
+  user_concurrency: 20
   user_balance: 0
   api_key_prefix: "sk-"
   rate_multiplier: 1.0

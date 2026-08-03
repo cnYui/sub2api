@@ -311,6 +311,141 @@ func (_u *PaymentOrderUpdate) ClearPlanID() *PaymentOrderUpdate {
 	return _u
 }
 
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdate) SetBalancePackagePlanID(v int64) *PaymentOrderUpdate {
+	_u.mutation.ResetBalancePackagePlanID()
+	_u.mutation.SetBalancePackagePlanID(v)
+	return _u
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalancePackagePlanID(v *int64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalancePackagePlanID(*v)
+	}
+	return _u
+}
+
+// AddBalancePackagePlanID adds value to the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdate) AddBalancePackagePlanID(v int64) *PaymentOrderUpdate {
+	_u.mutation.AddBalancePackagePlanID(v)
+	return _u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdate) ClearBalancePackagePlanID() *PaymentOrderUpdate {
+	_u.mutation.ClearBalancePackagePlanID()
+	return _u
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdate) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetBalancePackageWeeklyCreditUsd()
+	_u.mutation.SetBalancePackageWeeklyCreditUsd(v)
+	return _u
+}
+
+// SetNillableBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalancePackageWeeklyCreditUsd(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalancePackageWeeklyCreditUsd(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageWeeklyCreditUsd adds value to the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdate) AddBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddBalancePackageWeeklyCreditUsd(v)
+	return _u
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdate) ClearBalancePackageWeeklyCreditUsd() *PaymentOrderUpdate {
+	_u.mutation.ClearBalancePackageWeeklyCreditUsd()
+	return _u
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdate) SetBalancePackageRefreshCount(v int) *PaymentOrderUpdate {
+	_u.mutation.ResetBalancePackageRefreshCount()
+	_u.mutation.SetBalancePackageRefreshCount(v)
+	return _u
+}
+
+// SetNillableBalancePackageRefreshCount sets the "balance_package_refresh_count" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalancePackageRefreshCount(v *int) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalancePackageRefreshCount(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageRefreshCount adds value to the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdate) AddBalancePackageRefreshCount(v int) *PaymentOrderUpdate {
+	_u.mutation.AddBalancePackageRefreshCount(v)
+	return _u
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdate) ClearBalancePackageRefreshCount() *PaymentOrderUpdate {
+	_u.mutation.ClearBalancePackageRefreshCount()
+	return _u
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdate) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpdate {
+	_u.mutation.ResetBalancePackageRefreshIntervalDays()
+	_u.mutation.SetBalancePackageRefreshIntervalDays(v)
+	return _u
+}
+
+// SetNillableBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalancePackageRefreshIntervalDays(v *int) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalancePackageRefreshIntervalDays(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageRefreshIntervalDays adds value to the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdate) AddBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpdate {
+	_u.mutation.AddBalancePackageRefreshIntervalDays(v)
+	return _u
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdate) ClearBalancePackageRefreshIntervalDays() *PaymentOrderUpdate {
+	_u.mutation.ClearBalancePackageRefreshIntervalDays()
+	return _u
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdate) SetBalancePackageValidityDays(v int) *PaymentOrderUpdate {
+	_u.mutation.ResetBalancePackageValidityDays()
+	_u.mutation.SetBalancePackageValidityDays(v)
+	return _u
+}
+
+// SetNillableBalancePackageValidityDays sets the "balance_package_validity_days" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBalancePackageValidityDays(v *int) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBalancePackageValidityDays(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageValidityDays adds value to the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdate) AddBalancePackageValidityDays(v int) *PaymentOrderUpdate {
+	_u.mutation.AddBalancePackageValidityDays(v)
+	return _u
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdate) ClearBalancePackageValidityDays() *PaymentOrderUpdate {
+	_u.mutation.ClearBalancePackageValidityDays()
+	return _u
+}
+
 // SetSubscriptionGroupID sets the "subscription_group_id" field.
 func (_u *PaymentOrderUpdate) SetSubscriptionGroupID(v int64) *PaymentOrderUpdate {
 	_u.mutation.ResetSubscriptionGroupID()
@@ -923,6 +1058,51 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.PlanIDCleared() {
 		_spec.ClearField(paymentorder.FieldPlanID, field.TypeInt64)
 	}
+	if value, ok := _u.mutation.BalancePackagePlanID(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackagePlanID(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalancePackagePlanIDCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalancePackageWeeklyCreditUsd(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageWeeklyCreditUsd(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.BalancePackageWeeklyCreditUsdCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.BalancePackageRefreshCount(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageRefreshCount(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageRefreshCountCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt)
+	}
+	if value, ok := _u.mutation.BalancePackageRefreshIntervalDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageRefreshIntervalDays(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageRefreshIntervalDaysCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt)
+	}
+	if value, ok := _u.mutation.BalancePackageValidityDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageValidityDays(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageValidityDaysCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt)
+	}
 	if value, ok := _u.mutation.SubscriptionGroupID(); ok {
 		_spec.SetField(paymentorder.FieldSubscriptionGroupID, field.TypeInt64, value)
 	}
@@ -1371,6 +1551,141 @@ func (_u *PaymentOrderUpdateOne) AddPlanID(v int64) *PaymentOrderUpdateOne {
 // ClearPlanID clears the value of the "plan_id" field.
 func (_u *PaymentOrderUpdateOne) ClearPlanID() *PaymentOrderUpdateOne {
 	_u.mutation.ClearPlanID()
+	return _u
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdateOne) SetBalancePackagePlanID(v int64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalancePackagePlanID()
+	_u.mutation.SetBalancePackagePlanID(v)
+	return _u
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalancePackagePlanID(v *int64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalancePackagePlanID(*v)
+	}
+	return _u
+}
+
+// AddBalancePackagePlanID adds value to the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdateOne) AddBalancePackagePlanID(v int64) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalancePackagePlanID(v)
+	return _u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (_u *PaymentOrderUpdateOne) ClearBalancePackagePlanID() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalancePackagePlanID()
+	return _u
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdateOne) SetBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalancePackageWeeklyCreditUsd()
+	_u.mutation.SetBalancePackageWeeklyCreditUsd(v)
+	return _u
+}
+
+// SetNillableBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalancePackageWeeklyCreditUsd(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageWeeklyCreditUsd(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageWeeklyCreditUsd adds value to the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdateOne) AddBalancePackageWeeklyCreditUsd(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalancePackageWeeklyCreditUsd(v)
+	return _u
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (_u *PaymentOrderUpdateOne) ClearBalancePackageWeeklyCreditUsd() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalancePackageWeeklyCreditUsd()
+	return _u
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdateOne) SetBalancePackageRefreshCount(v int) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalancePackageRefreshCount()
+	_u.mutation.SetBalancePackageRefreshCount(v)
+	return _u
+}
+
+// SetNillableBalancePackageRefreshCount sets the "balance_package_refresh_count" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalancePackageRefreshCount(v *int) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageRefreshCount(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageRefreshCount adds value to the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdateOne) AddBalancePackageRefreshCount(v int) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalancePackageRefreshCount(v)
+	return _u
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (_u *PaymentOrderUpdateOne) ClearBalancePackageRefreshCount() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalancePackageRefreshCount()
+	return _u
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdateOne) SetBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalancePackageRefreshIntervalDays()
+	_u.mutation.SetBalancePackageRefreshIntervalDays(v)
+	return _u
+}
+
+// SetNillableBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalancePackageRefreshIntervalDays(v *int) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageRefreshIntervalDays(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageRefreshIntervalDays adds value to the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdateOne) AddBalancePackageRefreshIntervalDays(v int) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalancePackageRefreshIntervalDays(v)
+	return _u
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (_u *PaymentOrderUpdateOne) ClearBalancePackageRefreshIntervalDays() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalancePackageRefreshIntervalDays()
+	return _u
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdateOne) SetBalancePackageValidityDays(v int) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBalancePackageValidityDays()
+	_u.mutation.SetBalancePackageValidityDays(v)
+	return _u
+}
+
+// SetNillableBalancePackageValidityDays sets the "balance_package_validity_days" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBalancePackageValidityDays(v *int) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageValidityDays(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageValidityDays adds value to the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdateOne) AddBalancePackageValidityDays(v int) *PaymentOrderUpdateOne {
+	_u.mutation.AddBalancePackageValidityDays(v)
+	return _u
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (_u *PaymentOrderUpdateOne) ClearBalancePackageValidityDays() *PaymentOrderUpdateOne {
+	_u.mutation.ClearBalancePackageValidityDays()
 	return _u
 }
 
@@ -2015,6 +2330,51 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if _u.mutation.PlanIDCleared() {
 		_spec.ClearField(paymentorder.FieldPlanID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalancePackagePlanID(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackagePlanID(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalancePackagePlanIDCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackagePlanID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalancePackageWeeklyCreditUsd(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageWeeklyCreditUsd(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64, value)
+	}
+	if _u.mutation.BalancePackageWeeklyCreditUsdCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageWeeklyCreditUsd, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.BalancePackageRefreshCount(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageRefreshCount(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageRefreshCountCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageRefreshCount, field.TypeInt)
+	}
+	if value, ok := _u.mutation.BalancePackageRefreshIntervalDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageRefreshIntervalDays(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageRefreshIntervalDaysCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageRefreshIntervalDays, field.TypeInt)
+	}
+	if value, ok := _u.mutation.BalancePackageValidityDays(); ok {
+		_spec.SetField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageValidityDays(); ok {
+		_spec.AddField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt, value)
+	}
+	if _u.mutation.BalancePackageValidityDaysCleared() {
+		_spec.ClearField(paymentorder.FieldBalancePackageValidityDays, field.TypeInt)
 	}
 	if value, ok := _u.mutation.SubscriptionGroupID(); ok {
 		_spec.SetField(paymentorder.FieldSubscriptionGroupID, field.TypeInt64, value)

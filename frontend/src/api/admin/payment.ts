@@ -9,6 +9,7 @@ import type {
   PaymentOrder,
   PaymentChannel,
   SubscriptionPlan,
+  BalancePackagePlan,
   ProviderInstance
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
@@ -167,6 +168,22 @@ export const adminPaymentAPI = {
   /** Delete a subscription plan */
   deletePlan(id: number) {
     return apiClient.delete(`/admin/payment/plans/${id}`)
+  },
+
+  // ==================== Balance Packages ====================
+
+  /** 获取购买页当前可售的余额套餐 */
+  getBalancePackages() {
+    return apiClient.get<BalancePackagePlan[]>('/admin/payment/balance-packages')
+  },
+
+  /** 为用户手动发放一个余额套餐 */
+  grantBalancePackage(data: { user_id: number; balance_package_plan_id: number }, idempotencyKey: string) {
+    return apiClient.post<{ order_id: number; balance_package_id: number }>(
+      '/admin/payment/balance-packages/grant',
+      data,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
   },
 
   // ==================== Provider Instances ====================

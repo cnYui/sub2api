@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -50,6 +51,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
+	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -71,6 +73,7 @@ const (
 	TypeAnnouncementRead              = "AnnouncementRead"
 	TypeAuthIdentity                  = "AuthIdentity"
 	TypeAuthIdentityChannel           = "AuthIdentityChannel"
+	TypeBalancePackagePlan            = "BalancePackagePlan"
 	TypeBatchImageEvent               = "BatchImageEvent"
 	TypeBatchImageItem                = "BatchImageItem"
 	TypeBatchImageJob                 = "BatchImageJob"
@@ -101,6 +104,7 @@ const (
 	TypeUserAllowedGroup              = "UserAllowedGroup"
 	TypeUserAttributeDefinition       = "UserAttributeDefinition"
 	TypeUserAttributeValue            = "UserAttributeValue"
+	TypeUserBalancePackage            = "UserBalancePackage"
 	TypeUserPlatformQuota             = "UserPlatformQuota"
 	TypeUserSubscription              = "UserSubscription"
 )
@@ -9126,6 +9130,1073 @@ func (m *AuthIdentityChannelMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AuthIdentityChannel edge %s", name)
+}
+
+// BalancePackagePlanMutation represents an operation that mutates the BalancePackagePlan nodes in the graph.
+type BalancePackagePlanMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int64
+	code                     *string
+	name                     *string
+	price_cny                *float64
+	addprice_cny             *float64
+	weekly_credit_usd        *float64
+	addweekly_credit_usd     *float64
+	validity_days            *int
+	addvalidity_days         *int
+	refresh_count            *int
+	addrefresh_count         *int
+	refresh_interval_days    *int
+	addrefresh_interval_days *int
+	for_sale                 *bool
+	sort_order               *int
+	addsort_order            *int
+	created_at               *time.Time
+	updated_at               *time.Time
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*BalancePackagePlan, error)
+	predicates               []predicate.BalancePackagePlan
+}
+
+var _ ent.Mutation = (*BalancePackagePlanMutation)(nil)
+
+// balancepackageplanOption allows management of the mutation configuration using functional options.
+type balancepackageplanOption func(*BalancePackagePlanMutation)
+
+// newBalancePackagePlanMutation creates new mutation for the BalancePackagePlan entity.
+func newBalancePackagePlanMutation(c config, op Op, opts ...balancepackageplanOption) *BalancePackagePlanMutation {
+	m := &BalancePackagePlanMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeBalancePackagePlan,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withBalancePackagePlanID sets the ID field of the mutation.
+func withBalancePackagePlanID(id int64) balancepackageplanOption {
+	return func(m *BalancePackagePlanMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *BalancePackagePlan
+		)
+		m.oldValue = func(ctx context.Context) (*BalancePackagePlan, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().BalancePackagePlan.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withBalancePackagePlan sets the old BalancePackagePlan of the mutation.
+func withBalancePackagePlan(node *BalancePackagePlan) balancepackageplanOption {
+	return func(m *BalancePackagePlanMutation) {
+		m.oldValue = func(context.Context) (*BalancePackagePlan, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m BalancePackagePlanMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m BalancePackagePlanMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *BalancePackagePlanMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *BalancePackagePlanMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().BalancePackagePlan.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCode sets the "code" field.
+func (m *BalancePackagePlanMutation) SetCode(s string) {
+	m.code = &s
+}
+
+// Code returns the value of the "code" field in the mutation.
+func (m *BalancePackagePlanMutation) Code() (r string, exists bool) {
+	v := m.code
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCode returns the old "code" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldCode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCode: %w", err)
+	}
+	return oldValue.Code, nil
+}
+
+// ResetCode resets all changes to the "code" field.
+func (m *BalancePackagePlanMutation) ResetCode() {
+	m.code = nil
+}
+
+// SetName sets the "name" field.
+func (m *BalancePackagePlanMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *BalancePackagePlanMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *BalancePackagePlanMutation) ResetName() {
+	m.name = nil
+}
+
+// SetPriceCny sets the "price_cny" field.
+func (m *BalancePackagePlanMutation) SetPriceCny(f float64) {
+	m.price_cny = &f
+	m.addprice_cny = nil
+}
+
+// PriceCny returns the value of the "price_cny" field in the mutation.
+func (m *BalancePackagePlanMutation) PriceCny() (r float64, exists bool) {
+	v := m.price_cny
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPriceCny returns the old "price_cny" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldPriceCny(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPriceCny is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPriceCny requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPriceCny: %w", err)
+	}
+	return oldValue.PriceCny, nil
+}
+
+// AddPriceCny adds f to the "price_cny" field.
+func (m *BalancePackagePlanMutation) AddPriceCny(f float64) {
+	if m.addprice_cny != nil {
+		*m.addprice_cny += f
+	} else {
+		m.addprice_cny = &f
+	}
+}
+
+// AddedPriceCny returns the value that was added to the "price_cny" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedPriceCny() (r float64, exists bool) {
+	v := m.addprice_cny
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPriceCny resets all changes to the "price_cny" field.
+func (m *BalancePackagePlanMutation) ResetPriceCny() {
+	m.price_cny = nil
+	m.addprice_cny = nil
+}
+
+// SetWeeklyCreditUsd sets the "weekly_credit_usd" field.
+func (m *BalancePackagePlanMutation) SetWeeklyCreditUsd(f float64) {
+	m.weekly_credit_usd = &f
+	m.addweekly_credit_usd = nil
+}
+
+// WeeklyCreditUsd returns the value of the "weekly_credit_usd" field in the mutation.
+func (m *BalancePackagePlanMutation) WeeklyCreditUsd() (r float64, exists bool) {
+	v := m.weekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWeeklyCreditUsd returns the old "weekly_credit_usd" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldWeeklyCreditUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWeeklyCreditUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWeeklyCreditUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWeeklyCreditUsd: %w", err)
+	}
+	return oldValue.WeeklyCreditUsd, nil
+}
+
+// AddWeeklyCreditUsd adds f to the "weekly_credit_usd" field.
+func (m *BalancePackagePlanMutation) AddWeeklyCreditUsd(f float64) {
+	if m.addweekly_credit_usd != nil {
+		*m.addweekly_credit_usd += f
+	} else {
+		m.addweekly_credit_usd = &f
+	}
+}
+
+// AddedWeeklyCreditUsd returns the value that was added to the "weekly_credit_usd" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedWeeklyCreditUsd() (r float64, exists bool) {
+	v := m.addweekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetWeeklyCreditUsd resets all changes to the "weekly_credit_usd" field.
+func (m *BalancePackagePlanMutation) ResetWeeklyCreditUsd() {
+	m.weekly_credit_usd = nil
+	m.addweekly_credit_usd = nil
+}
+
+// SetValidityDays sets the "validity_days" field.
+func (m *BalancePackagePlanMutation) SetValidityDays(i int) {
+	m.validity_days = &i
+	m.addvalidity_days = nil
+}
+
+// ValidityDays returns the value of the "validity_days" field in the mutation.
+func (m *BalancePackagePlanMutation) ValidityDays() (r int, exists bool) {
+	v := m.validity_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldValidityDays returns the old "validity_days" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldValidityDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldValidityDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldValidityDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldValidityDays: %w", err)
+	}
+	return oldValue.ValidityDays, nil
+}
+
+// AddValidityDays adds i to the "validity_days" field.
+func (m *BalancePackagePlanMutation) AddValidityDays(i int) {
+	if m.addvalidity_days != nil {
+		*m.addvalidity_days += i
+	} else {
+		m.addvalidity_days = &i
+	}
+}
+
+// AddedValidityDays returns the value that was added to the "validity_days" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedValidityDays() (r int, exists bool) {
+	v := m.addvalidity_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetValidityDays resets all changes to the "validity_days" field.
+func (m *BalancePackagePlanMutation) ResetValidityDays() {
+	m.validity_days = nil
+	m.addvalidity_days = nil
+}
+
+// SetRefreshCount sets the "refresh_count" field.
+func (m *BalancePackagePlanMutation) SetRefreshCount(i int) {
+	m.refresh_count = &i
+	m.addrefresh_count = nil
+}
+
+// RefreshCount returns the value of the "refresh_count" field in the mutation.
+func (m *BalancePackagePlanMutation) RefreshCount() (r int, exists bool) {
+	v := m.refresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefreshCount returns the old "refresh_count" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldRefreshCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefreshCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefreshCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefreshCount: %w", err)
+	}
+	return oldValue.RefreshCount, nil
+}
+
+// AddRefreshCount adds i to the "refresh_count" field.
+func (m *BalancePackagePlanMutation) AddRefreshCount(i int) {
+	if m.addrefresh_count != nil {
+		*m.addrefresh_count += i
+	} else {
+		m.addrefresh_count = &i
+	}
+}
+
+// AddedRefreshCount returns the value that was added to the "refresh_count" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedRefreshCount() (r int, exists bool) {
+	v := m.addrefresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRefreshCount resets all changes to the "refresh_count" field.
+func (m *BalancePackagePlanMutation) ResetRefreshCount() {
+	m.refresh_count = nil
+	m.addrefresh_count = nil
+}
+
+// SetRefreshIntervalDays sets the "refresh_interval_days" field.
+func (m *BalancePackagePlanMutation) SetRefreshIntervalDays(i int) {
+	m.refresh_interval_days = &i
+	m.addrefresh_interval_days = nil
+}
+
+// RefreshIntervalDays returns the value of the "refresh_interval_days" field in the mutation.
+func (m *BalancePackagePlanMutation) RefreshIntervalDays() (r int, exists bool) {
+	v := m.refresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefreshIntervalDays returns the old "refresh_interval_days" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldRefreshIntervalDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefreshIntervalDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefreshIntervalDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefreshIntervalDays: %w", err)
+	}
+	return oldValue.RefreshIntervalDays, nil
+}
+
+// AddRefreshIntervalDays adds i to the "refresh_interval_days" field.
+func (m *BalancePackagePlanMutation) AddRefreshIntervalDays(i int) {
+	if m.addrefresh_interval_days != nil {
+		*m.addrefresh_interval_days += i
+	} else {
+		m.addrefresh_interval_days = &i
+	}
+}
+
+// AddedRefreshIntervalDays returns the value that was added to the "refresh_interval_days" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedRefreshIntervalDays() (r int, exists bool) {
+	v := m.addrefresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRefreshIntervalDays resets all changes to the "refresh_interval_days" field.
+func (m *BalancePackagePlanMutation) ResetRefreshIntervalDays() {
+	m.refresh_interval_days = nil
+	m.addrefresh_interval_days = nil
+}
+
+// SetForSale sets the "for_sale" field.
+func (m *BalancePackagePlanMutation) SetForSale(b bool) {
+	m.for_sale = &b
+}
+
+// ForSale returns the value of the "for_sale" field in the mutation.
+func (m *BalancePackagePlanMutation) ForSale() (r bool, exists bool) {
+	v := m.for_sale
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldForSale returns the old "for_sale" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldForSale(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldForSale is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldForSale requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldForSale: %w", err)
+	}
+	return oldValue.ForSale, nil
+}
+
+// ResetForSale resets all changes to the "for_sale" field.
+func (m *BalancePackagePlanMutation) ResetForSale() {
+	m.for_sale = nil
+}
+
+// SetSortOrder sets the "sort_order" field.
+func (m *BalancePackagePlanMutation) SetSortOrder(i int) {
+	m.sort_order = &i
+	m.addsort_order = nil
+}
+
+// SortOrder returns the value of the "sort_order" field in the mutation.
+func (m *BalancePackagePlanMutation) SortOrder() (r int, exists bool) {
+	v := m.sort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSortOrder returns the old "sort_order" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldSortOrder(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSortOrder is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSortOrder requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSortOrder: %w", err)
+	}
+	return oldValue.SortOrder, nil
+}
+
+// AddSortOrder adds i to the "sort_order" field.
+func (m *BalancePackagePlanMutation) AddSortOrder(i int) {
+	if m.addsort_order != nil {
+		*m.addsort_order += i
+	} else {
+		m.addsort_order = &i
+	}
+}
+
+// AddedSortOrder returns the value that was added to the "sort_order" field in this mutation.
+func (m *BalancePackagePlanMutation) AddedSortOrder() (r int, exists bool) {
+	v := m.addsort_order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSortOrder resets all changes to the "sort_order" field.
+func (m *BalancePackagePlanMutation) ResetSortOrder() {
+	m.sort_order = nil
+	m.addsort_order = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *BalancePackagePlanMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *BalancePackagePlanMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *BalancePackagePlanMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *BalancePackagePlanMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *BalancePackagePlanMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the BalancePackagePlan entity.
+// If the BalancePackagePlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BalancePackagePlanMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *BalancePackagePlanMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the BalancePackagePlanMutation builder.
+func (m *BalancePackagePlanMutation) Where(ps ...predicate.BalancePackagePlan) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the BalancePackagePlanMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *BalancePackagePlanMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.BalancePackagePlan, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *BalancePackagePlanMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *BalancePackagePlanMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (BalancePackagePlan).
+func (m *BalancePackagePlanMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *BalancePackagePlanMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.code != nil {
+		fields = append(fields, balancepackageplan.FieldCode)
+	}
+	if m.name != nil {
+		fields = append(fields, balancepackageplan.FieldName)
+	}
+	if m.price_cny != nil {
+		fields = append(fields, balancepackageplan.FieldPriceCny)
+	}
+	if m.weekly_credit_usd != nil {
+		fields = append(fields, balancepackageplan.FieldWeeklyCreditUsd)
+	}
+	if m.validity_days != nil {
+		fields = append(fields, balancepackageplan.FieldValidityDays)
+	}
+	if m.refresh_count != nil {
+		fields = append(fields, balancepackageplan.FieldRefreshCount)
+	}
+	if m.refresh_interval_days != nil {
+		fields = append(fields, balancepackageplan.FieldRefreshIntervalDays)
+	}
+	if m.for_sale != nil {
+		fields = append(fields, balancepackageplan.FieldForSale)
+	}
+	if m.sort_order != nil {
+		fields = append(fields, balancepackageplan.FieldSortOrder)
+	}
+	if m.created_at != nil {
+		fields = append(fields, balancepackageplan.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, balancepackageplan.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *BalancePackagePlanMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case balancepackageplan.FieldCode:
+		return m.Code()
+	case balancepackageplan.FieldName:
+		return m.Name()
+	case balancepackageplan.FieldPriceCny:
+		return m.PriceCny()
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		return m.WeeklyCreditUsd()
+	case balancepackageplan.FieldValidityDays:
+		return m.ValidityDays()
+	case balancepackageplan.FieldRefreshCount:
+		return m.RefreshCount()
+	case balancepackageplan.FieldRefreshIntervalDays:
+		return m.RefreshIntervalDays()
+	case balancepackageplan.FieldForSale:
+		return m.ForSale()
+	case balancepackageplan.FieldSortOrder:
+		return m.SortOrder()
+	case balancepackageplan.FieldCreatedAt:
+		return m.CreatedAt()
+	case balancepackageplan.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *BalancePackagePlanMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case balancepackageplan.FieldCode:
+		return m.OldCode(ctx)
+	case balancepackageplan.FieldName:
+		return m.OldName(ctx)
+	case balancepackageplan.FieldPriceCny:
+		return m.OldPriceCny(ctx)
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		return m.OldWeeklyCreditUsd(ctx)
+	case balancepackageplan.FieldValidityDays:
+		return m.OldValidityDays(ctx)
+	case balancepackageplan.FieldRefreshCount:
+		return m.OldRefreshCount(ctx)
+	case balancepackageplan.FieldRefreshIntervalDays:
+		return m.OldRefreshIntervalDays(ctx)
+	case balancepackageplan.FieldForSale:
+		return m.OldForSale(ctx)
+	case balancepackageplan.FieldSortOrder:
+		return m.OldSortOrder(ctx)
+	case balancepackageplan.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case balancepackageplan.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown BalancePackagePlan field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BalancePackagePlanMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case balancepackageplan.FieldCode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCode(v)
+		return nil
+	case balancepackageplan.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case balancepackageplan.FieldPriceCny:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPriceCny(v)
+		return nil
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWeeklyCreditUsd(v)
+		return nil
+	case balancepackageplan.FieldValidityDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetValidityDays(v)
+		return nil
+	case balancepackageplan.FieldRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefreshCount(v)
+		return nil
+	case balancepackageplan.FieldRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefreshIntervalDays(v)
+		return nil
+	case balancepackageplan.FieldForSale:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetForSale(v)
+		return nil
+	case balancepackageplan.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSortOrder(v)
+		return nil
+	case balancepackageplan.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case balancepackageplan.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BalancePackagePlan field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *BalancePackagePlanMutation) AddedFields() []string {
+	var fields []string
+	if m.addprice_cny != nil {
+		fields = append(fields, balancepackageplan.FieldPriceCny)
+	}
+	if m.addweekly_credit_usd != nil {
+		fields = append(fields, balancepackageplan.FieldWeeklyCreditUsd)
+	}
+	if m.addvalidity_days != nil {
+		fields = append(fields, balancepackageplan.FieldValidityDays)
+	}
+	if m.addrefresh_count != nil {
+		fields = append(fields, balancepackageplan.FieldRefreshCount)
+	}
+	if m.addrefresh_interval_days != nil {
+		fields = append(fields, balancepackageplan.FieldRefreshIntervalDays)
+	}
+	if m.addsort_order != nil {
+		fields = append(fields, balancepackageplan.FieldSortOrder)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *BalancePackagePlanMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case balancepackageplan.FieldPriceCny:
+		return m.AddedPriceCny()
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		return m.AddedWeeklyCreditUsd()
+	case balancepackageplan.FieldValidityDays:
+		return m.AddedValidityDays()
+	case balancepackageplan.FieldRefreshCount:
+		return m.AddedRefreshCount()
+	case balancepackageplan.FieldRefreshIntervalDays:
+		return m.AddedRefreshIntervalDays()
+	case balancepackageplan.FieldSortOrder:
+		return m.AddedSortOrder()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *BalancePackagePlanMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case balancepackageplan.FieldPriceCny:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPriceCny(v)
+		return nil
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWeeklyCreditUsd(v)
+		return nil
+	case balancepackageplan.FieldValidityDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddValidityDays(v)
+		return nil
+	case balancepackageplan.FieldRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRefreshCount(v)
+		return nil
+	case balancepackageplan.FieldRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRefreshIntervalDays(v)
+		return nil
+	case balancepackageplan.FieldSortOrder:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSortOrder(v)
+		return nil
+	}
+	return fmt.Errorf("unknown BalancePackagePlan numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *BalancePackagePlanMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *BalancePackagePlanMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *BalancePackagePlanMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown BalancePackagePlan nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *BalancePackagePlanMutation) ResetField(name string) error {
+	switch name {
+	case balancepackageplan.FieldCode:
+		m.ResetCode()
+		return nil
+	case balancepackageplan.FieldName:
+		m.ResetName()
+		return nil
+	case balancepackageplan.FieldPriceCny:
+		m.ResetPriceCny()
+		return nil
+	case balancepackageplan.FieldWeeklyCreditUsd:
+		m.ResetWeeklyCreditUsd()
+		return nil
+	case balancepackageplan.FieldValidityDays:
+		m.ResetValidityDays()
+		return nil
+	case balancepackageplan.FieldRefreshCount:
+		m.ResetRefreshCount()
+		return nil
+	case balancepackageplan.FieldRefreshIntervalDays:
+		m.ResetRefreshIntervalDays()
+		return nil
+	case balancepackageplan.FieldForSale:
+		m.ResetForSale()
+		return nil
+	case balancepackageplan.FieldSortOrder:
+		m.ResetSortOrder()
+		return nil
+	case balancepackageplan.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case balancepackageplan.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown BalancePackagePlan field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *BalancePackagePlanMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *BalancePackagePlanMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *BalancePackagePlanMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *BalancePackagePlanMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *BalancePackagePlanMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *BalancePackagePlanMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *BalancePackagePlanMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown BalancePackagePlan unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *BalancePackagePlanMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown BalancePackagePlan edge %s", name)
 }
 
 // BatchImageEventMutation represents an operation that mutates the BatchImageEvent nodes in the graph.
@@ -29006,60 +30077,70 @@ func (m *PaymentAuditLogMutation) ResetEdge(name string) error {
 // PaymentOrderMutation represents an operation that mutates the PaymentOrder nodes in the graph.
 type PaymentOrderMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *int64
-	user_email               *string
-	user_name                *string
-	user_notes               *string
-	amount                   *float64
-	addamount                *float64
-	pay_amount               *float64
-	addpay_amount            *float64
-	fee_rate                 *float64
-	addfee_rate              *float64
-	recharge_code            *string
-	out_trade_no             *string
-	payment_type             *string
-	payment_trade_no         *string
-	pay_url                  *string
-	qr_code                  *string
-	qr_code_img              *string
-	order_type               *string
-	plan_id                  *int64
-	addplan_id               *int64
-	subscription_group_id    *int64
-	addsubscription_group_id *int64
-	subscription_days        *int
-	addsubscription_days     *int
-	provider_instance_id     *string
-	provider_key             *string
-	provider_snapshot        *map[string]interface{}
-	status                   *string
-	refund_amount            *float64
-	addrefund_amount         *float64
-	refund_reason            *string
-	refund_at                *time.Time
-	force_refund             *bool
-	refund_requested_at      *time.Time
-	refund_request_reason    *string
-	refund_requested_by      *string
-	expires_at               *time.Time
-	paid_at                  *time.Time
-	completed_at             *time.Time
-	failed_at                *time.Time
-	failed_reason            *string
-	client_ip                *string
-	src_host                 *string
-	src_url                  *string
-	created_at               *time.Time
-	updated_at               *time.Time
-	clearedFields            map[string]struct{}
-	user                     *int64
-	cleareduser              bool
-	done                     bool
-	oldValue                 func(context.Context) (*PaymentOrder, error)
-	predicates               []predicate.PaymentOrder
+	op                                       Op
+	typ                                      string
+	id                                       *int64
+	user_email                               *string
+	user_name                                *string
+	user_notes                               *string
+	amount                                   *float64
+	addamount                                *float64
+	pay_amount                               *float64
+	addpay_amount                            *float64
+	fee_rate                                 *float64
+	addfee_rate                              *float64
+	recharge_code                            *string
+	out_trade_no                             *string
+	payment_type                             *string
+	payment_trade_no                         *string
+	pay_url                                  *string
+	qr_code                                  *string
+	qr_code_img                              *string
+	order_type                               *string
+	plan_id                                  *int64
+	addplan_id                               *int64
+	balance_package_plan_id                  *int64
+	addbalance_package_plan_id               *int64
+	balance_package_weekly_credit_usd        *float64
+	addbalance_package_weekly_credit_usd     *float64
+	balance_package_refresh_count            *int
+	addbalance_package_refresh_count         *int
+	balance_package_refresh_interval_days    *int
+	addbalance_package_refresh_interval_days *int
+	balance_package_validity_days            *int
+	addbalance_package_validity_days         *int
+	subscription_group_id                    *int64
+	addsubscription_group_id                 *int64
+	subscription_days                        *int
+	addsubscription_days                     *int
+	provider_instance_id                     *string
+	provider_key                             *string
+	provider_snapshot                        *map[string]interface{}
+	status                                   *string
+	refund_amount                            *float64
+	addrefund_amount                         *float64
+	refund_reason                            *string
+	refund_at                                *time.Time
+	force_refund                             *bool
+	refund_requested_at                      *time.Time
+	refund_request_reason                    *string
+	refund_requested_by                      *string
+	expires_at                               *time.Time
+	paid_at                                  *time.Time
+	completed_at                             *time.Time
+	failed_at                                *time.Time
+	failed_reason                            *string
+	client_ip                                *string
+	src_host                                 *string
+	src_url                                  *string
+	created_at                               *time.Time
+	updated_at                               *time.Time
+	clearedFields                            map[string]struct{}
+	user                                     *int64
+	cleareduser                              bool
+	done                                     bool
+	oldValue                                 func(context.Context) (*PaymentOrder, error)
+	predicates                               []predicate.PaymentOrder
 }
 
 var _ ent.Mutation = (*PaymentOrderMutation)(nil)
@@ -29880,6 +30961,356 @@ func (m *PaymentOrderMutation) ResetPlanID() {
 	m.plan_id = nil
 	m.addplan_id = nil
 	delete(m.clearedFields, paymentorder.FieldPlanID)
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (m *PaymentOrderMutation) SetBalancePackagePlanID(i int64) {
+	m.balance_package_plan_id = &i
+	m.addbalance_package_plan_id = nil
+}
+
+// BalancePackagePlanID returns the value of the "balance_package_plan_id" field in the mutation.
+func (m *PaymentOrderMutation) BalancePackagePlanID() (r int64, exists bool) {
+	v := m.balance_package_plan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackagePlanID returns the old "balance_package_plan_id" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldBalancePackagePlanID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackagePlanID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackagePlanID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackagePlanID: %w", err)
+	}
+	return oldValue.BalancePackagePlanID, nil
+}
+
+// AddBalancePackagePlanID adds i to the "balance_package_plan_id" field.
+func (m *PaymentOrderMutation) AddBalancePackagePlanID(i int64) {
+	if m.addbalance_package_plan_id != nil {
+		*m.addbalance_package_plan_id += i
+	} else {
+		m.addbalance_package_plan_id = &i
+	}
+}
+
+// AddedBalancePackagePlanID returns the value that was added to the "balance_package_plan_id" field in this mutation.
+func (m *PaymentOrderMutation) AddedBalancePackagePlanID() (r int64, exists bool) {
+	v := m.addbalance_package_plan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (m *PaymentOrderMutation) ClearBalancePackagePlanID() {
+	m.balance_package_plan_id = nil
+	m.addbalance_package_plan_id = nil
+	m.clearedFields[paymentorder.FieldBalancePackagePlanID] = struct{}{}
+}
+
+// BalancePackagePlanIDCleared returns if the "balance_package_plan_id" field was cleared in this mutation.
+func (m *PaymentOrderMutation) BalancePackagePlanIDCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldBalancePackagePlanID]
+	return ok
+}
+
+// ResetBalancePackagePlanID resets all changes to the "balance_package_plan_id" field.
+func (m *PaymentOrderMutation) ResetBalancePackagePlanID() {
+	m.balance_package_plan_id = nil
+	m.addbalance_package_plan_id = nil
+	delete(m.clearedFields, paymentorder.FieldBalancePackagePlanID)
+}
+
+// SetBalancePackageWeeklyCreditUsd sets the "balance_package_weekly_credit_usd" field.
+func (m *PaymentOrderMutation) SetBalancePackageWeeklyCreditUsd(f float64) {
+	m.balance_package_weekly_credit_usd = &f
+	m.addbalance_package_weekly_credit_usd = nil
+}
+
+// BalancePackageWeeklyCreditUsd returns the value of the "balance_package_weekly_credit_usd" field in the mutation.
+func (m *PaymentOrderMutation) BalancePackageWeeklyCreditUsd() (r float64, exists bool) {
+	v := m.balance_package_weekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageWeeklyCreditUsd returns the old "balance_package_weekly_credit_usd" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldBalancePackageWeeklyCreditUsd(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageWeeklyCreditUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageWeeklyCreditUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageWeeklyCreditUsd: %w", err)
+	}
+	return oldValue.BalancePackageWeeklyCreditUsd, nil
+}
+
+// AddBalancePackageWeeklyCreditUsd adds f to the "balance_package_weekly_credit_usd" field.
+func (m *PaymentOrderMutation) AddBalancePackageWeeklyCreditUsd(f float64) {
+	if m.addbalance_package_weekly_credit_usd != nil {
+		*m.addbalance_package_weekly_credit_usd += f
+	} else {
+		m.addbalance_package_weekly_credit_usd = &f
+	}
+}
+
+// AddedBalancePackageWeeklyCreditUsd returns the value that was added to the "balance_package_weekly_credit_usd" field in this mutation.
+func (m *PaymentOrderMutation) AddedBalancePackageWeeklyCreditUsd() (r float64, exists bool) {
+	v := m.addbalance_package_weekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackageWeeklyCreditUsd clears the value of the "balance_package_weekly_credit_usd" field.
+func (m *PaymentOrderMutation) ClearBalancePackageWeeklyCreditUsd() {
+	m.balance_package_weekly_credit_usd = nil
+	m.addbalance_package_weekly_credit_usd = nil
+	m.clearedFields[paymentorder.FieldBalancePackageWeeklyCreditUsd] = struct{}{}
+}
+
+// BalancePackageWeeklyCreditUsdCleared returns if the "balance_package_weekly_credit_usd" field was cleared in this mutation.
+func (m *PaymentOrderMutation) BalancePackageWeeklyCreditUsdCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldBalancePackageWeeklyCreditUsd]
+	return ok
+}
+
+// ResetBalancePackageWeeklyCreditUsd resets all changes to the "balance_package_weekly_credit_usd" field.
+func (m *PaymentOrderMutation) ResetBalancePackageWeeklyCreditUsd() {
+	m.balance_package_weekly_credit_usd = nil
+	m.addbalance_package_weekly_credit_usd = nil
+	delete(m.clearedFields, paymentorder.FieldBalancePackageWeeklyCreditUsd)
+}
+
+// SetBalancePackageRefreshCount sets the "balance_package_refresh_count" field.
+func (m *PaymentOrderMutation) SetBalancePackageRefreshCount(i int) {
+	m.balance_package_refresh_count = &i
+	m.addbalance_package_refresh_count = nil
+}
+
+// BalancePackageRefreshCount returns the value of the "balance_package_refresh_count" field in the mutation.
+func (m *PaymentOrderMutation) BalancePackageRefreshCount() (r int, exists bool) {
+	v := m.balance_package_refresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageRefreshCount returns the old "balance_package_refresh_count" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldBalancePackageRefreshCount(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageRefreshCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageRefreshCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageRefreshCount: %w", err)
+	}
+	return oldValue.BalancePackageRefreshCount, nil
+}
+
+// AddBalancePackageRefreshCount adds i to the "balance_package_refresh_count" field.
+func (m *PaymentOrderMutation) AddBalancePackageRefreshCount(i int) {
+	if m.addbalance_package_refresh_count != nil {
+		*m.addbalance_package_refresh_count += i
+	} else {
+		m.addbalance_package_refresh_count = &i
+	}
+}
+
+// AddedBalancePackageRefreshCount returns the value that was added to the "balance_package_refresh_count" field in this mutation.
+func (m *PaymentOrderMutation) AddedBalancePackageRefreshCount() (r int, exists bool) {
+	v := m.addbalance_package_refresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackageRefreshCount clears the value of the "balance_package_refresh_count" field.
+func (m *PaymentOrderMutation) ClearBalancePackageRefreshCount() {
+	m.balance_package_refresh_count = nil
+	m.addbalance_package_refresh_count = nil
+	m.clearedFields[paymentorder.FieldBalancePackageRefreshCount] = struct{}{}
+}
+
+// BalancePackageRefreshCountCleared returns if the "balance_package_refresh_count" field was cleared in this mutation.
+func (m *PaymentOrderMutation) BalancePackageRefreshCountCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldBalancePackageRefreshCount]
+	return ok
+}
+
+// ResetBalancePackageRefreshCount resets all changes to the "balance_package_refresh_count" field.
+func (m *PaymentOrderMutation) ResetBalancePackageRefreshCount() {
+	m.balance_package_refresh_count = nil
+	m.addbalance_package_refresh_count = nil
+	delete(m.clearedFields, paymentorder.FieldBalancePackageRefreshCount)
+}
+
+// SetBalancePackageRefreshIntervalDays sets the "balance_package_refresh_interval_days" field.
+func (m *PaymentOrderMutation) SetBalancePackageRefreshIntervalDays(i int) {
+	m.balance_package_refresh_interval_days = &i
+	m.addbalance_package_refresh_interval_days = nil
+}
+
+// BalancePackageRefreshIntervalDays returns the value of the "balance_package_refresh_interval_days" field in the mutation.
+func (m *PaymentOrderMutation) BalancePackageRefreshIntervalDays() (r int, exists bool) {
+	v := m.balance_package_refresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageRefreshIntervalDays returns the old "balance_package_refresh_interval_days" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldBalancePackageRefreshIntervalDays(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageRefreshIntervalDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageRefreshIntervalDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageRefreshIntervalDays: %w", err)
+	}
+	return oldValue.BalancePackageRefreshIntervalDays, nil
+}
+
+// AddBalancePackageRefreshIntervalDays adds i to the "balance_package_refresh_interval_days" field.
+func (m *PaymentOrderMutation) AddBalancePackageRefreshIntervalDays(i int) {
+	if m.addbalance_package_refresh_interval_days != nil {
+		*m.addbalance_package_refresh_interval_days += i
+	} else {
+		m.addbalance_package_refresh_interval_days = &i
+	}
+}
+
+// AddedBalancePackageRefreshIntervalDays returns the value that was added to the "balance_package_refresh_interval_days" field in this mutation.
+func (m *PaymentOrderMutation) AddedBalancePackageRefreshIntervalDays() (r int, exists bool) {
+	v := m.addbalance_package_refresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackageRefreshIntervalDays clears the value of the "balance_package_refresh_interval_days" field.
+func (m *PaymentOrderMutation) ClearBalancePackageRefreshIntervalDays() {
+	m.balance_package_refresh_interval_days = nil
+	m.addbalance_package_refresh_interval_days = nil
+	m.clearedFields[paymentorder.FieldBalancePackageRefreshIntervalDays] = struct{}{}
+}
+
+// BalancePackageRefreshIntervalDaysCleared returns if the "balance_package_refresh_interval_days" field was cleared in this mutation.
+func (m *PaymentOrderMutation) BalancePackageRefreshIntervalDaysCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldBalancePackageRefreshIntervalDays]
+	return ok
+}
+
+// ResetBalancePackageRefreshIntervalDays resets all changes to the "balance_package_refresh_interval_days" field.
+func (m *PaymentOrderMutation) ResetBalancePackageRefreshIntervalDays() {
+	m.balance_package_refresh_interval_days = nil
+	m.addbalance_package_refresh_interval_days = nil
+	delete(m.clearedFields, paymentorder.FieldBalancePackageRefreshIntervalDays)
+}
+
+// SetBalancePackageValidityDays sets the "balance_package_validity_days" field.
+func (m *PaymentOrderMutation) SetBalancePackageValidityDays(i int) {
+	m.balance_package_validity_days = &i
+	m.addbalance_package_validity_days = nil
+}
+
+// BalancePackageValidityDays returns the value of the "balance_package_validity_days" field in the mutation.
+func (m *PaymentOrderMutation) BalancePackageValidityDays() (r int, exists bool) {
+	v := m.balance_package_validity_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageValidityDays returns the old "balance_package_validity_days" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldBalancePackageValidityDays(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageValidityDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageValidityDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageValidityDays: %w", err)
+	}
+	return oldValue.BalancePackageValidityDays, nil
+}
+
+// AddBalancePackageValidityDays adds i to the "balance_package_validity_days" field.
+func (m *PaymentOrderMutation) AddBalancePackageValidityDays(i int) {
+	if m.addbalance_package_validity_days != nil {
+		*m.addbalance_package_validity_days += i
+	} else {
+		m.addbalance_package_validity_days = &i
+	}
+}
+
+// AddedBalancePackageValidityDays returns the value that was added to the "balance_package_validity_days" field in this mutation.
+func (m *PaymentOrderMutation) AddedBalancePackageValidityDays() (r int, exists bool) {
+	v := m.addbalance_package_validity_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackageValidityDays clears the value of the "balance_package_validity_days" field.
+func (m *PaymentOrderMutation) ClearBalancePackageValidityDays() {
+	m.balance_package_validity_days = nil
+	m.addbalance_package_validity_days = nil
+	m.clearedFields[paymentorder.FieldBalancePackageValidityDays] = struct{}{}
+}
+
+// BalancePackageValidityDaysCleared returns if the "balance_package_validity_days" field was cleared in this mutation.
+func (m *PaymentOrderMutation) BalancePackageValidityDaysCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldBalancePackageValidityDays]
+	return ok
+}
+
+// ResetBalancePackageValidityDays resets all changes to the "balance_package_validity_days" field.
+func (m *PaymentOrderMutation) ResetBalancePackageValidityDays() {
+	m.balance_package_validity_days = nil
+	m.addbalance_package_validity_days = nil
+	delete(m.clearedFields, paymentorder.FieldBalancePackageValidityDays)
 }
 
 // SetSubscriptionGroupID sets the "subscription_group_id" field.
@@ -31028,7 +32459,7 @@ func (m *PaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 39)
+	fields := make([]string, 0, 44)
 	if m.user != nil {
 		fields = append(fields, paymentorder.FieldUserID)
 	}
@@ -31076,6 +32507,21 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.plan_id != nil {
 		fields = append(fields, paymentorder.FieldPlanID)
+	}
+	if m.balance_package_plan_id != nil {
+		fields = append(fields, paymentorder.FieldBalancePackagePlanID)
+	}
+	if m.balance_package_weekly_credit_usd != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageWeeklyCreditUsd)
+	}
+	if m.balance_package_refresh_count != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshCount)
+	}
+	if m.balance_package_refresh_interval_days != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshIntervalDays)
+	}
+	if m.balance_package_validity_days != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageValidityDays)
 	}
 	if m.subscription_group_id != nil {
 		fields = append(fields, paymentorder.FieldSubscriptionGroupID)
@@ -31186,6 +32632,16 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.OrderType()
 	case paymentorder.FieldPlanID:
 		return m.PlanID()
+	case paymentorder.FieldBalancePackagePlanID:
+		return m.BalancePackagePlanID()
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		return m.BalancePackageWeeklyCreditUsd()
+	case paymentorder.FieldBalancePackageRefreshCount:
+		return m.BalancePackageRefreshCount()
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		return m.BalancePackageRefreshIntervalDays()
+	case paymentorder.FieldBalancePackageValidityDays:
+		return m.BalancePackageValidityDays()
 	case paymentorder.FieldSubscriptionGroupID:
 		return m.SubscriptionGroupID()
 	case paymentorder.FieldSubscriptionDays:
@@ -31273,6 +32729,16 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldOrderType(ctx)
 	case paymentorder.FieldPlanID:
 		return m.OldPlanID(ctx)
+	case paymentorder.FieldBalancePackagePlanID:
+		return m.OldBalancePackagePlanID(ctx)
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		return m.OldBalancePackageWeeklyCreditUsd(ctx)
+	case paymentorder.FieldBalancePackageRefreshCount:
+		return m.OldBalancePackageRefreshCount(ctx)
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		return m.OldBalancePackageRefreshIntervalDays(ctx)
+	case paymentorder.FieldBalancePackageValidityDays:
+		return m.OldBalancePackageValidityDays(ctx)
 	case paymentorder.FieldSubscriptionGroupID:
 		return m.OldSubscriptionGroupID(ctx)
 	case paymentorder.FieldSubscriptionDays:
@@ -31439,6 +32905,41 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPlanID(v)
+		return nil
+	case paymentorder.FieldBalancePackagePlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackagePlanID(v)
+		return nil
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageWeeklyCreditUsd(v)
+		return nil
+	case paymentorder.FieldBalancePackageRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageRefreshCount(v)
+		return nil
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageRefreshIntervalDays(v)
+		return nil
+	case paymentorder.FieldBalancePackageValidityDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageValidityDays(v)
 		return nil
 	case paymentorder.FieldSubscriptionGroupID:
 		v, ok := value.(int64)
@@ -31621,6 +33122,21 @@ func (m *PaymentOrderMutation) AddedFields() []string {
 	if m.addplan_id != nil {
 		fields = append(fields, paymentorder.FieldPlanID)
 	}
+	if m.addbalance_package_plan_id != nil {
+		fields = append(fields, paymentorder.FieldBalancePackagePlanID)
+	}
+	if m.addbalance_package_weekly_credit_usd != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageWeeklyCreditUsd)
+	}
+	if m.addbalance_package_refresh_count != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshCount)
+	}
+	if m.addbalance_package_refresh_interval_days != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshIntervalDays)
+	}
+	if m.addbalance_package_validity_days != nil {
+		fields = append(fields, paymentorder.FieldBalancePackageValidityDays)
+	}
 	if m.addsubscription_group_id != nil {
 		fields = append(fields, paymentorder.FieldSubscriptionGroupID)
 	}
@@ -31646,6 +33162,16 @@ func (m *PaymentOrderMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFeeRate()
 	case paymentorder.FieldPlanID:
 		return m.AddedPlanID()
+	case paymentorder.FieldBalancePackagePlanID:
+		return m.AddedBalancePackagePlanID()
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		return m.AddedBalancePackageWeeklyCreditUsd()
+	case paymentorder.FieldBalancePackageRefreshCount:
+		return m.AddedBalancePackageRefreshCount()
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		return m.AddedBalancePackageRefreshIntervalDays()
+	case paymentorder.FieldBalancePackageValidityDays:
+		return m.AddedBalancePackageValidityDays()
 	case paymentorder.FieldSubscriptionGroupID:
 		return m.AddedSubscriptionGroupID()
 	case paymentorder.FieldSubscriptionDays:
@@ -31688,6 +33214,41 @@ func (m *PaymentOrderMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPlanID(v)
+		return nil
+	case paymentorder.FieldBalancePackagePlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackagePlanID(v)
+		return nil
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageWeeklyCreditUsd(v)
+		return nil
+	case paymentorder.FieldBalancePackageRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageRefreshCount(v)
+		return nil
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageRefreshIntervalDays(v)
+		return nil
+	case paymentorder.FieldBalancePackageValidityDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageValidityDays(v)
 		return nil
 	case paymentorder.FieldSubscriptionGroupID:
 		v, ok := value.(int64)
@@ -31732,6 +33293,21 @@ func (m *PaymentOrderMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(paymentorder.FieldPlanID) {
 		fields = append(fields, paymentorder.FieldPlanID)
+	}
+	if m.FieldCleared(paymentorder.FieldBalancePackagePlanID) {
+		fields = append(fields, paymentorder.FieldBalancePackagePlanID)
+	}
+	if m.FieldCleared(paymentorder.FieldBalancePackageWeeklyCreditUsd) {
+		fields = append(fields, paymentorder.FieldBalancePackageWeeklyCreditUsd)
+	}
+	if m.FieldCleared(paymentorder.FieldBalancePackageRefreshCount) {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshCount)
+	}
+	if m.FieldCleared(paymentorder.FieldBalancePackageRefreshIntervalDays) {
+		fields = append(fields, paymentorder.FieldBalancePackageRefreshIntervalDays)
+	}
+	if m.FieldCleared(paymentorder.FieldBalancePackageValidityDays) {
+		fields = append(fields, paymentorder.FieldBalancePackageValidityDays)
 	}
 	if m.FieldCleared(paymentorder.FieldSubscriptionGroupID) {
 		fields = append(fields, paymentorder.FieldSubscriptionGroupID)
@@ -31806,6 +33382,21 @@ func (m *PaymentOrderMutation) ClearField(name string) error {
 		return nil
 	case paymentorder.FieldPlanID:
 		m.ClearPlanID()
+		return nil
+	case paymentorder.FieldBalancePackagePlanID:
+		m.ClearBalancePackagePlanID()
+		return nil
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		m.ClearBalancePackageWeeklyCreditUsd()
+		return nil
+	case paymentorder.FieldBalancePackageRefreshCount:
+		m.ClearBalancePackageRefreshCount()
+		return nil
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		m.ClearBalancePackageRefreshIntervalDays()
+		return nil
+	case paymentorder.FieldBalancePackageValidityDays:
+		m.ClearBalancePackageValidityDays()
 		return nil
 	case paymentorder.FieldSubscriptionGroupID:
 		m.ClearSubscriptionGroupID()
@@ -31907,6 +33498,21 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case paymentorder.FieldPlanID:
 		m.ResetPlanID()
+		return nil
+	case paymentorder.FieldBalancePackagePlanID:
+		m.ResetBalancePackagePlanID()
+		return nil
+	case paymentorder.FieldBalancePackageWeeklyCreditUsd:
+		m.ResetBalancePackageWeeklyCreditUsd()
+		return nil
+	case paymentorder.FieldBalancePackageRefreshCount:
+		m.ResetBalancePackageRefreshCount()
+		return nil
+	case paymentorder.FieldBalancePackageRefreshIntervalDays:
+		m.ResetBalancePackageRefreshIntervalDays()
+		return nil
+	case paymentorder.FieldBalancePackageValidityDays:
+		m.ResetBalancePackageValidityDays()
 		return nil
 	case paymentorder.FieldSubscriptionGroupID:
 		m.ResetSubscriptionGroupID()
@@ -47437,6 +49043,9 @@ type UserMutation struct {
 	payment_orders                map[int64]struct{}
 	removedpayment_orders         map[int64]struct{}
 	clearedpayment_orders         bool
+	balance_packages              map[int64]struct{}
+	removedbalance_packages       map[int64]struct{}
+	clearedbalance_packages       bool
 	auth_identities               map[int64]struct{}
 	removedauth_identities        map[int64]struct{}
 	clearedauth_identities        bool
@@ -49152,6 +50761,60 @@ func (m *UserMutation) ResetPaymentOrders() {
 	m.removedpayment_orders = nil
 }
 
+// AddBalancePackageIDs adds the "balance_packages" edge to the UserBalancePackage entity by ids.
+func (m *UserMutation) AddBalancePackageIDs(ids ...int64) {
+	if m.balance_packages == nil {
+		m.balance_packages = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.balance_packages[ids[i]] = struct{}{}
+	}
+}
+
+// ClearBalancePackages clears the "balance_packages" edge to the UserBalancePackage entity.
+func (m *UserMutation) ClearBalancePackages() {
+	m.clearedbalance_packages = true
+}
+
+// BalancePackagesCleared reports if the "balance_packages" edge to the UserBalancePackage entity was cleared.
+func (m *UserMutation) BalancePackagesCleared() bool {
+	return m.clearedbalance_packages
+}
+
+// RemoveBalancePackageIDs removes the "balance_packages" edge to the UserBalancePackage entity by IDs.
+func (m *UserMutation) RemoveBalancePackageIDs(ids ...int64) {
+	if m.removedbalance_packages == nil {
+		m.removedbalance_packages = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.balance_packages, ids[i])
+		m.removedbalance_packages[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedBalancePackages returns the removed IDs of the "balance_packages" edge to the UserBalancePackage entity.
+func (m *UserMutation) RemovedBalancePackagesIDs() (ids []int64) {
+	for id := range m.removedbalance_packages {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// BalancePackagesIDs returns the "balance_packages" edge IDs in the mutation.
+func (m *UserMutation) BalancePackagesIDs() (ids []int64) {
+	for id := range m.balance_packages {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetBalancePackages resets all changes to the "balance_packages" edge.
+func (m *UserMutation) ResetBalancePackages() {
+	m.balance_packages = nil
+	m.clearedbalance_packages = false
+	m.removedbalance_packages = nil
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by ids.
 func (m *UserMutation) AddAuthIdentityIDs(ids ...int64) {
 	if m.auth_identities == nil {
@@ -49952,7 +51615,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -49982,6 +51645,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.payment_orders != nil {
 		edges = append(edges, user.EdgePaymentOrders)
+	}
+	if m.balance_packages != nil {
+		edges = append(edges, user.EdgeBalancePackages)
 	}
 	if m.auth_identities != nil {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -50059,6 +51725,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeBalancePackages:
+		ids := make([]ent.Value, 0, len(m.balance_packages))
+		for id := range m.balance_packages {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAuthIdentities:
 		ids := make([]ent.Value, 0, len(m.auth_identities))
 		for id := range m.auth_identities {
@@ -50083,7 +51755,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50113,6 +51785,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedpayment_orders != nil {
 		edges = append(edges, user.EdgePaymentOrders)
+	}
+	if m.removedbalance_packages != nil {
+		edges = append(edges, user.EdgeBalancePackages)
 	}
 	if m.removedauth_identities != nil {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -50190,6 +51865,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeBalancePackages:
+		ids := make([]ent.Value, 0, len(m.removedbalance_packages))
+		for id := range m.removedbalance_packages {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAuthIdentities:
 		ids := make([]ent.Value, 0, len(m.removedauth_identities))
 		for id := range m.removedauth_identities {
@@ -50214,7 +51895,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 14)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -50244,6 +51925,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedpayment_orders {
 		edges = append(edges, user.EdgePaymentOrders)
+	}
+	if m.clearedbalance_packages {
+		edges = append(edges, user.EdgeBalancePackages)
 	}
 	if m.clearedauth_identities {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -50281,6 +51965,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedpromo_code_usages
 	case user.EdgePaymentOrders:
 		return m.clearedpayment_orders
+	case user.EdgeBalancePackages:
+		return m.clearedbalance_packages
 	case user.EdgeAuthIdentities:
 		return m.clearedauth_identities
 	case user.EdgePendingAuthSessions:
@@ -50332,6 +52018,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgePaymentOrders:
 		m.ResetPaymentOrders()
+		return nil
+	case user.EdgeBalancePackages:
+		m.ResetBalancePackages()
 		return nil
 	case user.EdgeAuthIdentities:
 		m.ResetAuthIdentities()
@@ -52560,6 +54249,1257 @@ func (m *UserAttributeValueMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown UserAttributeValue edge %s", name)
+}
+
+// UserBalancePackageMutation represents an operation that mutates the UserBalancePackage nodes in the graph.
+type UserBalancePackageMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int64
+	plan_id                  *int64
+	addplan_id               *int64
+	payment_order_id         *int64
+	addpayment_order_id      *int64
+	weekly_credit_usd        *float64
+	addweekly_credit_usd     *float64
+	credited_count           *int
+	addcredited_count        *int
+	refresh_count            *int
+	addrefresh_count         *int
+	refresh_interval_days    *int
+	addrefresh_interval_days *int
+	starts_at                *time.Time
+	next_credit_at           *time.Time
+	expires_at               *time.Time
+	status                   *string
+	created_at               *time.Time
+	updated_at               *time.Time
+	clearedFields            map[string]struct{}
+	user                     *int64
+	cleareduser              bool
+	done                     bool
+	oldValue                 func(context.Context) (*UserBalancePackage, error)
+	predicates               []predicate.UserBalancePackage
+}
+
+var _ ent.Mutation = (*UserBalancePackageMutation)(nil)
+
+// userbalancepackageOption allows management of the mutation configuration using functional options.
+type userbalancepackageOption func(*UserBalancePackageMutation)
+
+// newUserBalancePackageMutation creates new mutation for the UserBalancePackage entity.
+func newUserBalancePackageMutation(c config, op Op, opts ...userbalancepackageOption) *UserBalancePackageMutation {
+	m := &UserBalancePackageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeUserBalancePackage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withUserBalancePackageID sets the ID field of the mutation.
+func withUserBalancePackageID(id int64) userbalancepackageOption {
+	return func(m *UserBalancePackageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *UserBalancePackage
+		)
+		m.oldValue = func(ctx context.Context) (*UserBalancePackage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().UserBalancePackage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withUserBalancePackage sets the old UserBalancePackage of the mutation.
+func withUserBalancePackage(node *UserBalancePackage) userbalancepackageOption {
+	return func(m *UserBalancePackageMutation) {
+		m.oldValue = func(context.Context) (*UserBalancePackage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m UserBalancePackageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m UserBalancePackageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *UserBalancePackageMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *UserBalancePackageMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().UserBalancePackage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUserID sets the "user_id" field.
+func (m *UserBalancePackageMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *UserBalancePackageMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *UserBalancePackageMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetPlanID sets the "plan_id" field.
+func (m *UserBalancePackageMutation) SetPlanID(i int64) {
+	m.plan_id = &i
+	m.addplan_id = nil
+}
+
+// PlanID returns the value of the "plan_id" field in the mutation.
+func (m *UserBalancePackageMutation) PlanID() (r int64, exists bool) {
+	v := m.plan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPlanID returns the old "plan_id" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldPlanID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPlanID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPlanID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPlanID: %w", err)
+	}
+	return oldValue.PlanID, nil
+}
+
+// AddPlanID adds i to the "plan_id" field.
+func (m *UserBalancePackageMutation) AddPlanID(i int64) {
+	if m.addplan_id != nil {
+		*m.addplan_id += i
+	} else {
+		m.addplan_id = &i
+	}
+}
+
+// AddedPlanID returns the value that was added to the "plan_id" field in this mutation.
+func (m *UserBalancePackageMutation) AddedPlanID() (r int64, exists bool) {
+	v := m.addplan_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPlanID resets all changes to the "plan_id" field.
+func (m *UserBalancePackageMutation) ResetPlanID() {
+	m.plan_id = nil
+	m.addplan_id = nil
+}
+
+// SetPaymentOrderID sets the "payment_order_id" field.
+func (m *UserBalancePackageMutation) SetPaymentOrderID(i int64) {
+	m.payment_order_id = &i
+	m.addpayment_order_id = nil
+}
+
+// PaymentOrderID returns the value of the "payment_order_id" field in the mutation.
+func (m *UserBalancePackageMutation) PaymentOrderID() (r int64, exists bool) {
+	v := m.payment_order_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPaymentOrderID returns the old "payment_order_id" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldPaymentOrderID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPaymentOrderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPaymentOrderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPaymentOrderID: %w", err)
+	}
+	return oldValue.PaymentOrderID, nil
+}
+
+// AddPaymentOrderID adds i to the "payment_order_id" field.
+func (m *UserBalancePackageMutation) AddPaymentOrderID(i int64) {
+	if m.addpayment_order_id != nil {
+		*m.addpayment_order_id += i
+	} else {
+		m.addpayment_order_id = &i
+	}
+}
+
+// AddedPaymentOrderID returns the value that was added to the "payment_order_id" field in this mutation.
+func (m *UserBalancePackageMutation) AddedPaymentOrderID() (r int64, exists bool) {
+	v := m.addpayment_order_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPaymentOrderID resets all changes to the "payment_order_id" field.
+func (m *UserBalancePackageMutation) ResetPaymentOrderID() {
+	m.payment_order_id = nil
+	m.addpayment_order_id = nil
+}
+
+// SetWeeklyCreditUsd sets the "weekly_credit_usd" field.
+func (m *UserBalancePackageMutation) SetWeeklyCreditUsd(f float64) {
+	m.weekly_credit_usd = &f
+	m.addweekly_credit_usd = nil
+}
+
+// WeeklyCreditUsd returns the value of the "weekly_credit_usd" field in the mutation.
+func (m *UserBalancePackageMutation) WeeklyCreditUsd() (r float64, exists bool) {
+	v := m.weekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldWeeklyCreditUsd returns the old "weekly_credit_usd" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldWeeklyCreditUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldWeeklyCreditUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldWeeklyCreditUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldWeeklyCreditUsd: %w", err)
+	}
+	return oldValue.WeeklyCreditUsd, nil
+}
+
+// AddWeeklyCreditUsd adds f to the "weekly_credit_usd" field.
+func (m *UserBalancePackageMutation) AddWeeklyCreditUsd(f float64) {
+	if m.addweekly_credit_usd != nil {
+		*m.addweekly_credit_usd += f
+	} else {
+		m.addweekly_credit_usd = &f
+	}
+}
+
+// AddedWeeklyCreditUsd returns the value that was added to the "weekly_credit_usd" field in this mutation.
+func (m *UserBalancePackageMutation) AddedWeeklyCreditUsd() (r float64, exists bool) {
+	v := m.addweekly_credit_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetWeeklyCreditUsd resets all changes to the "weekly_credit_usd" field.
+func (m *UserBalancePackageMutation) ResetWeeklyCreditUsd() {
+	m.weekly_credit_usd = nil
+	m.addweekly_credit_usd = nil
+}
+
+// SetCreditedCount sets the "credited_count" field.
+func (m *UserBalancePackageMutation) SetCreditedCount(i int) {
+	m.credited_count = &i
+	m.addcredited_count = nil
+}
+
+// CreditedCount returns the value of the "credited_count" field in the mutation.
+func (m *UserBalancePackageMutation) CreditedCount() (r int, exists bool) {
+	v := m.credited_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreditedCount returns the old "credited_count" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldCreditedCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreditedCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreditedCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreditedCount: %w", err)
+	}
+	return oldValue.CreditedCount, nil
+}
+
+// AddCreditedCount adds i to the "credited_count" field.
+func (m *UserBalancePackageMutation) AddCreditedCount(i int) {
+	if m.addcredited_count != nil {
+		*m.addcredited_count += i
+	} else {
+		m.addcredited_count = &i
+	}
+}
+
+// AddedCreditedCount returns the value that was added to the "credited_count" field in this mutation.
+func (m *UserBalancePackageMutation) AddedCreditedCount() (r int, exists bool) {
+	v := m.addcredited_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreditedCount resets all changes to the "credited_count" field.
+func (m *UserBalancePackageMutation) ResetCreditedCount() {
+	m.credited_count = nil
+	m.addcredited_count = nil
+}
+
+// SetRefreshCount sets the "refresh_count" field.
+func (m *UserBalancePackageMutation) SetRefreshCount(i int) {
+	m.refresh_count = &i
+	m.addrefresh_count = nil
+}
+
+// RefreshCount returns the value of the "refresh_count" field in the mutation.
+func (m *UserBalancePackageMutation) RefreshCount() (r int, exists bool) {
+	v := m.refresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefreshCount returns the old "refresh_count" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldRefreshCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefreshCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefreshCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefreshCount: %w", err)
+	}
+	return oldValue.RefreshCount, nil
+}
+
+// AddRefreshCount adds i to the "refresh_count" field.
+func (m *UserBalancePackageMutation) AddRefreshCount(i int) {
+	if m.addrefresh_count != nil {
+		*m.addrefresh_count += i
+	} else {
+		m.addrefresh_count = &i
+	}
+}
+
+// AddedRefreshCount returns the value that was added to the "refresh_count" field in this mutation.
+func (m *UserBalancePackageMutation) AddedRefreshCount() (r int, exists bool) {
+	v := m.addrefresh_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRefreshCount resets all changes to the "refresh_count" field.
+func (m *UserBalancePackageMutation) ResetRefreshCount() {
+	m.refresh_count = nil
+	m.addrefresh_count = nil
+}
+
+// SetRefreshIntervalDays sets the "refresh_interval_days" field.
+func (m *UserBalancePackageMutation) SetRefreshIntervalDays(i int) {
+	m.refresh_interval_days = &i
+	m.addrefresh_interval_days = nil
+}
+
+// RefreshIntervalDays returns the value of the "refresh_interval_days" field in the mutation.
+func (m *UserBalancePackageMutation) RefreshIntervalDays() (r int, exists bool) {
+	v := m.refresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRefreshIntervalDays returns the old "refresh_interval_days" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldRefreshIntervalDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRefreshIntervalDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRefreshIntervalDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRefreshIntervalDays: %w", err)
+	}
+	return oldValue.RefreshIntervalDays, nil
+}
+
+// AddRefreshIntervalDays adds i to the "refresh_interval_days" field.
+func (m *UserBalancePackageMutation) AddRefreshIntervalDays(i int) {
+	if m.addrefresh_interval_days != nil {
+		*m.addrefresh_interval_days += i
+	} else {
+		m.addrefresh_interval_days = &i
+	}
+}
+
+// AddedRefreshIntervalDays returns the value that was added to the "refresh_interval_days" field in this mutation.
+func (m *UserBalancePackageMutation) AddedRefreshIntervalDays() (r int, exists bool) {
+	v := m.addrefresh_interval_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRefreshIntervalDays resets all changes to the "refresh_interval_days" field.
+func (m *UserBalancePackageMutation) ResetRefreshIntervalDays() {
+	m.refresh_interval_days = nil
+	m.addrefresh_interval_days = nil
+}
+
+// SetStartsAt sets the "starts_at" field.
+func (m *UserBalancePackageMutation) SetStartsAt(t time.Time) {
+	m.starts_at = &t
+}
+
+// StartsAt returns the value of the "starts_at" field in the mutation.
+func (m *UserBalancePackageMutation) StartsAt() (r time.Time, exists bool) {
+	v := m.starts_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartsAt returns the old "starts_at" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldStartsAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartsAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartsAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartsAt: %w", err)
+	}
+	return oldValue.StartsAt, nil
+}
+
+// ResetStartsAt resets all changes to the "starts_at" field.
+func (m *UserBalancePackageMutation) ResetStartsAt() {
+	m.starts_at = nil
+}
+
+// SetNextCreditAt sets the "next_credit_at" field.
+func (m *UserBalancePackageMutation) SetNextCreditAt(t time.Time) {
+	m.next_credit_at = &t
+}
+
+// NextCreditAt returns the value of the "next_credit_at" field in the mutation.
+func (m *UserBalancePackageMutation) NextCreditAt() (r time.Time, exists bool) {
+	v := m.next_credit_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNextCreditAt returns the old "next_credit_at" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldNextCreditAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNextCreditAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNextCreditAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNextCreditAt: %w", err)
+	}
+	return oldValue.NextCreditAt, nil
+}
+
+// ClearNextCreditAt clears the value of the "next_credit_at" field.
+func (m *UserBalancePackageMutation) ClearNextCreditAt() {
+	m.next_credit_at = nil
+	m.clearedFields[userbalancepackage.FieldNextCreditAt] = struct{}{}
+}
+
+// NextCreditAtCleared returns if the "next_credit_at" field was cleared in this mutation.
+func (m *UserBalancePackageMutation) NextCreditAtCleared() bool {
+	_, ok := m.clearedFields[userbalancepackage.FieldNextCreditAt]
+	return ok
+}
+
+// ResetNextCreditAt resets all changes to the "next_credit_at" field.
+func (m *UserBalancePackageMutation) ResetNextCreditAt() {
+	m.next_credit_at = nil
+	delete(m.clearedFields, userbalancepackage.FieldNextCreditAt)
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *UserBalancePackageMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *UserBalancePackageMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *UserBalancePackageMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *UserBalancePackageMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *UserBalancePackageMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *UserBalancePackageMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *UserBalancePackageMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *UserBalancePackageMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *UserBalancePackageMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *UserBalancePackageMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *UserBalancePackageMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *UserBalancePackageMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *UserBalancePackageMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[userbalancepackage.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *UserBalancePackageMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *UserBalancePackageMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *UserBalancePackageMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the UserBalancePackageMutation builder.
+func (m *UserBalancePackageMutation) Where(ps ...predicate.UserBalancePackage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the UserBalancePackageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *UserBalancePackageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.UserBalancePackage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *UserBalancePackageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *UserBalancePackageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (UserBalancePackage).
+func (m *UserBalancePackageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *UserBalancePackageMutation) Fields() []string {
+	fields := make([]string, 0, 13)
+	if m.user != nil {
+		fields = append(fields, userbalancepackage.FieldUserID)
+	}
+	if m.plan_id != nil {
+		fields = append(fields, userbalancepackage.FieldPlanID)
+	}
+	if m.payment_order_id != nil {
+		fields = append(fields, userbalancepackage.FieldPaymentOrderID)
+	}
+	if m.weekly_credit_usd != nil {
+		fields = append(fields, userbalancepackage.FieldWeeklyCreditUsd)
+	}
+	if m.credited_count != nil {
+		fields = append(fields, userbalancepackage.FieldCreditedCount)
+	}
+	if m.refresh_count != nil {
+		fields = append(fields, userbalancepackage.FieldRefreshCount)
+	}
+	if m.refresh_interval_days != nil {
+		fields = append(fields, userbalancepackage.FieldRefreshIntervalDays)
+	}
+	if m.starts_at != nil {
+		fields = append(fields, userbalancepackage.FieldStartsAt)
+	}
+	if m.next_credit_at != nil {
+		fields = append(fields, userbalancepackage.FieldNextCreditAt)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, userbalancepackage.FieldExpiresAt)
+	}
+	if m.status != nil {
+		fields = append(fields, userbalancepackage.FieldStatus)
+	}
+	if m.created_at != nil {
+		fields = append(fields, userbalancepackage.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, userbalancepackage.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *UserBalancePackageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case userbalancepackage.FieldUserID:
+		return m.UserID()
+	case userbalancepackage.FieldPlanID:
+		return m.PlanID()
+	case userbalancepackage.FieldPaymentOrderID:
+		return m.PaymentOrderID()
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		return m.WeeklyCreditUsd()
+	case userbalancepackage.FieldCreditedCount:
+		return m.CreditedCount()
+	case userbalancepackage.FieldRefreshCount:
+		return m.RefreshCount()
+	case userbalancepackage.FieldRefreshIntervalDays:
+		return m.RefreshIntervalDays()
+	case userbalancepackage.FieldStartsAt:
+		return m.StartsAt()
+	case userbalancepackage.FieldNextCreditAt:
+		return m.NextCreditAt()
+	case userbalancepackage.FieldExpiresAt:
+		return m.ExpiresAt()
+	case userbalancepackage.FieldStatus:
+		return m.Status()
+	case userbalancepackage.FieldCreatedAt:
+		return m.CreatedAt()
+	case userbalancepackage.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *UserBalancePackageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case userbalancepackage.FieldUserID:
+		return m.OldUserID(ctx)
+	case userbalancepackage.FieldPlanID:
+		return m.OldPlanID(ctx)
+	case userbalancepackage.FieldPaymentOrderID:
+		return m.OldPaymentOrderID(ctx)
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		return m.OldWeeklyCreditUsd(ctx)
+	case userbalancepackage.FieldCreditedCount:
+		return m.OldCreditedCount(ctx)
+	case userbalancepackage.FieldRefreshCount:
+		return m.OldRefreshCount(ctx)
+	case userbalancepackage.FieldRefreshIntervalDays:
+		return m.OldRefreshIntervalDays(ctx)
+	case userbalancepackage.FieldStartsAt:
+		return m.OldStartsAt(ctx)
+	case userbalancepackage.FieldNextCreditAt:
+		return m.OldNextCreditAt(ctx)
+	case userbalancepackage.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case userbalancepackage.FieldStatus:
+		return m.OldStatus(ctx)
+	case userbalancepackage.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case userbalancepackage.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown UserBalancePackage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserBalancePackageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case userbalancepackage.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case userbalancepackage.FieldPlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPlanID(v)
+		return nil
+	case userbalancepackage.FieldPaymentOrderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPaymentOrderID(v)
+		return nil
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetWeeklyCreditUsd(v)
+		return nil
+	case userbalancepackage.FieldCreditedCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreditedCount(v)
+		return nil
+	case userbalancepackage.FieldRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefreshCount(v)
+		return nil
+	case userbalancepackage.FieldRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRefreshIntervalDays(v)
+		return nil
+	case userbalancepackage.FieldStartsAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartsAt(v)
+		return nil
+	case userbalancepackage.FieldNextCreditAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNextCreditAt(v)
+		return nil
+	case userbalancepackage.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case userbalancepackage.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case userbalancepackage.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case userbalancepackage.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *UserBalancePackageMutation) AddedFields() []string {
+	var fields []string
+	if m.addplan_id != nil {
+		fields = append(fields, userbalancepackage.FieldPlanID)
+	}
+	if m.addpayment_order_id != nil {
+		fields = append(fields, userbalancepackage.FieldPaymentOrderID)
+	}
+	if m.addweekly_credit_usd != nil {
+		fields = append(fields, userbalancepackage.FieldWeeklyCreditUsd)
+	}
+	if m.addcredited_count != nil {
+		fields = append(fields, userbalancepackage.FieldCreditedCount)
+	}
+	if m.addrefresh_count != nil {
+		fields = append(fields, userbalancepackage.FieldRefreshCount)
+	}
+	if m.addrefresh_interval_days != nil {
+		fields = append(fields, userbalancepackage.FieldRefreshIntervalDays)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *UserBalancePackageMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case userbalancepackage.FieldPlanID:
+		return m.AddedPlanID()
+	case userbalancepackage.FieldPaymentOrderID:
+		return m.AddedPaymentOrderID()
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		return m.AddedWeeklyCreditUsd()
+	case userbalancepackage.FieldCreditedCount:
+		return m.AddedCreditedCount()
+	case userbalancepackage.FieldRefreshCount:
+		return m.AddedRefreshCount()
+	case userbalancepackage.FieldRefreshIntervalDays:
+		return m.AddedRefreshIntervalDays()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *UserBalancePackageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case userbalancepackage.FieldPlanID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPlanID(v)
+		return nil
+	case userbalancepackage.FieldPaymentOrderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPaymentOrderID(v)
+		return nil
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddWeeklyCreditUsd(v)
+		return nil
+	case userbalancepackage.FieldCreditedCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreditedCount(v)
+		return nil
+	case userbalancepackage.FieldRefreshCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRefreshCount(v)
+		return nil
+	case userbalancepackage.FieldRefreshIntervalDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRefreshIntervalDays(v)
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *UserBalancePackageMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(userbalancepackage.FieldNextCreditAt) {
+		fields = append(fields, userbalancepackage.FieldNextCreditAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *UserBalancePackageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *UserBalancePackageMutation) ClearField(name string) error {
+	switch name {
+	case userbalancepackage.FieldNextCreditAt:
+		m.ClearNextCreditAt()
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *UserBalancePackageMutation) ResetField(name string) error {
+	switch name {
+	case userbalancepackage.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case userbalancepackage.FieldPlanID:
+		m.ResetPlanID()
+		return nil
+	case userbalancepackage.FieldPaymentOrderID:
+		m.ResetPaymentOrderID()
+		return nil
+	case userbalancepackage.FieldWeeklyCreditUsd:
+		m.ResetWeeklyCreditUsd()
+		return nil
+	case userbalancepackage.FieldCreditedCount:
+		m.ResetCreditedCount()
+		return nil
+	case userbalancepackage.FieldRefreshCount:
+		m.ResetRefreshCount()
+		return nil
+	case userbalancepackage.FieldRefreshIntervalDays:
+		m.ResetRefreshIntervalDays()
+		return nil
+	case userbalancepackage.FieldStartsAt:
+		m.ResetStartsAt()
+		return nil
+	case userbalancepackage.FieldNextCreditAt:
+		m.ResetNextCreditAt()
+		return nil
+	case userbalancepackage.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case userbalancepackage.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case userbalancepackage.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case userbalancepackage.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *UserBalancePackageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.user != nil {
+		edges = append(edges, userbalancepackage.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *UserBalancePackageMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case userbalancepackage.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *UserBalancePackageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *UserBalancePackageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *UserBalancePackageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareduser {
+		edges = append(edges, userbalancepackage.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *UserBalancePackageMutation) EdgeCleared(name string) bool {
+	switch name {
+	case userbalancepackage.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *UserBalancePackageMutation) ClearEdge(name string) error {
+	switch name {
+	case userbalancepackage.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *UserBalancePackageMutation) ResetEdge(name string) error {
+	switch name {
+	case userbalancepackage.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown UserBalancePackage edge %s", name)
 }
 
 // UserPlatformQuotaMutation represents an operation that mutates the UserPlatformQuota nodes in the graph.

@@ -1093,7 +1093,7 @@ default:
   # 新用户默认设置
   # Max concurrent requests per user
   # 每用户最大并发请求数
-  user_concurrency: 5
+  user_concurrency: 20
   # Initial balance for new users
   # 新用户初始余额
   user_balance: 0
@@ -1146,6 +1146,8 @@ pricing:
 # 计费配置
 # =============================================================================
 billing:
+  # 仅服务端实际扣费的最终倍率；前端展示和基础价格不受影响。
+  final_multiplier: 1.0
   circuit_breaker:
     # Enable circuit breaker for billing service
     # 启用计费服务熔断器

@@ -155,6 +155,25 @@ func psLegacyOrderMatchesInstance(orderPaymentType string, inst *dbent.PaymentPr
 }
 
 func (s *PaymentService) RequestRefund(ctx context.Context, oid, uid int64, reason string) error {
+	order, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if order.UserID != uid {
+		return infraerrors.Forbidden("FORBIDDEN", "no permission")
+	}
+	if order.PaymentType == payment.PaymentTypeAdminGrant {
+		return infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
+	}
+	if order.OrderType == payment.OrderTypeBalanceSubscription {
+		if err := s.validateRefundProviderForUser(ctx, order); err != nil {
+			return err
+		}
+		if order.Status != OrderStatusCompleted && order.Status != OrderStatusRefundFailed {
+			return infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
+		}
+		return s.requestBalancePackageRefund(ctx, order, uid, reason)
+	}
 	o, err := s.validateRefundRequest(ctx, oid, uid)
 	if err != nil {
 		return err
@@ -177,6 +196,17 @@ func (s *PaymentService) RequestRefund(ctx context.Context, oid, uid int64, reas
 		return infraerrors.Conflict("CONFLICT", "order status changed")
 	}
 	s.writeAuditLog(ctx, oid, "REFUND_REQUESTED", fmt.Sprintf("user:%d", uid), map[string]any{"amount": o.Amount, "reason": nr})
+	return nil
+}
+
+func (s *PaymentService) validateRefundProviderForUser(ctx context.Context, o *dbent.PaymentOrder) error {
+	if o == nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	inst, err := s.getRefundOrderProviderInstance(ctx, o)
+	if err != nil || inst == nil || !inst.RefundEnabled || !inst.AllowUserRefund {
+		return infraerrors.Forbidden("USER_REFUND_DISABLED", "refund is not available for this order")
+	}
 	return nil
 }
 
@@ -209,6 +239,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
 	if err != nil {
 		return nil, nil, infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.PaymentType == payment.PaymentTypeAdminGrant {
+		return nil, nil, infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
 	}
 	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed}
 	if !psSliceContains(ok, o.Status) {
@@ -255,6 +288,10 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, amt float
 }
 
 func (s *PaymentService) prepDeduct(ctx context.Context, o *dbent.PaymentOrder, p *RefundPlan, force bool) *RefundResult {
+	if o.OrderType == payment.OrderTypeBalanceSubscription {
+		p.DeductionType = payment.DeductionTypeNone
+		return nil
+	}
 	if o.OrderType == payment.OrderTypeSubscription {
 		p.DeductionType = payment.DeductionTypeSubscription
 		if o.SubscriptionGroupID != nil && o.SubscriptionDays != nil {
@@ -331,7 +368,7 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 }
 
 func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.RefundResponse, error) {
-	if p.Order.PaymentTradeNo == "" {
+	if strings.TrimSpace(p.Order.PaymentTradeNo) == "" && strings.TrimSpace(p.Order.OutTradeNo) == "" {
 		s.writeAuditLog(ctx, p.Order.ID, "REFUND_NO_TRADE_NO", "admin", map[string]any{"detail": "skipped"})
 		return &payment.RefundResponse{Status: payment.ProviderStatusSuccess}, nil
 	}
@@ -547,6 +584,16 @@ func (s *PaymentService) getRefundProvider(ctx context.Context, o *dbent.Payment
 }
 
 func (s *PaymentService) handleGwFail(ctx context.Context, p *RefundPlan, gErr error) (*RefundResult, error) {
+	if p != nil && p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
+		now := time.Now()
+		_, _ = s.entClient.PaymentOrder.UpdateOneID(p.OrderID).
+			SetStatus(OrderStatusRefundFailed).
+			SetFailedAt(now).
+			SetFailedReason(psErrMsg(gErr)).
+			Save(ctx)
+		s.writeAuditLog(ctx, p.OrderID, "REFUND_FAILED", "user", map[string]any{"detail": psErrMsg(gErr)})
+		return nil, infraerrors.InternalServer("REFUND_FAILED", psErrMsg(gErr))
+	}
 	if s.RollbackRefund(ctx, p, gErr) {
 		s.restoreStatus(ctx, p)
 		s.writeAuditLog(ctx, p.OrderID, "REFUND_GATEWAY_FAILED", "admin", map[string]any{"detail": psErrMsg(gErr)})
@@ -564,12 +611,24 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 		fs = OrderStatusPartiallyRefunded
 	}
 	now := time.Now()
+	if p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
+		if err := s.revokeBalancePackage(ctx, p.OrderID); err != nil {
+			return nil, fmt.Errorf("revoke balance package: %w", err)
+		}
+	}
 	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(fs).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).SetForceRefund(p.Force).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("mark refund: %w", err)
 	}
-	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", "admin", map[string]any{"refundAmount": p.RefundAmount, "reason": p.Reason, "balanceDeducted": p.BalanceToDeduct, "force": p.Force})
+	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), map[string]any{"refundAmount": p.RefundAmount, "reason": p.Reason, "balanceDeducted": p.BalanceToDeduct, "force": p.Force})
 	return &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}, nil
+}
+
+func refundOperator(p *RefundPlan) string {
+	if p != nil && strings.TrimSpace(p.Operator) != "" {
+		return p.Operator
+	}
+	return "admin"
 }
 
 func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, resp *payment.RefundResponse) (*RefundResult, error) {
@@ -605,7 +664,7 @@ func (s *PaymentService) markRefundPending(ctx context.Context, p *RefundPlan, r
 		"subDaysRolledBack":   subDaysDeducted,
 		"deductionRollbackOK": rollbackOK,
 	}
-	s.writeAuditLog(ctx, p.OrderID, "REFUND_PENDING", "admin", detail)
+	s.writeAuditLog(ctx, p.OrderID, "REFUND_PENDING", refundOperator(p), detail)
 
 	warning := "gateway refund is pending confirmation"
 	if !rollbackOK {

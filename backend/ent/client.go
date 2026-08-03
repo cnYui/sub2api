@@ -22,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageevent"
 	"github.com/Wei-Shaw/sub2api/ent/batchimageitem"
 	"github.com/Wei-Shaw/sub2api/ent/batchimagejob"
@@ -52,6 +53,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
+	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 
@@ -77,6 +79,8 @@ type Client struct {
 	AuthIdentity *AuthIdentityClient
 	// AuthIdentityChannel is the client for interacting with the AuthIdentityChannel builders.
 	AuthIdentityChannel *AuthIdentityChannelClient
+	// BalancePackagePlan is the client for interacting with the BalancePackagePlan builders.
+	BalancePackagePlan *BalancePackagePlanClient
 	// BatchImageEvent is the client for interacting with the BatchImageEvent builders.
 	BatchImageEvent *BatchImageEventClient
 	// BatchImageItem is the client for interacting with the BatchImageItem builders.
@@ -137,6 +141,8 @@ type Client struct {
 	UserAttributeDefinition *UserAttributeDefinitionClient
 	// UserAttributeValue is the client for interacting with the UserAttributeValue builders.
 	UserAttributeValue *UserAttributeValueClient
+	// UserBalancePackage is the client for interacting with the UserBalancePackage builders.
+	UserBalancePackage *UserBalancePackageClient
 	// UserPlatformQuota is the client for interacting with the UserPlatformQuota builders.
 	UserPlatformQuota *UserPlatformQuotaClient
 	// UserSubscription is the client for interacting with the UserSubscription builders.
@@ -159,6 +165,7 @@ func (c *Client) init() {
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
 	c.AuthIdentity = NewAuthIdentityClient(c.config)
 	c.AuthIdentityChannel = NewAuthIdentityChannelClient(c.config)
+	c.BalancePackagePlan = NewBalancePackagePlanClient(c.config)
 	c.BatchImageEvent = NewBatchImageEventClient(c.config)
 	c.BatchImageItem = NewBatchImageItemClient(c.config)
 	c.BatchImageJob = NewBatchImageJobClient(c.config)
@@ -189,6 +196,7 @@ func (c *Client) init() {
 	c.UserAllowedGroup = NewUserAllowedGroupClient(c.config)
 	c.UserAttributeDefinition = NewUserAttributeDefinitionClient(c.config)
 	c.UserAttributeValue = NewUserAttributeValueClient(c.config)
+	c.UserBalancePackage = NewUserBalancePackageClient(c.config)
 	c.UserPlatformQuota = NewUserPlatformQuotaClient(c.config)
 	c.UserSubscription = NewUserSubscriptionClient(c.config)
 }
@@ -290,6 +298,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		BalancePackagePlan:            NewBalancePackagePlanClient(cfg),
 		BatchImageEvent:               NewBatchImageEventClient(cfg),
 		BatchImageItem:                NewBatchImageItemClient(cfg),
 		BatchImageJob:                 NewBatchImageJobClient(cfg),
@@ -320,6 +329,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
 		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
+		UserBalancePackage:            NewUserBalancePackageClient(cfg),
 		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
 		UserSubscription:              NewUserSubscriptionClient(cfg),
 	}, nil
@@ -348,6 +358,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		BalancePackagePlan:            NewBalancePackagePlanClient(cfg),
 		BatchImageEvent:               NewBatchImageEventClient(cfg),
 		BatchImageItem:                NewBatchImageItemClient(cfg),
 		BatchImageJob:                 NewBatchImageJobClient(cfg),
@@ -378,6 +389,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		UserAllowedGroup:              NewUserAllowedGroupClient(cfg),
 		UserAttributeDefinition:       NewUserAttributeDefinitionClient(cfg),
 		UserAttributeValue:            NewUserAttributeValueClient(cfg),
+		UserBalancePackage:            NewUserBalancePackageClient(cfg),
 		UserPlatformQuota:             NewUserPlatformQuotaClient(cfg),
 		UserSubscription:              NewUserSubscriptionClient(cfg),
 	}, nil
@@ -410,16 +422,16 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.AuthIdentity, c.AuthIdentityChannel, c.BalancePackagePlan, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserBalancePackage, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -430,16 +442,16 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.BatchImageEvent, c.BatchImageItem,
-		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
-		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
-		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserPlatformQuota, c.UserSubscription,
+		c.AuthIdentity, c.AuthIdentityChannel, c.BalancePackagePlan, c.BatchImageEvent,
+		c.BatchImageItem, c.BatchImageJob, c.ChannelMonitor,
+		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
+		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserBalancePackage, c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -462,6 +474,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuthIdentity.mutate(ctx, m)
 	case *AuthIdentityChannelMutation:
 		return c.AuthIdentityChannel.mutate(ctx, m)
+	case *BalancePackagePlanMutation:
+		return c.BalancePackagePlan.mutate(ctx, m)
 	case *BatchImageEventMutation:
 		return c.BatchImageEvent.mutate(ctx, m)
 	case *BatchImageItemMutation:
@@ -522,6 +536,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.UserAttributeDefinition.mutate(ctx, m)
 	case *UserAttributeValueMutation:
 		return c.UserAttributeValue.mutate(ctx, m)
+	case *UserBalancePackageMutation:
+		return c.UserBalancePackage.mutate(ctx, m)
 	case *UserPlatformQuotaMutation:
 		return c.UserPlatformQuota.mutate(ctx, m)
 	case *UserSubscriptionMutation:
@@ -1702,6 +1718,139 @@ func (c *AuthIdentityChannelClient) mutate(ctx context.Context, m *AuthIdentityC
 		return (&AuthIdentityChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AuthIdentityChannel mutation op: %q", m.Op())
+	}
+}
+
+// BalancePackagePlanClient is a client for the BalancePackagePlan schema.
+type BalancePackagePlanClient struct {
+	config
+}
+
+// NewBalancePackagePlanClient returns a client for the BalancePackagePlan from the given config.
+func NewBalancePackagePlanClient(c config) *BalancePackagePlanClient {
+	return &BalancePackagePlanClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `balancepackageplan.Hooks(f(g(h())))`.
+func (c *BalancePackagePlanClient) Use(hooks ...Hook) {
+	c.hooks.BalancePackagePlan = append(c.hooks.BalancePackagePlan, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `balancepackageplan.Intercept(f(g(h())))`.
+func (c *BalancePackagePlanClient) Intercept(interceptors ...Interceptor) {
+	c.inters.BalancePackagePlan = append(c.inters.BalancePackagePlan, interceptors...)
+}
+
+// Create returns a builder for creating a BalancePackagePlan entity.
+func (c *BalancePackagePlanClient) Create() *BalancePackagePlanCreate {
+	mutation := newBalancePackagePlanMutation(c.config, OpCreate)
+	return &BalancePackagePlanCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of BalancePackagePlan entities.
+func (c *BalancePackagePlanClient) CreateBulk(builders ...*BalancePackagePlanCreate) *BalancePackagePlanCreateBulk {
+	return &BalancePackagePlanCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *BalancePackagePlanClient) MapCreateBulk(slice any, setFunc func(*BalancePackagePlanCreate, int)) *BalancePackagePlanCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &BalancePackagePlanCreateBulk{err: fmt.Errorf("calling to BalancePackagePlanClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*BalancePackagePlanCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &BalancePackagePlanCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for BalancePackagePlan.
+func (c *BalancePackagePlanClient) Update() *BalancePackagePlanUpdate {
+	mutation := newBalancePackagePlanMutation(c.config, OpUpdate)
+	return &BalancePackagePlanUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *BalancePackagePlanClient) UpdateOne(_m *BalancePackagePlan) *BalancePackagePlanUpdateOne {
+	mutation := newBalancePackagePlanMutation(c.config, OpUpdateOne, withBalancePackagePlan(_m))
+	return &BalancePackagePlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *BalancePackagePlanClient) UpdateOneID(id int64) *BalancePackagePlanUpdateOne {
+	mutation := newBalancePackagePlanMutation(c.config, OpUpdateOne, withBalancePackagePlanID(id))
+	return &BalancePackagePlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for BalancePackagePlan.
+func (c *BalancePackagePlanClient) Delete() *BalancePackagePlanDelete {
+	mutation := newBalancePackagePlanMutation(c.config, OpDelete)
+	return &BalancePackagePlanDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *BalancePackagePlanClient) DeleteOne(_m *BalancePackagePlan) *BalancePackagePlanDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *BalancePackagePlanClient) DeleteOneID(id int64) *BalancePackagePlanDeleteOne {
+	builder := c.Delete().Where(balancepackageplan.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &BalancePackagePlanDeleteOne{builder}
+}
+
+// Query returns a query builder for BalancePackagePlan.
+func (c *BalancePackagePlanClient) Query() *BalancePackagePlanQuery {
+	return &BalancePackagePlanQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeBalancePackagePlan},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a BalancePackagePlan entity by its id.
+func (c *BalancePackagePlanClient) Get(ctx context.Context, id int64) (*BalancePackagePlan, error) {
+	return c.Query().Where(balancepackageplan.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *BalancePackagePlanClient) GetX(ctx context.Context, id int64) *BalancePackagePlan {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *BalancePackagePlanClient) Hooks() []Hook {
+	return c.hooks.BalancePackagePlan
+}
+
+// Interceptors returns the client interceptors.
+func (c *BalancePackagePlanClient) Interceptors() []Interceptor {
+	return c.inters.BalancePackagePlan
+}
+
+func (c *BalancePackagePlanClient) mutate(ctx context.Context, m *BalancePackagePlanMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&BalancePackagePlanCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&BalancePackagePlanUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&BalancePackagePlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&BalancePackagePlanDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown BalancePackagePlan mutation op: %q", m.Op())
 	}
 }
 
@@ -5949,6 +6098,22 @@ func (c *UserClient) QueryPaymentOrders(_m *User) *PaymentOrderQuery {
 	return query
 }
 
+// QueryBalancePackages queries the balance_packages edge of a User.
+func (c *UserClient) QueryBalancePackages(_m *User) *UserBalancePackageQuery {
+	query := (&UserBalancePackageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(userbalancepackage.Table, userbalancepackage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.BalancePackagesTable, user.BalancePackagesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAuthIdentities queries the auth_identities edge of a User.
 func (c *UserClient) QueryAuthIdentities(_m *User) *AuthIdentityQuery {
 	query := (&AuthIdentityClient{config: c.config}).Query()
@@ -6472,6 +6637,155 @@ func (c *UserAttributeValueClient) mutate(ctx context.Context, m *UserAttributeV
 	}
 }
 
+// UserBalancePackageClient is a client for the UserBalancePackage schema.
+type UserBalancePackageClient struct {
+	config
+}
+
+// NewUserBalancePackageClient returns a client for the UserBalancePackage from the given config.
+func NewUserBalancePackageClient(c config) *UserBalancePackageClient {
+	return &UserBalancePackageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `userbalancepackage.Hooks(f(g(h())))`.
+func (c *UserBalancePackageClient) Use(hooks ...Hook) {
+	c.hooks.UserBalancePackage = append(c.hooks.UserBalancePackage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `userbalancepackage.Intercept(f(g(h())))`.
+func (c *UserBalancePackageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.UserBalancePackage = append(c.inters.UserBalancePackage, interceptors...)
+}
+
+// Create returns a builder for creating a UserBalancePackage entity.
+func (c *UserBalancePackageClient) Create() *UserBalancePackageCreate {
+	mutation := newUserBalancePackageMutation(c.config, OpCreate)
+	return &UserBalancePackageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of UserBalancePackage entities.
+func (c *UserBalancePackageClient) CreateBulk(builders ...*UserBalancePackageCreate) *UserBalancePackageCreateBulk {
+	return &UserBalancePackageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *UserBalancePackageClient) MapCreateBulk(slice any, setFunc func(*UserBalancePackageCreate, int)) *UserBalancePackageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &UserBalancePackageCreateBulk{err: fmt.Errorf("calling to UserBalancePackageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*UserBalancePackageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &UserBalancePackageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for UserBalancePackage.
+func (c *UserBalancePackageClient) Update() *UserBalancePackageUpdate {
+	mutation := newUserBalancePackageMutation(c.config, OpUpdate)
+	return &UserBalancePackageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *UserBalancePackageClient) UpdateOne(_m *UserBalancePackage) *UserBalancePackageUpdateOne {
+	mutation := newUserBalancePackageMutation(c.config, OpUpdateOne, withUserBalancePackage(_m))
+	return &UserBalancePackageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *UserBalancePackageClient) UpdateOneID(id int64) *UserBalancePackageUpdateOne {
+	mutation := newUserBalancePackageMutation(c.config, OpUpdateOne, withUserBalancePackageID(id))
+	return &UserBalancePackageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for UserBalancePackage.
+func (c *UserBalancePackageClient) Delete() *UserBalancePackageDelete {
+	mutation := newUserBalancePackageMutation(c.config, OpDelete)
+	return &UserBalancePackageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *UserBalancePackageClient) DeleteOne(_m *UserBalancePackage) *UserBalancePackageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *UserBalancePackageClient) DeleteOneID(id int64) *UserBalancePackageDeleteOne {
+	builder := c.Delete().Where(userbalancepackage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &UserBalancePackageDeleteOne{builder}
+}
+
+// Query returns a query builder for UserBalancePackage.
+func (c *UserBalancePackageClient) Query() *UserBalancePackageQuery {
+	return &UserBalancePackageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeUserBalancePackage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a UserBalancePackage entity by its id.
+func (c *UserBalancePackageClient) Get(ctx context.Context, id int64) (*UserBalancePackage, error) {
+	return c.Query().Where(userbalancepackage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *UserBalancePackageClient) GetX(ctx context.Context, id int64) *UserBalancePackage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a UserBalancePackage.
+func (c *UserBalancePackageClient) QueryUser(_m *UserBalancePackage) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(userbalancepackage.Table, userbalancepackage.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, userbalancepackage.UserTable, userbalancepackage.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *UserBalancePackageClient) Hooks() []Hook {
+	return c.hooks.UserBalancePackage
+}
+
+// Interceptors returns the client interceptors.
+func (c *UserBalancePackageClient) Interceptors() []Interceptor {
+	return c.inters.UserBalancePackage
+}
+
+func (c *UserBalancePackageClient) mutate(ctx context.Context, m *UserBalancePackageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&UserBalancePackageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&UserBalancePackageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&UserBalancePackageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&UserBalancePackageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown UserBalancePackage mutation op: %q", m.Op())
+	}
+}
+
 // UserPlatformQuotaClient is a client for the UserPlatformQuota schema.
 type UserPlatformQuotaClient struct {
 	config
@@ -6826,27 +7140,27 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 type (
 	hooks struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Hook
+		AuthIdentityChannel, BalancePackagePlan, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserBalancePackage, UserPlatformQuota, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
-		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
-		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserPlatformQuota,
-		UserSubscription []ent.Interceptor
+		AuthIdentityChannel, BalancePackagePlan, BatchImageEvent, BatchImageItem,
+		BatchImageJob, ChannelMonitor, ChannelMonitorDailyRollup,
+		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
+		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserBalancePackage, UserPlatformQuota, UserSubscription []ent.Interceptor
 	}
 )
 

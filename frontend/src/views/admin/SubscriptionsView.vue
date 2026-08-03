@@ -161,7 +161,7 @@
             </button>
             <button @click="showAssignModal = true" class="btn btn-primary">
               <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.subscriptions.assignSubscription') }}
+              {{ t('admin.subscriptions.grantBalancePackage') }}
             </button>
           </div>
         </div>
@@ -424,7 +424,7 @@
             <EmptyState
               :title="t('admin.subscriptions.noSubscriptionsYet')"
               :description="t('admin.subscriptions.assignFirstSubscription')"
-              :action-text="t('admin.subscriptions.assignSubscription')"
+              :action-text="t('admin.subscriptions.grantBalancePackage')"
               @action="showAssignModal = true"
             />
           </template>
@@ -444,16 +444,16 @@
       </template>
     </TablePageLayout>
 
-    <!-- Assign Subscription Modal -->
+    <!-- Grant Balance Package Modal -->
     <BaseDialog
       :show="showAssignModal"
-      :title="t('admin.subscriptions.assignSubscription')"
+      :title="t('admin.subscriptions.grantBalancePackage')"
       width="normal"
       @close="closeAssignModal"
     >
       <form
-        id="assign-subscription-form"
-        @submit.prevent="handleAssignSubscription"
+        id="grant-balance-package-form"
+        @submit.prevent="handleGrantBalancePackage"
         class="space-y-5"
       >
         <div>
@@ -506,39 +506,24 @@
           </div>
         </div>
         <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.group') }}</label>
+          <label class="input-label">{{ t('admin.subscriptions.form.balancePackage') }}</label>
           <Select
-            v-model="assignForm.group_id"
-            :options="subscriptionGroupOptions"
-            :placeholder="t('admin.subscriptions.selectGroup')"
+            v-model="grantForm.balance_package_plan_id"
+            :options="balancePackageOptions"
+            :placeholder="t('admin.subscriptions.selectBalancePackage')"
           >
             <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-              />
-              <span v-else class="text-gray-400">{{ t('admin.subscriptions.selectGroup') }}</span>
+              <span v-if="option">{{ (option as unknown as BalancePackageOption).label }}</span>
+              <span v-else class="text-gray-400">{{ t('admin.subscriptions.selectBalancePackage') }}</span>
             </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
+            <template #option="{ option }">
+              <div class="flex items-center justify-between gap-3">
+                <span class="font-medium">{{ (option as unknown as BalancePackageOption).label }}</span>
+                <span class="shrink-0 text-xs text-gray-500 dark:text-gray-400">{{ (option as unknown as BalancePackageOption).description }}</span>
+              </div>
             </template>
           </Select>
-          <p class="input-hint">{{ t('admin.subscriptions.groupHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.validityDays') }}</label>
-          <input v-model.number="assignForm.validity_days" type="number" min="1" class="input" />
-          <p class="input-hint">{{ t('admin.subscriptions.validityHint') }}</p>
+          <p class="input-hint">{{ t('admin.subscriptions.balancePackageHint') }}</p>
         </div>
       </form>
       <template #footer>
@@ -548,7 +533,7 @@
           </button>
           <button
             type="submit"
-            form="assign-subscription-form"
+            form="grant-balance-package-form"
             :disabled="submitting"
             class="btn btn-primary"
           >
@@ -572,7 +557,7 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            {{ submitting ? t('admin.subscriptions.assigning') : t('admin.subscriptions.assign') }}
+            {{ submitting ? t('admin.subscriptions.granting') : t('admin.subscriptions.grant') }}
           </button>
         </div>
       </template>
@@ -766,8 +751,10 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
+import type { UserSubscription, Group } from '@/types'
 import type { SimpleUser } from '@/api/admin/usage'
+import { adminPaymentAPI } from '@/api/admin/payment'
+import type { BalancePackagePlan } from '@/types/payment'
 import type { Column } from '@/components/common/types'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
@@ -780,7 +767,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
-import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
   getRemainingDurationParts,
@@ -792,13 +778,11 @@ import {
 const { t } = useI18n()
 const appStore = useAppStore()
 
-interface GroupOption {
+interface BalancePackageOption {
   value: number
   label: string
-  description: string | null
-  platform: GroupPlatform
-  subscriptionType: SubscriptionType
-  rate: number
+  description: string
+  [key: string]: unknown
 }
 
 // Guide modal state
@@ -927,6 +911,7 @@ const statusOptions = computed(() => [
 
 const subscriptions = ref<UserSubscription[]>([])
 const groups = ref<Group[]>([])
+const balancePackagePlans = ref<BalancePackagePlan[]>([])
 const loading = ref(false)
 let abortController: AbortController | null = null
 
@@ -977,11 +962,11 @@ const resettingQuota = ref(false)
 const extendingSubscription = ref<UserSubscription | null>(null)
 const revokingSubscription = ref<UserSubscription | null>(null)
 const restoringSubscription = ref<UserSubscription | null>(null)
+const grantRequestKey = ref('')
 
-const assignForm = reactive({
+const grantForm = reactive({
   user_id: null as number | null,
-  group_id: null as number | null,
-  validity_days: 30
+  balance_package_plan_id: null as number | null
 })
 
 const extendForm = reactive({
@@ -1002,18 +987,12 @@ const platformFilterOptions = computed(() => [
   { value: 'antigravity', label: 'Antigravity' }
 ])
 
-// Group options for assign (only subscription type groups)
-const subscriptionGroupOptions = computed(() =>
-  groups.value
-    .filter((g) => g.subscription_type === 'subscription' && g.status === 'active')
-    .map((g) => ({
-      value: g.id,
-      label: g.name,
-      description: g.description,
-      platform: g.platform,
-      subscriptionType: g.subscription_type,
-      rate: g.rate_multiplier
-    }))
+const balancePackageOptions = computed<BalancePackageOption[]>(() =>
+  balancePackagePlans.value.map((plan) => ({
+    value: plan.id,
+    label: plan.name,
+    description: `¥${plan.price_cny} · $${plan.weekly_credit_usd}/7d`
+  }))
 )
 
 const applyFilters = () => {
@@ -1069,6 +1048,16 @@ const loadGroups = async () => {
     groups.value = await adminAPI.groups.getAll()
   } catch (error) {
     console.error('Error loading groups:', error)
+  }
+}
+
+const loadBalancePackagePlans = async () => {
+  try {
+    const { data } = await adminPaymentAPI.getBalancePackages()
+    balancePackagePlans.value = data || []
+  } catch (error) {
+    console.error('Error loading balance packages:', error)
+    balancePackagePlans.value = []
   }
 }
 
@@ -1137,7 +1126,7 @@ const searchUsers = async () => {
   // Clear selection if user modified the search keyword
   if (selectedUser.value && keyword !== selectedUser.value.email) {
     selectedUser.value = null
-    assignForm.user_id = null
+    grantForm.user_id = null
   }
 
   if (!keyword) {
@@ -1160,14 +1149,14 @@ const selectUser = (user: SimpleUser) => {
   selectedUser.value = user
   userSearchKeyword.value = user.email
   showUserDropdown.value = false
-  assignForm.user_id = user.id
+  grantForm.user_id = user.id
 }
 
 const clearUserSelection = () => {
   selectedUser.value = null
   userSearchKeyword.value = ''
   userSearchResults.value = []
-  assignForm.user_id = null
+  grantForm.user_id = null
 }
 
 const handlePageChange = (page: number) => {
@@ -1190,9 +1179,9 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 
 const closeAssignModal = () => {
   showAssignModal.value = false
-  assignForm.user_id = null
-  assignForm.group_id = null
-  assignForm.validity_days = 30
+  grantForm.user_id = null
+  grantForm.balance_package_plan_id = null
+  grantRequestKey.value = ''
   // Clear user search state
   selectedUser.value = null
   userSearchKeyword.value = ''
@@ -1200,33 +1189,31 @@ const closeAssignModal = () => {
   showUserDropdown.value = false
 }
 
-const handleAssignSubscription = async () => {
-  if (!assignForm.user_id) {
+const handleGrantBalancePackage = async () => {
+  if (!grantForm.user_id) {
     appStore.showError(t('admin.subscriptions.pleaseSelectUser'))
     return
   }
-  if (!assignForm.group_id) {
-    appStore.showError(t('admin.subscriptions.pleaseSelectGroup'))
-    return
-  }
-  if (!assignForm.validity_days || assignForm.validity_days < 1) {
-    appStore.showError(t('admin.subscriptions.validityDaysRequired'))
+  if (!grantForm.balance_package_plan_id) {
+    appStore.showError(t('admin.subscriptions.pleaseSelectBalancePackage'))
     return
   }
 
   submitting.value = true
   try {
-    await adminAPI.subscriptions.assign({
-      user_id: assignForm.user_id,
-      group_id: assignForm.group_id,
-      validity_days: assignForm.validity_days
-    })
-    appStore.showSuccess(t('admin.subscriptions.subscriptionAssigned'))
+    if (!grantRequestKey.value) {
+      grantRequestKey.value = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
+    }
+    await adminPaymentAPI.grantBalancePackage({
+      user_id: grantForm.user_id,
+      balance_package_plan_id: grantForm.balance_package_plan_id
+    }, grantRequestKey.value)
+    appStore.showSuccess(t('admin.subscriptions.balancePackageGranted'))
     closeAssignModal()
     loadSubscriptions()
   } catch (error: any) {
-    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToAssign'))
-    console.error('Error assigning subscription:', error)
+    appStore.showError(error.response?.data?.detail || t('admin.subscriptions.failedToGrantBalancePackage'))
+    console.error('Error granting balance package:', error)
   } finally {
     submitting.value = false
   }
@@ -1454,6 +1441,7 @@ onMounted(() => {
   loadSavedColumns()
   loadSubscriptions()
   loadGroups()
+  loadBalancePackagePlans()
   document.addEventListener('click', handleClickOutside)
 })
 
