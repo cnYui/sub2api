@@ -40,6 +40,13 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
+	var trafficPack *TrafficPack
+	if req.OrderType == payment.OrderTypeTrafficPack {
+		trafficPack, err = s.validateTrafficPackOrder(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err := s.checkCancelRateLimit(ctx, req.UserID, cfg); err != nil {
 		return nil, err
 	}
@@ -61,6 +68,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	} else if balancePackagePlan != nil {
 		orderAmount = balancePackagePlan.PriceCny
 		limitAmount = balancePackagePlan.PriceCny
+	} else if trafficPack != nil {
+		orderAmount = trafficPack.Price
+		limitAmount = trafficPack.Price
 	} else if req.OrderType == payment.OrderTypeBalance {
 		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
@@ -103,11 +113,11 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if oauthResp != nil {
 		return oauthResp, nil
 	}
-	order, err := s.createOrderInTx(ctx, req, user, plan, balancePackagePlan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel)
+	order, err := s.createOrderInTx(ctx, req, user, plan, balancePackagePlan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, trafficPack)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, balancePackagePlan, sel)
+	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, balancePackagePlan, sel, trafficPack)
 	if err != nil {
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
 			SetStatus(OrderStatusFailed).
@@ -132,6 +142,9 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 		plan, err := s.balancePackageService.GetPlanForSale(ctx, req.BalancePackagePlanID)
 		return nil, plan, err
 	}
+	if req.OrderType == payment.OrderTypeTrafficPack {
+		return nil, nil, nil
+	}
 	if req.OrderType != payment.OrderTypeBalance {
 		return nil, nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported payment order type")
 	}
@@ -143,6 +156,20 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 			WithMetadata(map[string]string{"min": fmt.Sprintf("%.2f", cfg.MinAmount), "max": fmt.Sprintf("%.2f", cfg.MaxAmount)})
 	}
 	return nil, nil, nil
+}
+
+func (s *PaymentService) validateTrafficPackOrder(ctx context.Context, req CreateOrderRequest) (*TrafficPack, error) {
+	if req.TrafficPackID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_INPUT", "traffic pack order requires a traffic pack")
+	}
+	if s == nil || s.trafficPackService == nil {
+		return nil, infraerrors.ServiceUnavailable("TRAFFIC_PACK_UNAVAILABLE", "traffic pack service is unavailable")
+	}
+	pack, err := s.trafficPackService.GetForSaleByID(ctx, req.TrafficPackID)
+	if err != nil || pack == nil || !pack.ForSale || !IsTrafficPackPlatform(pack.Platform) {
+		return nil, infraerrors.NotFound("TRAFFIC_PACK_NOT_AVAILABLE", "traffic pack is not available")
+	}
+	return pack, nil
 }
 
 func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRequest) (*dbent.SubscriptionPlan, error) {
@@ -163,7 +190,7 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	return plan, nil
 }
 
-func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, error) {
+func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*dbent.PaymentOrder, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -184,7 +211,11 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	if err != nil {
 		return nil, err
 	}
-	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	var trafficPack *TrafficPack
+	if len(trafficPacks) > 0 {
+		trafficPack = trafficPacks[0]
+	}
+	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req, trafficPack)
 	selectedInstanceID := ""
 	selectedProviderKey := ""
 	if sel != nil {
@@ -275,9 +306,16 @@ func (s *PaymentService) checkPendingLimit(ctx context.Context, tx *dbent.Tx, us
 	return nil
 }
 
-func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req CreateOrderRequest) map[string]any {
-	if sel == nil {
+func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req CreateOrderRequest, trafficPacks ...*TrafficPack) map[string]any {
+	var trafficPack *TrafficPack
+	if len(trafficPacks) > 0 {
+		trafficPack = trafficPacks[0]
+	}
+	if sel == nil && trafficPack == nil {
 		return nil
+	}
+	if sel == nil {
+		sel = &payment.InstanceSelection{}
 	}
 
 	snapshot := map[string]any{}
@@ -325,6 +363,15 @@ func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req Creat
 			snapshot["merchant_id"] = accountID
 		}
 		snapshot["currency"] = paymentProviderConfigCurrency(providerKey, sel.Config)
+	}
+	if trafficPack != nil {
+		snapshot["traffic_pack_id"] = trafficPack.ID
+		snapshot["traffic_pack_code"] = trafficPack.Code
+		snapshot["traffic_pack_name"] = trafficPack.Name
+		snapshot["traffic_pack_price"] = trafficPack.Price
+		snapshot["traffic_pack_credit_usd"] = trafficPack.CreditUSD
+		snapshot["traffic_pack_validity_days"] = trafficPack.ValidityDays
+		snapshot["traffic_pack_platform"] = trafficPack.Platform
 	}
 
 	if len(snapshot) == 1 {
@@ -418,7 +465,7 @@ func (s *PaymentService) usesOfficialWxpayVisibleMethod(ctx context.Context) boo
 	return inst.ProviderKey == payment.TypeWxpay
 }
 
-func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, sel *payment.InstanceSelection) (*CreateOrderResponse, error) {
+func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*CreateOrderResponse, error) {
 	prov, err := provider.CreateProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
 	if err != nil {
 		slog.Error("[PaymentService] CreateProvider failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)
@@ -437,6 +484,9 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 	subject := s.buildPaymentSubject(plan, limitAmount, cfg, sel)
 	if balancePackagePlan != nil {
 		subject = s.buildBalancePackagePaymentSubject(balancePackagePlan, cfg)
+	}
+	if len(trafficPacks) > 0 && trafficPacks[0] != nil {
+		subject = s.buildTrafficPackPaymentSubject(trafficPacks[0], cfg)
 	}
 	outTradeNo := order.OutTradeNo
 	canonicalReturnURL, err := CanonicalizeReturnURL(req.ReturnURL, req.SrcHost, req.SrcURL)
@@ -580,6 +630,13 @@ func (s *PaymentService) buildBalancePackagePaymentSubject(plan *dbent.BalancePa
 		return s.buildPaymentSubject(nil, 0, cfg, nil)
 	}
 	return applyPaymentProductNameAffix("Sub2API "+plan.Name, cfg)
+}
+
+func (s *PaymentService) buildTrafficPackPaymentSubject(pack *TrafficPack, cfg *PaymentConfig) string {
+	if pack == nil {
+		return s.buildPaymentSubject(nil, 0, cfg, nil)
+	}
+	return applyPaymentProductNameAffix("Sub2API "+pack.Name, cfg)
 }
 
 func hasPaymentProductNameAffix(cfg *PaymentConfig) bool {
@@ -802,6 +859,9 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if req.TrafficPackID > 0 {
+		q.Set("traffic_pack_id", strconv.FormatInt(req.TrafficPackID, 10))
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

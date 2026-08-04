@@ -21,7 +21,7 @@ export type OrderStatus =
 
 export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex' | 'admin_grant'
 
-export type OrderType = 'balance' | 'subscription' | 'balance_subscription'
+export type OrderType = 'balance' | 'subscription' | 'balance_subscription' | 'traffic_pack'
 
 // ==================== Configuration ====================
 
@@ -67,6 +67,8 @@ export interface CheckoutInfoResponse {
   global_max: number
   plans: SubscriptionPlan[]
   balance_packages?: BalancePackagePlan[]
+  traffic_packs?: TrafficPack[]
+  traffic_credit_summary?: TrafficCreditSummary | null
   balance_disabled: boolean
   balance_recharge_multiplier: number
   /** Subscription CNY conversion rate (1 USD = X CNY); 0 = disabled, plan price is charged as-is */
@@ -104,6 +106,12 @@ export interface PaymentOrder {
   refund_requested_by?: number
   refund_request_reason?: string
   plan_id?: number
+  balance_package_plan_id?: number
+  traffic_pack_id?: number
+  traffic_pack_name?: string
+  traffic_pack_credit_usd?: number
+  traffic_pack_validity_days?: number
+  traffic_pack_platform?: string
   provider_instance_id?: string
 }
 
@@ -119,6 +127,26 @@ export interface BalancePackageRefundQuote {
   consumption_ratio: number
   estimated_refund_amount: number
   calculated_at: string
+}
+
+export interface TrafficPack {
+  id: number
+  code: string
+  name: string
+  description: string
+  price: number
+  credit_usd: number
+  validity_days: number
+  platform: string
+  for_sale: boolean
+  sort_order: number
+}
+
+export interface TrafficCreditSummary {
+  total_initial_usd: number
+  total_remaining_usd: number
+  next_expiring_usd: number
+  next_expires_at?: string
 }
 
 // ==================== Plans & Channels ====================
@@ -164,6 +192,25 @@ export interface BalancePackagePlan {
   sort_order: number
 }
 
+export interface UserBalancePackage {
+  id: number
+  plan_id: number
+  code: string
+  name: string
+  price_cny: number
+  weekly_credit_usd: number
+  validity_days: number
+  refresh_count: number
+  refresh_interval_days: number
+  credited_count: number
+  starts_at: string
+  next_credit_at?: string
+  expires_at: string
+  status: 'active' | 'completed' | 'expired' | 'refunded' | string
+  created_at: string
+  updated_at: string
+}
+
 export interface PaymentChannel {
   id: number
   group_id?: number
@@ -200,6 +247,7 @@ export interface CreateOrderRequest {
   order_type: string
   plan_id?: number
   balance_package_plan_id?: number
+  traffic_pack_id?: number
   return_url?: string
   payment_source?: string
   openid?: string

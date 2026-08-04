@@ -42,6 +42,7 @@ const (
 	OrderTypeBalance             = "balance"
 	OrderTypeSubscription        = "subscription"
 	OrderTypeBalanceSubscription = "balance_subscription"
+	OrderTypeTrafficPack         = "traffic_pack"
 	PaymentTypeAdminGrant        = "admin_grant"
 )
 

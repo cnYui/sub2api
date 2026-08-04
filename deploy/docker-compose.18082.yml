@@ -6,7 +6,7 @@ services:
     volumes:
       - ./data-18082:/app/data:Z
     environment:
-      - BILLING_FINAL_MULTIPLIER=10
+      - BILLING_FINAL_MULTIPLIER=15
 
   postgres:
     container_name: sub2api-official-18082-postgres
@@ -17,3 +17,8 @@ services:
     container_name: sub2api-official-18082-redis
     volumes:
       - ./redis_data-18082:/data:Z
+
+networks:
+  sub2api-network:
+    external: true
+    name: sub2api-official-18082_sub2api-network

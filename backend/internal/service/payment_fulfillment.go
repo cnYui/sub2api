@@ -221,10 +221,52 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
 	if o.OrderType == payment.OrderTypeSubscription {
 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
 	}
+	if o.OrderType == payment.OrderTypeTrafficPack {
+		return s.ExecuteTrafficPackFulfillment(ctx, oid)
+	}
 	if o.OrderType == payment.OrderTypeBalanceSubscription {
 		return s.ExecuteBalancePackageFulfillment(ctx, oid)
 	}
 	return s.ExecuteBalanceFulfillment(ctx, oid)
+}
+
+func (s *PaymentService) ExecuteTrafficPackFulfillment(ctx context.Context, oid int64) error {
+	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.Status == OrderStatusCompleted {
+		return nil
+	}
+	if psIsRefundStatus(o.Status) {
+		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
+	}
+	if o.Status != OrderStatusPaid && o.Status != OrderStatusFailed && o.Status != OrderStatusRecharging {
+		return infraerrors.BadRequest("INVALID_STATUS", "order cannot fulfill in status "+o.Status)
+	}
+	lease, err := s.acquirePaymentFulfillmentLease(ctx, o)
+	if err != nil || lease == nil {
+		return err
+	}
+	if s.trafficPackService == nil {
+		err = errors.New("traffic pack service is unavailable")
+	} else {
+		input, inputErr := trafficPackCreditInputFromOrder(o)
+		if inputErr != nil {
+			err = inputErr
+		} else {
+			err = s.trafficPackService.CreditPurchase(ctx, input)
+		}
+	}
+	if err != nil {
+		s.markFailed(ctx, oid, lease, err)
+		return err
+	}
+	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
+		s.markFailed(ctx, oid, lease, err)
+		return err
+	}
+	return s.markCompleted(ctx, o, lease, "TRAFFIC_PACK_SUCCESS")
 }
 
 func (s *PaymentService) ExecuteBalancePackageFulfillment(ctx context.Context, oid int64) error {
@@ -745,7 +787,7 @@ func affiliateRebateBaseAmount(o *dbent.PaymentOrder) float64 {
 		return 0
 	}
 	switch o.OrderType {
-	case payment.OrderTypeBalance, payment.OrderTypeSubscription, payment.OrderTypeBalanceSubscription:
+	case payment.OrderTypeBalance, payment.OrderTypeSubscription, payment.OrderTypeBalanceSubscription, payment.OrderTypeTrafficPack:
 		return o.Amount
 	default:
 		return 0

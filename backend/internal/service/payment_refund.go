@@ -174,6 +174,15 @@ func (s *PaymentService) RequestRefund(ctx context.Context, oid, uid int64, reas
 		}
 		return s.requestBalancePackageRefund(ctx, order, uid, reason)
 	}
+	if order.OrderType == payment.OrderTypeTrafficPack {
+		if err := s.validateRefundProviderForUser(ctx, order); err != nil {
+			return err
+		}
+		if order.Status != OrderStatusCompleted && order.Status != OrderStatusRefundFailed {
+			return infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
+		}
+		return s.requestTrafficPackRefund(ctx, order, uid, reason)
+	}
 	o, err := s.validateRefundRequest(ctx, oid, uid)
 	if err != nil {
 		return err
@@ -584,7 +593,7 @@ func (s *PaymentService) getRefundProvider(ctx context.Context, o *dbent.Payment
 }
 
 func (s *PaymentService) handleGwFail(ctx context.Context, p *RefundPlan, gErr error) (*RefundResult, error) {
-	if p != nil && p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
+	if p != nil && p.Order != nil && (p.Order.OrderType == payment.OrderTypeBalanceSubscription || p.Order.OrderType == payment.OrderTypeTrafficPack) {
 		now := time.Now()
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(p.OrderID).
 			SetStatus(OrderStatusRefundFailed).
@@ -614,6 +623,11 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 	if p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
 		if err := s.revokeBalancePackage(ctx, p.OrderID); err != nil {
 			return nil, fmt.Errorf("revoke balance package: %w", err)
+		}
+	}
+	if p.Order != nil && p.Order.OrderType == payment.OrderTypeTrafficPack && s.trafficPackService != nil {
+		if err := s.trafficPackService.RevokePurchase(ctx, p.OrderID, now); err != nil {
+			return nil, fmt.Errorf("revoke traffic pack: %w", err)
 		}
 	}
 	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(fs).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).SetForceRefund(p.Force).Save(ctx)

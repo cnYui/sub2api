@@ -9,7 +9,7 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="subscriptions.length === 0" class="card p-12 text-center">
+      <div v-else-if="subscriptions.length === 0 && balancePackages.length === 0" class="card p-12 text-center">
         <div
           class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
         >
@@ -23,8 +23,100 @@
         </p>
       </div>
 
-      <!-- Subscriptions Grid -->
-      <div v-else class="grid gap-6 lg:grid-cols-2">
+      <div v-else class="space-y-8">
+        <!-- Purchased balance packages from /purchase -->
+        <section v-if="balancePackages.length" class="space-y-4">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('userSubscriptions.balancePackagesTitle') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
+              {{ t('userSubscriptions.balancePackagesDesc') }}
+            </p>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
+            <div
+              v-for="balancePackage in balancePackages"
+              :key="balancePackage.id"
+              class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/60 dark:bg-dark-800"
+            >
+              <div class="flex items-start justify-between gap-4 border-b border-emerald-100 p-4 dark:border-emerald-900/50">
+                <div class="flex items-start gap-3">
+                  <div class="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="font-semibold text-gray-900 dark:text-white">
+                        {{ balancePackage.name }}
+                      </h3>
+                      <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', balancePackageStatusClass(balancePackage.status)]">
+                        {{ balancePackageStatusLabel(balancePackage.status) }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                      ¥{{ formatCNY(balancePackage.price_cny) }} · {{ t('userSubscriptions.balancePackageValidity', { days: balancePackage.validity_days }) }}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  class="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                  @click="router.push('/purchase')"
+                >
+                  {{ t('userSubscriptions.buyAgain') }}
+                </button>
+              </div>
+
+              <div class="space-y-4 p-4">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30">
+                    <p class="text-xs text-emerald-700/70 dark:text-emerald-300/70">{{ t('userSubscriptions.weeklyCredit') }}</p>
+                    <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+                      ${{ balancePackage.weekly_credit_usd.toFixed(2) }}
+                    </p>
+                  </div>
+                  <div class="rounded-xl bg-gray-50 p-3 dark:bg-dark-700">
+                    <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.creditedProgress') }}</p>
+                    <p class="mt-1 text-lg font-semibold text-gray-800 dark:text-gray-200">
+                      {{ balancePackage.credited_count }} / {{ balancePackage.refresh_count }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('userSubscriptions.balancePackageProgress') }}</span>
+                    <span class="text-gray-500 dark:text-dark-400">{{ balancePackageProgress(balancePackage) }}%</span>
+                  </div>
+                  <div class="relative h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
+                    <div
+                      class="absolute inset-y-0 left-0 rounded-full bg-emerald-500 transition-all duration-300"
+                      :style="{ width: `${balancePackageProgress(balancePackage)}%` }"
+                    />
+                  </div>
+                </div>
+
+                <div class="space-y-2 text-sm">
+                  <div class="flex items-center justify-between">
+                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.expires') }}</span>
+                    <span :class="getExpirationClass(balancePackage.expires_at)">{{ formatExpirationDate(balancePackage.expires_at) }}</span>
+                  </div>
+                  <div v-if="balancePackage.next_credit_at && balancePackage.status === 'active'" class="flex items-center justify-between">
+                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextCredit') }}</span>
+                    <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Legacy model subscriptions -->
+        <section v-if="subscriptions.length" class="space-y-4">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('userSubscriptions.modelSubscriptionsTitle') }}
+            </h2>
+          </div>
+          <div class="grid gap-6 lg:grid-cols-2">
         <div
           v-for="subscription in subscriptions"
           :key="subscription.id"
@@ -242,6 +334,8 @@
             </div>
           </div>
         </div>
+          </div>
+        </section>
       </div>
     </div>
   </AppLayout>
@@ -252,8 +346,10 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { paymentAPI } from '@/api/payment'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
+import type { UserBalancePackage } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
@@ -281,6 +377,7 @@ const router = useRouter()
 const appStore = useAppStore()
 
 const subscriptions = ref<UserSubscription[]>([])
+const balancePackages = ref<UserBalancePackage[]>([])
 const loading = ref(true)
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
@@ -292,15 +389,54 @@ function subscriptionPeakRateLabel(subscription: UserSubscription): string {
 }
 
 async function loadSubscriptions() {
-  try {
-    loading.value = true
-    subscriptions.value = await subscriptionsAPI.getMySubscriptions()
-  } catch (error) {
-    console.error('Failed to load subscriptions:', error)
-    appStore.showError(t('userSubscriptions.failedToLoad'))
-  } finally {
-    loading.value = false
+  loading.value = true
+  const [subscriptionResult, balancePackageResult] = await Promise.allSettled([
+    subscriptionsAPI.getMySubscriptions(),
+    paymentAPI.getMyBalancePackages()
+  ])
+
+  if (subscriptionResult.status === 'fulfilled') {
+    subscriptions.value = subscriptionResult.value
+  } else {
+    console.error('Failed to load model subscriptions:', subscriptionResult.reason)
   }
+
+  if (balancePackageResult.status === 'fulfilled') {
+    balancePackages.value = balancePackageResult.value.data
+  } else {
+    console.error('Failed to load balance packages:', balancePackageResult.reason)
+  }
+
+  if (subscriptionResult.status === 'rejected' && balancePackageResult.status === 'rejected') {
+    appStore.showError(t('userSubscriptions.failedToLoad'))
+  }
+  loading.value = false
+}
+
+function formatCNY(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2)
+}
+
+function balancePackageProgress(balancePackage: UserBalancePackage): number {
+  if (!balancePackage.refresh_count) return 0
+  return Math.min(Math.max(Math.round((balancePackage.credited_count / balancePackage.refresh_count) * 100), 0), 100)
+}
+
+function balancePackageStatusClass(status: UserBalancePackage['status']): string {
+  if (status === 'active') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+  if (status === 'completed') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+  if (status === 'refunded') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+  return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
+}
+
+function balancePackageStatusLabel(status: UserBalancePackage['status']): string {
+  const labels: Record<string, string> = {
+    active: t('userSubscriptions.status.active'),
+    completed: t('userSubscriptions.status.completed'),
+    expired: t('userSubscriptions.status.expired'),
+    refunded: t('userSubscriptions.status.refunded')
+  }
+  return labels[status] || status
 }
 
 function getProgressWidth(used: number | undefined, limit: number | null | undefined): string {

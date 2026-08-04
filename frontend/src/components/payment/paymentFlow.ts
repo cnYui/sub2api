@@ -83,6 +83,7 @@ export interface BuildCreateOrderPayloadInput {
   orderType: OrderType
   planId?: number
   balancePackagePlanId?: number
+  trafficPackId?: number
   origin?: string
   isMobile: boolean
   isWechatBrowser: boolean
@@ -143,6 +144,9 @@ export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): Cr
   }
   if (input.balancePackagePlanId) {
     payload.balance_package_plan_id = input.balancePackagePlanId
+  }
+  if (input.trafficPackId) {
+    payload.traffic_pack_id = input.trafficPackId
   }
   if (normalizedOrigin) {
     payload.return_url = `${normalizedOrigin}/payment/result`
@@ -334,7 +338,9 @@ export function readPaymentRecoverySnapshot(
       payAmount: parsed.payAmount,
       orderType: parsed.orderType === 'subscription'
         ? 'subscription'
-        : parsed.orderType === 'balance_subscription' ? 'balance_subscription' : 'balance',
+        : parsed.orderType === 'balance_subscription'
+          ? 'balance_subscription'
+          : parsed.orderType === 'traffic_pack' ? 'traffic_pack' : 'balance',
       paymentMode: parsed.paymentMode,
       resumeToken: parsed.resumeToken,
       alipayMobilePrecreateDeepLink: parsed.alipayMobilePrecreateDeepLink === true,

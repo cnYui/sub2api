@@ -101,6 +101,17 @@
           </div>
         </div>
 
+        <!-- Traffic credit is a separate wallet and is never merged into balance. -->
+        <div
+          v-if="user && trafficCreditLoaded"
+          class="hidden items-center gap-1.5 rounded-xl bg-sky-50 px-3 py-1.5 text-sky-700 dark:bg-sky-900/20 dark:text-sky-300 sm:flex"
+          :title="`${t('payment.orders.trafficCredit')} $${trafficCreditRemaining.toFixed(2)}`"
+        >
+          <Icon name="database" size="sm" />
+          <span class="text-xs font-medium">{{ t('payment.orders.trafficCredit') }}</span>
+          <span class="text-sm font-semibold">${{ trafficCreditRemaining.toFixed(2) }}</span>
+        </div>
+
         <!-- User Dropdown -->
         <div v-if="user" class="relative" ref="dropdownRef">
           <button
@@ -149,6 +160,9 @@
                 </div>
                 <div v-if="frozenBalance > 0" class="mt-1 text-xs text-amber-600 dark:text-amber-300">
                   {{ balanceFrozenText }} {{ formatHeaderMoney(frozenBalance) }}
+                </div>
+                <div v-if="trafficCreditLoaded" class="mt-2 text-xs font-medium text-sky-700 dark:text-sky-300">
+                  {{ t('payment.orders.trafficCredit') }} ${{ trafficCreditRemaining.toFixed(2) }}
                 </div>
               </div>
 
@@ -250,7 +264,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
@@ -261,6 +275,7 @@ import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { paymentAPI } from '@/api/payment'
 
 const router = useRouter()
 const route = useRoute()
@@ -284,6 +299,29 @@ const balanceAvailableText = computed(() => t('common.availableBalance') === 'co
 const balanceFrozenText = computed(() => t('common.frozenBalance') === 'common.frozenBalance' ? '冻结金额' : t('common.frozenBalance'))
 const balanceTotalText = computed(() => t('common.totalBalance') === 'common.totalBalance' ? '总余额' : t('common.totalBalance'))
 const balanceFrozenLabel = computed(() => `${balanceFrozenText.value} ${formatHeaderMoney(frozenBalance.value)}`)
+const trafficCreditRemaining = ref(0)
+const trafficCreditLoaded = ref(false)
+
+async function refreshTrafficCredit() {
+  if (!user.value) {
+    trafficCreditRemaining.value = 0
+    trafficCreditLoaded.value = false
+    return
+  }
+  trafficCreditLoaded.value = false
+  try {
+    const response = await paymentAPI.getCheckoutInfo()
+    trafficCreditRemaining.value = Number(response.data.traffic_credit_summary?.total_remaining_usd || 0)
+  } catch {
+    trafficCreditRemaining.value = 0
+  } finally {
+    trafficCreditLoaded.value = true
+  }
+}
+
+function handleTrafficCreditUpdated() {
+  void refreshTrafficCredit()
+}
 
 // 只在标准模式的管理员下显示新手引导按钮
 const showOnboardingButton = computed(() => {
@@ -373,10 +411,16 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
+  window.addEventListener('traffic-credit-updated', handleTrafficCreditUpdated)
   document.addEventListener('click', handleClickOutside)
 })
 
+watch(user, () => {
+  void refreshTrafficCredit()
+}, { immediate: true })
+
 onBeforeUnmount(() => {
+  window.removeEventListener('traffic-credit-updated', handleTrafficCreditUpdated)
   document.removeEventListener('click', handleClickOutside)
 })
 </script>

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
@@ -18,6 +19,97 @@ type paymentOrderProviderSnapshot struct {
 	MerchantAppID      string
 	MerchantID         string
 	Currency           string
+}
+
+type paymentOrderTrafficPackSnapshot struct {
+	ID           int64
+	Name         string
+	CreditUSD    float64
+	ValidityDays int
+	Platform     string
+}
+
+// TrafficPackOrderInfo 是订单页可展示的流量卡快照，不依赖当前在售套餐配置。
+type TrafficPackOrderInfo struct {
+	ID           int64
+	Name         string
+	CreditUSD    float64
+	ValidityDays int
+	Platform     string
+}
+
+// GetTrafficPackOrderInfo 读取订单创建时保存的流量卡快照。
+func GetTrafficPackOrderInfo(order *dbent.PaymentOrder) *TrafficPackOrderInfo {
+	snapshot := psOrderTrafficPackSnapshot(order)
+	if snapshot == nil {
+		return nil
+	}
+	return &TrafficPackOrderInfo{
+		ID:           snapshot.ID,
+		Name:         snapshot.Name,
+		CreditUSD:    snapshot.CreditUSD,
+		ValidityDays: snapshot.ValidityDays,
+		Platform:     snapshot.Platform,
+	}
+}
+
+func psOrderTrafficPackSnapshot(order *dbent.PaymentOrder) *paymentOrderTrafficPackSnapshot {
+	if order == nil || len(order.ProviderSnapshot) == 0 {
+		return nil
+	}
+	snapshot := &paymentOrderTrafficPackSnapshot{
+		ID:           int64(psSnapshotFloatValue(order.ProviderSnapshot["traffic_pack_id"])),
+		Name:         psSnapshotStringValue(order.ProviderSnapshot["traffic_pack_name"]),
+		CreditUSD:    psSnapshotFloatValue(order.ProviderSnapshot["traffic_pack_credit_usd"]),
+		ValidityDays: psSnapshotIntValue(order.ProviderSnapshot["traffic_pack_validity_days"]),
+		Platform:     psSnapshotStringValue(order.ProviderSnapshot["traffic_pack_platform"]),
+	}
+	if snapshot.ID <= 0 || snapshot.CreditUSD <= 0 {
+		return nil
+	}
+	if snapshot.ValidityDays <= 0 {
+		snapshot.ValidityDays = TrafficPackValidityDays
+	}
+	if snapshot.Platform == "" {
+		snapshot.Platform = TrafficPackPlatformOpenAI
+	}
+	return snapshot
+}
+
+func psSnapshotFloatValue(value any) float64 {
+	switch typed := value.(type) {
+	case int:
+		return float64(typed)
+	case int32:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case float32:
+		return float64(typed)
+	case float64:
+		return typed
+	case string:
+		value, err := strconv.ParseFloat(strings.TrimSpace(typed), 64)
+		if err == nil {
+			return value
+		}
+	}
+	return 0
+}
+
+func trafficPackCreditInputFromOrder(order *dbent.PaymentOrder) (CreditTrafficPackInput, error) {
+	snapshot := psOrderTrafficPackSnapshot(order)
+	if snapshot == nil || !IsTrafficPackPlatform(snapshot.Platform) {
+		return CreditTrafficPackInput{}, fmt.Errorf("order %d traffic pack snapshot is missing or invalid", order.ID)
+	}
+	creditedAt := time.Now().UTC()
+	if order.PaidAt != nil {
+		creditedAt = order.PaidAt.UTC()
+	}
+	return CreditTrafficPackInput{
+		UserID: order.UserID, OrderID: order.ID, PackID: snapshot.ID,
+		CreditUSD: snapshot.CreditUSD, ValidityDays: snapshot.ValidityDays, CreditedAt: creditedAt,
+	}, nil
 }
 
 func psOrderProviderSnapshot(order *dbent.PaymentOrder) *paymentOrderProviderSnapshot {

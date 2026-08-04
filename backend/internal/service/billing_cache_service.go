@@ -113,6 +113,7 @@ type BillingCacheService struct {
 	cfg                   *config.Config
 	circuitBreaker        *billingCircuitBreaker
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	trafficPackService    *TrafficPackService
 
 	cacheWriteChan     chan cacheWriteTask
 	cacheWriteWg       sync.WaitGroup
@@ -177,6 +178,12 @@ func (s *BillingCacheService) Stop() {
 		}
 		s.cacheWriteMu.Unlock()
 	})
+}
+
+func (s *BillingCacheService) SetTrafficPackService(trafficPackService *TrafficPackService) {
+	if s != nil {
+		s.trafficPackService = trafficPackService
+	}
 }
 
 func (s *BillingCacheService) startCacheWriteWorkers() {
@@ -749,7 +756,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 			return err
 		}
 	} else {
-		if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
+		if err := s.checkBalanceEligibility(ctx, user.ID, platform); err != nil {
 			return err
 		}
 	}
@@ -876,7 +883,7 @@ func (s *BillingCacheService) balanceBelowEligibilityThreshold(balance float64) 
 }
 
 // checkBalanceEligibility 检查余额模式资格
-func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64) error {
+func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64, platform string) error {
 	balance, err := s.GetUserBalance(ctx, userID)
 	if err != nil {
 		if s.circuitBreaker != nil {
@@ -890,10 +897,21 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	}
 
 	if s.balanceBelowEligibilityThreshold(balance) {
+		if s.canUseTrafficPackCredit(ctx, userID, platform) {
+			return nil
+		}
 		return ErrInsufficientBalance
 	}
 
 	return nil
+}
+
+func (s *BillingCacheService) canUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
+	if s == nil || s.trafficPackService == nil || !IsTrafficPackPlatform(platform) {
+		return false
+	}
+	ok, err := s.trafficPackService.HasAvailableCredit(ctx, userID, time.Now().UTC())
+	return err == nil && ok
 }
 
 // checkSubscriptionEligibility 检查订阅模式资格

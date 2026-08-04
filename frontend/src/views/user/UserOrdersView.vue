@@ -86,7 +86,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" @click="refundTarget = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundReason.trim() || (refundTarget?.order_type === 'balance_subscription' && (!refundQuote?.eligible || refundQuote.manual_review_required))" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
+          <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundReason.trim() || (['balance_subscription', 'traffic_pack'].includes(refundTarget?.order_type || '') && (!refundQuote?.eligible || refundQuote.manual_review_required))" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
         </div>
       </template>
     </BaseDialog>
@@ -175,7 +175,7 @@ async function openRefundDialog(order: PaymentOrder) {
   refundTarget.value = order
   refundReason.value = ''
   refundQuote.value = null
-  if (order.order_type !== 'balance_subscription') return
+  if (order.order_type !== 'balance_subscription' && order.order_type !== 'traffic_pack') return
   quoteLoading.value = true
   try {
     const res = await paymentAPI.getRefundQuote(order.id)
@@ -204,7 +204,7 @@ async function confirmRefund() {
 }
 
 function canRequestRefund(order: PaymentOrder): boolean {
-  if (order.order_type === 'balance_subscription') {
+  if (order.order_type === 'balance_subscription' || order.order_type === 'traffic_pack') {
     if (order.status !== 'COMPLETED' && order.status !== 'REFUND_FAILED') return false
     return !!order.provider_instance_id && refundEligibleProviders.value.has(order.provider_instance_id)
   }

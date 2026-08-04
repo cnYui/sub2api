@@ -6,6 +6,14 @@
     <template #cell-out_trade_no="{ value }">
       <span class="text-sm text-gray-900 dark:text-white">{{ value }}</span>
     </template>
+    <template #cell-order_type="{ row }">
+      <div class="text-sm">
+        <span class="text-gray-700 dark:text-gray-300">{{ orderTypeLabel(row) }}</span>
+        <span v-if="row.order_type === 'traffic_pack' && row.traffic_pack_credit_usd" class="block text-xs text-sky-600 dark:text-sky-300">
+          {{ creditedAmountSymbol }}{{ row.traffic_pack_credit_usd.toFixed(2) }} {{ t('payment.orders.trafficCredit') }}
+        </span>
+      </div>
+    </template>
     <template v-if="showUser" #cell-user_email="{ value, row }">
       <div class="text-sm">
         <span class="text-gray-900 dark:text-white">{{ value || row.user_name || '#' + row.user_id }}</span>
@@ -63,10 +71,18 @@ function paymentAmountSymbol(order: PaymentOrder): string {
   return currencySymbol(order.currency)
 }
 
+function orderTypeLabel(order: PaymentOrder): string {
+  if (order.order_type === 'traffic_pack' && order.traffic_pack_name) {
+    return order.traffic_pack_name
+  }
+  return t(`payment.orders.types.${order.order_type}`, order.order_type)
+}
+
 const columns = computed((): Column[] => {
   const cols: Column[] = [
     { key: 'id', label: t('payment.orders.orderId') },
     { key: 'out_trade_no', label: t('payment.orders.orderNo') },
+    { key: 'order_type', label: t('payment.orders.orderType') },
   ]
   if (props.showUser) {
     cols.push({ key: 'user_email', label: t('payment.admin.colUser') })

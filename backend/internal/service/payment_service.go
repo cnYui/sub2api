@@ -85,6 +85,7 @@ type CreateOrderRequest struct {
 	OrderType            string
 	PlanID               int64
 	BalancePackagePlanID int64
+	TrafficPackID        int64
 	Locale               string
 }
 
@@ -202,6 +203,7 @@ type PaymentService struct {
 	affiliateService         *AffiliateService
 	notificationEmailService *NotificationEmailService
 	balancePackageService    *BalancePackageService
+	trafficPackService       *TrafficPackService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {
@@ -217,8 +219,34 @@ func (s *PaymentService) ListBalancePackagePlansForSale(ctx context.Context) ([]
 	return s.balancePackageService.ListPlansForSale(ctx)
 }
 
+// ListUserBalancePackages 返回当前用户已购余额套餐，供用户订阅页展示。
+func (s *PaymentService) ListUserBalancePackages(ctx context.Context, userID int64) ([]UserBalancePackageView, error) {
+	if s == nil || s.balancePackageService == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.ListUserPackages(ctx, userID)
+}
+
 func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
 	s.notificationEmailService = notificationEmailService
+}
+
+func (s *PaymentService) SetTrafficPackService(trafficPackService *TrafficPackService) {
+	s.trafficPackService = trafficPackService
+}
+
+func (s *PaymentService) ListTrafficPacksForSale(ctx context.Context) ([]TrafficPack, error) {
+	if s == nil || s.trafficPackService == nil {
+		return []TrafficPack{}, nil
+	}
+	return s.trafficPackService.ListForSale(ctx)
+}
+
+func (s *PaymentService) GetTrafficCreditSummary(ctx context.Context, userID int64) (*TrafficCreditSummary, error) {
+	if s == nil || s.trafficPackService == nil {
+		return &TrafficCreditSummary{}, nil
+	}
+	return s.trafficPackService.GetSummary(ctx, userID, time.Now().UTC())
 }
 
 // --- Provider Registry ---

@@ -144,6 +144,15 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	trafficPacks, err := h.paymentService.ListTrafficPacksForSale(ctx)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	var trafficCreditSummary *service.TrafficCreditSummary
+	if subject, ok := middleware2.GetAuthSubjectFromContext(c); ok {
+		trafficCreditSummary, _ = h.paymentService.GetTrafficCreditSummary(ctx, subject.UserID)
+	}
 
 	response.Success(c, checkoutInfoResponse{
 		Methods:                       limitsResp.Methods,
@@ -151,6 +160,8 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		GlobalMax:                     limitsResp.GlobalMax,
 		Plans:                         planList,
 		BalancePackages:               balancePackages,
+		TrafficPacks:                  trafficPacks,
+		TrafficCreditSummary:          trafficCreditSummary,
 		BalanceDisabled:               cfg.BalanceDisabled,
 		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
 		SubscriptionUSDToCNYRate:      cfg.SubscriptionUSDToCNYRate,
@@ -163,12 +174,31 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	})
 }
 
+// GetMyBalancePackages 返回当前用户已购买的余额套餐及到账进度。
+// GET /api/v1/payment/balance-packages
+func (h *PaymentHandler) GetMyBalancePackages(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not found in context")
+		return
+	}
+
+	packages, err := h.paymentService.ListUserBalancePackages(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, packages)
+}
+
 type checkoutInfoResponse struct {
 	Methods                       map[string]service.MethodLimits `json:"methods"`
 	GlobalMin                     float64                         `json:"global_min"`
 	GlobalMax                     float64                         `json:"global_max"`
 	Plans                         []checkoutPlan                  `json:"plans"`
 	BalancePackages               []*dbent.BalancePackagePlan     `json:"balance_packages"`
+	TrafficPacks                  []service.TrafficPack           `json:"traffic_packs"`
+	TrafficCreditSummary          *service.TrafficCreditSummary   `json:"traffic_credit_summary,omitempty"`
 	BalanceDisabled               bool                            `json:"balance_disabled"`
 	BalanceRechargeMultiplier     float64                         `json:"balance_recharge_multiplier"`
 	SubscriptionUSDToCNYRate      float64                         `json:"subscription_usd_to_cny_rate"`
@@ -244,6 +274,7 @@ type CreateOrderRequest struct {
 	OrderType            string  `json:"order_type"`
 	PlanID               int64   `json:"plan_id"`
 	BalancePackagePlanID int64   `json:"balance_package_plan_id"`
+	TrafficPackID        int64   `json:"traffic_pack_id"`
 	// IsMobile lets the frontend declare its mobile status directly. When
 	// nil we fall back to User-Agent heuristics (which miss iPadOS / some
 	// embedded browsers that strip the "Mobile" keyword).
@@ -294,6 +325,7 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		OrderType:            req.OrderType,
 		PlanID:               req.PlanID,
 		BalancePackagePlanID: req.BalancePackagePlanID,
+		TrafficPackID:        req.TrafficPackID,
 		Locale:               c.GetHeader("Accept-Language"),
 	})
 	if err != nil {
@@ -340,6 +372,9 @@ func applyWeChatPaymentResumeClaims(req *CreateOrderRequest, claims *service.WeC
 	}
 	if claims.BalancePackagePlanID > 0 {
 		req.BalancePackagePlanID = claims.BalancePackagePlanID
+	}
+	if claims.TrafficPackID > 0 {
+		req.TrafficPackID = claims.TrafficPackID
 	}
 	return nil
 }
@@ -428,7 +463,17 @@ func (h *PaymentHandler) GetRefundQuote(c *gin.Context) {
 		response.BadRequest(c, "Invalid order ID")
 		return
 	}
-	quote, err := h.paymentService.GetBalancePackageRefundQuote(c.Request.Context(), orderID, subject.UserID)
+	order, err := h.paymentService.GetOrder(c.Request.Context(), orderID, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	var quote *service.BalancePackageRefundQuote
+	if order.OrderType == payment.OrderTypeTrafficPack {
+		quote, err = h.paymentService.GetTrafficPackRefundQuote(c.Request.Context(), orderID, subject.UserID)
+	} else {
+		quote, err = h.paymentService.GetBalancePackageRefundQuote(c.Request.Context(), orderID, subject.UserID)
+	}
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -529,6 +574,11 @@ type PublicOrderResult struct {
 	RefundRequestReason  *string    `json:"refund_request_reason,omitempty"`
 	PlanID               *int64     `json:"plan_id,omitempty"`
 	BalancePackagePlanID *int64     `json:"balance_package_plan_id,omitempty"`
+	TrafficPackID        *int64     `json:"traffic_pack_id,omitempty"`
+	TrafficPackName      string     `json:"traffic_pack_name,omitempty"`
+	TrafficPackCreditUSD *float64   `json:"traffic_pack_credit_usd,omitempty"`
+	TrafficPackValidity  *int       `json:"traffic_pack_validity_days,omitempty"`
+	TrafficPackPlatform  string     `json:"traffic_pack_platform,omitempty"`
 }
 
 // PublicOrderVerifyResult is returned by the legacy anonymous out_trade_no
@@ -544,6 +594,7 @@ type PublicOrderVerifyResult struct {
 }
 
 func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
+	trafficPack := trafficPackResponseFieldsForOrder(order)
 	return PublicOrderResult{
 		ID:                   order.ID,
 		OutTradeNo:           order.OutTradeNo,
@@ -565,6 +616,11 @@ func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 		RefundRequestReason:  order.RefundRequestReason,
 		PlanID:               order.PlanID,
 		BalancePackagePlanID: order.BalancePackagePlanID,
+		TrafficPackID:        trafficPack.ID,
+		TrafficPackName:      trafficPack.Name,
+		TrafficPackCreditUSD: trafficPack.CreditUSD,
+		TrafficPackValidity:  trafficPack.Validity,
+		TrafficPackPlatform:  trafficPack.Platform,
 	}
 }
 
@@ -675,7 +731,34 @@ type PaymentOrderResult struct {
 	RefundRequestReason  *string    `json:"refund_request_reason,omitempty"`
 	PlanID               *int64     `json:"plan_id,omitempty"`
 	BalancePackagePlanID *int64     `json:"balance_package_plan_id,omitempty"`
+	TrafficPackID        *int64     `json:"traffic_pack_id,omitempty"`
+	TrafficPackName      string     `json:"traffic_pack_name,omitempty"`
+	TrafficPackCreditUSD *float64   `json:"traffic_pack_credit_usd,omitempty"`
+	TrafficPackValidity  *int       `json:"traffic_pack_validity_days,omitempty"`
+	TrafficPackPlatform  string     `json:"traffic_pack_platform,omitempty"`
 	ProviderInstanceID   *string    `json:"provider_instance_id,omitempty"`
+}
+
+type trafficPackResponseFields struct {
+	ID        *int64
+	Name      string
+	CreditUSD *float64
+	Validity  *int
+	Platform  string
+}
+
+func trafficPackResponseFieldsForOrder(order *dbent.PaymentOrder) trafficPackResponseFields {
+	info := service.GetTrafficPackOrderInfo(order)
+	if info == nil {
+		return trafficPackResponseFields{}
+	}
+	return trafficPackResponseFields{
+		ID:        &info.ID,
+		Name:      info.Name,
+		CreditUSD: &info.CreditUSD,
+		Validity:  &info.ValidityDays,
+		Platform:  info.Platform,
+	}
 }
 
 func sanitizePaymentOrdersForResponse(orders []*dbent.PaymentOrder) []PaymentOrderResult {
@@ -692,6 +775,7 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 	if order == nil {
 		return nil
 	}
+	trafficPack := trafficPackResponseFieldsForOrder(order)
 	return &PaymentOrderResult{
 		ID:                   order.ID,
 		UserID:               order.UserID,
@@ -714,6 +798,11 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		RefundRequestReason:  order.RefundRequestReason,
 		PlanID:               order.PlanID,
 		BalancePackagePlanID: order.BalancePackagePlanID,
+		TrafficPackID:        trafficPack.ID,
+		TrafficPackName:      trafficPack.Name,
+		TrafficPackCreditUSD: trafficPack.CreditUSD,
+		TrafficPackValidity:  trafficPack.Validity,
+		TrafficPackPlatform:  trafficPack.Platform,
 		ProviderInstanceID:   order.ProviderInstanceID,
 	}
 }

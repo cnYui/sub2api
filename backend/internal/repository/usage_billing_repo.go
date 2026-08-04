@@ -179,12 +179,40 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	if cmd.BalanceCost > 0 {
-		newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+		newBalance, sufficient, err := deductUsageBillingBalanceIfSufficient(ctx, tx, cmd.UserID, cmd.BalanceCost)
 		if err != nil {
 			return err
 		}
-		result.NewBalance = &newBalance
-		result.BalanceOverdrafted = !sufficient
+		if sufficient {
+			result.NewBalance = &newBalance
+		} else if service.IsTrafficPackPlatform(cmd.Platform) {
+			covered, trafficErr := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequestID)
+			if trafficErr != nil {
+				return trafficErr
+			}
+			if covered {
+				var balance float64
+				if err := tx.QueryRowContext(ctx, `SELECT balance FROM users WHERE id = $1 AND deleted_at IS NULL`, cmd.UserID).Scan(&balance); err != nil {
+					return err
+				}
+				result.NewBalance = &balance
+				result.TrafficCreditCharged = true
+			} else {
+				newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+				if err != nil {
+					return err
+				}
+				result.NewBalance = &newBalance
+				result.BalanceOverdrafted = true
+			}
+		} else {
+			newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+			if err != nil {
+				return err
+			}
+			result.NewBalance = &newBalance
+			result.BalanceOverdrafted = true
+		}
 	}
 
 	if cmd.APIKeyQuotaCost > 0 {
@@ -210,6 +238,82 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	}
 
 	return nil
+}
+
+func deductUsageBillingBalanceIfSufficient(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
+	var balance float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
+		RETURNING balance
+	`, amount, userID).Scan(&balance)
+	if errors.Is(err, sql.ErrNoRows) {
+		if exists, existsErr := userExistsForBilling(ctx, tx, userID); existsErr != nil {
+			return 0, false, existsErr
+		} else if !exists {
+			return 0, false, service.ErrUserNotFound
+		}
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return balance, true, nil
+}
+
+func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string) (bool, error) {
+	rows, err := tx.QueryContext(ctx, `
+		SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at
+		FROM user_traffic_credits
+		WHERE user_id = $1 AND platform = $2 AND remaining_usd > 0 AND expires_at > NOW()
+		ORDER BY expires_at ASC, credited_at ASC, id ASC
+		FOR UPDATE
+	`, userID, service.TrafficPackPlatformOpenAI)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	batches := []service.TrafficCreditBatch{}
+	for rows.Next() {
+		var batch service.TrafficCreditBatch
+		var orderID, packID sql.NullInt64
+		if err := rows.Scan(&batch.ID, &batch.UserID, &orderID, &packID, &batch.InitialUSD, &batch.RemainingUSD, &batch.CreditedAt, &batch.ExpiresAt); err != nil {
+			return false, err
+		}
+		if orderID.Valid {
+			batch.OrderID = &orderID.Int64
+		}
+		if packID.Valid {
+			batch.PackID = &packID.Int64
+		}
+		batches = append(batches, batch)
+	}
+	if err := rows.Err(); err != nil {
+		return false, err
+	}
+	deductions, covered := service.PlanTrafficCreditDeductions(batches, amountUSD)
+	if !covered {
+		return false, nil
+	}
+	for _, deduction := range deductions {
+		var balanceAfter float64
+		if err := tx.QueryRowContext(ctx, `
+			UPDATE user_traffic_credits
+			SET remaining_usd = remaining_usd - $1, updated_at = NOW()
+			WHERE id = $2 AND remaining_usd + 0.0000000001 >= $1
+			RETURNING remaining_usd
+		`, deduction.AmountUSD, deduction.CreditID).Scan(&balanceAfter); err != nil {
+			return false, err
+		}
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO traffic_credit_ledger (user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at)
+			VALUES ($1, $2, NULL, $3, $4, $5, $6, NOW())
+		`, userID, deduction.CreditID, requestID, service.TrafficCreditLedgerTypeDeduction, deduction.AmountUSD, balanceAfter); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {

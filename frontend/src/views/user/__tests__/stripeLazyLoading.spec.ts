@@ -21,13 +21,13 @@ describe('Stripe lazy-loading contract', () => {
     expect(source).not.toMatch(/await import\(['"]@stripe\/stripe-js['"]\)/)
   })
 
-  it('keeps Stripe out of the shared vendor chunk', () => {
+  it('keeps Stripe out of the shared dependency chunk', () => {
     const viteConfig = readFrontendFile('vite.config.ts')
     const stripeRule = viteConfig.indexOf("id.includes('/@stripe/stripe-js/')")
-    const miscFallback = viteConfig.indexOf("return 'vendor-misc'")
+    const miscFallback = viteConfig.indexOf("return 'lib-misc'")
 
     expect(stripeRule).toBeGreaterThan(-1)
-    expect(viteConfig.slice(stripeRule, miscFallback)).toContain("return 'vendor-stripe'")
+    expect(viteConfig.slice(stripeRule, miscFallback)).toContain("return 'lib-stripe'")
     expect(stripeRule).toBeLessThan(miscFallback)
   })
 })

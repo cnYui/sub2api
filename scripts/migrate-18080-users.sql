@@ -45,11 +45,15 @@ CREATE USER MAPPING FOR CURRENT_USER
 IMPORT FOREIGN SCHEMA public
   LIMIT TO (
     users,
+    accounts,
     auth_identities,
     api_keys,
     usage_logs,
     payment_orders,
     payment_audit_logs,
+    traffic_packs,
+    user_traffic_credits,
+    traffic_credit_ledger,
     subscription_plans,
     user_subscriptions,
     groups,
@@ -87,7 +91,10 @@ BEGIN
       INTO target_id, target_role
       FROM users u
      WHERE lower(trim(u.email)) = lower(trim(source_user.email))
-       AND u.deleted_at IS NULL
+       AND (
+         (source_user.deleted_at IS NULL AND u.deleted_at IS NULL)
+         OR (source_user.deleted_at IS NOT NULL AND u.deleted_at IS NOT NULL)
+       )
        AND NOT EXISTS (
          SELECT 1 FROM migration_user_map m WHERE m.target_user_id = u.id
        )
@@ -106,7 +113,8 @@ BEGIN
          SET email = source_user.email,
              password_hash = source_user.password_hash,
              role = CASE WHEN target_role = 'admin' THEN 'admin' ELSE source_user.role END,
-             balance = source_user.balance,
+             -- 18080 的 users.balance 是旧钱包语义，18082 不继承该值。
+             balance = 0,
              frozen_balance = 0,
              concurrency = source_user.concurrency,
              status = source_user.status,
@@ -141,7 +149,7 @@ BEGIN
         balance_notify_threshold_type, balance_notify_threshold, balance_notify_extra_emails,
         total_recharged, rpm_limit, created_at, updated_at, deleted_at
       ) VALUES (
-        source_user.email, source_user.password_hash, source_user.role, source_user.balance, 0,
+        source_user.email, source_user.password_hash, source_user.role, 0, 0,
         source_user.concurrency, source_user.status, source_user.username, source_user.notes,
         source_user.totp_secret_encrypted, source_user.totp_enabled, source_user.totp_enabled_at,
         source_user.signup_source, source_user.last_login_at, source_user.last_active_at,
@@ -155,6 +163,79 @@ BEGIN
     INSERT INTO migration_user_map(source_user_id, target_user_id, source_email)
     VALUES (source_user.id, target_id, source_user.email);
   END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION migration_sample_selected(source_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE AS $$
+  SELECT (source_id % 100) < current_setting('migration.sample_percent')::BIGINT;
+$$;
+
+CREATE OR REPLACE FUNCTION migration_source_user_is_admin(source_user_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM migration_src.users
+     WHERE id = source_user_id
+       AND lower(trim(email)) = 'xiaobianfuai@gmail.com'
+       AND role = 'admin'
+       AND deleted_at IS NULL
+  );
+$$;
+
+-- 18080 的新版本保留了额度预留字段；目标旧表没有时补齐，避免迁移中丢失已预留额度。
+ALTER TABLE user_traffic_credits
+  ADD COLUMN IF NOT EXISTS reserved_usd DECIMAL(20, 10) NOT NULL DEFAULT 0;
+
+-- 目标库可能已清空业务数据；迁移前恢复 18082 已确认的目录基线，但不覆盖现有配置。
+INSERT INTO balance_package_plans
+  (code, name, price_cny, weekly_credit_usd, validity_days, refresh_count, refresh_interval_days, for_sale, sort_order)
+VALUES
+  ('balance-29',  '余额套餐 ¥29',  29,  76, 28, 4, 7, TRUE, 10),
+  ('balance-39',  '余额套餐 ¥39',  39, 102, 28, 4, 7, TRUE, 20),
+  ('balance-49',  '余额套餐 ¥49',  49, 128, 28, 4, 7, TRUE, 30),
+  ('balance-59',  '余额套餐 ¥59',  59, 154, 28, 4, 7, TRUE, 40),
+  ('balance-79',  '余额套餐 ¥79',  79, 206, 28, 4, 7, TRUE, 50),
+  ('balance-99',  '余额套餐 ¥99',  99, 258, 28, 4, 7, TRUE, 60),
+  ('balance-149', '余额套餐 ¥149', 149, 389, 28, 4, 7, TRUE, 70),
+  ('balance-199', '余额套餐 ¥199', 199, 520, 28, 4, 7, TRUE, 80),
+  ('balance-249', '余额套餐 ¥249', 249, 651, 28, 4, 7, TRUE, 90),
+  ('balance-299', '余额套餐 ¥299', 299, 781, 28, 4, 7, TRUE, 100)
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO traffic_packs
+  (code, name, description, price, credit_usd, validity_days, platform, for_sale, sort_order)
+VALUES
+  ('gpt_traffic_5usd_2cny', 'GPT 流量包 5 刀', '2 元购买 5 USD GPT 额度，可用于 GPT 写代码和生图。', 2, 5, 28, 'openai', TRUE, 10),
+  ('gpt_traffic_10usd_3cny', 'GPT 流量包 10 刀', '3 元购买 10 USD GPT 额度，可用于 GPT 写代码和生图。', 3, 10, 28, 'openai', TRUE, 20),
+  ('gpt_traffic_20usd_5cny', 'GPT 流量包 20 刀', '5 元购买 20 USD GPT 额度，可用于 GPT 写代码和生图。', 5, 20, 28, 'openai', TRUE, 30)
+ON CONFLICT (code) DO NOTHING;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+      FROM migration_src.users
+     WHERE lower(trim(email)) = 'xiaobianfuai@gmail.com'
+       AND role = 'admin'
+       AND deleted_at IS NULL
+  ) THEN
+    RAISE EXCEPTION '源库缺少管理员账号 xiaobianfuai@gmail.com';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+      FROM migration_src.traffic_packs source_pack
+     WHERE NOT EXISTS (
+       SELECT 1 FROM traffic_packs target_pack WHERE target_pack.code = source_pack.code
+     )
+  ) THEN
+    RAISE EXCEPTION '目标库缺少源流量包 code，无法安全映射';
+  END IF;
 END;
 $$;
 
@@ -290,6 +371,9 @@ $$;
 TRUNCATE TABLE
   payment_audit_logs,
   user_balance_packages,
+  traffic_credit_ledger,
+  user_traffic_credits,
+  accounts,
   payment_orders,
   usage_logs,
   api_keys,
@@ -303,11 +387,47 @@ TRUNCATE TABLE
   usage_dashboard_hourly_users
 RESTART IDENTITY CASCADE;
 
--- 订单只复制普通余额订单和旧 28 天订阅订单；traffic_pack 及其流量卡数据完全排除。
+-- 复用已有软删除账号后，清理此前抽样迁移留下的同邮箱软删除副本，保证用户数与源库一一对应。
+DELETE FROM users u
+ WHERE u.deleted_at IS NOT NULL
+   AND NOT EXISTS (
+     SELECT 1 FROM migration_user_map m WHERE m.target_user_id = u.id
+   )
+   AND EXISTS (
+     SELECT 1
+       FROM migration_src.users source_user
+      WHERE source_user.deleted_at IS NOT NULL
+        AND lower(trim(source_user.email)) = lower(trim(u.email))
+   );
+
+-- 目标套餐目录由 18082 自身维护；历史额度按 source traffic pack code 映射，保留目标 28 天配置。
+
+-- 普通订单抽样；流量订单同时纳入抽样额度所依赖的订单，并强制纳入管理员流量卡关联订单。
 SELECT migration_copy_common(
   'payment_orders',
   'payment_orders',
-  $$s.order_type <> 'traffic_pack' AND (s.id % 100) < current_setting('migration.sample_percent')::BIGINT$$,
+  $$
+    (
+      s.order_type <> 'traffic_pack'
+      AND migration_sample_selected(s.id)
+    )
+    OR (
+      s.order_type = 'traffic_pack'
+      AND (
+        migration_sample_selected(s.id)
+        OR migration_source_user_is_admin(s.user_id)
+        OR EXISTS (
+          SELECT 1
+            FROM migration_src.user_traffic_credits c
+           WHERE c.order_id = s.id
+             AND (
+               migration_sample_selected(c.id)
+               OR migration_source_user_is_admin(c.user_id)
+             )
+        )
+      )
+    )
+  $$,
   jsonb_build_object(
     'order_type', $$CASE WHEN s.order_type = 'subscription' THEN 'balance_subscription' ELSE s.order_type END$$,
     'plan_id', 'NULL',
@@ -334,7 +454,7 @@ BEGIN
 END;
 $$;
 
--- 保留非流量订单的完整支付审计链。
+-- 支付审计与已抽样的普通/流量订单保持一致。
 SELECT migration_copy_common(
   'payment_audit_logs',
   'payment_audit_logs',
@@ -342,8 +462,28 @@ SELECT migration_copy_common(
        SELECT 1
          FROM migration_src.payment_orders po
         WHERE po.id::text = s.order_id
-          AND po.order_type <> 'traffic_pack'
-          AND (po.id % 100) < current_setting('migration.sample_percent')::BIGINT
+          AND (
+            (
+              po.order_type <> 'traffic_pack'
+              AND migration_sample_selected(po.id)
+            )
+            OR (
+              po.order_type = 'traffic_pack'
+              AND (
+                migration_sample_selected(po.id)
+                OR migration_source_user_is_admin(po.user_id)
+                OR EXISTS (
+                  SELECT 1
+                    FROM migration_src.user_traffic_credits c
+                   WHERE c.order_id = po.id
+                     AND (
+                       migration_sample_selected(c.id)
+                       OR migration_source_user_is_admin(c.user_id)
+                     )
+                )
+              )
+            )
+          )
      )$$
 );
 SELECT migration_reset_sequence('payment_audit_logs');
@@ -352,6 +492,10 @@ SELECT migration_reset_sequence('payment_audit_logs');
 SELECT migration_copy_common('api_keys', 'api_keys', '', jsonb_build_object('group_id', 'NULL'));
 SELECT migration_reset_sequence('api_keys');
 
+-- 使用记录依赖账号 ID；账号没有用户外键，完整复制并保留源 ID。
+SELECT migration_copy_common('accounts', 'accounts');
+SELECT migration_reset_sequence('accounts');
+
 -- 使用记录保留原始计费字段；旧分组和旧订阅关联解除，账户 ID 仅在两端都存在时复用。
 SELECT migration_copy_common(
   'usage_logs',
@@ -359,8 +503,7 @@ SELECT migration_copy_common(
   $$((s.id % 100) < current_setting('migration.sample_percent')::BIGINT)$$,
   jsonb_build_object(
     'group_id', 'NULL',
-    'subscription_id', 'NULL',
-    'account_id', $$CASE WHEN EXISTS (SELECT 1 FROM accounts a WHERE a.id = s.account_id) THEN s.account_id ELSE 1 END$$
+    'subscription_id', 'NULL'
   )
 );
 SELECT migration_reset_sequence('usage_logs');
@@ -379,10 +522,30 @@ SELECT migration_copy_common(
   jsonb_build_object(
     'source_order_id', $$CASE WHEN EXISTS (
       SELECT 1
-        FROM migration_src.payment_orders po
+       FROM migration_src.payment_orders po
        WHERE po.id = s.source_order_id
-         AND po.order_type <> 'traffic_pack'
-         AND (po.id % 100) < current_setting('migration.sample_percent')::BIGINT
+         AND (
+           (
+             po.order_type <> 'traffic_pack'
+             AND migration_sample_selected(po.id)
+           )
+           OR (
+             po.order_type = 'traffic_pack'
+             AND (
+               migration_sample_selected(po.id)
+               OR migration_source_user_is_admin(po.user_id)
+               OR EXISTS (
+                 SELECT 1
+                   FROM migration_src.user_traffic_credits c
+                  WHERE c.order_id = po.id
+                    AND (
+                      migration_sample_selected(c.id)
+                      OR migration_source_user_is_admin(c.user_id)
+                    )
+               )
+             )
+           )
+         )
     ) THEN s.source_order_id ELSE NULL END$$
   )
 );
@@ -391,6 +554,145 @@ SELECT migration_copy_common('redeem_codes', 'redeem_codes', '', jsonb_build_obj
 SELECT migration_reset_sequence('redeem_codes');
 SELECT migration_copy_common('usage_dashboard_daily_users', 'usage_dashboard_daily_users');
 SELECT migration_copy_common('usage_dashboard_hourly_users', 'usage_dashboard_hourly_users');
+
+-- 流量卡额度保留源库的实际剩余值、预留值和过期时间；pack_id 按 code 映射到目标目录。
+SELECT migration_copy_common(
+  'user_traffic_credits',
+  'user_traffic_credits',
+  $$migration_sample_selected(s.id) OR migration_source_user_is_admin(s.user_id)$$,
+  jsonb_build_object(
+    'pack_id', $$CASE WHEN s.pack_id IS NULL THEN NULL ELSE (
+      SELECT target_pack.id
+        FROM migration_src.traffic_packs source_pack
+        JOIN traffic_packs target_pack ON target_pack.code = source_pack.code
+       WHERE source_pack.id = s.pack_id
+    ) END$$
+  )
+);
+SELECT migration_reset_sequence('user_traffic_credits');
+
+-- 流水跟随抽样额度、管理员额度或抽样订单，外键在目标库中重新绑定。
+SELECT migration_copy_common(
+  'traffic_credit_ledger',
+  'traffic_credit_ledger',
+  $$
+    migration_sample_selected(s.id)
+    OR migration_source_user_is_admin(s.user_id)
+    OR EXISTS (
+      SELECT 1
+        FROM migration_src.user_traffic_credits c
+       WHERE c.id = s.credit_id
+         AND (
+           migration_sample_selected(c.id)
+           OR migration_source_user_is_admin(c.user_id)
+         )
+    )
+    OR EXISTS (
+      SELECT 1
+        FROM migration_src.payment_orders po
+       WHERE po.id = s.order_id
+         AND (
+           migration_sample_selected(po.id)
+           OR migration_source_user_is_admin(po.user_id)
+         )
+    )
+  $$,
+  jsonb_build_object(
+    'credit_id', $$CASE WHEN EXISTS (SELECT 1 FROM user_traffic_credits c WHERE c.id = s.credit_id) THEN s.credit_id ELSE NULL END$$,
+    'order_id', $$CASE WHEN EXISTS (SELECT 1 FROM payment_orders o WHERE o.id = s.order_id) THEN s.order_id ELSE NULL END$$
+  )
+);
+SELECT migration_reset_sequence('traffic_credit_ledger');
+
+-- 以源库当前有效日/周窗口重算剩余额度，避免直接使用停服前可能尚未刷新的缓存字段。
+CREATE TEMP TABLE migration_current_quota ON COMMIT DROP AS
+WITH active_subscriptions AS (
+  SELECT
+    us.*,
+    g.daily_limit_usd,
+    g.weekly_limit_usd,
+    m.target_user_id,
+    CASE
+      WHEN us.expires_at <= now() OR us.starts_at > now() THEN NULL::timestamptz
+      WHEN us.daily_window_start IS NOT NULL
+       AND now() >= us.daily_window_start
+       AND now() < us.daily_window_start + interval '24 hours'
+        THEN us.daily_window_start
+      ELSE date_trunc('day', now())
+    END AS current_daily_start,
+    CASE
+      WHEN us.expires_at <= now() OR us.starts_at > now() THEN NULL::timestamptz
+      WHEN us.weekly_anchor_at IS NOT NULL AND us.weekly_anchor_at <= now()
+        THEN us.weekly_anchor_at
+          + floor(EXTRACT(EPOCH FROM (now() - us.weekly_anchor_at)) / 604800.0)::INTEGER * interval '7 days'
+      WHEN us.weekly_window_start IS NOT NULL
+       AND now() >= us.weekly_window_start
+       AND now() < us.weekly_window_start + interval '7 days'
+        THEN us.weekly_window_start
+      ELSE us.starts_at
+        + floor(EXTRACT(EPOCH FROM (now() - us.starts_at)) / 604800.0)::INTEGER * interval '7 days'
+    END AS current_weekly_start
+  FROM migration_src.user_subscriptions us
+  JOIN migration_src.groups g ON g.id = us.group_id
+  JOIN migration_user_map m ON m.source_user_id = us.user_id
+  WHERE us.deleted_at IS NULL
+    AND us.status = 'active'
+), windows AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN s.current_daily_start IS NULL THEN NULL::timestamptz
+      ELSE LEAST(s.current_daily_start + interval '24 hours', s.expires_at)
+    END AS current_daily_end,
+    CASE
+      WHEN s.current_weekly_start IS NULL THEN NULL::timestamptz
+      ELSE LEAST(s.current_weekly_start + interval '7 days', s.expires_at)
+    END AS current_weekly_end
+  FROM active_subscriptions s
+)
+SELECT
+  w.id AS source_subscription_id,
+  w.target_user_id,
+  CASE
+    WHEN w.daily_limit_usd IS NULL OR w.daily_limit_usd <= 0
+      OR w.current_daily_start IS NULL
+      OR w.current_daily_end <= w.current_daily_start
+      THEN 0::NUMERIC(20,8)
+    ELSE GREATEST(
+      w.daily_limit_usd - COALESCE((
+        SELECT SUM(ul.actual_cost)
+        FROM migration_src.usage_logs ul
+        WHERE ul.subscription_id = w.id
+          AND ul.created_at >= w.current_daily_start
+          AND ul.created_at < w.current_daily_end
+      ), 0),
+      0
+    )::NUMERIC(20,8)
+  END AS daily_remaining_usd,
+  CASE
+    WHEN w.weekly_limit_usd IS NULL OR w.weekly_limit_usd <= 0
+      OR w.current_weekly_start IS NULL
+      OR w.current_weekly_end <= w.current_weekly_start
+      THEN 0::NUMERIC(20,8)
+    ELSE GREATEST(
+      w.weekly_limit_usd
+        * EXTRACT(EPOCH FROM (w.current_weekly_end - w.current_weekly_start)) / 604800.0
+        - COALESCE((
+          SELECT SUM(ul.actual_cost)
+          FROM migration_src.usage_logs ul
+          WHERE ul.subscription_id = w.id
+            AND ul.created_at >= w.current_weekly_start
+            AND ul.created_at < w.current_weekly_end
+        ), 0),
+      0
+    )::NUMERIC(20,8)
+  END AS weekly_remaining_usd
+FROM windows w;
+
+CREATE TEMP TABLE migration_daily_remaining ON COMMIT DROP AS
+SELECT target_user_id, SUM(daily_remaining_usd)::NUMERIC(20,8) AS remaining_usd
+FROM migration_current_quota
+GROUP BY target_user_id;
 
 -- 为每个付费订阅订单构建一段独立的 7 天刷新周期；续费订单从下一笔支付时间开始，避免重复发放额度。
 CREATE TEMP TABLE migration_package_source (
@@ -409,13 +711,14 @@ CREATE TEMP TABLE migration_package_source (
   issued_credit_usd NUMERIC(20,8) NOT NULL DEFAULT 0,
   used_credit_usd NUMERIC(20,8) NOT NULL DEFAULT 0,
   remaining_credit_usd NUMERIC(20,8) NOT NULL DEFAULT 0,
+  current_remaining_credit_usd NUMERIC(20,8) NOT NULL DEFAULT 0,
   synthetic BOOLEAN NOT NULL DEFAULT FALSE
 ) ON COMMIT DROP;
 
 INSERT INTO migration_package_source (
   source_order_id, target_order_id, source_subscription_id, target_user_id, source_user_id,
   weekly_credit_usd, starts_at, expires_at, refresh_count, credited_count, status, next_credit_at,
-  issued_credit_usd, used_credit_usd, remaining_credit_usd
+  issued_credit_usd, used_credit_usd, remaining_credit_usd, current_remaining_credit_usd
 )
 SELECT
   po.id,
@@ -442,6 +745,13 @@ SELECT
   CASE
     WHEN po.status IN ('REFUNDED', 'PARTIALLY_REFUNDED') OR end_at <= now() THEN 0
     ELSE GREATEST(plan.weekly_credit_usd * credited_count - used_credit_usd, 0)
+  END,
+  CASE
+    WHEN po.status IN ('REFUNDED', 'PARTIALLY_REFUNDED')
+      OR po.start_at > now()
+      OR po.end_at <= now()
+      THEN 0
+    ELSE COALESCE(cq.weekly_remaining_usd, 0)
   END
 FROM (
   SELECT
@@ -455,7 +765,7 @@ FROM (
   FROM migration_src.payment_orders po
   LEFT JOIN migration_src.user_subscriptions us ON us.id = po.subscription_id
   WHERE po.order_type = 'subscription'
-    AND (po.id % 100) < current_setting('migration.sample_percent')::BIGINT
+    AND migration_sample_selected(po.id)
     AND po.status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'REFUND_FAILED')
 ) po
 JOIN migration_user_map m ON m.source_user_id = po.user_id
@@ -480,9 +790,26 @@ CROSS JOIN LATERAL (
              AND ul.created_at >= po.start_at
              AND ul.created_at < po.end_at
          ), 0)::NUMERIC(20,8) AS used_credit_usd
-) metrics;
+) metrics
+LEFT JOIN migration_current_quota cq ON cq.source_subscription_id = po.subscription_id;
 
--- 没有付费订单但仍在有效期内的人工订阅，转成迁移订单后继续按周到账；无限额旧分组不映射为余额套餐。
+-- 历史订单只保留审计，不得因源订阅失效或缺失而继续在目标按周到账。
+UPDATE migration_package_source p
+   SET status = 'completed',
+       next_credit_at = NULL,
+       current_remaining_credit_usd = 0
+ WHERE p.status = 'active'
+   AND NOT EXISTS (
+     SELECT 1
+       FROM migration_current_quota q
+      WHERE q.source_subscription_id = p.source_subscription_id
+   );
+
+UPDATE migration_package_source
+   SET current_remaining_credit_usd = 0
+ WHERE status <> 'active';
+
+-- 为仍有效但没有可续期迁移包的订阅补建迁移订单，保留剩余天数和后续周刷新；无限额旧分组不映射为余额套餐。
 DO $$
 DECLARE
   subscription_row RECORD;
@@ -498,16 +825,15 @@ BEGIN
     JOIN users u ON u.id = m.target_user_id
     WHERE us.status = 'active'
       AND us.deleted_at IS NULL
-      AND us.expires_at > now()
-      AND g.weekly_limit_usd IS NOT NULL
-      AND (us.id % 100) < current_setting('migration.sample_percent')::BIGINT
-      AND NOT EXISTS (
+       AND us.expires_at > now()
+       AND g.weekly_limit_usd IS NOT NULL
+       AND (us.id % 100) < current_setting('migration.sample_percent')::BIGINT
+       AND NOT EXISTS (
         SELECT 1
-        FROM migration_src.payment_orders po
-        WHERE po.subscription_id = us.id
-          AND po.order_type = 'subscription'
-          AND po.status IN ('COMPLETED', 'REFUNDED', 'PARTIALLY_REFUNDED', 'REFUND_FAILED')
-      )
+          FROM migration_package_source p
+         WHERE p.source_subscription_id = us.id
+           AND p.status = 'active'
+       )
     ORDER BY us.id
   LOOP
     synthetic_order_id := NULL;
@@ -543,7 +869,7 @@ BEGIN
     INSERT INTO migration_package_source (
       source_order_id, target_order_id, source_subscription_id, target_user_id, source_user_id,
       weekly_credit_usd, starts_at, expires_at, refresh_count, credited_count, status, next_credit_at,
-      issued_credit_usd, used_credit_usd, remaining_credit_usd, synthetic
+      issued_credit_usd, used_credit_usd, remaining_credit_usd, current_remaining_credit_usd, synthetic
     )
     SELECT
       NULL, synthetic_order_id, subscription_row.id, subscription_row.target_user_id, subscription_row.user_id,
@@ -555,6 +881,7 @@ BEGIN
       subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END),
       COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < subscription_row.expires_at), 0),
       CASE WHEN subscription_row.expires_at <= now() THEN 0 ELSE GREATEST(subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END) - COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < subscription_row.expires_at), 0), 0) END,
+      COALESCE((SELECT q.weekly_remaining_usd FROM migration_current_quota q WHERE q.source_subscription_id = subscription_row.id), 0),
       true;
   END LOOP;
 END;
@@ -582,10 +909,10 @@ SELECT
 FROM migration_package_source p
 JOIN payment_orders o ON o.id = p.target_order_id;
 
--- 18080 的用户余额不含旧订阅池额度；只把当前仍可用的余额套餐剩余额度加入余额。
+-- 源 users.balance 是旧钱包，直接废弃；目标余额只承接当前日窗口剩余和当前周窗口剩余。
 UPDATE users u
-   SET balance = u.balance + COALESCE((SELECT SUM(p.remaining_credit_usd) FROM migration_package_source p WHERE p.target_user_id = u.id), 0),
-       total_recharged = u.total_recharged + COALESCE((SELECT SUM(p.issued_credit_usd) FROM migration_package_source p WHERE p.target_user_id = u.id), 0);
+   SET balance = COALESCE((SELECT d.remaining_usd FROM migration_daily_remaining d WHERE d.target_user_id = u.id), 0)
+               + COALESCE((SELECT SUM(p.current_remaining_credit_usd) FROM migration_package_source p WHERE p.target_user_id = u.id), 0);
 
 INSERT INTO payment_audit_logs(order_id, action, detail, operator, created_at)
 SELECT
@@ -608,20 +935,34 @@ SELECT migration_reset_sequence('payment_audit_logs');
 SELECT 'source_users' AS metric, COUNT(*)::BIGINT AS value FROM migration_src.users
 UNION ALL SELECT 'target_mapped_users', COUNT(*) FROM migration_user_map
 UNION ALL SELECT 'target_users', COUNT(*) FROM users
-UNION ALL SELECT 'source_non_traffic_orders', COUNT(*) FROM migration_src.payment_orders WHERE order_type <> 'traffic_pack' AND (id % 100) < current_setting('migration.sample_percent')::BIGINT
+UNION ALL SELECT 'source_sampled_orders', COUNT(*) FROM migration_src.payment_orders po WHERE (migration_sample_selected(po.id) OR (po.order_type = 'traffic_pack' AND (migration_source_user_is_admin(po.user_id) OR EXISTS (SELECT 1 FROM migration_src.user_traffic_credits c WHERE c.order_id = po.id AND (migration_sample_selected(c.id) OR migration_source_user_is_admin(c.user_id))))))
 UNION ALL SELECT 'target_orders', COUNT(*) FROM payment_orders
-UNION ALL SELECT 'source_non_traffic_audits', COUNT(*) FROM migration_src.payment_audit_logs pal WHERE EXISTS (SELECT 1 FROM migration_src.payment_orders po WHERE po.id::text = pal.order_id AND po.order_type <> 'traffic_pack' AND (po.id % 100) < current_setting('migration.sample_percent')::BIGINT)
+UNION ALL SELECT 'source_sampled_audits', COUNT(*) FROM migration_src.payment_audit_logs pal WHERE EXISTS (SELECT 1 FROM migration_src.payment_orders po WHERE po.id::text = pal.order_id AND (migration_sample_selected(po.id) OR (po.order_type = 'traffic_pack' AND (migration_source_user_is_admin(po.user_id) OR EXISTS (SELECT 1 FROM migration_src.user_traffic_credits c WHERE c.order_id = po.id AND (migration_sample_selected(c.id) OR migration_source_user_is_admin(c.user_id)))))))
 UNION ALL SELECT 'target_audits', COUNT(*) FROM payment_audit_logs
-UNION ALL SELECT 'source_usage_logs', COUNT(*) FROM migration_src.usage_logs WHERE (id % 100) < current_setting('migration.sample_percent')::BIGINT
+UNION ALL SELECT 'source_usage_logs', COUNT(*) FROM migration_src.usage_logs WHERE migration_sample_selected(id)
 UNION ALL SELECT 'target_usage_logs', COUNT(*) FROM usage_logs
 UNION ALL SELECT 'source_api_keys', COUNT(*) FROM migration_src.api_keys
 UNION ALL SELECT 'target_api_keys', COUNT(*) FROM api_keys
+UNION ALL SELECT 'source_accounts', COUNT(*) FROM migration_src.accounts
+UNION ALL SELECT 'target_accounts', COUNT(*) FROM accounts
+UNION ALL SELECT 'source_traffic_credits', COUNT(*) FROM migration_src.user_traffic_credits WHERE migration_sample_selected(id) OR migration_source_user_is_admin(user_id)
+UNION ALL SELECT 'target_traffic_credits', COUNT(*) FROM user_traffic_credits
+UNION ALL SELECT 'source_traffic_ledger', COUNT(*) FROM migration_src.traffic_credit_ledger WHERE migration_sample_selected(id) OR migration_source_user_is_admin(user_id) OR EXISTS (SELECT 1 FROM migration_src.user_traffic_credits c WHERE c.id = credit_id AND (migration_sample_selected(c.id) OR migration_source_user_is_admin(c.user_id))) OR EXISTS (SELECT 1 FROM migration_src.payment_orders po WHERE po.id = order_id AND (migration_sample_selected(po.id) OR migration_source_user_is_admin(po.user_id)))
+UNION ALL SELECT 'target_traffic_ledger', COUNT(*) FROM traffic_credit_ledger
+UNION ALL SELECT 'admin_target_users', COUNT(*) FROM users WHERE lower(trim(email)) = 'xiaobianfuai@gmail.com' AND role = 'admin' AND deleted_at IS NULL
+UNION ALL SELECT 'admin_unspent_traffic_usd', COALESCE(SUM(remaining_usd), 0)::BIGINT FROM user_traffic_credits c JOIN users u ON u.id = c.user_id WHERE lower(trim(u.email)) = 'xiaobianfuai@gmail.com' AND u.role = 'admin' AND c.remaining_usd > 0 AND c.expires_at > now()
 UNION ALL SELECT 'target_balance_packages', COUNT(*) FROM user_balance_packages
 UNION ALL SELECT 'target_synthetic_packages', COUNT(*) FROM migration_package_source WHERE synthetic
+UNION ALL SELECT 'source_current_daily_remaining_usd', COALESCE(SUM(daily_remaining_usd), 0)::BIGINT FROM migration_current_quota
+UNION ALL SELECT 'source_current_weekly_remaining_usd', COALESCE(SUM(weekly_remaining_usd), 0)::BIGINT FROM migration_current_quota
+UNION ALL SELECT 'target_current_package_remaining_usd', COALESCE(SUM(current_remaining_credit_usd), 0)::BIGINT FROM migration_package_source
+UNION ALL SELECT 'target_balance_usd', COALESCE(SUM(balance), 0)::BIGINT FROM users
 ORDER BY metric;
 
 DROP FUNCTION migration_copy_common(TEXT, TEXT, TEXT, JSONB);
 DROP FUNCTION migration_reset_sequence(TEXT);
+DROP FUNCTION migration_sample_selected(BIGINT);
+DROP FUNCTION migration_source_user_is_admin(BIGINT);
 DROP SERVER migration_18080 CASCADE;
 DROP SCHEMA migration_src CASCADE;
 

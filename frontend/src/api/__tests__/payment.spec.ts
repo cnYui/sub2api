@@ -37,4 +37,10 @@ describe('payment api', () => {
       resume_token: 'resume-token-123',
     })
   })
+
+  it('loads the current user balance packages for the subscriptions page', async () => {
+    await paymentAPI.getMyBalancePackages()
+
+    expect(get).toHaveBeenCalledWith('/payment/balance-packages')
+  })
 })

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -25,6 +26,27 @@ type defaultBalancePackagePlan struct {
 	priceCNY        float64
 	weeklyCreditUSD float64
 	sortOrder       int
+}
+
+// UserBalancePackageView 是用户端展示已购余额套餐所需的服务端数据。
+// 套餐计划名称和价格来自当前计划记录，到账进度和生命周期来自不可变的用户套餐记录。
+type UserBalancePackageView struct {
+	ID                  int64      `json:"id"`
+	PlanID              int64      `json:"plan_id"`
+	Code                string     `json:"code"`
+	Name                string     `json:"name"`
+	PriceCNY            float64    `json:"price_cny"`
+	WeeklyCreditUSD     float64    `json:"weekly_credit_usd"`
+	ValidityDays        int        `json:"validity_days"`
+	RefreshCount        int        `json:"refresh_count"`
+	RefreshIntervalDays int        `json:"refresh_interval_days"`
+	CreditedCount       int        `json:"credited_count"`
+	StartsAt            time.Time  `json:"starts_at"`
+	NextCreditAt        *time.Time `json:"next_credit_at,omitempty"`
+	ExpiresAt           time.Time  `json:"expires_at"`
+	Status              string     `json:"status"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
 var defaultBalancePackagePlans = []defaultBalancePackagePlan{
@@ -71,6 +93,85 @@ func (s *BalancePackageService) GetPlanForSale(ctx context.Context, id int64) (*
 		return nil, err
 	}
 	return plan, nil
+}
+
+// ListUserPackages 返回用户已购买或已获发放的余额套餐，供订阅页展示。
+func (s *BalancePackageService) ListUserPackages(ctx context.Context, userID int64) ([]UserBalancePackageView, error) {
+	if s == nil || s.entClient == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	if userID <= 0 {
+		return []UserBalancePackageView{}, nil
+	}
+
+	packages, err := s.entClient.UserBalancePackage.Query().
+		Where(userbalancepackage.UserIDEQ(userID)).
+		Order(userbalancepackage.ByCreatedAt(sql.OrderDesc())).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list user balance packages: %w", err)
+	}
+	if len(packages) == 0 {
+		return []UserBalancePackageView{}, nil
+	}
+
+	planIDs := make([]int64, 0, len(packages))
+	seenPlanIDs := make(map[int64]struct{}, len(packages))
+	for _, item := range packages {
+		if _, ok := seenPlanIDs[item.PlanID]; ok {
+			continue
+		}
+		seenPlanIDs[item.PlanID] = struct{}{}
+		planIDs = append(planIDs, item.PlanID)
+	}
+	plans, err := s.entClient.BalancePackagePlan.Query().
+		Where(balancepackageplan.IDIn(planIDs...)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list balance package plans: %w", err)
+	}
+	planByID := make(map[int64]*dbent.BalancePackagePlan, len(plans))
+	for _, plan := range plans {
+		planByID[plan.ID] = plan
+	}
+
+	now := time.Now()
+	result := make([]UserBalancePackageView, 0, len(packages))
+	for _, item := range packages {
+		plan := planByID[item.PlanID]
+		view := UserBalancePackageView{
+			ID:                  item.ID,
+			PlanID:              item.PlanID,
+			WeeklyCreditUSD:     item.WeeklyCreditUsd,
+			ValidityDays:        int(item.ExpiresAt.Sub(item.StartsAt) / (24 * time.Hour)),
+			RefreshCount:        item.RefreshCount,
+			RefreshIntervalDays: item.RefreshIntervalDays,
+			CreditedCount:       item.CreditedCount,
+			StartsAt:            item.StartsAt,
+			NextCreditAt:        item.NextCreditAt,
+			ExpiresAt:           item.ExpiresAt,
+			Status:              item.Status,
+			CreatedAt:           item.CreatedAt,
+			UpdatedAt:           item.UpdatedAt,
+		}
+		if plan != nil {
+			view.Code = plan.Code
+			view.Name = plan.Name
+			view.PriceCNY = plan.PriceCny
+			view.ValidityDays = plan.ValidityDays
+		}
+		if view.Name == "" {
+			view.Name = fmt.Sprintf("余额套餐 #%d", item.PlanID)
+		}
+		if view.ValidityDays <= 0 {
+			view.ValidityDays = int(item.ExpiresAt.Sub(item.StartsAt) / (24 * time.Hour))
+		}
+		if !item.ExpiresAt.After(now) && view.Status != "refunded" {
+			view.Status = "expired"
+		}
+		result = append(result, view)
+	}
+	return result, nil
 }
 
 func (s *BalancePackageService) ensureDefaultPlans(ctx context.Context) error {

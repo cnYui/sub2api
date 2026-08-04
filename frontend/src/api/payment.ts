@@ -12,7 +12,8 @@ import type {
   CreateOrderRequest,
   CreateOrderResult,
   PaymentOrder,
-  BalancePackageRefundQuote
+  BalancePackageRefundQuote,
+  UserBalancePackage
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -38,6 +39,11 @@ export const paymentAPI = {
   /** Get all checkout page data in a single call */
   getCheckoutInfo() {
     return apiClient.get<CheckoutInfoResponse>('/payment/checkout-info')
+  },
+
+  /** Get the current user's purchased balance packages and credit progress */
+  getMyBalancePackages() {
+    return apiClient.get<UserBalancePackage[]>('/payment/balance-packages')
   },
 
   /** Get payment method limits and fee rates */

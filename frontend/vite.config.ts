@@ -114,6 +114,7 @@ export default defineConfig(({ mode }) => {
          */
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
+            // Cloudflare 当前规则会拦截 vendor- 静态资源路径，使用 lib- 保持公网可加载。
             // Vue 核心库
             if (
               id.includes('/vue/') ||
@@ -121,31 +122,31 @@ export default defineConfig(({ mode }) => {
               id.includes('/pinia/') ||
               id.includes('/@vue/')
             ) {
-              return 'vendor-vue'
+              return 'lib-vue'
             }
 
             // UI 工具库（较大，单独分离）
             if (id.includes('/@vueuse/') || id.includes('/xlsx/')) {
-              return 'vendor-ui'
+              return 'lib-ui'
             }
 
             // 图表库
             if (id.includes('/chart.js/') || id.includes('/vue-chartjs/')) {
-              return 'vendor-chart'
+              return 'lib-chart'
             }
 
             // 国际化
             if (id.includes('/vue-i18n/') || id.includes('/@intlify/')) {
-              return 'vendor-i18n'
+              return 'lib-i18n'
             }
 
             // Stripe 仅在支付流程中按需加载，避免进入首页公共依赖。
             if (id.includes('/@stripe/stripe-js/')) {
-              return 'vendor-stripe'
+              return 'lib-stripe'
             }
 
             // 其他小型第三方库合并
-            return 'vendor-misc'
+            return 'lib-misc'
           }
 
           // 应用代码：按入口点自动分包，不手动干预

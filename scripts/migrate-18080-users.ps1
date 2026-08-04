@@ -43,8 +43,21 @@ function Test-HealthyContainer {
     }
 }
 
+function Test-StoppedContainer {
+    param([string]$Container)
+    $status = & docker inspect --format '{{.State.Status}}' $Container
+    if ($LASTEXITCODE -ne 0 -or $status -ne 'exited') {
+        throw "正式迁移要求应用停止写入: $Container ($status)"
+    }
+}
+
 Test-HealthyContainer $sourcePostgres
 Test-HealthyContainer $targetPostgres
+
+if ($Execute) {
+    Test-StoppedContainer $sourceApp
+    Test-StoppedContainer $targetApp
+}
 
 if ([string]::IsNullOrWhiteSpace($BackupRoot)) {
     $BackupRoot = Join-Path $repoRoot ('..\migration-backups\18080-to-18082-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))

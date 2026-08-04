@@ -75,10 +75,15 @@
         </span>
       </template>
 
-      <template #cell-order_type="{ value }">
-        <span class="text-sm text-gray-700 dark:text-gray-300">
-          {{ t('payment.admin.' + value + 'Order', value) }}
-        </span>
+      <template #cell-order_type="{ value, row }">
+        <div class="text-sm">
+          <span class="text-gray-700 dark:text-gray-300">
+            {{ value === 'traffic_pack' && row.traffic_pack_name ? row.traffic_pack_name : t('payment.admin.' + value + 'Order', value) }}
+          </span>
+          <span v-if="value === 'traffic_pack' && row.traffic_pack_credit_usd" class="block text-xs text-sky-600 dark:text-sky-300">
+            {{ creditedAmountSymbol }}{{ row.traffic_pack_credit_usd.toFixed(2) }} {{ t('payment.orders.trafficCredit') }}
+          </span>
+        </div>
       </template>
 
       <template #cell-created_at="{ value }">
@@ -226,6 +231,8 @@ const orderTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allOrderTypes') },
   { value: 'balance', label: t('payment.admin.balanceOrder') },
   { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
+  { value: 'balance_subscription', label: t('payment.admin.balancePackageOrder') },
+  { value: 'traffic_pack', label: t('payment.admin.trafficPackOrder') },
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {
