@@ -1,4 +1,8 @@
 export default {
+  usageGuide: {
+    title: '使用方法',
+    description: '查看从购买套餐到接入常用客户端的完整教程'
+  },
   batchImageGuide: {
     title: '图片批量生成',
     description: '一次提交多条提示词，任务完成后可统一下载图片结果'

@@ -89,3 +89,9 @@
 - 2026-08-04：购买页余额套餐支付成功后写入 `user_balance_packages`，原 `/subscriptions` 仅读取 `user_subscriptions` 会导致已购 ¥29、¥39、¥49、¥299 等套餐不展示。
 - 新增认证接口 `/api/v1/payment/balance-packages` 返回当前用户套餐的服务端状态、价格、额度和到账进度；`/subscriptions` 同时兼容余额套餐与历史模型订阅。
 - 设计与验证记录见 `docs/ai/context/20260804-120632-subscriptions-balance-packages_CN.md`。
+
+## 使用方法页面迁移上下文
+
+- 2026-08-04：旧 18080 项目的 `/usage-guide` 已完整迁移到当前项目，保留七个教程栏目、13 张步骤截图、CCSwitch 本地视频与封面、API 表格和代码示例。
+- 使用方法页面必须通过认证用户路由访问，并复用用户侧栏声明；页面字体继承当前全局字体，颜色、卡片、表格和深色模式按当前项目设计系统维护。
+- 迁移与验证记录见 `docs/ai/context/20260804-150708-usage-guide-migration_CN.md`。
