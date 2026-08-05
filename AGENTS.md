@@ -34,6 +34,7 @@
 - 本次公网切换记录见 `docs/ai/context/20260804-112415-aaccx-public-chain_CN.md`。
 - 2026-08-04：为发布当前源码，重建并替换 `sub2api-official-18082` 应用容器；旧应用容器已停止，`sub2api-dev` 保持退出状态，18080 无监听。发布核验见 `docs/ai/context/20260804-112927-aaccx-public-deploy-result_CN.md`。
 - 2026-08-04：修复公网 `/login` 白屏。Vite 公共依赖分包由 `vendor-*` 改为 `lib-*`，规避 Cloudflare 对 `vendor-*` 静态资源路径的 403；只重建并替换 18082 应用容器，数据库和 Redis 未重建。入口脚本、Vue、i18n、CSS 资源均已通过公网 200 校验，浏览器页面正常渲染。记录见 `docs/ai/context/20260804-114424-login-blank-fix_CN.md`。
+- 2026-08-05：基于 `main` 最新提交重建并替换 `sub2api-official-18082` 应用容器，仅更新应用镜像，PostgreSQL、Redis 和数据卷未重建；本地、Nginx 与三个公网健康检查均返回 200。记录见 `docs/ai/context/20260805-114632-18082-production-rebuild-hide-image-guide_CN.md`。
 
 ## 流量卡 10% 迁移上下文
 
