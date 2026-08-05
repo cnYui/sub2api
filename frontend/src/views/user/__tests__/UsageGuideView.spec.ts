@@ -24,6 +24,8 @@ describe('UsageGuideView', () => {
       "id: 'image-generation'",
       "id: 'trae'",
       "id: 'claude-code-desktop'",
+      "const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])",
+      'const guideTopics = allGuideTopics.filter',
       'usage-guide-topic-nav-desktop',
       'usage-guide-topic-tabs-mobile',
       'usage-guide-video',

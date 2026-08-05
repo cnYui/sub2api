@@ -125,6 +125,7 @@
 - 使用方法页面必须通过认证用户路由访问，并复用用户侧栏声明；页面字体继承当前全局字体，颜色、卡片、表格和深色模式按当前项目设计系统维护。
 - 迁移与验证记录见 `docs/ai/context/20260804-150708-usage-guide-migration_CN.md`。
 - 2026-08-05：使用方法页面新增“Claude Code 桌面端接入”主题，复用既有步骤图片组件，新增 3 步和 6 张截图；实现记录见 `docs/ai/context/20260805-111702-claude-code-desktop-usage-guide_CN.md`。
+- 2026-08-05：使用方法页面暂时隐藏“生图方法”主题，保留源码数据和接口文档，不影响生图能力；记录见 `docs/ai/context/20260805-113427-hide-image-generation-guide_CN.md`。
 
 ## GPT 渠道监控上下文
 

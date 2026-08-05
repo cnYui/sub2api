@@ -569,7 +569,7 @@ const claudeCodeSetupSteps: GuideStep[] = [
   },
 ]
 
-const guideTopics: GuideTopic[] = [
+const allGuideTopics: GuideTopic[] = [
   {
     id: 'codex',
     title: 'Codex 接入',
@@ -735,6 +735,9 @@ const guideTopics: GuideTopic[] = [
     steps: claudeCodeSetupSteps,
   },
 ]
+
+const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])
+const guideTopics = allGuideTopics.filter((topic) => !hiddenGuideTopicIds.has(topic.id))
 
 const activeTopicId = ref(guideTopics[0].id)
 
