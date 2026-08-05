@@ -127,6 +127,8 @@
 - 迁移与验证记录见 `docs/ai/context/20260804-150708-usage-guide-migration_CN.md`。
 - 2026-08-05：使用方法页面新增“Claude Code 桌面端接入”主题，复用既有步骤图片组件，新增 3 步和 6 张截图；实现记录见 `docs/ai/context/20260805-111702-claude-code-desktop-usage-guide_CN.md`。
 - 2026-08-05：使用方法页面暂时隐藏“生图方法”主题，保留源码数据和接口文档，不影响生图能力；记录见 `docs/ai/context/20260805-113427-hide-image-generation-guide_CN.md`。
+- 2026-08-05：重写 `/usage-guide` 的“规范使用”栏目，使其与当前网关真实路由一致：`/v1` 是 OpenAI/Claude 推荐 Base URL，Gemini 原生入口为 `/v1beta`；Responses、Chat Completions、Embeddings、图片、Models 和 Codex 直连保留部分无 `/v1` 兼容别名，但 `/messages`、`/usage` 等裸路径不应省略版本前缀。所有可见使用方法栏目新增 `updatedAt`，按更新时间从新到旧排序；详见 `docs/ai/context/20260805-153528-usage-guide-formal-api-and-date-sort_CN.md`。
+- 2026-08-05：更新“错误编号参考”栏目：当前 `main` 仍以通用 `{code,message,reason,metadata}` 和 OpenAI/Anthropic/Gemini 协议错误格式为准，未统一输出 `X-Sub2API-Error-ID` / `S2A-*`；页面改列当前 API Key、订阅、余额、限流和上游常见代码，并明确 S2A 目录不能作为当前稳定响应契约。记录见 `docs/ai/context/20260805-160411-usage-guide-error-catalog-refresh_CN.md`。
 
 ## GPT 渠道监控上下文
 

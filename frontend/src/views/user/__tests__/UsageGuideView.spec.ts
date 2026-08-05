@@ -25,14 +25,36 @@ describe('UsageGuideView', () => {
       "id: 'trae'",
       "id: 'claude-code-desktop'",
       "const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])",
-      'const guideTopics = allGuideTopics.filter',
       'usage-guide-topic-nav-desktop',
       'usage-guide-topic-tabs-mobile',
       'usage-guide-video',
       'X-Sub2API-Error-ID',
       'https://api.aaccx.pw/v1/responses',
+      'Authorization: Bearer sk-xxxx',
+      'https://api.aaccx.pw/v1beta',
+      '当前行为',
+      'api_key_in_query_deprecated',
+      'insufficient_quota',
+      '当前 main 尚未把所有端点统一迁移到 X-Sub2API-Error-ID / S2A-* 契约',
+      'const guideTopics = allGuideTopics',
+      '.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))',
     ]) {
       expect(source).toContain(token)
+    }
+    expect(source).not.toContain('400 INVALID_BASE_URL')
+
+    for (const [id, date] of [
+      ['formal-api', '2026-08-05'],
+      ['claude-code-desktop', '2026-08-05'],
+      ['codex', '2026-08-04'],
+      ['error-codes', '2026-08-05'],
+      ['ccswitch-video', '2026-07-14'],
+      ['copilot-vscode', '2026-07-10'],
+      ['image-generation', '2026-07-07'],
+      ['trae', '2026-06-24'],
+    ]) {
+      expect(source).toContain(`id: '${id}'`)
+      expect(source).toContain(`updatedAt: '${date}'`)
     }
   })
 

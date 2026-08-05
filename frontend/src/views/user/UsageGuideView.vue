@@ -16,6 +16,7 @@
           @click="activeTopicId = topic.id"
         >
           <span class="usage-guide-nav-title">{{ topic.title }}</span>
+          <time class="usage-guide-nav-date" :datetime="topic.updatedAt">更新于 {{ topic.updatedAt }}</time>
           <span class="usage-guide-nav-desc">{{ topic.description }}</span>
         </button>
       </nav>
@@ -38,13 +39,15 @@
             :tabindex="topic.id === activeTopicId ? 0 : -1"
             @click="activeTopicId = topic.id"
           >
-            {{ topic.title }}
+            <span>{{ topic.title }}</span>
+            <time :datetime="topic.updatedAt">{{ topic.updatedAt }}</time>
           </button>
         </div>
 
         <header class="usage-guide-header">
           <span class="usage-guide-kicker">使用方法</span>
           <h2 id="usage-guide-heading" class="usage-guide-heading">{{ activeTopic.title }}</h2>
+          <time class="usage-guide-date" :datetime="activeTopic.updatedAt">更新于 {{ activeTopic.updatedAt }}</time>
           <p class="usage-guide-description">{{ activeTopic.description }}</p>
         </header>
 
@@ -143,9 +146,9 @@
               <table class="usage-guide-endpoint-table">
                 <thead>
                   <tr>
-                    <th>不要再这样写</th>
-                    <th>现在会怎样</th>
-                    <th>改成这样</th>
+                    <th>兼容入口</th>
+                    <th>当前行为</th>
+                    <th>建议配置</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -162,10 +165,10 @@
               <table class="usage-guide-endpoint-table usage-guide-error-table">
                 <thead>
                   <tr>
-                    <th>编号</th>
+                    <th>协议 / 场景</th>
                     <th>英文代码</th>
                     <th>HTTP / 事件</th>
-                    <th>规范英文提示</th>
+                    <th>当前含义</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,6 +256,7 @@ type GuideTopic =
   | {
     id: string
     title: string
+    updatedAt: string
     description: string
     kind: 'steps'
     steps: GuideStep[]
@@ -260,6 +264,7 @@ type GuideTopic =
   | {
     id: string
     title: string
+    updatedAt: string
     description: string
     kind: 'sections'
     sections: GuideSection[]
@@ -267,6 +272,7 @@ type GuideTopic =
   | {
     id: string
     title: string
+    updatedAt: string
     description: string
     kind: 'video'
     video: {
@@ -353,141 +359,144 @@ const formalAPIEndpointRows: GuideEndpointRow[] = [
     label: 'Responses API',
     method: 'POST',
     url: 'https://api.aaccx.pw/v1/responses',
-    meaning: 'Codex 推荐走这个接口，正常对话、工具调用、流式输出都优先用它。',
+    meaning: 'OpenAI/Codex 的首选接口，支持普通对话、工具调用和流式输出。',
   },
   {
-    label: 'Responses 子路径',
+    label: 'Responses compact',
     method: 'POST',
-    url: 'https://api.aaccx.pw/v1/responses/*',
-    meaning: '只有工具明确需要 responses 的子路径时才用，比如 compact 这类路径。',
+    url: 'https://api.aaccx.pw/v1/responses/compact',
+    meaning: '仅供明确要求 compact 的 Codex 客户端使用，普通请求不要自行拼接子路径。',
   },
   {
     label: 'Chat Completions',
     method: 'POST',
     url: 'https://api.aaccx.pw/v1/chat/completions',
-    meaning: '老版 OpenAI 兼容客户端常用这个，对话消息按 chat completions 格式传。',
-  },
-  {
-    label: 'Embeddings',
-    method: 'POST',
-    url: 'https://api.aaccx.pw/v1/embeddings',
-    meaning: '把文本转成向量，用在搜索、相似度匹配、知识库召回这类场景。',
-  },
-  {
-    label: 'Image Generation',
-    method: 'POST',
-    url: 'https://api.aaccx.pw/v1/images/generations',
-    meaning: '文字生成图片，提示词描述你想要的画面。',
-  },
-  {
-    label: 'Image Edit',
-    method: 'POST',
-    url: 'https://api.aaccx.pw/v1/images/edits',
-    meaning: '上传或传入图片后改图，比如局部修改、换风格、重绘。',
-  },
-  {
-    label: 'Models',
-    method: 'GET',
-    url: 'https://api.aaccx.pw/v1/models',
-    meaning: '查看当前 Key 能看到的模型列表。',
-  },
-  {
-    label: 'Usage',
-    method: 'GET',
-    url: 'https://api.aaccx.pw/v1/usage',
-    meaning: '查看当前 Key 的用量和额度信息。',
+    meaning: '兼容仍使用 chat.completions 格式的 OpenAI 客户端。',
   },
   {
     label: 'Claude Messages',
     method: 'POST',
     url: 'https://api.aaccx.pw/v1/messages',
-    meaning: 'Claude/Anthropic 格式客户端使用；OpenAI 分组会自动按平台处理。',
+    meaning: 'Claude Code、Anthropic SDK 等消息格式客户端使用；服务端按分组平台调度。',
   },
   {
-    label: 'Claude Count Tokens',
+    label: 'Count Tokens',
     method: 'POST',
     url: 'https://api.aaccx.pw/v1/messages/count_tokens',
-    meaning: '给 Claude 格式请求估算 token 数，OpenAI 平台一般不需要。',
+    meaning: '估算 Claude 消息请求的输入 token；OpenAI 客户端通常不需要调用。',
+  },
+  {
+    label: 'Embeddings',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/embeddings',
+    meaning: 'OpenAI 分组的文本向量接口，用于搜索、相似度匹配和知识库召回。',
+  },
+  {
+    label: 'Image Generation',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/generations',
+    meaning: '文字生成图片；是否可用以当前 API Key 的模型列表和权限为准。',
+  },
+  {
+    label: 'Image Edit',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/edits',
+    meaning: '上传或传入图片后改图；不要把图片接口配置到文本折扣分组。',
+  },
+  {
+    label: 'Models',
+    method: 'GET',
+    url: 'https://api.aaccx.pw/v1/models',
+    meaning: '查看当前 API Key 实际可见的模型；以它作为客户端模型选择的准确信息。',
+  },
+  {
+    label: 'Usage',
+    method: 'GET',
+    url: 'https://api.aaccx.pw/v1/usage',
+    meaning: '查看当前 API Key 的用量和额度信息。',
+  },
+  {
+    label: 'Alpha Search',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/alpha/search',
+    meaning: '仅供支持该能力的 OpenAI 分组使用，不是普通聊天接口的替代品。',
+  },
+  {
+    label: 'Grok Videos',
+    method: 'POST/GET',
+    url: 'https://api.aaccx.pw/v1/videos/*',
+    meaning: 'Grok 视频生成、编辑和查询；只有视频分组与模型支持时才可用。',
   },
 ]
 
 const legacyAPIPathRows: GuideLegacyRow[] = [
   {
     oldUrl: 'https://api.aaccx.pw/responses',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可转发到 Responses。',
     useInstead: 'https://api.aaccx.pw/v1/responses',
   },
   {
     oldUrl: 'https://api.aaccx.pw/chat/completions',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可转发到 Chat Completions。',
     useInstead: 'https://api.aaccx.pw/v1/chat/completions',
   },
   {
     oldUrl: 'https://api.aaccx.pw/embeddings',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可用，但只接受支持 Embeddings 的 OpenAI 分组。',
     useInstead: 'https://api.aaccx.pw/v1/embeddings',
   },
   {
     oldUrl: 'https://api.aaccx.pw/images/generations',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可用；新客户端不要依赖无版本路径。',
     useInstead: 'https://api.aaccx.pw/v1/images/generations',
   },
   {
     oldUrl: 'https://api.aaccx.pw/images/edits',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可用；新客户端不要依赖无版本路径。',
     useInstead: 'https://api.aaccx.pw/v1/images/edits',
   },
   {
     oldUrl: 'https://api.aaccx.pw/models',
-    result: '400 INVALID_BASE_URL',
+    result: '兼容别名，当前仍可返回模型列表。',
     useInstead: 'https://api.aaccx.pw/v1/models',
   },
   {
     oldUrl: 'https://api.aaccx.pw/backend-api/codex/responses',
-    result: '400 INVALID_BASE_URL',
+    result: 'Codex 直连兼容入口，只有客户端明确要求时才使用。',
     useInstead: 'https://api.aaccx.pw/v1/responses',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/messages',
+    result: '未注册这个裸路径，不能把所有接口都去掉 /v1。',
+    useInstead: 'https://api.aaccx.pw/v1/messages',
+  },
+  {
+    oldUrl: 'https://api.aaccx.pw/usage',
+    result: '未注册这个裸路径，不能把所有接口都去掉 /v1。',
+    useInstead: 'https://api.aaccx.pw/v1/usage',
   },
 ]
 
 const errorCatalogRows: GuideErrorRow[] = [
-  { id: 'S2A-1001', code: 'INVALID_REQUEST', http: '400', message: 'The request is invalid.' },
-  { id: 'S2A-1002', code: 'REQUEST_BODY_INVALID', http: '400', message: 'The request body is invalid.' },
-  { id: 'S2A-1003', code: 'REQUEST_TOO_LARGE', http: '413', message: 'The request body is too large.' },
-  { id: 'S2A-1004', code: 'MODEL_NOT_SUPPORTED', http: '400', message: 'The requested model is not supported.' },
-  { id: 'S2A-1005', code: 'CONTENT_POLICY_VIOLATION', http: '400', message: 'The request was blocked by the content policy.' },
-  { id: 'S2A-1006', code: 'ENDPOINT_NOT_FOUND', http: '404', message: 'The requested endpoint was not found.' },
-  { id: 'S2A-2001', code: 'API_KEY_REQUIRED', http: '401', message: 'An API key is required.' },
-  { id: 'S2A-2002', code: 'API_KEY_INVALID', http: '401', message: 'The API key is invalid.' },
-  { id: 'S2A-2003', code: 'API_KEY_INACTIVE', http: '403', message: 'This API key is inactive.' },
-  { id: 'S2A-2004', code: 'ACCESS_DENIED', http: '403', message: 'You do not have permission to perform this action.' },
-  { id: 'S2A-2005', code: 'SESSION_EXPIRED', http: '401', message: 'Your session has expired. Please sign in again.' },
-  { id: 'S2A-2006', code: 'ACCOUNT_SUSPENDED', http: '403', message: 'This account is unavailable. Please contact support.' },
-  { id: 'S2A-3001', code: 'RATE_LIMIT_EXCEEDED', http: '429', message: 'The request rate limit has been exceeded. Please retry later.' },
-  { id: 'S2A-3002', code: 'CONCURRENCY_LIMIT_EXCEEDED', http: '429', message: 'The concurrent request limit has been exceeded. Please retry later.' },
-  { id: 'S2A-3003', code: 'SUBSCRIPTION_QUOTA_EXCEEDED', http: '429', message: 'The subscription quota has been exceeded. Please retry later.' },
-  { id: 'S2A-3004', code: 'BALANCE_INSUFFICIENT', http: '402', message: 'Insufficient balance to process this request.' },
-  { id: 'S2A-3005', code: 'BILLING_RESERVATION_REJECTED', http: '402', message: 'The available balance cannot authorize this request.' },
-  { id: 'S2A-3006', code: 'BILLING_SERVICE_UNAVAILABLE', http: '503', message: 'The billing service is temporarily unavailable. Please retry later.' },
-  { id: 'S2A-4001', code: 'RESOURCE_NOT_FOUND', http: '404', message: 'The requested resource was not found.' },
-  { id: 'S2A-4002', code: 'RESOURCE_CONFLICT', http: '409', message: 'The requested operation conflicts with the current resource state.' },
-  { id: 'S2A-4003', code: 'OPERATION_NOT_ALLOWED', http: '409', message: 'This operation is not allowed in the current state.' },
-  { id: 'S2A-4004', code: 'OPERATION_IN_PROGRESS', http: '409', message: 'The requested operation is already in progress.' },
-  { id: 'S2A-4005', code: 'FEATURE_UNAVAILABLE', http: '503', message: 'This feature is temporarily unavailable. Please retry later.' },
-  { id: 'S2A-5001', code: 'NO_AVAILABLE_UPSTREAM', http: '503', message: 'No upstream service is currently available. Please retry later.' },
-  { id: 'S2A-5002', code: 'UPSTREAM_CREDENTIALS_UNAVAILABLE', http: '503', message: 'No upstream credentials are currently available. Please retry later.' },
-  { id: 'S2A-5003', code: 'UPSTREAM_AUTHENTICATION_FAILED', http: '502', message: 'The upstream service rejected its credentials.' },
-  { id: 'S2A-5004', code: 'UPSTREAM_RATE_LIMITED', http: '429', message: 'The upstream service is rate limited. Please retry later.' },
-  { id: 'S2A-5005', code: 'UPSTREAM_MODEL_UNAVAILABLE', http: '503', message: 'The requested model is not currently available from the upstream service.' },
-  { id: 'S2A-5006', code: 'UPSTREAM_OVERLOADED', http: '503', message: 'The upstream service is temporarily overloaded. Please retry later.' },
-  { id: 'S2A-5007', code: 'UPSTREAM_TIMEOUT', http: '504', message: 'The upstream service did not respond in time. Please retry later.' },
-  { id: 'S2A-5008', code: 'UPSTREAM_CONNECTION_FAILED', http: '502', message: 'The gateway could not connect to the upstream service.' },
-  { id: 'S2A-5009', code: 'UPSTREAM_INVALID_RESPONSE', http: '502', message: 'The upstream service returned an invalid response.' },
-  { id: 'S2A-5010', code: 'UPSTREAM_ACCESS_DENIED', http: '502', message: 'The upstream service denied the request.' },
-  { id: 'S2A-6001', code: 'STREAM_INTERRUPTED', http: 'stream event', message: 'The response stream was interrupted. Please retry the request.' },
-  { id: 'S2A-6002', code: 'STREAM_PROTOCOL_ERROR', http: 'stream event', message: 'The response stream returned an invalid event.' },
-  { id: 'S2A-6003', code: 'WEBSOCKET_CONNECTION_CLOSED', http: 'WebSocket event', message: 'The WebSocket connection was closed before the request completed.' },
-  { id: 'S2A-9001', code: 'INTERNAL_ERROR', http: '500', message: 'An internal error occurred. Please retry later.' },
-  { id: 'S2A-9002', code: 'PLATFORM_DEPENDENCY_UNAVAILABLE', http: '503', message: 'A required platform service is temporarily unavailable. Please retry later.' },
+  { id: 'OpenAI / Claude', code: 'invalid_request_error', http: '400', message: '请求体为空、解析失败、缺少 model 或参数不符合当前接口要求。' },
+  { id: 'OpenAI / Claude', code: 'rate_limit_error', http: '429', message: '请求频率、并发、图片并发或订阅窗口达到限制；存在 Retry-After 时应按它退避。' },
+  { id: 'OpenAI', code: 'insufficient_quota', http: '429', message: 'API Key 额度已用完；这是 Responses 兼容入口的额度错误格式。' },
+  { id: 'OpenAI / Claude', code: 'upstream_error', http: '502/503/504', message: '上游鉴权失败、拒绝、暂不可用、超时或转发失败；具体原因看 HTTP 状态和服务日志。' },
+  { id: 'OpenAI', code: 'content_policy_violation', http: '400 / SSE', message: '内容审核拦截请求；流已经开始时会作为错误事件写入 SSE。' },
+  { id: 'API Key', code: 'API_KEY_REQUIRED', http: '401', message: '缺少 Authorization Bearer、x-api-key 或 Gemini 使用的 x-goog-api-key。' },
+  { id: 'API Key', code: 'INVALID_API_KEY', http: '401', message: 'API Key 不存在或无法通过鉴权。不要把 Key 放在 query 参数中。' },
+  { id: 'API Key', code: 'api_key_in_query_deprecated', http: '400', message: 'query 中的 key/api_key 已弃用，改用请求头认证。' },
+  { id: 'API Key', code: 'API_KEY_DISABLED', http: '401', message: 'API Key 已被停用。' },
+  { id: 'API Key', code: 'API_KEY_EXPIRED', http: '403', message: 'API Key 已过期。' },
+  { id: '权限', code: 'ACCESS_DENIED', http: '403', message: 'IP 限制、分组权限或其它访问控制拒绝了请求。' },
+  { id: '权限', code: 'GROUP_NOT_ALLOWED', http: '403', message: 'API Key 所属专属分组不再允许当前用户使用。' },
+  { id: '订阅', code: 'SUBSCRIPTION_NOT_FOUND', http: '403', message: '当前 Key 分组没有有效订阅。' },
+  { id: '订阅', code: 'USAGE_LIMIT_EXCEEDED', http: '429', message: '订阅的 5 小时、1 天或 7 天用量窗口已达到上限。' },
+  { id: '余额', code: 'INSUFFICIENT_BALANCE', http: '403', message: '普通余额不足且当前请求没有可用的 OpenAI 流量卡额度。' },
+  { id: '额度', code: 'API_KEY_QUOTA_EXHAUSTED', http: '429', message: 'API Key 自身配额已用完；OpenAI Responses 可能改用 insufficient_quota 格式返回。' },
+  { id: '系统', code: 'API_KEY_AUTH_OVERLOADED', http: '503', message: 'API Key 鉴权服务暂时过载，请稍后重试。' },
+  { id: '系统', code: 'SUBSCRIPTION_MAINTENANCE_FAILED', http: '500', message: '订阅用量窗口维护失败，请稍后重试或联系管理员。' },
+  { id: '系统', code: 'INTERNAL_ERROR', http: '500', message: '服务内部错误；不要把响应中的内部细节当作稳定契约。' },
 ]
 
 const codexFormalConfigExample = `# Codex config.toml 推荐写法
@@ -573,6 +582,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'codex',
     title: 'Codex 接入',
+    updatedAt: '2026-08-04',
     description: '从购买订阅、兑换、创建 API Key 到配置 cc-switch 的完整步骤。',
     kind: 'steps',
     steps: codexSetupSteps,
@@ -580,6 +590,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'ccswitch-video',
     title: 'CCSwitch 视频教程',
+    updatedAt: '2026-07-14',
     description: '完整演示使用 CCSwitch 接入中转站，解决 99% 常见的连接不上、断连问题。',
     kind: 'video',
     video: {
@@ -591,35 +602,38 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'formal-api',
     title: '规范使用',
-    description: '只使用 /v1 开头的正式模型 API，避免裸路径被拒绝。',
+    updatedAt: '2026-08-05',
+    description: '按当前网关真实路由配置 Base URL、认证头、模型和额度，避免客户端接入时猜路径。',
     kind: 'sections',
     sections: [
       {
-        title: '先记住一句话',
+        title: '先统一三项配置',
         paragraphs: [
-          '正式 Base URL 只填 https://api.aaccx.pw/v1。工具里如果分开填写 Base URL 和接口路径，Base URL 就停在 /v1，接口路径再填 /responses、/chat/completions 这类相对路径。',
-          '不要填 https://api.aaccx.pw/responses，也不要把 /v1 写两次。裸 /responses、/models、/chat/completions 这些旧写法现在会直接返回 400 INVALID_BASE_URL。',
+          'OpenAI、Claude 和大多数兼容客户端的 Base URL 填 https://api.aaccx.pw/v1；如果工具另有“接口路径”输入框，只填 /responses、/chat/completions 或 /messages 这一段，不要把完整 URL 再拼一次。',
+          'Gemini 原生客户端使用 https://api.aaccx.pw/v1beta；只使用 Gemini 兼容的模型与接口，不要拿 /v1 的 OpenAI 路径替代它。',
+          '请求认证首选 Authorization: Bearer sk-xxxx。服务也兼容 x-api-key；Gemini 客户端可使用 x-goog-api-key。API Key 放在本机配置，不要写入项目源码、截图或公开聊天。',
         ],
       },
       {
-        title: '正式请求路径',
+        title: '按客户端选择接口',
         paragraphs: [
-          '下面这些是现在对外推荐的规范 URL。客户端能分开填时优先填 Base URL；只有工具要求完整地址时，才照抄完整 URL。',
+          '下面是当前网关注册的规范路径。能配置 Base URL 的客户端优先填 /v1，再让客户端自行拼接；只能填写完整地址时，使用表格中的 URL。模型名称先从当前 API Key 的 /v1/models 读取，不要照抄别的 Key 的模型名。',
         ],
         endpointRows: formalAPIEndpointRows,
       },
       {
-        title: '旧写法怎么改',
+        title: '无 /v1 路径的真实行为',
         paragraphs: [
-          '如果你之前按裸路径调用，请按这一列迁移。服务不会再把裸路径偷偷转发到 /v1，报错就是提醒你改配置。',
+          '网关为 Responses、Chat Completions、Embeddings、图片、Models 和 Codex 直连保留了部分无 /v1 兼容别名，所以旧客户端不一定马上报错；这不代表所有接口都支持省略版本前缀。新配置统一使用 /v1，兼容别名只用于迁移和特殊客户端。',
         ],
         legacyRows: legacyAPIPathRows,
       },
       {
-        title: 'Codex 推荐配置',
+        title: 'Codex、Claude Code 和额度排查',
         paragraphs: [
-          'Codex 里只配置 base_url 到 /v1，wire_api 使用 responses。这样 Codex 会自己请求 /v1/responses。',
-          'API Key 只放在本机配置里，不要发到公开聊天、截图或文档里。',
+          'Codex 的 base_url 只配置到 /v1，wire_api 使用 responses；不要把 /responses 或 /backend-api/codex/responses 填进 base_url。Claude Code 使用 /v1/messages，并把 API Key 放到客户端要求的认证字段。',
+          '先用同一个 API Key 请求 /v1/models，确认目标模型确实属于该 Key 的分组；模型列表为空、模型不支持或没有可用上游时，换路径不会解决问题，应回到 API Key 分组和服务状态排查。',
+          '扣费、订单状态和退款以服务端为准。普通余额与流量卡额度分开显示；OpenAI 请求在普通余额不足时才会按服务端规则尝试扣有效流量卡，额度不足仍会拒绝请求。',
         ],
         code: codexFormalConfigExample,
       },
@@ -628,6 +642,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'copilot-vscode',
     title: 'VS Code Copilot 接入',
+    updatedAt: '2026-07-10',
     description: '把 VS Code Copilot 的 Custom Endpoint Provider 指向 AACCX 的 Responses API。',
     kind: 'sections',
     sections: [
@@ -670,20 +685,22 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'error-codes',
     title: '错误编号参考',
-    description: '查询 S2A 错误编号、英文机器码和规范英文提示。',
+    updatedAt: '2026-08-05',
+    description: '按当前 main 的实际响应格式排查认证、额度、协议和上游错误。',
     kind: 'sections',
     sections: [
       {
-        title: '先看响应位置',
+        title: '先看响应格式',
         paragraphs: [
-          '标准错误响应会带 X-Sub2API-Error-ID 和 X-Sub2API-Error-Code；可重试错误会带 X-Sub2API-Retryable，已知等待时间会额外带 Retry-After。',
-          'OpenAI 和 Anthropic 兼容响应会在 error 对象里包含 error_id、sub2api_code、retryable、retry_after 和 request_id。排查时优先看 S2A 编号，不要只看 HTTP 状态。',
+          '当前 main 的通用 REST 错误响应通常是 {"code": HTTP 状态, "message": "...", "reason": "...", "metadata": {...}}；reason 可能为空，不能把它误当成全局统一的 S2A 编号。',
+          'OpenAI Responses/Chat Completions 使用 error.type、error.message、error.code 等兼容字段；Anthropic 使用 type=error 和 error.type/error.message；Gemini 使用 Google 风格的 error.code、error.status 和 error.message。',
+          '当前 main 尚未把所有端点统一迁移到 X-Sub2API-Error-ID / S2A-* 契约。排查时先保留 HTTP 状态、响应 body、Retry-After 和请求时间；不要依据旧目录自行生成 S2A 编号。',
         ],
       },
       {
-        title: '错误编号总览',
+        title: '当前常见代码',
         paragraphs: [
-          '下面这些英文提示是对外规范文案。展示给用户、写进排查文档或做客户端映射时，以这一组编号和英文代码为准。',
+          '下面只列当前代码中会直接返回、或由网关兼容层稳定使用的常见代码。上游原始 code/message 可能透传到诊断日志或显式配置的透传规则，不应被客户端当作平台稳定编号。',
         ],
         errorRows: errorCatalogRows,
       },
@@ -692,6 +709,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'image-generation',
     title: '生图方法',
+    updatedAt: '2026-07-07',
     description: '使用现有 API Key 调用 OpenAI 兼容图生图接口，并了解图片额度扣费方式。',
     kind: 'sections',
     sections: [
@@ -723,6 +741,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'trae',
     title: 'Trae 接入',
+    updatedAt: '2026-06-24',
     description: '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
     kind: 'steps',
     steps: traeSetupSteps,
@@ -730,6 +749,7 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'claude-code-desktop',
     title: 'Claude Code 桌面端接入',
+    updatedAt: '2026-08-05',
     description: '使用 Cloud 分组和 CC Switch，把 Claude Code 桌面端连接到当前 API 服务。',
     kind: 'steps',
     steps: claudeCodeSetupSteps,
@@ -737,7 +757,9 @@ const allGuideTopics: GuideTopic[] = [
 ]
 
 const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])
-const guideTopics = allGuideTopics.filter((topic) => !hiddenGuideTopicIds.has(topic.id))
+const guideTopics = allGuideTopics
+  .filter((topic) => !hiddenGuideTopicIds.has(topic.id))
+  .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 
 const activeTopicId = ref(guideTopics[0].id)
 
@@ -797,10 +819,39 @@ const activeTopic = computed(() => (
 
 .usage-guide-mobile-tab {
   flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
   border-radius: 0.5rem;
   padding: 0.55rem 0.8rem;
   font-size: 0.875rem;
   font-weight: 700;
+}
+
+.usage-guide-mobile-tab time,
+.usage-guide-nav-date,
+.usage-guide-date {
+  color: rgb(107 114 128);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.usage-guide-mobile-tab-active time,
+.usage-guide-nav-item-active .usage-guide-nav-date {
+  color: rgb(209 213 219);
+}
+
+.dark .usage-guide-mobile-tab time,
+.dark .usage-guide-nav-date,
+.dark .usage-guide-date {
+  color: rgb(156 163 175);
+}
+
+.dark .usage-guide-mobile-tab-active time,
+.dark .usage-guide-nav-item-active .usage-guide-nav-date {
+  color: rgb(75 85 99);
 }
 
 .usage-guide-mobile-tab-active,
@@ -848,6 +899,11 @@ const activeTopic = computed(() => (
   font-size: clamp(1.35rem, 1.6vw, 1.75rem);
   font-weight: 800;
   line-height: 1.25;
+}
+
+.usage-guide-date {
+  display: block;
+  margin-top: 0.35rem;
 }
 
 .dark .usage-guide-heading {
