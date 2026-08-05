@@ -28,6 +28,8 @@ func (UserBalancePackage) Fields() []ent.Field {
 		field.Int64("plan_id"),
 		field.Int64("payment_order_id").Unique(),
 		field.Float("weekly_credit_usd").SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
+		// remaining_usd 只表示当前 7 天窗口的未用额度；刷新时替换而不是累加。
+		field.Float("remaining_usd").SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).Default(0),
 		field.Int("credited_count").Default(0),
 		field.Int("refresh_count"),
 		field.Int("refresh_interval_days"),

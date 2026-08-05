@@ -47,6 +47,20 @@ func (_c *UserBalancePackageCreate) SetWeeklyCreditUsd(v float64) *UserBalancePa
 	return _c
 }
 
+// SetRemainingUsd sets the "remaining_usd" field.
+func (_c *UserBalancePackageCreate) SetRemainingUsd(v float64) *UserBalancePackageCreate {
+	_c.mutation.SetRemainingUsd(v)
+	return _c
+}
+
+// SetNillableRemainingUsd sets the "remaining_usd" field if the given value is not nil.
+func (_c *UserBalancePackageCreate) SetNillableRemainingUsd(v *float64) *UserBalancePackageCreate {
+	if v != nil {
+		_c.SetRemainingUsd(*v)
+	}
+	return _c
+}
+
 // SetCreditedCount sets the "credited_count" field.
 func (_c *UserBalancePackageCreate) SetCreditedCount(v int) *UserBalancePackageCreate {
 	_c.mutation.SetCreditedCount(v)
@@ -181,6 +195,10 @@ func (_c *UserBalancePackageCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *UserBalancePackageCreate) defaults() {
+	if _, ok := _c.mutation.RemainingUsd(); !ok {
+		v := userbalancepackage.DefaultRemainingUsd
+		_c.mutation.SetRemainingUsd(v)
+	}
 	if _, ok := _c.mutation.CreditedCount(); !ok {
 		v := userbalancepackage.DefaultCreditedCount
 		_c.mutation.SetCreditedCount(v)
@@ -212,6 +230,9 @@ func (_c *UserBalancePackageCreate) check() error {
 	}
 	if _, ok := _c.mutation.WeeklyCreditUsd(); !ok {
 		return &ValidationError{Name: "weekly_credit_usd", err: errors.New(`ent: missing required field "UserBalancePackage.weekly_credit_usd"`)}
+	}
+	if _, ok := _c.mutation.RemainingUsd(); !ok {
+		return &ValidationError{Name: "remaining_usd", err: errors.New(`ent: missing required field "UserBalancePackage.remaining_usd"`)}
 	}
 	if _, ok := _c.mutation.CreditedCount(); !ok {
 		return &ValidationError{Name: "credited_count", err: errors.New(`ent: missing required field "UserBalancePackage.credited_count"`)}
@@ -283,6 +304,10 @@ func (_c *UserBalancePackageCreate) createSpec() (*UserBalancePackage, *sqlgraph
 	if value, ok := _c.mutation.WeeklyCreditUsd(); ok {
 		_spec.SetField(userbalancepackage.FieldWeeklyCreditUsd, field.TypeFloat64, value)
 		_node.WeeklyCreditUsd = value
+	}
+	if value, ok := _c.mutation.RemainingUsd(); ok {
+		_spec.SetField(userbalancepackage.FieldRemainingUsd, field.TypeFloat64, value)
+		_node.RemainingUsd = value
 	}
 	if value, ok := _c.mutation.CreditedCount(); ok {
 		_spec.SetField(userbalancepackage.FieldCreditedCount, field.TypeInt, value)
@@ -452,6 +477,24 @@ func (u *UserBalancePackageUpsert) UpdateWeeklyCreditUsd() *UserBalancePackageUp
 // AddWeeklyCreditUsd adds v to the "weekly_credit_usd" field.
 func (u *UserBalancePackageUpsert) AddWeeklyCreditUsd(v float64) *UserBalancePackageUpsert {
 	u.Add(userbalancepackage.FieldWeeklyCreditUsd, v)
+	return u
+}
+
+// SetRemainingUsd sets the "remaining_usd" field.
+func (u *UserBalancePackageUpsert) SetRemainingUsd(v float64) *UserBalancePackageUpsert {
+	u.Set(userbalancepackage.FieldRemainingUsd, v)
+	return u
+}
+
+// UpdateRemainingUsd sets the "remaining_usd" field to the value that was provided on create.
+func (u *UserBalancePackageUpsert) UpdateRemainingUsd() *UserBalancePackageUpsert {
+	u.SetExcluded(userbalancepackage.FieldRemainingUsd)
+	return u
+}
+
+// AddRemainingUsd adds v to the "remaining_usd" field.
+func (u *UserBalancePackageUpsert) AddRemainingUsd(v float64) *UserBalancePackageUpsert {
+	u.Add(userbalancepackage.FieldRemainingUsd, v)
 	return u
 }
 
@@ -694,6 +737,27 @@ func (u *UserBalancePackageUpsertOne) AddWeeklyCreditUsd(v float64) *UserBalance
 func (u *UserBalancePackageUpsertOne) UpdateWeeklyCreditUsd() *UserBalancePackageUpsertOne {
 	return u.Update(func(s *UserBalancePackageUpsert) {
 		s.UpdateWeeklyCreditUsd()
+	})
+}
+
+// SetRemainingUsd sets the "remaining_usd" field.
+func (u *UserBalancePackageUpsertOne) SetRemainingUsd(v float64) *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.SetRemainingUsd(v)
+	})
+}
+
+// AddRemainingUsd adds v to the "remaining_usd" field.
+func (u *UserBalancePackageUpsertOne) AddRemainingUsd(v float64) *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.AddRemainingUsd(v)
+	})
+}
+
+// UpdateRemainingUsd sets the "remaining_usd" field to the value that was provided on create.
+func (u *UserBalancePackageUpsertOne) UpdateRemainingUsd() *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.UpdateRemainingUsd()
 	})
 }
 
@@ -1122,6 +1186,27 @@ func (u *UserBalancePackageUpsertBulk) AddWeeklyCreditUsd(v float64) *UserBalanc
 func (u *UserBalancePackageUpsertBulk) UpdateWeeklyCreditUsd() *UserBalancePackageUpsertBulk {
 	return u.Update(func(s *UserBalancePackageUpsert) {
 		s.UpdateWeeklyCreditUsd()
+	})
+}
+
+// SetRemainingUsd sets the "remaining_usd" field.
+func (u *UserBalancePackageUpsertBulk) SetRemainingUsd(v float64) *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.SetRemainingUsd(v)
+	})
+}
+
+// AddRemainingUsd adds v to the "remaining_usd" field.
+func (u *UserBalancePackageUpsertBulk) AddRemainingUsd(v float64) *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.AddRemainingUsd(v)
+	})
+}
+
+// UpdateRemainingUsd sets the "remaining_usd" field to the value that was provided on create.
+func (u *UserBalancePackageUpsertBulk) UpdateRemainingUsd() *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.UpdateRemainingUsd()
 	})
 }
 

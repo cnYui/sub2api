@@ -147,6 +147,7 @@ import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltIn
 import { currencySymbol, formatPaymentAmount } from '@/components/payment/currency'
 import { buildCreateOrderPayload, clearPaymentRecoverySnapshot, decidePaymentLaunch, getVisibleMethods, PAYMENT_RECOVERY_STORAGE_KEY, type PaymentRecoverySnapshot, writePaymentRecoverySnapshot } from '@/components/payment/paymentFlow'
 import type { BalancePackagePlan, CheckoutInfoResponse, CreateOrderResult, OrderType, TrafficPack } from '@/types/payment'
+import { extractI18nErrorMessage } from '@/utils/apiError'
 
 interface ProductDetail { label: string; value: string }
 interface CatalogProduct {
@@ -315,7 +316,7 @@ async function submitOrder(): Promise<void> {
     if (decision.kind === 'stripe_route' || decision.kind === 'airwallex_route') window.location.href = decision.paymentState.payUrl
     if ((decision.kind === 'stripe_popup' || decision.kind === 'redirect_waiting') && decision.paymentState.payUrl) openWindow(decision.paymentState.payUrl)
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : t('common.error')
+    errorMessage.value = extractI18nErrorMessage(error, t, 'payment.errors', t('common.error'))
   } finally {
     submitting.value = false
   }

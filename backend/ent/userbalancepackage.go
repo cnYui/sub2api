@@ -26,6 +26,8 @@ type UserBalancePackage struct {
 	PaymentOrderID int64 `json:"payment_order_id,omitempty"`
 	// WeeklyCreditUsd holds the value of the "weekly_credit_usd" field.
 	WeeklyCreditUsd float64 `json:"weekly_credit_usd,omitempty"`
+	// RemainingUsd holds the value of the "remaining_usd" field.
+	RemainingUsd float64 `json:"remaining_usd,omitempty"`
 	// CreditedCount holds the value of the "credited_count" field.
 	CreditedCount int `json:"credited_count,omitempty"`
 	// RefreshCount holds the value of the "refresh_count" field.
@@ -75,7 +77,7 @@ func (*UserBalancePackage) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case userbalancepackage.FieldWeeklyCreditUsd:
+		case userbalancepackage.FieldWeeklyCreditUsd, userbalancepackage.FieldRemainingUsd:
 			values[i] = new(sql.NullFloat64)
 		case userbalancepackage.FieldID, userbalancepackage.FieldUserID, userbalancepackage.FieldPlanID, userbalancepackage.FieldPaymentOrderID, userbalancepackage.FieldCreditedCount, userbalancepackage.FieldRefreshCount, userbalancepackage.FieldRefreshIntervalDays:
 			values[i] = new(sql.NullInt64)
@@ -127,6 +129,12 @@ func (_m *UserBalancePackage) assignValues(columns []string, values []any) error
 				return fmt.Errorf("unexpected type %T for field weekly_credit_usd", values[i])
 			} else if value.Valid {
 				_m.WeeklyCreditUsd = value.Float64
+			}
+		case userbalancepackage.FieldRemainingUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field remaining_usd", values[i])
+			} else if value.Valid {
+				_m.RemainingUsd = value.Float64
 			}
 		case userbalancepackage.FieldCreditedCount:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -235,6 +243,9 @@ func (_m *UserBalancePackage) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("weekly_credit_usd=")
 	builder.WriteString(fmt.Sprintf("%v", _m.WeeklyCreditUsd))
+	builder.WriteString(", ")
+	builder.WriteString("remaining_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RemainingUsd))
 	builder.WriteString(", ")
 	builder.WriteString("credited_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CreditedCount))

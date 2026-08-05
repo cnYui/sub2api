@@ -22,6 +22,8 @@ const (
 	FieldPaymentOrderID = "payment_order_id"
 	// FieldWeeklyCreditUsd holds the string denoting the weekly_credit_usd field in the database.
 	FieldWeeklyCreditUsd = "weekly_credit_usd"
+	// FieldRemainingUsd holds the string denoting the remaining_usd field in the database.
+	FieldRemainingUsd = "remaining_usd"
 	// FieldCreditedCount holds the string denoting the credited_count field in the database.
 	FieldCreditedCount = "credited_count"
 	// FieldRefreshCount holds the string denoting the refresh_count field in the database.
@@ -60,6 +62,7 @@ var Columns = []string{
 	FieldPlanID,
 	FieldPaymentOrderID,
 	FieldWeeklyCreditUsd,
+	FieldRemainingUsd,
 	FieldCreditedCount,
 	FieldRefreshCount,
 	FieldRefreshIntervalDays,
@@ -82,6 +85,8 @@ func ValidColumn(column string) bool {
 }
 
 var (
+	// DefaultRemainingUsd holds the default value on creation for the "remaining_usd" field.
+	DefaultRemainingUsd float64
 	// DefaultCreditedCount holds the default value on creation for the "credited_count" field.
 	DefaultCreditedCount int
 	// DefaultStatus holds the default value on creation for the "status" field.
@@ -122,6 +127,11 @@ func ByPaymentOrderID(opts ...sql.OrderTermOption) OrderOption {
 // ByWeeklyCreditUsd orders the results by the weekly_credit_usd field.
 func ByWeeklyCreditUsd(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldWeeklyCreditUsd, opts...).ToFunc()
+}
+
+// ByRemainingUsd orders the results by the remaining_usd field.
+func ByRemainingUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRemainingUsd, opts...).ToFunc()
 }
 
 // ByCreditedCount orders the results by the credited_count field.

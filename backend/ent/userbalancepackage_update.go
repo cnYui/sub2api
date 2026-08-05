@@ -106,6 +106,27 @@ func (_u *UserBalancePackageUpdate) AddWeeklyCreditUsd(v float64) *UserBalancePa
 	return _u
 }
 
+// SetRemainingUsd sets the "remaining_usd" field.
+func (_u *UserBalancePackageUpdate) SetRemainingUsd(v float64) *UserBalancePackageUpdate {
+	_u.mutation.ResetRemainingUsd()
+	_u.mutation.SetRemainingUsd(v)
+	return _u
+}
+
+// SetNillableRemainingUsd sets the "remaining_usd" field if the given value is not nil.
+func (_u *UserBalancePackageUpdate) SetNillableRemainingUsd(v *float64) *UserBalancePackageUpdate {
+	if v != nil {
+		_u.SetRemainingUsd(*v)
+	}
+	return _u
+}
+
+// AddRemainingUsd adds value to the "remaining_usd" field.
+func (_u *UserBalancePackageUpdate) AddRemainingUsd(v float64) *UserBalancePackageUpdate {
+	_u.mutation.AddRemainingUsd(v)
+	return _u
+}
+
 // SetCreditedCount sets the "credited_count" field.
 func (_u *UserBalancePackageUpdate) SetCreditedCount(v int) *UserBalancePackageUpdate {
 	_u.mutation.ResetCreditedCount()
@@ -332,6 +353,12 @@ func (_u *UserBalancePackageUpdate) sqlSave(ctx context.Context) (_node int, err
 	if value, ok := _u.mutation.AddedWeeklyCreditUsd(); ok {
 		_spec.AddField(userbalancepackage.FieldWeeklyCreditUsd, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.RemainingUsd(); ok {
+		_spec.SetField(userbalancepackage.FieldRemainingUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRemainingUsd(); ok {
+		_spec.AddField(userbalancepackage.FieldRemainingUsd, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.CreditedCount(); ok {
 		_spec.SetField(userbalancepackage.FieldCreditedCount, field.TypeInt, value)
 	}
@@ -491,6 +518,27 @@ func (_u *UserBalancePackageUpdateOne) SetNillableWeeklyCreditUsd(v *float64) *U
 // AddWeeklyCreditUsd adds value to the "weekly_credit_usd" field.
 func (_u *UserBalancePackageUpdateOne) AddWeeklyCreditUsd(v float64) *UserBalancePackageUpdateOne {
 	_u.mutation.AddWeeklyCreditUsd(v)
+	return _u
+}
+
+// SetRemainingUsd sets the "remaining_usd" field.
+func (_u *UserBalancePackageUpdateOne) SetRemainingUsd(v float64) *UserBalancePackageUpdateOne {
+	_u.mutation.ResetRemainingUsd()
+	_u.mutation.SetRemainingUsd(v)
+	return _u
+}
+
+// SetNillableRemainingUsd sets the "remaining_usd" field if the given value is not nil.
+func (_u *UserBalancePackageUpdateOne) SetNillableRemainingUsd(v *float64) *UserBalancePackageUpdateOne {
+	if v != nil {
+		_u.SetRemainingUsd(*v)
+	}
+	return _u
+}
+
+// AddRemainingUsd adds value to the "remaining_usd" field.
+func (_u *UserBalancePackageUpdateOne) AddRemainingUsd(v float64) *UserBalancePackageUpdateOne {
+	_u.mutation.AddRemainingUsd(v)
 	return _u
 }
 
@@ -749,6 +797,12 @@ func (_u *UserBalancePackageUpdateOne) sqlSave(ctx context.Context) (_node *User
 	}
 	if value, ok := _u.mutation.AddedWeeklyCreditUsd(); ok {
 		_spec.AddField(userbalancepackage.FieldWeeklyCreditUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RemainingUsd(); ok {
+		_spec.SetField(userbalancepackage.FieldRemainingUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRemainingUsd(); ok {
+		_spec.AddField(userbalancepackage.FieldRemainingUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.CreditedCount(); ok {
 		_spec.SetField(userbalancepackage.FieldCreditedCount, field.TypeInt, value)

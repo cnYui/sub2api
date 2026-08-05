@@ -897,7 +897,7 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	}
 
 	if s.balanceBelowEligibilityThreshold(balance) {
-		if s.canUseTrafficPackCredit(ctx, userID, platform) {
+		if s.CanUseTrafficPackCredit(ctx, userID, platform) {
 			return nil
 		}
 		return ErrInsufficientBalance
@@ -906,7 +906,9 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	return nil
 }
 
-func (s *BillingCacheService) canUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
+// CanUseTrafficPackCredit 判断用户是否有可用于指定平台的流量卡额度。
+// 认证预检和统一计费预检必须复用同一判断，避免入口与结算规则分叉。
+func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
 	if s == nil || s.trafficPackService == nil || !IsTrafficPackPlatform(platform) {
 		return false
 	}

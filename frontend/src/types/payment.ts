@@ -185,6 +185,7 @@ export interface BalancePackagePlan {
   name: string
   price_cny: number
   weekly_credit_usd: number
+  current_remaining_usd: number
   validity_days: number
   refresh_count: number
   refresh_interval_days: number
@@ -199,6 +200,7 @@ export interface UserBalancePackage {
   name: string
   price_cny: number
   weekly_credit_usd: number
+  current_remaining_usd: number
   validity_days: number
   refresh_count: number
   refresh_interval_days: number

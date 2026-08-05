@@ -140,6 +140,12 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 			return nil, nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
 		}
 		plan, err := s.balancePackageService.GetPlanForSale(ctx, req.BalancePackagePlanID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := s.balancePackageService.ValidateUserPurchase(ctx, req.UserID, plan.ID); err != nil {
+			return nil, nil, err
+		}
 		return nil, plan, err
 	}
 	if req.OrderType == payment.OrderTypeTrafficPack {
@@ -196,6 +202,30 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
+	if balancePackagePlan != nil {
+		if s.balancePackageService == nil {
+			return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+		}
+		if err := s.balancePackageService.validateUserPurchaseInTx(ctx, tx.Client(), req.UserID, balancePackagePlan.ID); err != nil {
+			return nil, err
+		}
+		pendingOrders, err := tx.PaymentOrder.Query().
+			Where(
+				paymentorder.UserIDEQ(req.UserID),
+				paymentorder.OrderTypeEQ(payment.OrderTypeBalanceSubscription),
+				paymentorder.StatusEQ(OrderStatusPending),
+				paymentorder.BalancePackagePlanIDNotNil(),
+			).
+			All(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("check pending balance package orders: %w", err)
+		}
+		for _, pendingOrder := range pendingOrders {
+			if pendingOrder.BalancePackagePlanID != nil && *pendingOrder.BalancePackagePlanID != balancePackagePlan.ID {
+				return nil, balancePackagePlanConflict(*pendingOrder.BalancePackagePlanID, balancePackagePlan.ID)
+			}
+		}
+	}
 	if err := s.checkPendingLimit(ctx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
 		return nil, err
 	}

@@ -16,10 +16,12 @@ import (
 const (
 	conditionalBalanceDeductSQL = `(?s)WITH charged AS \(.*UPDATE users.*balance = balance - \$1,.*balance >= \$1.*\), frozen_rebate_consumed AS \(.*UPDATE user_affiliates.*aff_frozen_quota.*\).*SELECT charged\.balance FROM charged`
 	overdraftBalanceDeductSQL   = `(?s)WITH charged AS \(.*UPDATE users.*balance = balance - \$1,.*deleted_at IS NULL.*\), frozen_rebate_consumed AS \(.*UPDATE user_affiliates.*aff_frozen_quota.*\).*SELECT charged\.balance FROM charged`
+	sufficientBalanceDeductSQL  = `(?s)UPDATE users\s+SET balance = balance - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance`
 	reserveBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance, frozen_balance`
 	captureBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	releaseBatchImageHoldSQL    = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	userExistsForBillingSQL     = `(?s)SELECT 1\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL`
+	trafficCreditBatchesSQL     = `(?s)SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at\s+FROM user_traffic_credits\s+WHERE user_id = \$1 AND platform = \$2 AND remaining_usd > 0 AND expires_at > NOW\(\)`
 )
 
 func TestDeductUsageBillingBalance_UsesSufficientBalanceGuard(t *testing.T) {
@@ -78,9 +80,12 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	mock.ExpectBegin()
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
-	mock.ExpectQuery(conditionalBalanceDeductSQL).
+	mock.ExpectQuery(sufficientBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-5.0))
@@ -96,6 +101,41 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	require.InDelta(t, -5.0, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
 	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyUsageBillingEffectsRejectsUncoveredTrafficPackCost(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(sufficientBalanceDeductSQL).
+		WithArgs(10.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+	mock.ExpectQuery(trafficCreditBatchesSQL).
+		WithArgs(int64(42), service.TrafficPackPlatformOpenAI).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
+		}))
+	mock.ExpectRollback()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:      42,
+		Platform:    service.TrafficPackPlatformOpenAI,
+		BalanceCost: 10,
+	}, result)
+	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+	require.Nil(t, result.NewBalance)
+	require.False(t, result.BalanceOverdrafted)
+	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

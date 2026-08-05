@@ -2421,22 +2421,26 @@ func init() {
 	userattributevalue.DefaultValue = userattributevalueDescValue.Default.(string)
 	userbalancepackageFields := schema.UserBalancePackage{}.Fields()
 	_ = userbalancepackageFields
+	// userbalancepackageDescRemainingUsd is the schema descriptor for remaining_usd field.
+	userbalancepackageDescRemainingUsd := userbalancepackageFields[4].Descriptor()
+	// userbalancepackage.DefaultRemainingUsd holds the default value on creation for the remaining_usd field.
+	userbalancepackage.DefaultRemainingUsd = userbalancepackageDescRemainingUsd.Default.(float64)
 	// userbalancepackageDescCreditedCount is the schema descriptor for credited_count field.
-	userbalancepackageDescCreditedCount := userbalancepackageFields[4].Descriptor()
+	userbalancepackageDescCreditedCount := userbalancepackageFields[5].Descriptor()
 	// userbalancepackage.DefaultCreditedCount holds the default value on creation for the credited_count field.
 	userbalancepackage.DefaultCreditedCount = userbalancepackageDescCreditedCount.Default.(int)
 	// userbalancepackageDescStatus is the schema descriptor for status field.
-	userbalancepackageDescStatus := userbalancepackageFields[10].Descriptor()
+	userbalancepackageDescStatus := userbalancepackageFields[11].Descriptor()
 	// userbalancepackage.DefaultStatus holds the default value on creation for the status field.
 	userbalancepackage.DefaultStatus = userbalancepackageDescStatus.Default.(string)
 	// userbalancepackage.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	userbalancepackage.StatusValidator = userbalancepackageDescStatus.Validators[0].(func(string) error)
 	// userbalancepackageDescCreatedAt is the schema descriptor for created_at field.
-	userbalancepackageDescCreatedAt := userbalancepackageFields[11].Descriptor()
+	userbalancepackageDescCreatedAt := userbalancepackageFields[12].Descriptor()
 	// userbalancepackage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	userbalancepackage.DefaultCreatedAt = userbalancepackageDescCreatedAt.Default.(func() time.Time)
 	// userbalancepackageDescUpdatedAt is the schema descriptor for updated_at field.
-	userbalancepackageDescUpdatedAt := userbalancepackageFields[12].Descriptor()
+	userbalancepackageDescUpdatedAt := userbalancepackageFields[13].Descriptor()
 	// userbalancepackage.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	userbalancepackage.DefaultUpdatedAt = userbalancepackageDescUpdatedAt.Default.(func() time.Time)
 	// userbalancepackage.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

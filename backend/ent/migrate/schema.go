@@ -1972,6 +1972,7 @@ var (
 		{Name: "plan_id", Type: field.TypeInt64},
 		{Name: "payment_order_id", Type: field.TypeInt64, Unique: true},
 		{Name: "weekly_credit_usd", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
+		{Name: "remaining_usd", Type: field.TypeFloat64, Default: 0, SchemaType: map[string]string{"postgres": "decimal(20,8)"}},
 		{Name: "credited_count", Type: field.TypeInt, Default: 0},
 		{Name: "refresh_count", Type: field.TypeInt},
 		{Name: "refresh_interval_days", Type: field.TypeInt},
@@ -1991,7 +1992,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "user_balance_packages_users_balance_packages",
-				Columns:    []*schema.Column{UserBalancePackagesColumns[13]},
+				Columns:    []*schema.Column{UserBalancePackagesColumns[14]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -2000,12 +2001,12 @@ var (
 			{
 				Name:    "userbalancepackage_user_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{UserBalancePackagesColumns[13], UserBalancePackagesColumns[10]},
+				Columns: []*schema.Column{UserBalancePackagesColumns[14], UserBalancePackagesColumns[11]},
 			},
 			{
 				Name:    "userbalancepackage_status_next_credit_at",
 				Unique:  false,
-				Columns: []*schema.Column{UserBalancePackagesColumns[10], UserBalancePackagesColumns[8]},
+				Columns: []*schema.Column{UserBalancePackagesColumns[11], UserBalancePackagesColumns[9]},
 			},
 		},
 	}

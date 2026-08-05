@@ -191,6 +191,9 @@ $$;
 ALTER TABLE user_traffic_credits
   ADD COLUMN IF NOT EXISTS reserved_usd DECIMAL(20, 10) NOT NULL DEFAULT 0;
 
+ALTER TABLE user_balance_packages
+  ADD COLUMN IF NOT EXISTS remaining_usd DECIMAL(20,8) NOT NULL DEFAULT 0;
+
 -- 目标库可能已清空业务数据；迁移前恢复 18082 已确认的目录基线，但不覆盖现有配置。
 INSERT INTO balance_package_plans
   (code, name, price_cny, weekly_credit_usd, validity_days, refresh_count, refresh_interval_days, for_sale, sort_order)
@@ -777,10 +780,10 @@ JOIN LATERAL (
   LIMIT 1
 ) plan ON TRUE
 CROSS JOIN LATERAL (
-  SELECT GREATEST(1, CEIL(EXTRACT(EPOCH FROM (po.end_at - po.start_at)) / 604800.0)::INTEGER) AS refresh_count,
+  SELECT 4 AS refresh_count,
          LEAST(
-           GREATEST(1, CEIL(EXTRACT(EPOCH FROM (po.end_at - po.start_at)) / 604800.0)::INTEGER),
-           CASE WHEN now() < po.start_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), po.end_at) - po.start_at)) / 604800.0)::INTEGER + 1 END
+           4,
+           CASE WHEN now() < po.start_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), po.start_at + interval '28 days') - po.start_at)) / 604800.0)::INTEGER + 1 END
          ) AS credited_count,
          COALESCE((
            SELECT SUM(ul.actual_cost)
@@ -816,6 +819,7 @@ DECLARE
   synthetic_order_id BIGINT;
   plan_row RECORD;
   manual_refresh_count INTEGER;
+  package_expires_at TIMESTAMPTZ;
 BEGIN
   FOR subscription_row IN
     SELECT us.*, g.weekly_limit_usd, m.target_user_id, u.email, u.username
@@ -837,7 +841,8 @@ BEGIN
     ORDER BY us.id
   LOOP
     synthetic_order_id := NULL;
-    manual_refresh_count := GREATEST(1, CEIL(EXTRACT(EPOCH FROM (subscription_row.expires_at - subscription_row.starts_at)) / 604800.0)::INTEGER);
+    manual_refresh_count := 4;
+    package_expires_at := subscription_row.starts_at + interval '28 days';
 
     INSERT INTO payment_orders (
       user_id, user_email, user_name, user_notes, amount, pay_amount, fee_rate, recharge_code,
@@ -851,10 +856,10 @@ BEGIN
       subscription_row.target_user_id, subscription_row.email, COALESCE(subscription_row.username, ''),
       '18080 legacy subscription migration', 0, 0, 0, 'migration_subscription_' || subscription_row.id,
       'migration', '', 'balance_subscription', 'COMPLETED', 0, false,
-      subscription_row.expires_at, subscription_row.starts_at, subscription_row.starts_at, '', '18080',
+      package_expires_at, subscription_row.starts_at, subscription_row.starts_at, '', '18080',
       'migration_subscription_' || subscription_row.id,
       b.id, subscription_row.weekly_limit_usd, manual_refresh_count, 7,
-      GREATEST(1, CEIL(EXTRACT(EPOCH FROM (subscription_row.expires_at - subscription_row.starts_at)) / 86400.0)::INTEGER),
+      28,
       subscription_row.created_at, subscription_row.updated_at
     FROM balance_package_plans b
     WHERE b.weekly_credit_usd = subscription_row.weekly_limit_usd
@@ -873,14 +878,14 @@ BEGIN
     )
     SELECT
       NULL, synthetic_order_id, subscription_row.id, subscription_row.target_user_id, subscription_row.user_id,
-      subscription_row.weekly_limit_usd, subscription_row.starts_at, subscription_row.expires_at,
+      subscription_row.weekly_limit_usd, subscription_row.starts_at, package_expires_at,
       manual_refresh_count,
-      LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END),
-      CASE WHEN subscription_row.expires_at <= now() THEN 'completed' ELSE 'active' END,
-      CASE WHEN subscription_row.expires_at <= now() THEN NULL ELSE subscription_row.starts_at + make_interval(days => LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END) * 7) END,
-      subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END),
-      COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < subscription_row.expires_at), 0),
-      CASE WHEN subscription_row.expires_at <= now() THEN 0 ELSE GREATEST(subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), subscription_row.expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END) - COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < subscription_row.expires_at), 0), 0) END,
+      LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), package_expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END),
+      CASE WHEN package_expires_at <= now() THEN 'completed' ELSE 'active' END,
+      CASE WHEN package_expires_at <= now() THEN NULL ELSE subscription_row.starts_at + make_interval(days => LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), package_expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END) * 7) END,
+      subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), package_expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END),
+      COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < package_expires_at), 0),
+      CASE WHEN package_expires_at <= now() THEN 0 ELSE GREATEST(subscription_row.weekly_limit_usd * LEAST(manual_refresh_count, CASE WHEN now() < subscription_row.starts_at THEN 0 ELSE FLOOR(EXTRACT(EPOCH FROM (LEAST(now(), package_expires_at) - subscription_row.starts_at)) / 604800.0)::INTEGER + 1 END) - COALESCE((SELECT SUM(ul.actual_cost) FROM migration_src.usage_logs ul WHERE ul.subscription_id = subscription_row.id AND ul.created_at >= subscription_row.starts_at AND ul.created_at < package_expires_at), 0), 0) END,
       COALESCE((SELECT q.weekly_remaining_usd FROM migration_current_quota q WHERE q.source_subscription_id = subscription_row.id), 0),
       true;
   END LOOP;
@@ -889,7 +894,7 @@ $$;
 SELECT migration_reset_sequence('payment_orders');
 
 INSERT INTO user_balance_packages (
-  user_id, plan_id, payment_order_id, weekly_credit_usd, credited_count, refresh_count,
+  user_id, plan_id, payment_order_id, weekly_credit_usd, remaining_usd, credited_count, refresh_count,
   refresh_interval_days, starts_at, next_credit_at, expires_at, status, created_at, updated_at
 )
 SELECT
@@ -897,6 +902,7 @@ SELECT
   o.balance_package_plan_id,
   p.target_order_id,
   p.weekly_credit_usd,
+  p.current_remaining_credit_usd,
   p.credited_count,
   p.refresh_count,
   7,
@@ -908,6 +914,44 @@ SELECT
   o.updated_at
 FROM migration_package_source p
 JOIN payment_orders o ON o.id = p.target_order_id;
+
+-- 余额套餐统一为 28 天、4 次刷新；同一用户只保留最新未退款记录为有效套餐。
+UPDATE user_balance_packages
+SET refresh_count = 4,
+    refresh_interval_days = 7,
+    expires_at = starts_at + INTERVAL '28 days',
+    remaining_usd = LEAST(GREATEST(remaining_usd, 0), weekly_credit_usd),
+    credited_count = LEAST(GREATEST(credited_count, 0), 4),
+    updated_at = NOW();
+
+WITH ranked_packages AS (
+    SELECT id,
+           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC, id DESC) AS row_number
+    FROM user_balance_packages
+    WHERE status <> 'refunded'
+)
+UPDATE user_balance_packages AS package
+SET status = 'expired',
+    next_credit_at = NULL,
+    updated_at = NOW()
+FROM ranked_packages AS ranked
+WHERE package.id = ranked.id
+  AND ranked.row_number > 1
+  AND package.status <> 'expired';
+
+UPDATE user_balance_packages
+SET status = CASE
+        WHEN status = 'refunded' THEN 'refunded'
+        WHEN status = 'expired' OR expires_at <= NOW() THEN 'expired'
+        WHEN credited_count >= 4 THEN 'completed'
+        ELSE 'active'
+    END,
+    next_credit_at = CASE
+        WHEN status IN ('refunded', 'expired') OR expires_at <= NOW() OR credited_count >= 4
+            THEN NULL
+        ELSE starts_at + make_interval(days => credited_count * 7)
+    END,
+    updated_at = NOW();
 
 -- 源 users.balance 是旧钱包，直接废弃；目标余额只承接当前日窗口剩余和当前周窗口剩余。
 UPDATE users u

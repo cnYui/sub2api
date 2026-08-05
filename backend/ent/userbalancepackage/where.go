@@ -75,6 +75,11 @@ func WeeklyCreditUsd(v float64) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldEQ(FieldWeeklyCreditUsd, v))
 }
 
+// RemainingUsd applies equality check predicate on the "remaining_usd" field. It's identical to RemainingUsdEQ.
+func RemainingUsd(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldEQ(FieldRemainingUsd, v))
+}
+
 // CreditedCount applies equality check predicate on the "credited_count" field. It's identical to CreditedCountEQ.
 func CreditedCount(v int) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldEQ(FieldCreditedCount, v))
@@ -258,6 +263,46 @@ func WeeklyCreditUsdLT(v float64) predicate.UserBalancePackage {
 // WeeklyCreditUsdLTE applies the LTE predicate on the "weekly_credit_usd" field.
 func WeeklyCreditUsdLTE(v float64) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldLTE(FieldWeeklyCreditUsd, v))
+}
+
+// RemainingUsdEQ applies the EQ predicate on the "remaining_usd" field.
+func RemainingUsdEQ(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldEQ(FieldRemainingUsd, v))
+}
+
+// RemainingUsdNEQ applies the NEQ predicate on the "remaining_usd" field.
+func RemainingUsdNEQ(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldNEQ(FieldRemainingUsd, v))
+}
+
+// RemainingUsdIn applies the In predicate on the "remaining_usd" field.
+func RemainingUsdIn(vs ...float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldIn(FieldRemainingUsd, vs...))
+}
+
+// RemainingUsdNotIn applies the NotIn predicate on the "remaining_usd" field.
+func RemainingUsdNotIn(vs ...float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldNotIn(FieldRemainingUsd, vs...))
+}
+
+// RemainingUsdGT applies the GT predicate on the "remaining_usd" field.
+func RemainingUsdGT(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldGT(FieldRemainingUsd, v))
+}
+
+// RemainingUsdGTE applies the GTE predicate on the "remaining_usd" field.
+func RemainingUsdGTE(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldGTE(FieldRemainingUsd, v))
+}
+
+// RemainingUsdLT applies the LT predicate on the "remaining_usd" field.
+func RemainingUsdLT(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldLT(FieldRemainingUsd, v))
+}
+
+// RemainingUsdLTE applies the LTE predicate on the "remaining_usd" field.
+func RemainingUsdLTE(v float64) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldLTE(FieldRemainingUsd, v))
 }
 
 // CreditedCountEQ applies the EQ predicate on the "credited_count" field.

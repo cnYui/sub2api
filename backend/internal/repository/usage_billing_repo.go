@@ -198,12 +198,9 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 				result.NewBalance = &balance
 				result.TrafficCreditCharged = true
 			} else {
-				newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
-				if err != nil {
-					return err
-				}
-				result.NewBalance = &newBalance
-				result.BalanceOverdrafted = true
+				// OpenAI 请求在余额不足时只能由有效流量卡覆盖；
+				// 流量卡额度不足时回滚事务，禁止继续制造负余额。
+				return service.ErrInsufficientBalance
 			}
 		} else {
 			newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
@@ -241,8 +238,15 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 }
 
 func deductUsageBillingBalanceIfSufficient(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
+	if err := lockUsageBillingUser(ctx, tx, userID); err != nil {
+		return 0, false, err
+	}
+	packageID, packageRemaining, err := lockCurrentBalancePackage(ctx, tx, userID)
+	if err != nil {
+		return 0, false, err
+	}
 	var balance float64
-	err := tx.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance - $1, updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL AND balance >= $1
@@ -259,7 +263,69 @@ func deductUsageBillingBalanceIfSufficient(ctx context.Context, tx *sql.Tx, user
 	if err != nil {
 		return 0, false, err
 	}
+	if packageID > 0 {
+		if err := consumeCurrentBalancePackage(ctx, tx, packageID, minFloat(amount, packageRemaining)); err != nil {
+			return 0, false, err
+		}
+	}
 	return balance, true, nil
+}
+
+func lockUsageBillingUser(ctx context.Context, tx *sql.Tx, userID int64) error {
+	var id int64
+	err := tx.QueryRowContext(ctx, `
+		SELECT id
+		FROM users
+		WHERE id = $1 AND deleted_at IS NULL
+		FOR UPDATE
+	`, userID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return service.ErrUserNotFound
+	}
+	return err
+}
+
+func lockCurrentBalancePackage(ctx context.Context, tx *sql.Tx, userID int64) (int64, float64, error) {
+	var packageID int64
+	var remaining float64
+	err := tx.QueryRowContext(ctx, `
+		SELECT id, remaining_usd
+		FROM user_balance_packages
+		WHERE user_id = $1
+		  AND status IN ('active', 'completed')
+		  AND expires_at > NOW()
+		  AND remaining_usd > 0
+		ORDER BY expires_at ASC, created_at ASC, id ASC
+		LIMIT 1
+		FOR UPDATE
+	`, userID).Scan(&packageID, &remaining)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, nil
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	return packageID, remaining, nil
+}
+
+func consumeCurrentBalancePackage(ctx context.Context, tx *sql.Tx, packageID int64, amount float64) error {
+	if packageID <= 0 || amount <= 0 {
+		return nil
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE user_balance_packages
+		SET remaining_usd = GREATEST(remaining_usd - $1, 0), updated_at = NOW()
+		WHERE id = $2 AND remaining_usd > 0
+	`, amount, packageID)
+	if err != nil {
+		return err
+	}
+	if affected, err := result.RowsAffected(); err != nil {
+		return err
+	} else if affected == 0 {
+		return errors.New("balance package remaining quota changed concurrently")
+	}
+	return nil
 }
 
 func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string) (bool, error) {
@@ -345,8 +411,15 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 }
 
 func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
+	if err := lockUsageBillingUser(ctx, tx, userID); err != nil {
+		return 0, false, err
+	}
+	packageID, packageRemaining, err := lockCurrentBalancePackage(ctx, tx, userID)
+	if err != nil {
+		return 0, false, err
+	}
 	var newBalance float64
-	err := tx.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		WITH charged AS (
 			UPDATE users
 			SET balance = balance - $1,
@@ -371,6 +444,9 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 		LEFT JOIN frozen_rebate_consumed ON TRUE
 	`, amount, userID).Scan(&newBalance)
 	if err == nil {
+		if err := consumeCurrentBalancePackage(ctx, tx, packageID, minFloat(amount, packageRemaining)); err != nil {
+			return 0, false, err
+		}
 		return newBalance, true, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -407,7 +483,25 @@ func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, am
 	if err != nil {
 		return 0, false, err
 	}
+	availableBeforeOverdraft := maxFloat(newBalance+amount, 0)
+	if err := consumeCurrentBalancePackage(ctx, tx, packageID, minFloat(packageRemaining, availableBeforeOverdraft)); err != nil {
+		return 0, false, err
+	}
 	return newBalance, false, nil
+}
+
+func minFloat(left, right float64) float64 {
+	if left < right {
+		return left
+	}
+	return right
+}
+
+func maxFloat(left, right float64) float64 {
+	if left > right {
+		return left
+	}
+	return right
 }
 
 func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *service.BatchImageBalanceHoldCommand) (*service.BatchImageBalanceHoldResult, error) {

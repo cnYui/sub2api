@@ -19,7 +19,17 @@ const maxAPIKeyAuthorizationHeaderBytes = service.MaxAPIKeyCredentialBytes + 128
 
 // NewAPIKeyAuthMiddleware 创建 API Key 认证中间件
 func NewAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) APIKeyAuthMiddleware {
-	return APIKeyAuthMiddleware(apiKeyAuthWithSubscription(apiKeyService, subscriptionService, cfg))
+	return NewAPIKeyAuthMiddlewareWithBillingCache(apiKeyService, subscriptionService, cfg, nil)
+}
+
+// NewAPIKeyAuthMiddlewareWithBillingCache 创建带流量卡余额切换能力的 API Key 认证中间件。
+func NewAPIKeyAuthMiddlewareWithBillingCache(
+	apiKeyService *service.APIKeyService,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+	billingCacheService *service.BillingCacheService,
+) APIKeyAuthMiddleware {
+	return APIKeyAuthMiddleware(apiKeyAuthWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, billingCacheService))
 }
 
 // apiKeyAuthWithSubscription API Key认证中间件（支持订阅验证）
@@ -32,6 +42,19 @@ func NewAPIKeyAuthMiddleware(apiKeyService *service.APIKeyService, subscriptionS
 // usage 允许过期/配额耗尽的 Key 查询自身用量，billing 用于读取当前 Key 的倍率配置，
 // 异步生图查询允许已耗尽额度的 Key 拉取自身任务结果。
 func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
+	return apiKeyAuthWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, nil)
+}
+
+type trafficPackCreditChecker interface {
+	CanUseTrafficPackCredit(context.Context, int64, string) bool
+}
+
+func apiKeyAuthWithTrafficPackChecker(
+	apiKeyService *service.APIKeyService,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+	trafficPackChecker trafficPackCreditChecker,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// ── 1. 提取 API Key ──────────────────────────────────────────
 		if rejectInvalidAuthAbuse(c, apiKeyService) {
@@ -260,7 +283,8 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				}
 			} else {
 				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
-				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
+				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) &&
+					!canUseTrafficPackCredit(c, apiKey, trafficPackChecker) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 					return
 				}
@@ -285,6 +309,13 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		c.Next()
 	}
+}
+
+func canUseTrafficPackCredit(c *gin.Context, apiKey *service.APIKey, checker trafficPackCreditChecker) bool {
+	if c == nil || apiKey == nil || apiKey.User == nil || apiKey.Group == nil || checker == nil {
+		return false
+	}
+	return checker.CanUseTrafficPackCredit(c.Request.Context(), apiKey.User.ID, apiKey.Group.Platform)
 }
 
 func apiKeyHeadersTooLarge(c *gin.Context) bool {

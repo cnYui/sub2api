@@ -1427,6 +1427,87 @@ func TestAPIKeyAuthRejectsExhaustedBalance(t *testing.T) {
 	requireAPIKeyAuthError(t, w, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 }
 
+func TestAPIKeyAuthAllowsOpenAIWithTrafficPackWhenBalanceExhausted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{
+		ID:          12,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     0,
+		Concurrency: 3,
+	}
+	group := &service.Group{ID: 9, Platform: service.PlatformOpenAI, Status: service.StatusActive}
+	apiKey := &service.APIKey{
+		ID:     106,
+		UserID: user.ID,
+		Key:    "openai-traffic-pack",
+		Status: service.StatusActive,
+		User:   user,
+		Group:  group,
+	}
+	apiKey.GroupID = &group.ID
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		if key != apiKey.Key {
+			return nil, service.ErrAPIKeyNotFound
+		}
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	checker := &stubTrafficPackCreditChecker{available: true}
+	router := newAuthTestRouterWithTrafficPackChecker(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg, checker)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, int64(1), checker.calls)
+	require.Equal(t, user.ID, checker.userID)
+	require.Equal(t, service.PlatformOpenAI, checker.platform)
+}
+
+func TestAPIKeyAuthRejectsOpenAIWithoutTrafficPackWhenBalanceExhausted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 13, Role: service.RoleUser, Status: service.StatusActive, Balance: 0, Concurrency: 3}
+	group := &service.Group{ID: 10, Platform: service.PlatformOpenAI, Status: service.StatusActive}
+	apiKey := &service.APIKey{
+		ID:     107,
+		UserID: user.ID,
+		Key:    "openai-no-traffic-pack",
+		Status: service.StatusActive,
+		User:   user,
+		Group:  group,
+	}
+	apiKey.GroupID = &group.ID
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		if key != apiKey.Key {
+			return nil, service.ErrAPIKeyNotFound
+		}
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	router := newAuthTestRouterWithTrafficPackChecker(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg, &stubTrafficPackCreditChecker{})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+}
+
 func TestAPIKeyAuthOpenAIQuotaErrorFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1500,8 +1581,17 @@ func TestAPIKeyAuthQuotaErrorKeepsLegacyFormatOutsideResponses(t *testing.T) {
 }
 
 func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) *gin.Engine {
+	return newAuthTestRouterWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, nil)
+}
+
+func newAuthTestRouterWithTrafficPackChecker(
+	apiKeyService *service.APIKeyService,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+	checker trafficPackCreditChecker,
+) *gin.Engine {
 	router := gin.New()
-	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, cfg)))
+	router.Use(gin.HandlerFunc(apiKeyAuthWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, checker)))
 	ok := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	}
@@ -1511,6 +1601,20 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	router.GET("/v1/usage", ok)
 	router.GET("/v1/sub2api/billing", ok)
 	return router
+}
+
+type stubTrafficPackCreditChecker struct {
+	available bool
+	calls     int64
+	userID    int64
+	platform  string
+}
+
+func (s *stubTrafficPackCreditChecker) CanUseTrafficPackCredit(_ context.Context, userID int64, platform string) bool {
+	s.calls++
+	s.userID = userID
+	s.platform = platform
+	return s.available
 }
 
 func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, message string) {

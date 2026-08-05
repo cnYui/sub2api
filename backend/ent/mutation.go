@@ -54263,6 +54263,8 @@ type UserBalancePackageMutation struct {
 	addpayment_order_id      *int64
 	weekly_credit_usd        *float64
 	addweekly_credit_usd     *float64
+	remaining_usd            *float64
+	addremaining_usd         *float64
 	credited_count           *int
 	addcredited_count        *int
 	refresh_count            *int
@@ -54583,6 +54585,62 @@ func (m *UserBalancePackageMutation) AddedWeeklyCreditUsd() (r float64, exists b
 func (m *UserBalancePackageMutation) ResetWeeklyCreditUsd() {
 	m.weekly_credit_usd = nil
 	m.addweekly_credit_usd = nil
+}
+
+// SetRemainingUsd sets the "remaining_usd" field.
+func (m *UserBalancePackageMutation) SetRemainingUsd(f float64) {
+	m.remaining_usd = &f
+	m.addremaining_usd = nil
+}
+
+// RemainingUsd returns the value of the "remaining_usd" field in the mutation.
+func (m *UserBalancePackageMutation) RemainingUsd() (r float64, exists bool) {
+	v := m.remaining_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRemainingUsd returns the old "remaining_usd" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldRemainingUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRemainingUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRemainingUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRemainingUsd: %w", err)
+	}
+	return oldValue.RemainingUsd, nil
+}
+
+// AddRemainingUsd adds f to the "remaining_usd" field.
+func (m *UserBalancePackageMutation) AddRemainingUsd(f float64) {
+	if m.addremaining_usd != nil {
+		*m.addremaining_usd += f
+	} else {
+		m.addremaining_usd = &f
+	}
+}
+
+// AddedRemainingUsd returns the value that was added to the "remaining_usd" field in this mutation.
+func (m *UserBalancePackageMutation) AddedRemainingUsd() (r float64, exists bool) {
+	v := m.addremaining_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRemainingUsd resets all changes to the "remaining_usd" field.
+func (m *UserBalancePackageMutation) ResetRemainingUsd() {
+	m.remaining_usd = nil
+	m.addremaining_usd = nil
 }
 
 // SetCreditedCount sets the "credited_count" field.
@@ -55043,7 +55101,7 @@ func (m *UserBalancePackageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserBalancePackageMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.user != nil {
 		fields = append(fields, userbalancepackage.FieldUserID)
 	}
@@ -55055,6 +55113,9 @@ func (m *UserBalancePackageMutation) Fields() []string {
 	}
 	if m.weekly_credit_usd != nil {
 		fields = append(fields, userbalancepackage.FieldWeeklyCreditUsd)
+	}
+	if m.remaining_usd != nil {
+		fields = append(fields, userbalancepackage.FieldRemainingUsd)
 	}
 	if m.credited_count != nil {
 		fields = append(fields, userbalancepackage.FieldCreditedCount)
@@ -55099,6 +55160,8 @@ func (m *UserBalancePackageMutation) Field(name string) (ent.Value, bool) {
 		return m.PaymentOrderID()
 	case userbalancepackage.FieldWeeklyCreditUsd:
 		return m.WeeklyCreditUsd()
+	case userbalancepackage.FieldRemainingUsd:
+		return m.RemainingUsd()
 	case userbalancepackage.FieldCreditedCount:
 		return m.CreditedCount()
 	case userbalancepackage.FieldRefreshCount:
@@ -55134,6 +55197,8 @@ func (m *UserBalancePackageMutation) OldField(ctx context.Context, name string) 
 		return m.OldPaymentOrderID(ctx)
 	case userbalancepackage.FieldWeeklyCreditUsd:
 		return m.OldWeeklyCreditUsd(ctx)
+	case userbalancepackage.FieldRemainingUsd:
+		return m.OldRemainingUsd(ctx)
 	case userbalancepackage.FieldCreditedCount:
 		return m.OldCreditedCount(ctx)
 	case userbalancepackage.FieldRefreshCount:
@@ -55188,6 +55253,13 @@ func (m *UserBalancePackageMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWeeklyCreditUsd(v)
+		return nil
+	case userbalancepackage.FieldRemainingUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRemainingUsd(v)
 		return nil
 	case userbalancepackage.FieldCreditedCount:
 		v, ok := value.(int)
@@ -55269,6 +55341,9 @@ func (m *UserBalancePackageMutation) AddedFields() []string {
 	if m.addweekly_credit_usd != nil {
 		fields = append(fields, userbalancepackage.FieldWeeklyCreditUsd)
 	}
+	if m.addremaining_usd != nil {
+		fields = append(fields, userbalancepackage.FieldRemainingUsd)
+	}
 	if m.addcredited_count != nil {
 		fields = append(fields, userbalancepackage.FieldCreditedCount)
 	}
@@ -55292,6 +55367,8 @@ func (m *UserBalancePackageMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedPaymentOrderID()
 	case userbalancepackage.FieldWeeklyCreditUsd:
 		return m.AddedWeeklyCreditUsd()
+	case userbalancepackage.FieldRemainingUsd:
+		return m.AddedRemainingUsd()
 	case userbalancepackage.FieldCreditedCount:
 		return m.AddedCreditedCount()
 	case userbalancepackage.FieldRefreshCount:
@@ -55327,6 +55404,13 @@ func (m *UserBalancePackageMutation) AddField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddWeeklyCreditUsd(v)
+		return nil
+	case userbalancepackage.FieldRemainingUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRemainingUsd(v)
 		return nil
 	case userbalancepackage.FieldCreditedCount:
 		v, ok := value.(int)
@@ -55396,6 +55480,9 @@ func (m *UserBalancePackageMutation) ResetField(name string) error {
 		return nil
 	case userbalancepackage.FieldWeeklyCreditUsd:
 		m.ResetWeeklyCreditUsd()
+		return nil
+	case userbalancepackage.FieldRemainingUsd:
+		m.ResetRemainingUsd()
 		return nil
 	case userbalancepackage.FieldCreditedCount:
 		m.ResetCreditedCount()

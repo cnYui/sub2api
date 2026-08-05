@@ -68,9 +68,9 @@
               <div class="space-y-4 p-4">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30">
-                    <p class="text-xs text-emerald-700/70 dark:text-emerald-300/70">{{ t('userSubscriptions.weeklyCredit') }}</p>
+                    <p class="text-xs text-emerald-700/70 dark:text-emerald-300/70">{{ t('userSubscriptions.weeklyRemaining') }}</p>
                     <p class="mt-1 text-lg font-semibold text-emerald-800 dark:text-emerald-200">
-                      ${{ balancePackage.weekly_credit_usd.toFixed(2) }}
+                      ${{ balancePackage.current_remaining_usd.toFixed(2) }}
                     </p>
                   </div>
                   <div class="rounded-xl bg-gray-50 p-3 dark:bg-dark-700">
@@ -100,8 +100,11 @@
                     <span :class="getExpirationClass(balancePackage.expires_at)">{{ formatExpirationDate(balancePackage.expires_at) }}</span>
                   </div>
                   <div v-if="balancePackage.next_credit_at && balancePackage.status === 'active'" class="flex items-center justify-between">
-                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextCredit') }}</span>
+                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextRefresh') }}</span>
                     <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
+                  </div>
+                  <div v-else-if="balancePackage.status === 'completed'" class="text-gray-500 dark:text-dark-400">
+                    {{ t('userSubscriptions.refreshCompleted') }}
                   </div>
                 </div>
               </div>
@@ -402,7 +405,10 @@ async function loadSubscriptions() {
   }
 
   if (balancePackageResult.status === 'fulfilled') {
+    const now = Date.now()
     balancePackages.value = balancePackageResult.value.data
+      .filter((item) => (item.status === 'active' || item.status === 'completed') && new Date(item.expires_at).getTime() > now)
+      .slice(0, 1)
   } else {
     console.error('Failed to load balance packages:', balancePackageResult.reason)
   }
