@@ -1341,7 +1341,7 @@ func TestAPIKeyAuthUsageStillTouchesLastUsed(t *testing.T) {
 	require.Equal(t, 1, touchCalls)
 }
 
-func TestAPIKeyAuthAllowsBalanceBelowMinimumReserve(t *testing.T) {
+func TestAPIKeyAuthRejectsBalanceBelowMinimumReserve(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{
@@ -1380,9 +1380,7 @@ func TestAPIKeyAuthAllowsBalanceBelowMinimumReserve(t *testing.T) {
 	req.Header.Set("x-api-key", apiKey.Key)
 	router.ServeHTTP(w, req)
 
-	// 鉴权层保持历史语义：MinimumBalanceReserve 只用于 billing-cache 预检，
-	// 0 < balance < reserve 不得被鉴权中间件硬 403（存量部署静默行为变更）。
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusForbidden, w.Code)
 }
 
 func TestAPIKeyAuthRejectsExhaustedBalance(t *testing.T) {

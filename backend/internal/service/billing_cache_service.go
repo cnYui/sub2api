@@ -906,14 +906,21 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	return nil
 }
 
-// CanUseTrafficPackCredit 判断用户是否有可用于指定平台的流量卡额度。
-// 认证预检和统一计费预检必须复用同一判断，避免入口与结算规则分叉。
+// CanUseTrafficPackCredit 判断流量卡能否满足与普通余额相同的预检保底额度。
+// 流量卡仅剩碎额时继续放行会让已欠费用户反复到达上游，因此不能只判断“剩余额度大于零”。
 func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
 	if s == nil || s.trafficPackService == nil || !IsTrafficPackPlatform(platform) {
 		return false
 	}
-	ok, err := s.trafficPackService.HasAvailableCredit(ctx, userID, time.Now().UTC())
-	return err == nil && ok
+	summary, err := s.trafficPackService.GetSummary(ctx, userID, time.Now().UTC())
+	if err != nil || summary == nil {
+		return false
+	}
+	minimumReserve := s.minimumBalanceReserve()
+	if minimumReserve <= 0 {
+		minimumReserve = 0.000001
+	}
+	return summary.TotalRemainingUSD >= minimumReserve
 }
 
 // checkSubscriptionEligibility 检查订阅模式资格

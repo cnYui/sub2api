@@ -23,6 +23,47 @@ type balanceEligibilityCacheStub struct {
 	invalidateCalls          atomic.Int64
 }
 
+type trafficPackSummaryRepoStub struct {
+	summary *TrafficCreditSummary
+	err     error
+}
+
+func (s *trafficPackSummaryRepoStub) ListForSale(context.Context) ([]TrafficPack, error) {
+	return nil, nil
+}
+
+func (s *trafficPackSummaryRepoStub) GetForSaleByID(context.Context, int64) (*TrafficPack, error) {
+	return nil, nil
+}
+
+func (s *trafficPackSummaryRepoStub) GetSummary(context.Context, int64, time.Time) (*TrafficCreditSummary, error) {
+	return s.summary, s.err
+}
+
+func (s *trafficPackSummaryRepoStub) ListUserCredits(context.Context, int64, time.Time) ([]TrafficCredit, error) {
+	return nil, nil
+}
+
+func (s *trafficPackSummaryRepoStub) GetCreditByOrderID(context.Context, int64) (*TrafficCredit, error) {
+	return nil, nil
+}
+
+func (s *trafficPackSummaryRepoStub) HasAvailableCredit(context.Context, int64, time.Time) (bool, error) {
+	return false, nil
+}
+
+func (s *trafficPackSummaryRepoStub) CreditPurchase(context.Context, CreditTrafficPackInput) error {
+	return nil
+}
+
+func (s *trafficPackSummaryRepoStub) Deduct(context.Context, int64, float64, string, time.Time) (bool, []TrafficCreditDeduction, error) {
+	return false, nil, nil
+}
+
+func (s *trafficPackSummaryRepoStub) RevokePurchase(context.Context, int64, time.Time) error {
+	return nil
+}
+
 func (s *balanceEligibilityCacheStub) GetUserBalance(context.Context, int64) (float64, error) {
 	if s.cacheMissAfterInvalidate && s.invalidated.Load() {
 		return 0, errors.New("cache miss")
@@ -61,6 +102,30 @@ func TestCheckBillingEligibility_AllowsBalanceAtMinimumReserve(t *testing.T) {
 
 	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
 	require.NoError(t, err)
+}
+
+func TestCanUseTrafficPackCredit_RejectsCreditBelowMinimumReserve(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TotalRemainingUSD: 0.00039155},
+	}))
+
+	require.False(t, svc.CanUseTrafficPackCredit(context.Background(), 1, PlatformOpenAI))
+}
+
+func TestCanUseTrafficPackCredit_AllowsCreditAtMinimumReserve(t *testing.T) {
+	cfg := &config.Config{}
+	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TotalRemainingUSD: 0.01},
+	}))
+
+	require.True(t, svc.CanUseTrafficPackCredit(context.Background(), 1, PlatformOpenAI))
 }
 
 func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T) {

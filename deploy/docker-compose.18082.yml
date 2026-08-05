@@ -7,6 +7,7 @@ services:
       - ./data-18082:/app/data:Z
     environment:
       - BILLING_FINAL_MULTIPLIER=18
+      - BILLING_MINIMUM_BALANCE_RESERVE=0.01
 
   postgres:
     container_name: sub2api-official-18082-postgres

@@ -422,11 +422,16 @@ func setGroupContext(c *gin.Context, group *service.Group) {
 	c.Request = c.Request.WithContext(ctx)
 }
 
-// apiKeyBalanceBelowAuthThreshold 保持鉴权层的历史语义：仅在余额耗尽（<=0）时拒绝。
-// MinimumBalanceReserve 只作为 billing-cache 预检的保守下限，不得复用为鉴权硬门槛，
-// 否则已配置该值的存量部署升级后，0 < balance < reserve 的用户会在所有端点被静默 403。
-func apiKeyBalanceBelowAuthThreshold(balance float64, _ *config.Config) bool {
-	return balance <= 0
+// apiKeyBalanceBelowAuthThreshold 与结算预检使用同一保底金额，避免余额或流量卡仅剩极小碎额时继续放行。
+func apiKeyBalanceBelowAuthThreshold(balance float64, cfg *config.Config) bool {
+	minimumReserve := 0.0
+	if cfg != nil && cfg.Billing.MinimumBalanceReserve > 0 {
+		minimumReserve = cfg.Billing.MinimumBalanceReserve
+	}
+	if minimumReserve <= 0 {
+		return balance <= 0
+	}
+	return balance < minimumReserve
 }
 
 func abortIfAPIKeyGroupUnavailable(c *gin.Context, apiKey *service.APIKey) bool {
