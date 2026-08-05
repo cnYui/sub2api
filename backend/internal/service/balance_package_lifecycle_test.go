@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -131,6 +132,46 @@ func TestCreditInitialBalanceRenewsSamePlanWithoutChangingRefreshProgress(t *tes
 	}
 }
 
+func TestCreditInitialBalanceRepaysDebtBeforePackageRemaining(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-initial-debt@example.com").SetPasswordHash("hash").SetBalance(-40).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-initial-debt-plan", 100)
+	planID, weeklyCredit, refreshCount := plan.ID, plan.WeeklyCreditUsd, plan.RefreshCount
+	refreshInterval, validity := plan.RefreshIntervalDays, plan.ValidityDays
+	order := &dbent.PaymentOrder{
+		ID:                                23,
+		UserID:                            account.ID,
+		PaymentType:                       string(payment.TypeAlipay),
+		BalancePackagePlanID:              &planID,
+		BalancePackageWeeklyCreditUsd:     &weeklyCredit,
+		BalancePackageRefreshCount:        &refreshCount,
+		BalancePackageRefreshIntervalDays: &refreshInterval,
+		BalancePackageValidityDays:        &validity,
+	}
+
+	if err := NewBalancePackageService(client).CreditInitialBalance(ctx, order); err != nil {
+		t.Fatalf("credit initial package: %v", err)
+	}
+	updatedUser, err := client.User.Get(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updatedUser.Balance != 60 {
+		t.Fatalf("balance = %f, want 60", updatedUser.Balance)
+	}
+	updatedPackage, err := client.UserBalancePackage.Query().Where(userbalancepackage.UserIDEQ(account.ID)).Only(ctx)
+	if err != nil {
+		t.Fatalf("get package: %v", err)
+	}
+	if updatedPackage.RemainingUsd != 60 {
+		t.Fatalf("remaining = %f, want 60", updatedPackage.RemainingUsd)
+	}
+}
+
 func TestCreditDueBalancesReplacesPreviousWeeklyCredit(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
@@ -170,6 +211,67 @@ func TestCreditDueBalancesReplacesPreviousWeeklyCredit(t *testing.T) {
 	}
 	if updatedUser.Balance != 190 {
 		t.Fatalf("balance = %f, want 190", updatedUser.Balance)
+	}
+}
+
+func TestCreditDueBalancesUsesWeeklyCreditToRepayDebtFirst(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-debt-refresh@example.com").SetPasswordHash("hash").SetBalance(-40).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-debt-refresh-plan", 100)
+	now := time.Now().UTC().Truncate(time.Second)
+	pkg, err := client.UserBalancePackage.Create().
+		SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(32).
+		SetWeeklyCreditUsd(100).SetRemainingUsd(0).SetCreditedCount(1).SetRefreshCount(4).
+		SetRefreshIntervalDays(7).SetStartsAt(now.Add(-7 * 24 * time.Hour)).SetNextCreditAt(now.Add(-time.Minute)).
+		SetExpiresAt(now.Add(21 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create package: %v", err)
+	}
+
+	credited, err := NewBalancePackageService(client).CreditDueBalances(ctx, now)
+	if err != nil {
+		t.Fatalf("refresh package: %v", err)
+	}
+	if credited != 1 {
+		t.Fatalf("credited = %d, want 1", credited)
+	}
+	updatedPackage, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+	if err != nil {
+		t.Fatalf("get package: %v", err)
+	}
+	if updatedPackage.RemainingUsd != 60 {
+		t.Fatalf("remaining = %f, want 60", updatedPackage.RemainingUsd)
+	}
+	updatedUser, err := client.User.Get(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updatedUser.Balance != 60 {
+		t.Fatalf("balance = %f, want 60", updatedUser.Balance)
+	}
+}
+
+func TestBalancePackageRemainingAfterDebtSupportsMultipleWeeks(t *testing.T) {
+	cases := []struct {
+		name         string
+		baseBalance  float64
+		weeklyCredit float64
+		wantRemain   float64
+	}{
+		{name: "debt exceeds credit", baseBalance: -250, weeklyCredit: 100, wantRemain: 0},
+		{name: "credit clears debt", baseBalance: -40, weeklyCredit: 100, wantRemain: 60},
+		{name: "ordinary balance keeps full weekly credit", baseBalance: 20, weeklyCredit: 100, wantRemain: 100},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := balancePackageRemainingAfterDebt(tc.baseBalance, tc.weeklyCredit); got != tc.wantRemain {
+				t.Fatalf("remaining = %f, want %f", got, tc.wantRemain)
+			}
+		})
 	}
 }
 

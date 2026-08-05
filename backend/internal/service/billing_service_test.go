@@ -124,6 +124,32 @@ func TestGetModelPricing_CaseInsensitive(t *testing.T) {
 	require.Equal(t, p1.InputPricePerToken, p2.InputPricePerToken)
 }
 
+func TestGetModelPricing_KimiK25UsesCalibratedFallbackOverDynamicPrice(t *testing.T) {
+	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"kimi-k2.5": {
+			InputCostPerToken:           0.60e-6,
+			OutputCostPerToken:          2.25e-6,
+			CacheReadInputTokenCost:     0.10e-6,
+			CacheCreationInputTokenCost: 0.60e-6,
+		},
+	}}
+	svc := NewBillingService(&config.Config{}, pricingSvc)
+
+	pricing, err := svc.GetModelPricing("kimi-k2.5")
+	require.NoError(t, err)
+	require.InDelta(t, 0.60e-6, pricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 3.00e-6, pricing.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 0.098e-6, pricing.CacheReadPricePerToken, 1e-12)
+
+	cost, err := svc.CalculateCost("kimi-k2.5", UsageTokens{
+		InputTokens:     55,
+		OutputTokens:    16,
+		CacheReadTokens: 3,
+	}, 3.5)
+	require.NoError(t, err)
+	require.InDelta(t, 0.000284529, cost.ActualCost, 1e-12)
+}
+
 // issue #3394: fallback warn 应按模型名去重,每个模型每进程最多打一条,
 // 避免热路径每请求刷屏 ops_system_logs。
 func TestGetModelPricing_FallbackWarnLoggedOncePerModel(t *testing.T) {

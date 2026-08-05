@@ -334,7 +334,8 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	if exists {
 		return nil, nil
 	}
-	if _, err := lockBalancePackageUser(ctx, client, order.UserID); err != nil {
+	lockedUser, err := lockBalancePackageUser(ctx, client, order.UserID)
+	if err != nil {
 		if dbent.IsNotFound(err) {
 			return nil, ErrUserNotFound
 		}
@@ -366,6 +367,9 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	if refreshCount == 1 {
 		status = balancePackageStatusCompleted
 	}
+	remainingCredit := balancePackageRemainingAfterDebt(lockedUser.Balance, weeklyCredit)
+	debtRepaid := minFloat(maxFloat(-lockedUser.Balance, 0), weeklyCredit)
+	newBalance := lockedUser.Balance + weeklyCredit
 
 	updated, err := client.User.Update().Where(user.IDEQ(order.UserID)).AddBalance(weeklyCredit).AddTotalRecharged(weeklyCredit).Save(ctx)
 	if err != nil {
@@ -380,7 +384,7 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 		SetPlanID(*order.BalancePackagePlanID).
 		SetPaymentOrderID(order.ID).
 		SetWeeklyCreditUsd(weeklyCredit).
-		SetRemainingUsd(weeklyCredit).
+		SetRemainingUsd(remainingCredit).
 		SetCreditedCount(1).
 		SetRefreshCount(refreshCount).
 		SetRefreshIntervalDays(refreshIntervalDays).
@@ -396,6 +400,11 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	}
 	if err := createBalancePackageCreditAudit(ctx, client, order.ID, "BALANCE_PACKAGE_INITIAL_CREDIT", weeklyCredit, 1); err != nil {
 		return nil, err
+	}
+	if debtRepaid > 0 {
+		if err := recordBalanceDebtLedger(ctx, client, order.UserID, "repayment", debtRepaid, lockedUser.Balance, newBalance, "balance_package_initial_credit", fmt.Sprintf("order:%d", order.ID)); err != nil {
+			return nil, err
+		}
 	}
 	return pkg, nil
 }
@@ -465,12 +474,14 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 
 	txCtx := dbent.NewTxContext(ctx, tx)
 	client := tx.Client()
-	if _, err := lockBalancePackageUser(txCtx, client, item.UserID); err != nil {
+	lockedUser, err := lockBalancePackageUser(txCtx, client, item.UserID)
+	if err != nil {
 		if dbent.IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("lock scheduled balance package user: %w", err)
 	}
+	currentBalance := lockedUser.Balance
 	currentQuery := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(item.ID))
 	if client.Driver().Dialect() == dialect.Postgres {
 		currentQuery = currentQuery.ForUpdate()
@@ -502,8 +513,12 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 			userbalancepackage.NextCreditAtLTE(now),
 			userbalancepackage.ExpiresAtGT(now),
 		).
-		SetCreditedCount(newCount).
-		SetRemainingUsd(current.WeeklyCreditUsd)
+		SetCreditedCount(newCount)
+	baseBalance := currentBalance - current.RemainingUsd
+	newBalance := baseBalance + current.WeeklyCreditUsd
+	newRemaining := balancePackageRemainingAfterDebt(baseBalance, current.WeeklyCreditUsd)
+	debtRepaid := minFloat(maxFloat(-baseBalance, 0), current.WeeklyCreditUsd)
+	update.SetRemainingUsd(newRemaining)
 	if newCount >= current.RefreshCount {
 		update.SetStatus(balancePackageStatusCompleted).ClearNextCreditAt()
 	} else {
@@ -516,7 +531,7 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 		return false, fmt.Errorf("claim scheduled balance package credit: %w", err)
 	}
 
-	// users.balance 还包含普通充值和返利，刷新只能替换套餐自己的剩余额度。
+	// users.balance 还包含普通充值和返利；先移除旧窗口，再用本周额度填补欠费，剩余才进入套餐窗口。
 	balanceDelta := current.WeeklyCreditUsd - current.RemainingUsd
 	updatedBuilder := client.User.Update().
 		Where(user.IDEQ(current.UserID)).
@@ -528,6 +543,11 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	}
 	if updated == 0 {
 		return false, ErrUserNotFound
+	}
+	if debtRepaid > 0 {
+		if err := recordBalanceDebtLedger(txCtx, client, current.UserID, "repayment", debtRepaid, currentBalance, newBalance, "balance_package_weekly_credit", fmt.Sprintf("package:%d:credit:%d", current.ID, newCount)); err != nil {
+			return false, err
+		}
 	}
 	if err := createBalancePackageCreditAudit(txCtx, client, current.PaymentOrderID, balancePackageWeeklyCreditAudit, current.WeeklyCreditUsd, newCount); err != nil {
 		return false, err
@@ -626,6 +646,46 @@ func balancePackagePeriodsDue(nextCreditAt *time.Time, now time.Time, intervalDa
 	}
 	interval := time.Duration(intervalDays) * 24 * time.Hour
 	return int(now.Sub(*nextCreditAt)/interval) + 1
+}
+
+// balancePackageRemainingAfterDebt 保证周额度先偿还负余额，只有剩余部分才进入本周套餐额度。
+func balancePackageRemainingAfterDebt(baseBalance, weeklyCredit float64) float64 {
+	if weeklyCredit <= 0 {
+		return 0
+	}
+	if baseBalance >= 0 {
+		return weeklyCredit
+	}
+	return maxFloat(weeklyCredit+baseBalance, 0)
+}
+
+func maxFloat(left, right float64) float64 {
+	if left > right {
+		return left
+	}
+	return right
+}
+
+func minFloat(left, right float64) float64 {
+	if left < right {
+		return left
+	}
+	return right
+}
+
+// recordBalanceDebtLedger 追加不可变欠费/还款流水，避免套餐退款或刷新覆盖历史欠费事实。
+func recordBalanceDebtLedger(ctx context.Context, client *dbent.Client, userID int64, entryType string, amount, balanceBefore, balanceAfter float64, sourceType, sourceRef string) error {
+	if client == nil || client.Driver().Dialect() != dialect.Postgres || userID <= 0 || amount <= 0 {
+		return nil
+	}
+	if _, err := client.ExecContext(ctx, `
+		INSERT INTO balance_debt_ledger
+			(user_id, entry_type, amount_usd, balance_before_usd, balance_after_usd, source_type, source_ref, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+	`, userID, entryType, amount, balanceBefore, balanceAfter, sourceType, sourceRef); err != nil {
+		return fmt.Errorf("record balance debt ledger: %w", err)
+	}
+	return nil
 }
 
 func validateBalancePackageOrderSnapshot(order *dbent.PaymentOrder) error {

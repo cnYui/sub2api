@@ -837,6 +837,13 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 			litellmPricing = nil
 		}
 		if litellmPricing != nil {
+			// K2.5 的远程目录输出价为 $2.25/M，与已核对的上游标准费用口径不一致；
+			// 固定使用本地已验证的 fallback 单价，避免远程同步后本地 15 倍前金额再次偏低。
+			if isKimiK25Model(model) {
+				if fallback := s.getFallbackPricing(model); fallback != nil {
+					return s.applyModelSpecificPricingPolicy(model, fallback), nil
+				}
+			}
 			// 启用 5m/1h 分类计费的条件：
 			// 1. 存在 1h 价格
 			// 2. 1h 价格 > 5m 价格（防止 LiteLLM 数据错误导致少收费）
@@ -876,6 +883,11 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	}
 
 	return nil, fmt.Errorf("%w for model: %s", ErrModelPricingUnavailable, model)
+}
+
+func isKimiK25Model(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.Contains(modelLower, "kimi-k2.5") || strings.Contains(modelLower, "kimi-k2-5")
 }
 
 // GetModelPricingWithChannel 获取模型定价，渠道配置的价格覆盖默认值

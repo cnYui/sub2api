@@ -6,7 +6,7 @@ services:
     volumes:
       - ./data-18082:/app/data:Z
     environment:
-      - BILLING_FINAL_MULTIPLIER=15
+      - BILLING_FINAL_MULTIPLIER=18
 
   postgres:
     container_name: sub2api-official-18082-postgres

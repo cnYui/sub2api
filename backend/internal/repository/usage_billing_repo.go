@@ -198,9 +198,14 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 				result.NewBalance = &balance
 				result.TrafficCreditCharged = true
 			} else {
-				// OpenAI 请求在余额不足时只能由有效流量卡覆盖；
-				// 流量卡额度不足时回滚事务，禁止继续制造负余额。
-				return service.ErrInsufficientBalance
+				// 上游已完成请求时不能回滚业务事实；以余额欠款记录实际费用，
+				// 让后续鉴权立即拒绝，避免出现成功响应却没有用量和扣费记录。
+				newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+				if err != nil {
+					return err
+				}
+				result.NewBalance = &newBalance
+				result.BalanceOverdrafted = true
 			}
 		} else {
 			newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
