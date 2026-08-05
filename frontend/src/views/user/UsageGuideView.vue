@@ -203,6 +203,12 @@ import traeStep01Image from '@/assets/usage-guide/trae-step-01-add-model.png'
 import traeStep02Image from '@/assets/usage-guide/trae-step-02-custom-config.png'
 import traeStep03Image from '@/assets/usage-guide/trae-step-03-fill-url-key.png'
 import traeStep04Image from '@/assets/usage-guide/trae-step-04-select-model.png'
+import claudeCodeStep01Image from '@/assets/usage-guide/claude-code-step-01-select-group.png'
+import claudeCodeStep02Image from '@/assets/usage-guide/claude-code-step-02-ccswitch-route.png'
+import claudeCodeStep03Image from '@/assets/usage-guide/claude-code-step-03-provider-config.png'
+import claudeCodeStep04Image from '@/assets/usage-guide/claude-code-step-04-model-select.png'
+import claudeCodeStep05Image from '@/assets/usage-guide/claude-code-step-05-enable-route.png'
+import claudeCodeStep06Image from '@/assets/usage-guide/claude-code-step-06-restart-desktop.png'
 
 type GuideStep = {
   step: number
@@ -540,6 +546,29 @@ const traeSetupSteps: GuideStep[] = [
   },
 ]
 
+const claudeCodeSetupSteps: GuideStep[] = [
+  {
+    step: 1,
+    title: '在网站的 API Key 页面，把密钥分组切换为 Cloud 分组',
+    images: [{ src: claudeCodeStep01Image, alt: 'Claude Code 桌面端接入步骤 1：切换 Cloud 分组' }],
+  },
+  {
+    step: 2,
+    title: '打开 CC Switch，点击 Cloud Desktop 所属栏目，再点击右上角的加号',
+    images: [{ src: claudeCodeStep02Image, alt: 'Claude Code 桌面端接入步骤 2：在 CC Switch 添加供应商' }],
+  },
+  {
+    step: 3,
+    title: '填写 API Key 和请求地址，点击“获取模型列表”并选择模型；保存退出后打开顶部路由，重启 Claude Code 桌面端即可使用',
+    images: [
+      { src: claudeCodeStep03Image, alt: 'Claude Code 桌面端接入步骤 3：填写 API Key 和请求地址并获取模型列表' },
+      { src: claudeCodeStep04Image, alt: 'Claude Code 桌面端接入步骤 3：选择模型映射' },
+      { src: claudeCodeStep05Image, alt: 'Claude Code 桌面端接入步骤 3：打开顶部路由' },
+      { src: claudeCodeStep06Image, alt: 'Claude Code 桌面端接入步骤 3：重启 Claude Code 桌面端' },
+    ],
+  },
+]
+
 const guideTopics: GuideTopic[] = [
   {
     id: 'codex',
@@ -697,6 +726,13 @@ const guideTopics: GuideTopic[] = [
     description: '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
     kind: 'steps',
     steps: traeSetupSteps,
+  },
+  {
+    id: 'claude-code-desktop',
+    title: 'Claude Code 桌面端接入',
+    description: '使用 Cloud 分组和 CC Switch，把 Claude Code 桌面端连接到当前 API 服务。',
+    kind: 'steps',
+    steps: claudeCodeSetupSteps,
   },
 ]
 

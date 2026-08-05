@@ -11,7 +11,7 @@ const assetsDir = resolve(currentDir, '../../../assets/usage-guide')
 const publicUsageGuideDir = resolve(currentDir, '../../../../public/usage-guide')
 
 describe('UsageGuideView', () => {
-  it('迁移完整使用方法栏目与七个主题', () => {
+  it('包含使用方法栏目与所有主题', () => {
     expect(existsSync(viewPath)).toBe(true)
     const source = readFileSync(viewPath, 'utf8')
 
@@ -23,6 +23,7 @@ describe('UsageGuideView', () => {
       "id: 'error-codes'",
       "id: 'image-generation'",
       "id: 'trae'",
+      "id: 'claude-code-desktop'",
       'usage-guide-topic-nav-desktop',
       'usage-guide-topic-tabs-mobile',
       'usage-guide-video',
@@ -48,6 +49,12 @@ describe('UsageGuideView', () => {
       'trae-step-02-custom-config.png',
       'trae-step-03-fill-url-key.png',
       'trae-step-04-select-model.png',
+      'claude-code-step-01-select-group.png',
+      'claude-code-step-02-ccswitch-route.png',
+      'claude-code-step-03-provider-config.png',
+      'claude-code-step-04-model-select.png',
+      'claude-code-step-05-enable-route.png',
+      'claude-code-step-06-restart-desktop.png',
     ]
 
     for (const imageName of imageNames) {
