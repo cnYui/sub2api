@@ -193,15 +193,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
-import step01Image from '@/assets/usage-guide/step-01-shop-entry.png'
-import step02Image from '@/assets/usage-guide/step-02-login-register.png'
-import step03Image from '@/assets/usage-guide/step-03-subscription-plans.png'
-import step04ConfirmPaymentImage from '@/assets/usage-guide/step-04-confirm-payment.png'
-import step05Image from '@/assets/usage-guide/step-05-create-api-key.png'
-import step06Image from '@/assets/usage-guide/step-06-key-group-advanced.png'
-import step07ProviderImage from '@/assets/usage-guide/step-07-cc-switch-provider-list.png'
-import step07EditImage from '@/assets/usage-guide/step-07-cc-switch-edit-provider.png'
-import step08Image from '@/assets/usage-guide/step-08-cc-switch-active.png'
 import traeStep01Image from '@/assets/usage-guide/trae-step-01-add-model.png'
 import traeStep02Image from '@/assets/usage-guide/trae-step-02-custom-config.png'
 import traeStep03Image from '@/assets/usage-guide/trae-step-03-fill-url-key.png'
@@ -212,6 +203,11 @@ import claudeCodeStep03Image from '@/assets/usage-guide/claude-code-step-03-prov
 import claudeCodeStep04Image from '@/assets/usage-guide/claude-code-step-04-model-select.png'
 import claudeCodeStep05Image from '@/assets/usage-guide/claude-code-step-05-enable-route.png'
 import claudeCodeStep06Image from '@/assets/usage-guide/claude-code-step-06-restart-desktop.png'
+import codexLatestStep01Image from '@/assets/usage-guide/codex-latest-step-01-select-gpt-group.png'
+import codexLatestStep02Image from '@/assets/usage-guide/codex-latest-step-02-ccswitch-gpt.png'
+import codexLatestStep03Image from '@/assets/usage-guide/codex-latest-step-03-provider-config.png'
+import codexLatestStep04Image from '@/assets/usage-guide/codex-latest-step-04-use-credential.png'
+import codexLatestStep05Image from '@/assets/usage-guide/codex-latest-step-05-codex-success.png'
 
 type GuideStep = {
   step: number
@@ -285,47 +281,26 @@ type GuideTopic =
 const codexSetupSteps: GuideStep[] = [
   {
     step: 1,
-    title: '访问 aaccx.pw/shop 页面，点击图中的进入按钮',
-    images: [{ src: step01Image, alt: '步骤 1 截图 1' }],
+    title: '先在网站创建 API Key，或将已有 API Key 切换到 GPT 分组，然后复制 GPT API Key',
+    images: [{ src: codexLatestStep01Image, alt: 'Codex 接入步骤 1：将 API Key 切换到 GPT 分组并复制' }],
   },
   {
     step: 2,
-    title: '新用户注册，老用户登录',
-    images: [{ src: step02Image, alt: '步骤 2 截图 1' }],
+    title: '打开 CC Switch，点击 GPT 图标，再点击右上角的加号新建凭证',
+    images: [{ src: codexLatestStep02Image, alt: 'Codex 接入步骤 2：在 CC Switch 打开 GPT 栏目并新建凭证' }],
   },
   {
     step: 3,
-    title: '选择订阅的页面，选择合适的套餐',
-    images: [{ src: step03Image, alt: '步骤 3 截图 1' }],
+    title: '输入供应商名称、API Key 和 API 请求地址 https://api.aaccx.pw/v1，然后点击保存',
+    images: [{ src: codexLatestStep03Image, alt: 'Codex 接入步骤 3：填写供应商、API Key 和 API 请求地址并保存' }],
   },
   {
     step: 4,
-    title: '完成支付',
-    images: [{ src: step04ConfirmPaymentImage, alt: '步骤 4 截图 1' }],
-  },
-  {
-    step: 5,
-    title: '支付完成后，去 API Key 页面生成密钥',
-    images: [{ src: step05Image, alt: '步骤 5 截图 1' }],
-  },
-  {
-    step: 6,
-    title: '选择分组，并且可以设置高级功能',
-    images: [{ src: step06Image, alt: '步骤 6 截图 1' }],
-  },
-  {
-    step: 7,
-    title: '启动 cc-switch，粘贴 API Key 和请求端口',
+    title: '退出配置页后点击新建的凭证并使用，重启 Codex；看到成功运行后即可使用',
     images: [
-      { src: step07ProviderImage, alt: '步骤 7 截图 1' },
-      { src: step07EditImage, alt: '步骤 7 截图 2' },
+      { src: codexLatestStep04Image, alt: 'Codex 接入步骤 4：点击新建的凭证并使用' },
+      { src: codexLatestStep05Image, alt: 'Codex 接入步骤 4：重启 Codex 后成功运行' },
     ],
-  },
-  {
-    step: 8,
-    imagePosition: 'beforeTitle',
-    images: [{ src: step08Image, alt: '步骤 8 截图 1' }],
-    title: '保存配置后，重启 Codex，即可使用！',
   },
 ]
 
@@ -582,8 +557,8 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'codex',
     title: 'Codex 接入',
-    updatedAt: '2026-08-04',
-    description: '从购买订阅、兑换、创建 API Key 到配置 cc-switch 的完整步骤。',
+    updatedAt: '2026-08-05',
+    description: '从创建或切换 GPT API Key 到在 CC Switch 配置并启用 Codex 的最新版步骤。',
     kind: 'steps',
     steps: codexSetupSteps,
   },

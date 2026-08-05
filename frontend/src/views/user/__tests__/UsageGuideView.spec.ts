@@ -46,7 +46,7 @@ describe('UsageGuideView', () => {
     for (const [id, date] of [
       ['formal-api', '2026-08-05'],
       ['claude-code-desktop', '2026-08-05'],
-      ['codex', '2026-08-04'],
+      ['codex', '2026-08-05'],
       ['error-codes', '2026-08-05'],
       ['ccswitch-video', '2026-07-14'],
       ['copilot-vscode', '2026-07-10'],
@@ -79,6 +79,11 @@ describe('UsageGuideView', () => {
       'claude-code-step-04-model-select.png',
       'claude-code-step-05-enable-route.png',
       'claude-code-step-06-restart-desktop.png',
+      'codex-latest-step-01-select-gpt-group.png',
+      'codex-latest-step-02-ccswitch-gpt.png',
+      'codex-latest-step-03-provider-config.png',
+      'codex-latest-step-04-use-credential.png',
+      'codex-latest-step-05-codex-success.png',
     ]
 
     for (const imageName of imageNames) {
