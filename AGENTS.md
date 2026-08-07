@@ -74,6 +74,7 @@
 ## 充值手续费配置上下文
 
 - 2026-08-03：当前 `18082` 实例通过数据库 `settings.RECHARGE_FEE_RATE` 配置充值手续费，已按管理员要求设为 `1%`（数据库值为 `1`）。
+- 2026-08-07：实测发现运行库曾缺失 `RECHARGE_FEE_RATE`，服务端因此等效按 0% 创建订单；已补写并回读为 `1`。余额套餐 `balance-29` 待支付订单 `605` 为 `amount=29.00`、`pay_amount=29.29`，流量卡 `gpt_traffic_5usd_2cny` 订单 `606` 为 `amount=2.00`、`pay_amount=2.02`，两笔 `fee_rate=1.0000` 且均已取消，未发生真实付款或额度到账。手续费仅增加实付金额，套餐和流量卡权益按标价履约；发布与完整核验见 `docs/ai/context/20260807-135549-payment-fee-live-verification-and-deploy_CN.md`。
 
 ## 模型最终计费倍率上下文
 
