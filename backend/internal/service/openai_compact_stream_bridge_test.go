@@ -287,7 +287,7 @@ func TestHandleSSEToJSON_CompactRawOutputItemDoneRepairsEmptyTerminalOutput(t *t
 	require.Len(t, events, 2)
 	require.Equal(t, "response.output_item.done", events[0][0])
 	item := gjson.Get(events[0][1], "item")
-	require.Equal(t, "compaction_summary", item.Get("type").String())
+	require.Equal(t, "compaction", item.Get("type").String())
 	require.Equal(t, "cmp_1", item.Get("id").String())
 	require.Equal(t, "compact-payload", item.Get("encrypted_content").String())
 	require.Equal(t, "compact summary", item.Get("summary.0.text").String())
@@ -356,7 +356,7 @@ func TestHandleSSEToJSON_PathBasedCompactRawOutputItemDoneRepairsJSON(t *testing
 	require.NotContains(t, body, "event:")
 	require.NotContains(t, body, "data:")
 	require.Equal(t, "resp_compact_v1", gjson.Get(body, "id").String())
-	require.Equal(t, "compaction_summary", gjson.Get(body, "output.0.type").String())
+	require.Equal(t, "compaction", gjson.Get(body, "output.0.type").String())
 	require.Equal(t, "compact-v1-raw", gjson.Get(body, "output.0.encrypted_content").String())
 }
 

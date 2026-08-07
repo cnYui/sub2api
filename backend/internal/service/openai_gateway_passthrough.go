@@ -1361,6 +1361,9 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 			}
 		}
 		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, bodyText)
+		if normalizedResponse, normalized := normalizeOpenAICompactionOutputItemsInResponse(finalResponse); normalized {
+			finalResponse = normalizedResponse
+		}
 		body = finalResponse
 		if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)

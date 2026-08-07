@@ -404,6 +404,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		// Extract data from SSE line (supports both "data: " and "data:" formats)
 		if data, ok := extractOpenAISSEDataLine(line); ok {
 			dataBytes := []byte(data)
+			if normalizedData, normalized := normalizeOpenAICompactionOutputItemTypeForClient(dataBytes); normalized {
+				dataBytes = normalizedData
+				data = string(normalizedData)
+				line = "data: " + data
+			}
 			eventTypeRaw := gjson.GetBytes(dataBytes, "type").String()
 			eventType := strings.TrimSpace(eventTypeRaw)
 			// 初始上游 data 的 type 只解析一次：原始值保持终止事件的精确匹配，规范化值供后续分支复用。
@@ -1224,6 +1229,9 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 			}
 		}
 		finalResponse = supplementCompactionItemFromSSE(c, finalResponse, bodyText)
+		if normalizedResponse, normalized := normalizeOpenAICompactionOutputItemsInResponse(finalResponse); normalized {
+			finalResponse = normalizedResponse
+		}
 		body = finalResponse
 		if originalModel != mappedModel {
 			body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
@@ -1568,6 +1576,87 @@ func isResponsesCompactionItemType(itemType string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func normalizeOpenAICompactionOutputItemType(item []byte) ([]byte, bool) {
+	if len(item) == 0 || !gjson.ValidBytes(item) || !gjson.ParseBytes(item).IsObject() {
+		return item, false
+	}
+	if gjson.GetBytes(item, "type").String() != "compaction_summary" {
+		return item, false
+	}
+	normalized, err := sjson.SetBytes(item, "type", "compaction")
+	if err != nil {
+		return item, false
+	}
+	return normalized, true
+}
+
+func normalizeOpenAICompactionOutputItemsInResponse(response []byte) ([]byte, bool) {
+	if len(response) == 0 || !gjson.ValidBytes(response) || !gjson.ParseBytes(response).IsObject() {
+		return response, false
+	}
+
+	output := gjson.GetBytes(response, "output")
+	if !output.Exists() || !output.IsArray() {
+		return response, false
+	}
+
+	updated := response
+	changed := false
+	for i, item := range output.Array() {
+		normalizedItem, normalized := normalizeOpenAICompactionOutputItemType([]byte(item.Raw))
+		if !normalized {
+			continue
+		}
+		next, err := sjson.SetRawBytes(updated, "output."+strconv.Itoa(i), normalizedItem)
+		if err != nil {
+			return response, false
+		}
+		updated = next
+		changed = true
+	}
+	return updated, changed
+}
+
+func normalizeOpenAICompactionOutputItemTypeForClient(data []byte) ([]byte, bool) {
+	if len(data) == 0 || !gjson.ValidBytes(data) || !gjson.ParseBytes(data).IsObject() {
+		return data, false
+	}
+
+	eventType := strings.TrimSpace(gjson.GetBytes(data, "type").String())
+	switch eventType {
+	case "response.output_item.added", "response.output_item.done":
+		item := gjson.GetBytes(data, "item")
+		if !item.Exists() {
+			return data, false
+		}
+		normalizedItem, normalized := normalizeOpenAICompactionOutputItemType([]byte(item.Raw))
+		if !normalized {
+			return data, false
+		}
+		updated, err := sjson.SetRawBytes(data, "item", normalizedItem)
+		if err != nil {
+			return data, false
+		}
+		return updated, true
+	case "response.completed", "response.done", "response.incomplete", "response.cancelled", "response.canceled":
+		response := gjson.GetBytes(data, "response")
+		if !response.Exists() {
+			return data, false
+		}
+		normalizedResponse, normalized := normalizeOpenAICompactionOutputItemsInResponse([]byte(response.Raw))
+		if !normalized {
+			return data, false
+		}
+		updated, err := sjson.SetRawBytes(data, "response", normalizedResponse)
+		if err != nil {
+			return data, false
+		}
+		return updated, true
+	default:
+		return data, false
 	}
 }
 

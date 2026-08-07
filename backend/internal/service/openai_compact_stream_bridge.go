@@ -169,6 +169,9 @@ func buildOpenAICompactSSEPayload(finalResponse []byte) ([]byte, bool) {
 		}
 		response = next
 	}
+	if normalizedResponse, normalized := normalizeOpenAICompactionOutputItemsInResponse(response); normalized {
+		response = normalizedResponse
+	}
 
 	var buf bytes.Buffer
 	outputIndex := 0
