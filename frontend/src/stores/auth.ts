@@ -13,8 +13,11 @@ const AUTH_USER_KEY = 'auth_user'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const TOKEN_EXPIRES_AT_KEY = 'token_expires_at' // 存储过期时间戳而非有效期
 const PENDING_AUTH_SESSION_KEY = 'pending_auth_session'
-const AUTO_REFRESH_INTERVAL = 60 * 1000 // 60 seconds for user data refresh
+const AUTO_REFRESH_INTERVAL = 30 * 1000 // 前台页面最多 30 秒同步一次用户资料
 const TOKEN_REFRESH_BUFFER = 120 * 1000 // 120 seconds before expiry to refresh token
+
+// 单页面只应有一个认证 Store，模块级清理避免多实例重复轮询和监听。
+let activeAutoRefreshCleanup: (() => void) | null = null
 
 type PendingAuthTokenField = 'pending_auth_token' | 'pending_oauth_token'
 
@@ -77,8 +80,9 @@ export const useAuthStore = defineStore('auth', () => {
   const tokenExpiresAt = ref<number | null>(null) // 过期时间戳（毫秒）
   const runMode = ref<'standard' | 'simple'>('standard')
   const pendingAuthSession = ref<PendingAuthSessionSummary | null>(null)
-  let refreshIntervalId: ReturnType<typeof setInterval> | null = null
   let tokenRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null
+  let refreshUserPromise: Promise<User> | null = null
+  let autoRefreshCleanup: (() => void) | null = null
 
   // ==================== Computed ====================
 
@@ -134,31 +138,76 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function isPageVisible(): boolean {
+    return typeof document === 'undefined' || document.visibilityState === 'visible'
+  }
+
+  function refreshUserInBackground(): void {
+    if (!token.value || !isPageVisible()) {
+      return
+    }
+
+    refreshUser().catch((error) => {
+      console.error('Auto-refresh user failed:', error)
+    })
+  }
+
+  function handleVisibilityChange(): void {
+    if (isPageVisible()) {
+      refreshUserInBackground()
+    }
+  }
+
+  function handleWindowFocus(): void {
+    refreshUserInBackground()
+  }
+
+  function handlePageShow(): void {
+    refreshUserInBackground()
+  }
+
   /**
-   * Start auto-refresh interval for user data
-   * Refreshes user data every 60 seconds
+   * 启动用户资料同步；页面恢复前台时立即同步，前台期间按间隔兜底。
    */
   function startAutoRefresh(): void {
     // Clear existing interval if any
     stopAutoRefresh()
+    activeAutoRefreshCleanup?.()
 
-    refreshIntervalId = setInterval(() => {
-      if (token.value) {
-        refreshUser().catch((error) => {
-          console.error('Auto-refresh user failed:', error)
-        })
+    const refreshIntervalId = setInterval(refreshUserInBackground, AUTO_REFRESH_INTERVAL)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleWindowFocus)
+      window.addEventListener('pageshow', handlePageShow)
+    }
+
+    const cleanup = () => {
+      clearInterval(refreshIntervalId)
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
-    }, AUTO_REFRESH_INTERVAL)
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleWindowFocus)
+        window.removeEventListener('pageshow', handlePageShow)
+      }
+      if (autoRefreshCleanup === cleanup) {
+        autoRefreshCleanup = null
+      }
+      if (activeAutoRefreshCleanup === cleanup) {
+        activeAutoRefreshCleanup = null
+      }
+    }
+    autoRefreshCleanup = cleanup
+    activeAutoRefreshCleanup = cleanup
   }
 
   /**
-   * Stop auto-refresh interval
+   * 停止用户资料同步并移除页面生命周期监听。
    */
   function stopAutoRefresh(): void {
-    if (refreshIntervalId) {
-      clearInterval(refreshIntervalId)
-      refreshIntervalId = null
-    }
+    autoRefreshCleanup?.()
   }
 
   /**
@@ -431,25 +480,40 @@ export const useAuthStore = defineStore('auth', () => {
       throw new Error('Not authenticated')
     }
 
-    try {
-      const response = await authAPI.getCurrentUser()
-      if (response.data.run_mode) {
-        runMode.value = response.data.run_mode
-      }
-      const { run_mode: _run_mode, ...userData } = response.data
-      user.value = userData
+    if (!refreshUserPromise) {
+      const request = (async () => {
+        try {
+          const response = await authAPI.getCurrentUser()
+          if (response.data.run_mode) {
+            runMode.value = response.data.run_mode
+          }
+          const { run_mode: _run_mode, ...userData } = response.data
+          user.value = userData
 
-      // Update localStorage
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
+          // 只在服务端返回成功资料后覆盖本地快照，避免网络失败显示为零余额。
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
 
-      return userData
-    } catch (error) {
-      // If refresh fails with 401, clear auth state
-      if ((error as { status?: number }).status === 401) {
-        clearAuth({ preservePendingAuthSession: pendingAuthSession.value !== null })
+          return userData
+        } catch (error) {
+          // If refresh fails with 401, clear auth state
+          if ((error as { status?: number }).status === 401) {
+            clearAuth({ preservePendingAuthSession: pendingAuthSession.value !== null })
+          }
+          throw error
+        }
+      })()
+      refreshUserPromise = request
+
+      try {
+        return await request
+      } finally {
+        if (refreshUserPromise === request) {
+          refreshUserPromise = null
+        }
       }
-      throw error
     }
+
+    return refreshUserPromise
   }
 
   /**

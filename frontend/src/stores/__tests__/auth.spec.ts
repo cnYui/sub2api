@@ -52,11 +52,19 @@ const fakeAuthResponse = {
 }
 
 describe('useAuthStore', () => {
+  function setVisibilityState(state: 'visible' | 'hidden') {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: state,
+    })
+  }
+
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
     vi.useFakeTimers()
     vi.clearAllMocks()
+    setVisibilityState('visible')
   })
 
   afterEach(() => {
@@ -363,6 +371,82 @@ describe('useAuthStore', () => {
     it('未认证时抛出错误', async () => {
       const store = useAuthStore()
       await expect(store.refreshUser()).rejects.toThrow('Not authenticated')
+    })
+
+    it('刷新失败时保留上一次有效余额', async () => {
+      mockLogin.mockResolvedValue(fakeAuthResponse)
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+      mockGetCurrentUser.mockRejectedValue(new Error('Network error'))
+
+      await expect(store.refreshUser()).rejects.toThrow('Network error')
+
+      expect(store.user).toEqual(fakeUser)
+      expect(JSON.parse(localStorage.getItem('auth_user')!)).toEqual(fakeUser)
+    })
+
+    it('页面恢复可见时立即刷新用户余额', async () => {
+      localStorage.setItem('auth_token', 'saved-token')
+      localStorage.setItem('auth_user', JSON.stringify(fakeUser))
+      mockGetCurrentUser.mockResolvedValueOnce({ data: fakeUser })
+
+      const store = useAuthStore()
+      store.checkAuth()
+      await vi.waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(store.user).toEqual(fakeUser))
+      mockGetCurrentUser.mockClear()
+      mockGetCurrentUser.mockResolvedValue({ data: { ...fakeUser, balance: 741.07 } })
+
+      setVisibilityState('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(mockGetCurrentUser).not.toHaveBeenCalled()
+
+      setVisibilityState('visible')
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
+      expect(store.user?.balance).toBe(741.07)
+    })
+
+    it('页面不可见时不执行余额轮询', async () => {
+      localStorage.setItem('auth_token', 'saved-token')
+      localStorage.setItem('auth_user', JSON.stringify(fakeUser))
+      mockGetCurrentUser.mockResolvedValueOnce({ data: fakeUser })
+
+      const store = useAuthStore()
+      store.checkAuth()
+      await vi.waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(store.user).toEqual(fakeUser))
+      mockGetCurrentUser.mockClear()
+      mockGetCurrentUser.mockResolvedValue({ data: fakeUser })
+
+      vi.advanceTimersByTime(30_000)
+      await vi.waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
+      mockGetCurrentUser.mockClear()
+
+      setVisibilityState('hidden')
+      vi.advanceTimersByTime(31_000)
+
+      expect(mockGetCurrentUser).not.toHaveBeenCalled()
+    })
+
+    it('恢复事件同时触发时只发送一个余额请求', async () => {
+      mockLogin.mockResolvedValue(fakeAuthResponse)
+      const store = useAuthStore()
+      await store.login({ email: 'test@example.com', password: '123456' })
+
+      let resolveRefresh: ((value: { data: typeof fakeUser }) => void) | undefined
+      mockGetCurrentUser.mockImplementation(
+        () => new Promise((resolve) => {
+          resolveRefresh = resolve
+        })
+      )
+
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new PageTransitionEvent('pageshow'))
+
+      await vi.waitFor(() => expect(mockGetCurrentUser).toHaveBeenCalledTimes(1))
+      resolveRefresh?.({ data: fakeUser })
+      await vi.waitFor(() => expect(store.user).toEqual(fakeUser))
     })
   })
 
