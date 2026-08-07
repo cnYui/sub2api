@@ -145,6 +145,7 @@ docs/*
 !docs/legal/*.md
 .serena/
 .codex/
+.worktrees/
 frontend/coverage/
 aicodex
 output/
