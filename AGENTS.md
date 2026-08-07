@@ -180,3 +180,4 @@
 
 - 2026-08-06：`18082` 已启用邮箱验证与忘记密码，数据库设置为 `email_verify_enabled=true`、`password_reset_enabled=true`、`frontend_url=https://aaccx.pw`；重置链接使用既有 SMTP 异步队列投递。未发送测试邮件，接口与单元测试验证见 `docs/ai/context/20260806-165637-password-reset-enable_CN.md`。
 - 2026-08-07：按管理员要求取消用户 `xunskyler@gmail.com`（ID `454`）的当前余额套餐（`user_balance_packages.id=4`，订单 `540`）；套餐标记为 `cancelled`、剩余额度归零并停止下一次刷新。订单继续保持 `REFUND_FAILED`，普通余额和 OpenAI 流量卡额度未改动；审计为 `payment_audit_logs.id=1398`。详见 `docs/ai/context/20260807-104755-user-xunskyler-balance-package-cancellation_CN.md`。
+- 2026-08-07：购买页余额套餐与流量卡统一按 `RECHARGE_FEE_RATE` 展示实付价、标价和手续费。手续费只增加订单 `pay_amount`，不改变套餐到账额度或流量卡额度；服务端仍以商品服务端价格重新计算收费，禁止信任前端金额。详见 `docs/ai/context/20260807-124800-payment-fee-display-plan_CN.md`。

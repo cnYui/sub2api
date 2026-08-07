@@ -145,6 +145,7 @@ import PurchaseProductCard from '@/components/payment/PurchaseProductCard.vue'
 import { type PurchaseProductCardModel } from '@/components/payment/purchaseProductCard'
 import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
 import { currencySymbol, formatPaymentAmount } from '@/components/payment/currency'
+import { calculatePaymentFee, calculatePaymentTotal } from '@/components/payment/paymentAmount'
 import { buildCreateOrderPayload, clearPaymentRecoverySnapshot, decidePaymentLaunch, getVisibleMethods, PAYMENT_RECOVERY_STORAGE_KEY, type PaymentRecoverySnapshot, writePaymentRecoverySnapshot } from '@/components/payment/paymentFlow'
 import type { BalancePackagePlan, CheckoutInfoResponse, CreateOrderResult, OrderType, TrafficPack } from '@/types/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -197,10 +198,12 @@ const trafficProducts = computed<CatalogProduct[]>(() => trafficPacks.value.map(
     testId: `traffic-pack-card-${trafficPack.id}`,
     eyebrowText: 'GPT 流量卡',
     title: trafficPack.name,
-    priceLabel: '价格',
-    priceText: formatCNY(trafficPack.price),
+    priceLabel: '实付',
+    priceText: formatCNY(calculatePaymentTotal(trafficPack.price, feeRate.value)),
     buttonText: '立即购买',
     detailRows: [
+      { label: '标价', value: formatCNY(trafficPack.price) },
+      { label: `手续费 (${feeRate.value}%)`, value: formatCNY(calculatePaymentFee(trafficPack.price, feeRate.value)) },
       { label: '可用额度', value: `$${formatUSDValue(trafficPack.credit_usd)}` },
       { label: '有效期', value: `${trafficPack.validity_days} 天` },
       { label: '扣费方式', value: '余额不足时使用' },
@@ -208,8 +211,8 @@ const trafficProducts = computed<CatalogProduct[]>(() => trafficPacks.value.map(
   },
 })))
 const currentAmount = computed(() => selectedTrafficPack.value?.price ?? selectedBalancePackage.value?.price_cny ?? 0)
-const feeAmount = computed(() => currentAmount.value > 0 && feeRate.value > 0 ? Math.ceil(currentAmount.value * feeRate.value) / 100 : 0)
-const totalAmount = computed(() => Math.round((currentAmount.value + feeAmount.value) * 100) / 100)
+const feeAmount = computed(() => calculatePaymentFee(currentAmount.value, feeRate.value))
+const totalAmount = computed(() => calculatePaymentTotal(currentAmount.value, feeRate.value))
 const methodOptions = computed<PaymentMethodOption[]>(() => enabledMethods.value.map((type) => {
   const method = visibleMethods.value[type]
   return { type, display_name: method?.display_name, fee_rate: method?.fee_rate || 0, available: method?.available !== false }
@@ -228,10 +231,14 @@ const products = computed<CatalogProduct[]>(() => (checkout.value.balance_packag
   product: {
     eyebrowText: 'API 余额套餐',
     title: `${formatPlainCNY(balancePackage.price_cny)} 元余额套餐`,
-    priceLabel: '价格',
-    priceText: formatCNY(balancePackage.price_cny),
+    priceLabel: '实付',
+    priceText: formatCNY(calculatePaymentTotal(balancePackage.price_cny, feeRate.value)),
     buttonText: '立即购买',
-    detailRows: balancePackageDetails(balancePackage),
+    detailRows: [
+      { label: '标价', value: formatCNY(balancePackage.price_cny) },
+      { label: `手续费 (${feeRate.value}%)`, value: formatCNY(calculatePaymentFee(balancePackage.price_cny, feeRate.value)) },
+      ...balancePackageDetails(balancePackage),
+    ],
   },
 })))
 const catalogGridClass = computed(() => {

@@ -249,6 +249,30 @@ func TestCalculateCreateOrderPayAmountForSubscriptionAppliesFeeAfterCNYConversio
 	}
 }
 
+func TestCalculateCreateOrderPayAmountForBalancePackageAppliesFee(t *testing.T) {
+	t.Parallel()
+
+	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(29, 1, "CNY", payment.OrderTypeBalanceSubscription, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if amountStr != "29.29" || amount != 29.29 {
+		t.Fatalf("balance package pay amount = (%q, %v), want (29.29, 29.29)", amountStr, amount)
+	}
+}
+
+func TestCalculateCreateOrderPayAmountForTrafficPackAppliesFee(t *testing.T) {
+	t.Parallel()
+
+	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(2, 1, "CNY", payment.OrderTypeTrafficPack, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if amountStr != "2.02" || amount != 2.02 {
+		t.Fatalf("traffic pack pay amount = (%q, %v), want (2.02, 2.02)", amountStr, amount)
+	}
+}
+
 func TestCalculateCreateOrderPayAmountForSubscriptionKeepsNonCNYPrice(t *testing.T) {
 	t.Parallel()
 
