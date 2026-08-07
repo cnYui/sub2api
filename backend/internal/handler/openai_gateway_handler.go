@@ -2067,6 +2067,26 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if cyberBlockedThisConn {
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, cyberSessionBlockedClientMsg, nil)
 				}
+				var eligibilityErr error
+				if turn <= 1 {
+					eligibilityErr = h.billingCacheService.CheckFreshBalanceDebt(ctx, apiKey.User)
+				} else {
+					eligibilityErr = h.billingCacheService.CheckBillingEligibility(ctx, apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey))
+				}
+				if eligibilityErr != nil {
+					status := coderws.StatusTryAgainLater
+					message := "billing eligibility is temporarily unavailable"
+					if errors.Is(eligibilityErr, service.ErrInsufficientBalance) {
+						status = coderws.StatusPolicyViolation
+						message = "insufficient account balance"
+					}
+					reqLog.Info("openai.websocket_turn_billing_rejected",
+						zap.Int("turn", turn),
+						zap.Int64("user_id", subject.UserID),
+						zap.Error(eligibilityErr),
+					)
+					return service.NewOpenAIWSClientCloseError(status, message, eligibilityErr)
+				}
 				// 长连接跨峰谷/倍率刷新防护：每个 turn 按当前时刻重装门并复核
 				// 当前账号，越线即要求客户端重连重选（连接绑定单一上游账号，
 				// 无法中途换号）。本 turn 的准入与计费共用同一 pricingAt。
@@ -2390,32 +2410,7 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 }
 
 func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDroppedStopped {
-			return
-		}
-		// 池已停止（进程关停窗口）：计费任务不能静默丢失，降级为内联同步执行。
-		// 显式配置的 drop/sample 溢出丢弃仍按配置语义保留。
-		logger.L().With(
-			zap.String("component", "handler.openai_gateway.responses"),
-		).Warn("openai.usage_record_task_stopped_sync_fallback")
-	}
-	// 回退路径：worker 池未注入或已停止时同步执行，避免退回到无界 goroutine 模式。
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.responses"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
+	runUsageRecordTaskSynchronously(parent, task, "handler.openai_gateway.responses")
 }
 
 func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) {
@@ -2427,29 +2422,7 @@ func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Contex
 }
 
 func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) {
-	if task == nil {
-		return
-	}
-	task = wrapUsageRecordTaskContext(parent, task)
-	if h.usageRecordWorkerPool != nil {
-		if mode := h.usageRecordWorkerPool.Submit(task); !mode.Dropped() {
-			return
-		}
-		logger.L().With(
-			zap.String("component", "handler.openai_gateway.usage"),
-		).Warn("openai.usage_record_task_mandatory_sync_fallback")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			logger.L().With(
-				zap.String("component", "handler.openai_gateway.usage"),
-				zap.Any("panic", recovered),
-			).Error("openai.usage_record_task_panic_recovered")
-		}
-	}()
-	task(ctx)
+	runUsageRecordTaskSynchronously(parent, task, "handler.openai_gateway.usage")
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {

@@ -52,6 +52,20 @@ func (h *PaymentHandler) GrantBalancePackage(c *gin.Context) {
 	})
 }
 
+// ResumeDebtPausedBalancePackage 在用户还清欠费后恢复余额套餐后续周额度。
+func (h *PaymentHandler) ResumeDebtPausedBalancePackage(c *gin.Context) {
+	packageID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	adminID := getAdminIDFromContext(c)
+	if err := h.paymentService.ResumeDebtPausedBalancePackage(c.Request.Context(), packageID, adminID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"message": "balance package resumed"})
+}
+
 // NewPaymentHandler creates a new admin PaymentHandler.
 func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService) *PaymentHandler {
 	return &PaymentHandler{

@@ -149,6 +149,16 @@ func HoldAmount(v float64) predicate.BatchImageJob {
 	return predicate.BatchImageJob(sql.FieldEQ(FieldHoldAmount, v))
 }
 
+// BalancePackageID applies equality check predicate on the "balance_package_id" field. It's identical to BalancePackageIDEQ.
+func BalancePackageID(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldEQ(FieldBalancePackageID, v))
+}
+
+// BalancePackageHoldUsd applies equality check predicate on the "balance_package_hold_usd" field. It's identical to BalancePackageHoldUsdEQ.
+func BalancePackageHoldUsd(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldEQ(FieldBalancePackageHoldUsd, v))
+}
+
 // ActualCost applies equality check predicate on the "actual_cost" field. It's identical to ActualCostEQ.
 func ActualCost(v float64) predicate.BatchImageJob {
 	return predicate.BatchImageJob(sql.FieldEQ(FieldActualCost, v))
@@ -1342,6 +1352,96 @@ func HoldAmountIsNil() predicate.BatchImageJob {
 // HoldAmountNotNil applies the NotNil predicate on the "hold_amount" field.
 func HoldAmountNotNil() predicate.BatchImageJob {
 	return predicate.BatchImageJob(sql.FieldNotNull(FieldHoldAmount))
+}
+
+// BalancePackageIDEQ applies the EQ predicate on the "balance_package_id" field.
+func BalancePackageIDEQ(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldEQ(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDNEQ applies the NEQ predicate on the "balance_package_id" field.
+func BalancePackageIDNEQ(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldNEQ(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDIn applies the In predicate on the "balance_package_id" field.
+func BalancePackageIDIn(vs ...int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldIn(FieldBalancePackageID, vs...))
+}
+
+// BalancePackageIDNotIn applies the NotIn predicate on the "balance_package_id" field.
+func BalancePackageIDNotIn(vs ...int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldNotIn(FieldBalancePackageID, vs...))
+}
+
+// BalancePackageIDGT applies the GT predicate on the "balance_package_id" field.
+func BalancePackageIDGT(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldGT(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDGTE applies the GTE predicate on the "balance_package_id" field.
+func BalancePackageIDGTE(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldGTE(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDLT applies the LT predicate on the "balance_package_id" field.
+func BalancePackageIDLT(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldLT(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDLTE applies the LTE predicate on the "balance_package_id" field.
+func BalancePackageIDLTE(v int64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldLTE(FieldBalancePackageID, v))
+}
+
+// BalancePackageIDIsNil applies the IsNil predicate on the "balance_package_id" field.
+func BalancePackageIDIsNil() predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldIsNull(FieldBalancePackageID))
+}
+
+// BalancePackageIDNotNil applies the NotNil predicate on the "balance_package_id" field.
+func BalancePackageIDNotNil() predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldNotNull(FieldBalancePackageID))
+}
+
+// BalancePackageHoldUsdEQ applies the EQ predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdEQ(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldEQ(FieldBalancePackageHoldUsd, v))
+}
+
+// BalancePackageHoldUsdNEQ applies the NEQ predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdNEQ(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldNEQ(FieldBalancePackageHoldUsd, v))
+}
+
+// BalancePackageHoldUsdIn applies the In predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdIn(vs ...float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldIn(FieldBalancePackageHoldUsd, vs...))
+}
+
+// BalancePackageHoldUsdNotIn applies the NotIn predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdNotIn(vs ...float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldNotIn(FieldBalancePackageHoldUsd, vs...))
+}
+
+// BalancePackageHoldUsdGT applies the GT predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdGT(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldGT(FieldBalancePackageHoldUsd, v))
+}
+
+// BalancePackageHoldUsdGTE applies the GTE predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdGTE(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldGTE(FieldBalancePackageHoldUsd, v))
+}
+
+// BalancePackageHoldUsdLT applies the LT predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdLT(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldLT(FieldBalancePackageHoldUsd, v))
+}
+
+// BalancePackageHoldUsdLTE applies the LTE predicate on the "balance_package_hold_usd" field.
+func BalancePackageHoldUsdLTE(v float64) predicate.BatchImageJob {
+	return predicate.BatchImageJob(sql.FieldLTE(FieldBalancePackageHoldUsd, v))
 }
 
 // ActualCostEQ applies the EQ predicate on the "actual_cost" field.

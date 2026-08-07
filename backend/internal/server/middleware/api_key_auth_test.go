@@ -1470,6 +1470,57 @@ func TestAPIKeyAuthAllowsOpenAIWithTrafficPackWhenBalanceExhausted(t *testing.T)
 	require.Equal(t, service.PlatformOpenAI, checker.platform)
 }
 
+func TestAPIKeyAuthRejectsDebtBeforeTrafficPackFallback(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 121, Role: service.RoleUser, Status: service.StatusActive, Balance: -0.01, Concurrency: 3}
+	group := &service.Group{ID: 91, Platform: service.PlatformOpenAI, Status: service.StatusActive}
+	apiKey := &service.APIKey{ID: 1061, UserID: user.ID, Key: "openai-debt-traffic-pack", Status: service.StatusActive, User: user, Group: group}
+	apiKey.GroupID = &group.ID
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	checker := &stubTrafficPackCreditChecker{available: true}
+	router := newAuthTestRouterWithTrafficPackChecker(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg, checker)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+	require.Zero(t, checker.calls, "欠费状态不能查询或使用流量卡兜底")
+}
+
+func TestAPIKeyAuthSimpleModeStillRejectsDebt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 122, Role: service.RoleUser, Status: service.StatusActive, Balance: -1, Concurrency: 3}
+	apiKey := &service.APIKey{ID: 1062, UserID: user.ID, Key: "simple-mode-debt", Status: service.StatusActive, User: user}
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+}
+
 func TestAPIKeyAuthRejectsOpenAIWithoutTrafficPackWhenBalanceExhausted(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

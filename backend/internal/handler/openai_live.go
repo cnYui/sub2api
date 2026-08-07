@@ -200,6 +200,18 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
 		return
 	}
+	if h.billingCacheService == nil {
+		h.errorResponse(c, http.StatusServiceUnavailable, "api_error", "Billing service unavailable")
+		return
+	}
+	if err := h.billingCacheService.CheckFreshBalanceDebt(c.Request.Context(), apiKey.User); err != nil {
+		status, code, message, retryAfter := billingErrorDetails(err)
+		if retryAfter > 0 {
+			c.Header("Retry-After", strconv.Itoa(retryAfter))
+		}
+		h.errorResponse(c, status, code, message)
+		return
+	}
 	identity := service.LiveCallIdentity{
 		APIKeyID: apiKey.ID,
 		UserID:   subject.UserID,

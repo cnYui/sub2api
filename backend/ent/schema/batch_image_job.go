@@ -47,6 +47,8 @@ func (BatchImageJob) Fields() []ent.Field {
 		field.Int("cancelled_count").Default(0),
 		field.Float("estimated_cost").SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).Default(0),
 		field.Float("hold_amount").Optional().Nillable().SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
+		field.Int64("balance_package_id").Optional().Nillable(),
+		field.Float("balance_package_hold_usd").SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}).Default(0),
 		field.Float("actual_cost").Optional().Nillable().SchemaType(map[string]string{dialect.Postgres: "decimal(20,10)"}),
 		field.String("currency").MaxLen(16).Default("USD"),
 		field.String("hold_id").Optional().Nillable().MaxLen(128),

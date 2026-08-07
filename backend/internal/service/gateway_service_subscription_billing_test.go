@@ -3,8 +3,26 @@
 package service
 
 import (
+	"context"
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/stretchr/testify/require"
 )
+
+func TestApplyUsageBilling_StandardModeFailsClosedWithoutRepository(t *testing.T) {
+	p := &postUsageBillingParams{
+		Cost:    &CostBreakdown{},
+		User:    &User{ID: 1},
+		APIKey:  &APIKey{ID: 2},
+		Account: &Account{ID: 3},
+	}
+	deps := &billingDeps{cfg: &config.Config{RunMode: config.RunModeStandard}}
+
+	applied, err := applyUsageBilling(context.Background(), "request-1", nil, p, deps, nil)
+	require.False(t, applied)
+	require.ErrorIs(t, err, ErrBillingServiceUnavailable)
+}
 
 // TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier locks in the fix
 // that subscription-mode billing honours the group (and any user-specific) rate

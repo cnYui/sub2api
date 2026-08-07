@@ -24,6 +24,12 @@ const (
 	trafficCreditBatchesSQL      = `(?s)SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at\s+FROM user_traffic_credits\s+WHERE user_id = \$1 AND platform = \$2 AND remaining_usd > 0 AND expires_at > NOW\(\)`
 	usageBillingUserLockSQL      = `(?s)SELECT id\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL\s+FOR UPDATE`
 	currentBalancePackageLockSQL = `(?s)SELECT id, remaining_usd\s+FROM user_balance_packages\s+WHERE user_id = \$1.*FOR UPDATE`
+	consumeBalancePackageSQL     = `(?s)UPDATE user_balance_packages\s+SET remaining_usd = GREATEST\(remaining_usd - \$1, 0\), updated_at = NOW\(\)\s+WHERE id = \$2 AND remaining_usd > 0`
+	recordBatchImageSourceSQL    = `(?s)UPDATE batch_image_jobs\s+SET balance_package_id = \$1,\s+balance_package_hold_usd = \$2,\s+updated_at = NOW\(\)\s+WHERE batch_id = \$3 AND user_id = \$4`
+	loadBatchImageSourceSQL      = `(?s)SELECT COALESCE\(balance_package_id, 0\), balance_package_hold_usd\s+FROM batch_image_jobs\s+WHERE batch_id = \$1 AND user_id = \$2\s+FOR UPDATE`
+	clearBatchImageSourceSQL     = `(?s)UPDATE batch_image_jobs\s+SET balance_package_id = NULL,\s+balance_package_hold_usd = 0,\s+updated_at = NOW\(\)\s+WHERE batch_id = \$1 AND user_id = \$2`
+	restoreBalancePackageSQL     = `(?s)UPDATE user_balance_packages\s+SET remaining_usd = LEAST\(.*weekly_credit_usd.*remaining_usd.*SELECT balance FROM users.*\$3.*\).*WHERE id = \$2.*status IN \('active', 'completed', 'debt_paused'\).*expires_at > NOW\(\)`
+	discardExpiredPackageSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance, frozen_balance`
 )
 
 func expectUsageBillingUserAndPackageLocks(mock sqlmock.Sqlmock, userID int64) {
@@ -204,6 +210,39 @@ func TestReserveUsageBillingBatchImageBalance_MovesAvailableToFrozen(t *testing.
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestReserveUsageBillingBatchImageBalance_TracksPackageSource(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(usageBillingUserLockSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(42))
+	mock.ExpectQuery(currentBalancePackageLockSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "remaining_usd"}).AddRow(99, 4.0))
+	mock.ExpectQuery(reserveBatchImageHoldSQL).
+		WithArgs(2.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(7.5, 2.5))
+	mock.ExpectExec(consumeBalancePackageSQL).
+		WithArgs(2.5, int64(99)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(recordBatchImageSourceSQL).
+		WithArgs(int64(99), 2.5, "imgbatch_source", int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	result, err := reserveUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{UserID: 42, BatchID: "imgbatch_source", HoldAmount: 2.5})
+	require.NoError(t, err)
+	require.InDelta(t, 7.5, *result.NewBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestReserveUsageBillingBatchImageBalance_InsufficientBalance(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
@@ -249,6 +288,71 @@ func TestCaptureUsageBillingBatchImageBalance_ReleasesRemainder(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestCaptureUsageBillingBatchImageBalance_RestoresUnusedPackageSource(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(loadBatchImageSourceSQL).
+		WithArgs("imgbatch_capture_source", int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance_package_id", "balance_package_hold_usd"}).AddRow(99, 2.0))
+	mock.ExpectQuery(captureBatchImageHoldSQL).
+		WithArgs(2.0, 0.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(9.5, 0.0))
+	mock.ExpectExec(restoreBalancePackageSQL).
+		WithArgs(1.5, int64(99), int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(clearBatchImageSourceSQL).
+		WithArgs("imgbatch_capture_source", int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	result, err := captureUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{UserID: 42, BatchID: "imgbatch_capture_source", HoldAmount: 2, ActualAmount: 0.5})
+	require.NoError(t, err)
+	require.InDelta(t, 9.5, *result.NewBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCaptureUsageBillingBatchImageBalance_DoesNotRefundExpiredPackageToWallet(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectQuery(loadBatchImageSourceSQL).
+		WithArgs("imgbatch_capture_expired_source", int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance_package_id", "balance_package_hold_usd"}).AddRow(99, 2.0))
+	mock.ExpectQuery(captureBatchImageHoldSQL).
+		WithArgs(2.0, 0.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(9.5, 0.0))
+	mock.ExpectExec(restoreBalancePackageSQL).
+		WithArgs(1.5, int64(99), int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(discardExpiredPackageSQL).
+		WithArgs(1.5, int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(8.0, 0.0))
+	mock.ExpectExec(clearBatchImageSourceSQL).
+		WithArgs("imgbatch_capture_expired_source", int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	result, err := captureUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{
+		UserID: 42, BatchID: "imgbatch_capture_expired_source", HoldAmount: 2, ActualAmount: 0.5,
+	})
+	require.NoError(t, err)
+	require.InDelta(t, 8.0, *result.NewBalance, 0.000001)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestCaptureUsageBillingBatchImageBalance_RejectsActualCostOverHold(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
@@ -278,9 +382,15 @@ func TestReleaseUsageBillingBatchImageBalance_ReturnsFrozenToAvailable(t *testin
 	mock.ExpectQuery(`SELECT 1\s+FROM usage_billing_dedup\s+WHERE request_id = \$1 AND api_key_id = \$2`).
 		WithArgs(service.BatchImageHoldRequestID("imgbatch_release"), int64(7)).
 		WillReturnRows(sqlmock.NewRows([]string{"?column?"}).AddRow(1))
+	mock.ExpectQuery(loadBatchImageSourceSQL).
+		WithArgs("imgbatch_release", int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance_package_id", "balance_package_hold_usd"}).AddRow(0, 0))
 	mock.ExpectQuery(releaseBatchImageHoldSQL).
 		WithArgs(1.0, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance", "frozen_balance"}).AddRow(10.0, 0.0))
+	mock.ExpectExec(clearBatchImageSourceSQL).
+		WithArgs("imgbatch_release", int64(42)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
 	result, err := releaseUsageBillingBatchImageBalance(ctx, tx, &service.BatchImageBalanceHoldCommand{UserID: 42, APIKeyID: 7, BatchID: "imgbatch_release", HoldAmount: 1})

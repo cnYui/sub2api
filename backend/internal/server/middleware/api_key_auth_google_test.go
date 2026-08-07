@@ -645,6 +645,29 @@ func TestApiKeyAuthWithSubscriptionGoogle_BalanceBelowMinimumReserve(t *testing.
 	require.Equal(t, http.StatusForbidden, rec.Code)
 }
 
+func TestAPIKeyAuthGoogleSimpleModeStillRejectsDebt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		return &service.APIKey{
+			ID:     1,
+			Key:    key,
+			Status: service.StatusActive,
+			User:   &service.User{ID: 123, Status: service.StatusActive, Balance: -1},
+		}, nil
+	}})
+	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, &config.Config{RunMode: config.RunModeSimple}))
+	r.GET("/v1beta/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/test", nil)
+	req.Header.Set("Authorization", "Bearer ok")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
 func TestApiKeyAuthWithSubscriptionGoogle_RejectsExhaustedBalance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

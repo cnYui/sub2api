@@ -51,6 +51,10 @@ const (
 	FieldEstimatedCost = "estimated_cost"
 	// FieldHoldAmount holds the string denoting the hold_amount field in the database.
 	FieldHoldAmount = "hold_amount"
+	// FieldBalancePackageID holds the string denoting the balance_package_id field in the database.
+	FieldBalancePackageID = "balance_package_id"
+	// FieldBalancePackageHoldUsd holds the string denoting the balance_package_hold_usd field in the database.
+	FieldBalancePackageHoldUsd = "balance_package_hold_usd"
 	// FieldActualCost holds the string denoting the actual_cost field in the database.
 	FieldActualCost = "actual_cost"
 	// FieldCurrency holds the string denoting the currency field in the database.
@@ -119,6 +123,8 @@ var Columns = []string{
 	FieldCancelledCount,
 	FieldEstimatedCost,
 	FieldHoldAmount,
+	FieldBalancePackageID,
+	FieldBalancePackageHoldUsd,
 	FieldActualCost,
 	FieldCurrency,
 	FieldHoldID,
@@ -185,6 +191,8 @@ var (
 	DefaultCancelledCount int
 	// DefaultEstimatedCost holds the default value on creation for the "estimated_cost" field.
 	DefaultEstimatedCost float64
+	// DefaultBalancePackageHoldUsd holds the default value on creation for the "balance_package_hold_usd" field.
+	DefaultBalancePackageHoldUsd float64
 	// DefaultCurrency holds the default value on creation for the "currency" field.
 	DefaultCurrency string
 	// CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
@@ -312,6 +320,16 @@ func ByEstimatedCost(opts ...sql.OrderTermOption) OrderOption {
 // ByHoldAmount orders the results by the hold_amount field.
 func ByHoldAmount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldHoldAmount, opts...).ToFunc()
+}
+
+// ByBalancePackageID orders the results by the balance_package_id field.
+func ByBalancePackageID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageID, opts...).ToFunc()
+}
+
+// ByBalancePackageHoldUsd orders the results by the balance_package_hold_usd field.
+func ByBalancePackageHoldUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackageHoldUsd, opts...).ToFunc()
 }
 
 // ByActualCost orders the results by the actual_cost field.

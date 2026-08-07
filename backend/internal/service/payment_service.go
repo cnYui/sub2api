@@ -227,6 +227,13 @@ func (s *PaymentService) ListUserBalancePackages(ctx context.Context, userID int
 	return s.balancePackageService.ListUserPackages(ctx, userID)
 }
 
+func (s *PaymentService) ResumeDebtPausedBalancePackage(ctx context.Context, packageID, adminUserID int64) error {
+	if s == nil || s.balancePackageService == nil {
+		return fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.ResumeDebtPausedPackage(ctx, packageID, adminUserID, time.Now().UTC())
+}
+
 func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
 	s.notificationEmailService = notificationEmailService
 }

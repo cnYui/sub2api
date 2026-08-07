@@ -193,6 +193,10 @@ func apiKeyAuthWithTrafficPackChecker(
 		// authenticated key and must remain available after the completed
 		// generation consumes the key's remaining balance.
 		skipBilling := c.Request.URL.Path == "/v1/usage" || billingInfoRequest || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
+		if !skipBilling && apiKey.User.Balance < 0 {
+			AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+			return
+		}
 
 		// ── 4. SimpleMode → early return ─────────────────────────────
 

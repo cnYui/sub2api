@@ -130,5 +130,6 @@ func (s *PaymentService) GrantBalancePackage(ctx context.Context, input GrantBal
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit admin balance package grant: %w", err)
 	}
+	s.balancePackageService.invalidateBalanceCache(ctx, input.UserID)
 	return &BalancePackageGrant{OrderID: order.ID, BalancePackageID: pkg.ID}, nil
 }

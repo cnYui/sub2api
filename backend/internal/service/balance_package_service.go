@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"entgo.io/ent/dialect"
@@ -19,10 +20,13 @@ import (
 const (
 	balancePackageStatusActive      = "active"
 	balancePackageStatusCompleted   = "completed"
+	balancePackageStatusDebtPaused  = "debt_paused"
 	balancePackageStatusExpired     = "expired"
 	balancePackageCreditBatchSize   = 100
 	balancePackageRenewalAudit      = "BALANCE_PACKAGE_RENEWAL"
 	balancePackageWeeklyCreditAudit = "BALANCE_PACKAGE_WEEKLY_CREDIT"
+	balancePackageDebtPausedAudit   = "BALANCE_PACKAGE_DEBT_PAUSED"
+	balancePackageDebtResumedAudit  = "BALANCE_PACKAGE_DEBT_RESUMED"
 )
 
 type defaultBalancePackagePlan struct {
@@ -70,11 +74,18 @@ var defaultBalancePackagePlans = []defaultBalancePackagePlan{
 
 // BalancePackageService 维护余额套餐及其到账生命周期。
 type BalancePackageService struct {
-	entClient *dbent.Client
+	entClient    *dbent.Client
+	billingCache *BillingCacheService
 }
 
 func NewBalancePackageService(entClient *dbent.Client) *BalancePackageService {
 	return &BalancePackageService{entClient: entClient}
+}
+
+func (s *BalancePackageService) SetBillingCache(billingCache *BillingCacheService) {
+	if s != nil {
+		s.billingCache = billingCache
+	}
 }
 
 func (s *BalancePackageService) ListPlansForSale(ctx context.Context) ([]*dbent.BalancePackagePlan, error) {
@@ -114,7 +125,7 @@ func (s *BalancePackageService) ListUserPackages(ctx context.Context, userID int
 	packages, err := s.entClient.UserBalancePackage.Query().
 		Where(
 			userbalancepackage.UserIDEQ(userID),
-			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted, balancePackageStatusDebtPaused),
 			userbalancepackage.ExpiresAtGT(now),
 		).
 		Order(userbalancepackage.ByCreatedAt(sql.OrderDesc()), userbalancepackage.ByID(sql.OrderDesc())).
@@ -225,7 +236,7 @@ func (s *BalancePackageService) currentUserPackage(ctx context.Context, client *
 	query := client.UserBalancePackage.Query().
 		Where(
 			userbalancepackage.UserIDEQ(userID),
-			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted, balancePackageStatusDebtPaused),
 			userbalancepackage.ExpiresAtGT(now),
 		).
 		Order(userbalancepackage.ByCreatedAt(sql.OrderDesc()), userbalancepackage.ByID(sql.OrderDesc())).
@@ -252,6 +263,13 @@ func lockBalancePackageUser(ctx context.Context, client *dbent.Client, userID in
 }
 
 func validateBalancePackagePlanChange(current *dbent.UserBalancePackage, planID int64) error {
+	if current != nil && current.Status == balancePackageStatusDebtPaused {
+		return infraerrors.Conflict("BALANCE_PACKAGE_DEBT_PAUSED", "当前余额套餐因欠费暂停，请联系管理员处理后再购买").
+			WithMetadata(map[string]string{
+				"current_plan_id":   fmt.Sprintf("%d", current.PlanID),
+				"requested_plan_id": fmt.Sprintf("%d", planID),
+			})
+	}
 	if current == nil || current.PlanID == planID {
 		return nil
 	}
@@ -319,6 +337,7 @@ func (s *BalancePackageService) CreditInitialBalance(ctx context.Context, order 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit initial balance package credit: %w", err)
 	}
+	s.invalidateBalanceCache(ctx, order.UserID)
 	return nil
 }
 
@@ -364,12 +383,14 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	refreshIntervalDays := *order.BalancePackageRefreshIntervalDays
 	validityDays := *order.BalancePackageValidityDays
 	status := balancePackageStatusActive
-	if refreshCount == 1 {
-		status = balancePackageStatusCompleted
-	}
 	remainingCredit := balancePackageRemainingAfterDebt(lockedUser.Balance, weeklyCredit)
 	debtRepaid := minFloat(maxFloat(-lockedUser.Balance, 0), weeklyCredit)
 	newBalance := lockedUser.Balance + weeklyCredit
+	if newBalance < 0 {
+		status = balancePackageStatusDebtPaused
+	} else if refreshCount == 1 {
+		status = balancePackageStatusCompleted
+	}
 
 	updated, err := client.User.Update().Where(user.IDEQ(order.UserID)).AddBalance(weeklyCredit).AddTotalRecharged(weeklyCredit).Save(ctx)
 	if err != nil {
@@ -391,7 +412,7 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 		SetStartsAt(startsAt).
 		SetExpiresAt(startsAt.AddDate(0, 0, validityDays)).
 		SetStatus(status)
-	if status == balancePackageStatusActive {
+	if status == balancePackageStatusActive || (status == balancePackageStatusDebtPaused && refreshCount > 1) {
 		builder.SetNextCreditAt(startsAt.AddDate(0, 0, refreshIntervalDays))
 	}
 	pkg, err := builder.Save(ctx)
@@ -403,6 +424,11 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	}
 	if debtRepaid > 0 {
 		if err := recordBalanceDebtLedger(ctx, client, order.UserID, "repayment", debtRepaid, lockedUser.Balance, newBalance, "balance_package_initial_credit", fmt.Sprintf("order:%d", order.ID)); err != nil {
+			return nil, err
+		}
+	}
+	if status == balancePackageStatusDebtPaused {
+		if err := createBalancePackageDebtAudit(ctx, client, order.ID, balancePackageDebtPausedAudit, 1, lockedUser.Balance, newBalance, weeklyCredit, startsAt.AddDate(0, 0, refreshIntervalDays), "system"); err != nil {
 			return nil, err
 		}
 	}
@@ -436,6 +462,9 @@ func (s *BalancePackageService) CreditDueBalances(ctx context.Context, now time.
 	if err := s.expireDueBalances(ctx, now.UTC()); err != nil {
 		return 0, err
 	}
+	if _, err := s.PauseDebtPackages(ctx, now.UTC()); err != nil {
+		return 0, err
+	}
 	due, err := s.entClient.UserBalancePackage.Query().
 		Where(
 			userbalancepackage.StatusEQ(balancePackageStatusActive),
@@ -460,6 +489,151 @@ func (s *BalancePackageService) CreditDueBalances(ctx context.Context, now time.
 		}
 	}
 	return credited, nil
+}
+
+// PauseDebtPackages 把仍有后续期数的欠费活动套餐持久化为人工暂停状态。
+func (s *BalancePackageService) PauseDebtPackages(ctx context.Context, now time.Time) (int, error) {
+	if s == nil || s.entClient == nil {
+		return 0, fmt.Errorf("balance package service is unavailable")
+	}
+	candidates, err := s.entClient.UserBalancePackage.Query().
+		Where(
+			userbalancepackage.StatusEQ(balancePackageStatusActive),
+			userbalancepackage.ExpiresAtGT(now),
+			userbalancepackage.HasUserWith(user.BalanceLT(0)),
+		).
+		Order(userbalancepackage.ByUpdatedAt(), userbalancepackage.ByID()).
+		Limit(balancePackageCreditBatchSize).
+		All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list debt balance packages: %w", err)
+	}
+
+	paused := 0
+	for _, candidate := range candidates {
+		if candidate.CreditedCount >= candidate.RefreshCount {
+			continue
+		}
+		applied, pauseErr := s.pauseDebtPackage(ctx, candidate, now, "system")
+		if pauseErr != nil {
+			return paused, pauseErr
+		}
+		if applied {
+			paused++
+		}
+	}
+	return paused, nil
+}
+
+func (s *BalancePackageService) pauseDebtPackage(ctx context.Context, candidate *dbent.UserBalancePackage, now time.Time, operator string) (bool, error) {
+	if candidate == nil {
+		return false, nil
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin debt package pause: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lock debt package user: %w", err)
+	}
+	query := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(candidate.ID))
+	if client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	current, err := query.Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("lock debt package: %w", err)
+	}
+	if lockedUser.Balance >= 0 || current.Status != balancePackageStatusActive || current.CreditedCount >= current.RefreshCount || !current.ExpiresAt.After(now) {
+		return false, nil
+	}
+	if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
+		Where(userbalancepackage.StatusEQ(balancePackageStatusActive)).
+		SetStatus(balancePackageStatusDebtPaused).
+		Save(txCtx); err != nil {
+		if dbent.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("pause debt package: %w", err)
+	}
+	if err := createBalancePackageDebtAudit(txCtx, client, current.PaymentOrderID, balancePackageDebtPausedAudit, current.CreditedCount, lockedUser.Balance, lockedUser.Balance, current.WeeklyCreditUsd, timeOrZero(current.NextCreditAt), operator); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit debt package pause: %w", err)
+	}
+	return true, nil
+}
+
+// ResumeDebtPausedPackage 由管理员在用户还清欠费后重新开启下一周到账节奏。
+func (s *BalancePackageService) ResumeDebtPausedPackage(ctx context.Context, packageID, adminUserID int64, now time.Time) error {
+	if s == nil || s.entClient == nil {
+		return infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+	}
+	if packageID <= 0 || adminUserID <= 0 {
+		return infraerrors.BadRequest("INVALID_RESUME_INPUT", "package and admin are required")
+	}
+	candidate, err := s.entClient.UserBalancePackage.Get(ctx, packageID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
+		}
+		return err
+	}
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin debt package resume: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
+	if err != nil {
+		return fmt.Errorf("lock debt package user: %w", err)
+	}
+	query := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(packageID))
+	if client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	current, err := query.Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock debt package: %w", err)
+	}
+	if current.Status != balancePackageStatusDebtPaused {
+		return infraerrors.Conflict("BALANCE_PACKAGE_NOT_DEBT_PAUSED", "balance package is not debt paused")
+	}
+	if !current.ExpiresAt.After(now) || current.CreditedCount >= current.RefreshCount {
+		return infraerrors.Conflict("BALANCE_PACKAGE_EXPIRED", "balance package has expired")
+	}
+	if lockedUser.Balance < 0 {
+		return infraerrors.Conflict("BALANCE_DEBT_OUTSTANDING", "user balance debt must be cleared before resuming package")
+	}
+	if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
+		Where(userbalancepackage.StatusEQ(balancePackageStatusDebtPaused)).
+		SetStatus(balancePackageStatusActive).
+		SetNextCreditAt(now).
+		Save(txCtx); err != nil {
+		return fmt.Errorf("resume debt package: %w", err)
+	}
+	operator := fmt.Sprintf("admin:%d", adminUserID)
+	if err := createBalancePackageDebtAudit(txCtx, client, current.PaymentOrderID, balancePackageDebtResumedAudit, current.CreditedCount, lockedUser.Balance, lockedUser.Balance, 0, now, operator); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit debt package resume: %w", err)
+	}
+	return nil
 }
 
 func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dbent.UserBalancePackage, now time.Time) (bool, error) {
@@ -495,6 +669,21 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	}
 	if current.Status != balancePackageStatusActive || current.NextCreditAt == nil ||
 		current.CreditedCount >= current.RefreshCount || !current.ExpiresAt.After(now) {
+		return false, nil
+	}
+	if currentBalance < 0 {
+		if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
+			Where(userbalancepackage.StatusEQ(balancePackageStatusActive)).
+			SetStatus(balancePackageStatusDebtPaused).
+			Save(txCtx); err != nil {
+			return false, fmt.Errorf("pause debt package before refresh: %w", err)
+		}
+		if err := createBalancePackageDebtAudit(txCtx, client, current.PaymentOrderID, balancePackageDebtPausedAudit, current.CreditedCount, currentBalance, currentBalance, current.WeeklyCreditUsd, timeOrZero(current.NextCreditAt), "system"); err != nil {
+			return false, err
+		}
+		if err := tx.Commit(); err != nil {
+			return false, fmt.Errorf("commit debt package pause before refresh: %w", err)
+		}
 		return false, nil
 	}
 	periodsDue := balancePackagePeriodsDue(current.NextCreditAt, now, current.RefreshIntervalDays)
@@ -555,6 +744,7 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	if err := tx.Commit(); err != nil {
 		return false, fmt.Errorf("commit scheduled balance package refresh: %w", err)
 	}
+	s.invalidateBalanceCache(ctx, current.UserID)
 	return true, nil
 }
 
@@ -562,7 +752,7 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 func (s *BalancePackageService) expireDueBalances(ctx context.Context, now time.Time) error {
 	items, err := s.entClient.UserBalancePackage.Query().
 		Where(
-			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted, balancePackageStatusDebtPaused),
 			userbalancepackage.ExpiresAtLTE(now),
 		).
 		Order(userbalancepackage.ByExpiresAt()).
@@ -595,7 +785,7 @@ func (s *BalancePackageService) expireBalancePackage(ctx context.Context, packag
 		}
 		return fmt.Errorf("lock expired balance package: %w", err)
 	}
-	if candidate.ExpiresAt.After(now) || (candidate.Status != balancePackageStatusActive && candidate.Status != balancePackageStatusCompleted) {
+	if candidate.ExpiresAt.After(now) || !isExpirableBalancePackageStatus(candidate.Status) {
 		return nil
 	}
 	if _, err := lockBalancePackageUser(txCtx, client, candidate.UserID); err != nil {
@@ -615,7 +805,7 @@ func (s *BalancePackageService) expireBalancePackage(ctx context.Context, packag
 		}
 		return fmt.Errorf("lock expired balance package: %w", err)
 	}
-	if item.ExpiresAt.After(now) || (item.Status != balancePackageStatusActive && item.Status != balancePackageStatusCompleted) {
+	if item.ExpiresAt.After(now) || !isExpirableBalancePackageStatus(item.Status) {
 		return nil
 	}
 	if _, err := client.UserBalancePackage.UpdateOneID(item.ID).
@@ -637,7 +827,12 @@ func (s *BalancePackageService) expireBalancePackage(ctx context.Context, packag
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit balance package expiration: %w", err)
 	}
+	s.invalidateBalanceCache(ctx, item.UserID)
 	return nil
+}
+
+func isExpirableBalancePackageStatus(status string) bool {
+	return status == balancePackageStatusActive || status == balancePackageStatusCompleted || status == balancePackageStatusDebtPaused
 }
 
 func balancePackagePeriodsDue(nextCreditAt *time.Time, now time.Time, intervalDays int) int {
@@ -673,6 +868,22 @@ func minFloat(left, right float64) float64 {
 	return right
 }
 
+func timeOrZero(value *time.Time) time.Time {
+	if value == nil {
+		return time.Time{}
+	}
+	return *value
+}
+
+func (s *BalancePackageService) invalidateBalanceCache(ctx context.Context, userID int64) {
+	if s == nil || s.billingCache == nil || userID <= 0 {
+		return
+	}
+	if err := s.billingCache.InvalidateUserBalance(ctx, userID); err != nil {
+		slog.Warn("invalidate balance package user cache failed", "user_id", userID, "error", err)
+	}
+}
+
 // recordBalanceDebtLedger 追加不可变欠费/还款流水，避免套餐退款或刷新覆盖历史欠费事实。
 func recordBalanceDebtLedger(ctx context.Context, client *dbent.Client, userID int64, entryType string, amount, balanceBefore, balanceAfter float64, sourceType, sourceRef string) error {
 	if client == nil || client.Driver().Dialect() != dialect.Postgres || userID <= 0 || amount <= 0 {
@@ -706,6 +917,26 @@ func createBalancePackageCreditAudit(ctx context.Context, client *dbent.Client, 
 	}
 	if _, err := client.PaymentAuditLog.Create().SetOrderID(fmt.Sprintf("%d", orderID)).SetAction(auditAction).SetDetail(string(detail)).SetOperator("system").Save(ctx); err != nil {
 		return fmt.Errorf("record balance package credit audit: %w", err)
+	}
+	return nil
+}
+
+func createBalancePackageDebtAudit(ctx context.Context, client *dbent.Client, orderID int64, action string, creditedCount int, balanceBefore, balanceAfter, weeklyCredit float64, plannedAt time.Time, operator string) error {
+	detail, _ := json.Marshal(map[string]any{
+		"credited_count":         creditedCount,
+		"balance_before_usd":     balanceBefore,
+		"balance_after_usd":      balanceAfter,
+		"weekly_credit_usd":      weeklyCredit,
+		"planned_next_credit_at": plannedAt.UTC().Format(time.RFC3339),
+	})
+	auditAction := fmt.Sprintf("%s_%d_%d", action, creditedCount, time.Now().UTC().UnixNano())
+	if _, err := client.PaymentAuditLog.Create().
+		SetOrderID(fmt.Sprintf("%d", orderID)).
+		SetAction(auditAction).
+		SetDetail(string(detail)).
+		SetOperator(operator).
+		Save(ctx); err != nil {
+		return fmt.Errorf("record balance package debt audit: %w", err)
 	}
 	return nil
 }

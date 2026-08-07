@@ -248,6 +248,34 @@ func (_c *BatchImageJobCreate) SetNillableHoldAmount(v *float64) *BatchImageJobC
 	return _c
 }
 
+// SetBalancePackageID sets the "balance_package_id" field.
+func (_c *BatchImageJobCreate) SetBalancePackageID(v int64) *BatchImageJobCreate {
+	_c.mutation.SetBalancePackageID(v)
+	return _c
+}
+
+// SetNillableBalancePackageID sets the "balance_package_id" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableBalancePackageID(v *int64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetBalancePackageID(*v)
+	}
+	return _c
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (_c *BatchImageJobCreate) SetBalancePackageHoldUsd(v float64) *BatchImageJobCreate {
+	_c.mutation.SetBalancePackageHoldUsd(v)
+	return _c
+}
+
+// SetNillableBalancePackageHoldUsd sets the "balance_package_hold_usd" field if the given value is not nil.
+func (_c *BatchImageJobCreate) SetNillableBalancePackageHoldUsd(v *float64) *BatchImageJobCreate {
+	if v != nil {
+		_c.SetBalancePackageHoldUsd(*v)
+	}
+	return _c
+}
+
 // SetActualCost sets the "actual_cost" field.
 func (_c *BatchImageJobCreate) SetActualCost(v float64) *BatchImageJobCreate {
 	_c.mutation.SetActualCost(v)
@@ -601,6 +629,10 @@ func (_c *BatchImageJobCreate) defaults() {
 		v := batchimagejob.DefaultEstimatedCost
 		_c.mutation.SetEstimatedCost(v)
 	}
+	if _, ok := _c.mutation.BalancePackageHoldUsd(); !ok {
+		v := batchimagejob.DefaultBalancePackageHoldUsd
+		_c.mutation.SetBalancePackageHoldUsd(v)
+	}
 	if _, ok := _c.mutation.Currency(); !ok {
 		v := batchimagejob.DefaultCurrency
 		_c.mutation.SetCurrency(v)
@@ -707,6 +739,9 @@ func (_c *BatchImageJobCreate) check() error {
 	}
 	if _, ok := _c.mutation.EstimatedCost(); !ok {
 		return &ValidationError{Name: "estimated_cost", err: errors.New(`ent: missing required field "BatchImageJob.estimated_cost"`)}
+	}
+	if _, ok := _c.mutation.BalancePackageHoldUsd(); !ok {
+		return &ValidationError{Name: "balance_package_hold_usd", err: errors.New(`ent: missing required field "BatchImageJob.balance_package_hold_usd"`)}
 	}
 	if _, ok := _c.mutation.Currency(); !ok {
 		return &ValidationError{Name: "currency", err: errors.New(`ent: missing required field "BatchImageJob.currency"`)}
@@ -855,6 +890,14 @@ func (_c *BatchImageJobCreate) createSpec() (*BatchImageJob, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.HoldAmount(); ok {
 		_spec.SetField(batchimagejob.FieldHoldAmount, field.TypeFloat64, value)
 		_node.HoldAmount = &value
+	}
+	if value, ok := _c.mutation.BalancePackageID(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageID, field.TypeInt64, value)
+		_node.BalancePackageID = &value
+	}
+	if value, ok := _c.mutation.BalancePackageHoldUsd(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageHoldUsd, field.TypeFloat64, value)
+		_node.BalancePackageHoldUsd = value
 	}
 	if value, ok := _c.mutation.ActualCost(); ok {
 		_spec.SetField(batchimagejob.FieldActualCost, field.TypeFloat64, value)
@@ -1307,6 +1350,48 @@ func (u *BatchImageJobUpsert) AddHoldAmount(v float64) *BatchImageJobUpsert {
 // ClearHoldAmount clears the value of the "hold_amount" field.
 func (u *BatchImageJobUpsert) ClearHoldAmount() *BatchImageJobUpsert {
 	u.SetNull(batchimagejob.FieldHoldAmount)
+	return u
+}
+
+// SetBalancePackageID sets the "balance_package_id" field.
+func (u *BatchImageJobUpsert) SetBalancePackageID(v int64) *BatchImageJobUpsert {
+	u.Set(batchimagejob.FieldBalancePackageID, v)
+	return u
+}
+
+// UpdateBalancePackageID sets the "balance_package_id" field to the value that was provided on create.
+func (u *BatchImageJobUpsert) UpdateBalancePackageID() *BatchImageJobUpsert {
+	u.SetExcluded(batchimagejob.FieldBalancePackageID)
+	return u
+}
+
+// AddBalancePackageID adds v to the "balance_package_id" field.
+func (u *BatchImageJobUpsert) AddBalancePackageID(v int64) *BatchImageJobUpsert {
+	u.Add(batchimagejob.FieldBalancePackageID, v)
+	return u
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (u *BatchImageJobUpsert) ClearBalancePackageID() *BatchImageJobUpsert {
+	u.SetNull(batchimagejob.FieldBalancePackageID)
+	return u
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsert) SetBalancePackageHoldUsd(v float64) *BatchImageJobUpsert {
+	u.Set(batchimagejob.FieldBalancePackageHoldUsd, v)
+	return u
+}
+
+// UpdateBalancePackageHoldUsd sets the "balance_package_hold_usd" field to the value that was provided on create.
+func (u *BatchImageJobUpsert) UpdateBalancePackageHoldUsd() *BatchImageJobUpsert {
+	u.SetExcluded(batchimagejob.FieldBalancePackageHoldUsd)
+	return u
+}
+
+// AddBalancePackageHoldUsd adds v to the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsert) AddBalancePackageHoldUsd(v float64) *BatchImageJobUpsert {
+	u.Add(batchimagejob.FieldBalancePackageHoldUsd, v)
 	return u
 }
 
@@ -2080,6 +2165,55 @@ func (u *BatchImageJobUpsertOne) UpdateHoldAmount() *BatchImageJobUpsertOne {
 func (u *BatchImageJobUpsertOne) ClearHoldAmount() *BatchImageJobUpsertOne {
 	return u.Update(func(s *BatchImageJobUpsert) {
 		s.ClearHoldAmount()
+	})
+}
+
+// SetBalancePackageID sets the "balance_package_id" field.
+func (u *BatchImageJobUpsertOne) SetBalancePackageID(v int64) *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.SetBalancePackageID(v)
+	})
+}
+
+// AddBalancePackageID adds v to the "balance_package_id" field.
+func (u *BatchImageJobUpsertOne) AddBalancePackageID(v int64) *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.AddBalancePackageID(v)
+	})
+}
+
+// UpdateBalancePackageID sets the "balance_package_id" field to the value that was provided on create.
+func (u *BatchImageJobUpsertOne) UpdateBalancePackageID() *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.UpdateBalancePackageID()
+	})
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (u *BatchImageJobUpsertOne) ClearBalancePackageID() *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.ClearBalancePackageID()
+	})
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsertOne) SetBalancePackageHoldUsd(v float64) *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.SetBalancePackageHoldUsd(v)
+	})
+}
+
+// AddBalancePackageHoldUsd adds v to the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsertOne) AddBalancePackageHoldUsd(v float64) *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.AddBalancePackageHoldUsd(v)
+	})
+}
+
+// UpdateBalancePackageHoldUsd sets the "balance_package_hold_usd" field to the value that was provided on create.
+func (u *BatchImageJobUpsertOne) UpdateBalancePackageHoldUsd() *BatchImageJobUpsertOne {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.UpdateBalancePackageHoldUsd()
 	})
 }
 
@@ -3078,6 +3212,55 @@ func (u *BatchImageJobUpsertBulk) UpdateHoldAmount() *BatchImageJobUpsertBulk {
 func (u *BatchImageJobUpsertBulk) ClearHoldAmount() *BatchImageJobUpsertBulk {
 	return u.Update(func(s *BatchImageJobUpsert) {
 		s.ClearHoldAmount()
+	})
+}
+
+// SetBalancePackageID sets the "balance_package_id" field.
+func (u *BatchImageJobUpsertBulk) SetBalancePackageID(v int64) *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.SetBalancePackageID(v)
+	})
+}
+
+// AddBalancePackageID adds v to the "balance_package_id" field.
+func (u *BatchImageJobUpsertBulk) AddBalancePackageID(v int64) *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.AddBalancePackageID(v)
+	})
+}
+
+// UpdateBalancePackageID sets the "balance_package_id" field to the value that was provided on create.
+func (u *BatchImageJobUpsertBulk) UpdateBalancePackageID() *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.UpdateBalancePackageID()
+	})
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (u *BatchImageJobUpsertBulk) ClearBalancePackageID() *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.ClearBalancePackageID()
+	})
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsertBulk) SetBalancePackageHoldUsd(v float64) *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.SetBalancePackageHoldUsd(v)
+	})
+}
+
+// AddBalancePackageHoldUsd adds v to the "balance_package_hold_usd" field.
+func (u *BatchImageJobUpsertBulk) AddBalancePackageHoldUsd(v float64) *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.AddBalancePackageHoldUsd(v)
+	})
+}
+
+// UpdateBalancePackageHoldUsd sets the "balance_package_hold_usd" field to the value that was provided on create.
+func (u *BatchImageJobUpsertBulk) UpdateBalancePackageHoldUsd() *BatchImageJobUpsertBulk {
+	return u.Update(func(s *BatchImageJobUpsert) {
+		s.UpdateBalancePackageHoldUsd()
 	})
 }
 

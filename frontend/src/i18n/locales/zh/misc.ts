@@ -119,6 +119,7 @@ export default {
       expired: '已过期',
       revoked: '已撤销',
       completed: '已到账',
+      debt_paused: '欠费暂停',
       refunded: '已退款'
     },
     balancePackagesTitle: '余额套餐',
@@ -131,6 +132,8 @@ export default {
     nextCredit: '下次到账',
     nextRefresh: '下次刷新',
     refreshCompleted: '本周期已完成，不再刷新',
+    debtPausedNotice: '首周额度不足以抵销欠费，后续额度已暂停，请联系管理员',
+    originalNextRefresh: '原计划刷新时间',
     buyAgain: '再次购买',
     modelSubscriptionsTitle: '模型订阅',
     usage: '用量',

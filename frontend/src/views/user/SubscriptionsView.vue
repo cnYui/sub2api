@@ -58,6 +58,7 @@
                   </div>
                 </div>
                 <button
+                  v-if="balancePackage.status !== 'debt_paused'"
                   class="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                   @click="router.push('/purchase')"
                 >
@@ -66,6 +67,12 @@
               </div>
 
               <div class="space-y-4 p-4">
+                <div
+                  v-if="balancePackage.status === 'debt_paused'"
+                  class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200"
+                >
+                  {{ t('userSubscriptions.debtPausedNotice') }}
+                </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30">
                     <p class="text-xs text-emerald-700/70 dark:text-emerald-300/70">{{ t('userSubscriptions.weeklyRemaining') }}</p>
@@ -101,6 +108,10 @@
                   </div>
                   <div v-if="balancePackage.next_credit_at && balancePackage.status === 'active'" class="flex items-center justify-between">
                     <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextRefresh') }}</span>
+                    <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
+                  </div>
+                  <div v-else-if="balancePackage.next_credit_at && balancePackage.status === 'debt_paused'" class="flex items-center justify-between">
+                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.originalNextRefresh') }}</span>
                     <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
                   </div>
                   <div v-else-if="balancePackage.status === 'completed'" class="text-gray-500 dark:text-dark-400">
@@ -407,7 +418,7 @@ async function loadSubscriptions() {
   if (balancePackageResult.status === 'fulfilled') {
     const now = Date.now()
     balancePackages.value = balancePackageResult.value.data
-      .filter((item) => (item.status === 'active' || item.status === 'completed') && new Date(item.expires_at).getTime() > now)
+      .filter((item) => (item.status === 'active' || item.status === 'completed' || item.status === 'debt_paused') && new Date(item.expires_at).getTime() > now)
       .slice(0, 1)
   } else {
     console.error('Failed to load balance packages:', balancePackageResult.reason)
@@ -431,6 +442,7 @@ function balancePackageProgress(balancePackage: UserBalancePackage): number {
 function balancePackageStatusClass(status: UserBalancePackage['status']): string {
   if (status === 'active') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
   if (status === 'completed') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+  if (status === 'debt_paused') return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
   if (status === 'refunded') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
   return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-400'
 }
@@ -439,6 +451,7 @@ function balancePackageStatusLabel(status: UserBalancePackage['status']): string
   const labels: Record<string, string> = {
     active: t('userSubscriptions.status.active'),
     completed: t('userSubscriptions.status.completed'),
+    debt_paused: t('userSubscriptions.status.debt_paused'),
     expired: t('userSubscriptions.status.expired'),
     refunded: t('userSubscriptions.status.refunded')
   }

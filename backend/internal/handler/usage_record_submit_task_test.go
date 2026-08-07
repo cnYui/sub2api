@@ -93,6 +93,32 @@ func TestOpenAIGatewayHandlerSubmitUsageRecordTask_WithPool(t *testing.T) {
 	}
 }
 
+func TestGatewayHandlerSubmitUsageRecordTask_WaitsForSettlementEvenWithPool(t *testing.T) {
+	pool := newUsageRecordTestPool(t)
+	h := &GatewayHandler{usageRecordWorkerPool: pool}
+	var completed atomic.Bool
+
+	h.submitUsageRecordTask(context.Background(), func(ctx context.Context) {
+		time.Sleep(20 * time.Millisecond)
+		completed.Store(true)
+	})
+
+	require.True(t, completed.Load(), "handler 返回前必须完成资金结算")
+}
+
+func TestOpenAIGatewayHandlerSubmitUsageRecordTask_WaitsForSettlementEvenWithPool(t *testing.T) {
+	pool := newUsageRecordTestPool(t)
+	h := &OpenAIGatewayHandler{usageRecordWorkerPool: pool}
+	var completed atomic.Bool
+
+	h.submitUsageRecordTask(context.Background(), func(ctx context.Context) {
+		time.Sleep(20 * time.Millisecond)
+		completed.Store(true)
+	})
+
+	require.True(t, completed.Load(), "OpenAI handler 返回前必须完成资金结算")
+}
+
 func TestOpenAIGatewayHandlerSubmitUsageRecordTask_WithoutPoolSyncFallback(t *testing.T) {
 	h := &OpenAIGatewayHandler{}
 	var called atomic.Bool

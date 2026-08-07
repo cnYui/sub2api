@@ -513,6 +513,20 @@ func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 	if cmd.HoldAmount <= 0 {
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
+	packageID := int64(0)
+	packageHold := 0.0
+	if strings.TrimSpace(cmd.BatchID) != "" {
+		if err := lockUsageBillingUser(ctx, tx, cmd.UserID); err != nil {
+			return nil, err
+		}
+		var packageRemaining float64
+		var err error
+		packageID, packageRemaining, err = lockCurrentBalancePackage(ctx, tx, cmd.UserID)
+		if err != nil {
+			return nil, err
+		}
+		packageHold = minFloat(cmd.HoldAmount, packageRemaining)
+	}
 	var balance, frozen float64
 	err := tx.QueryRowContext(ctx, `
 		UPDATE users
@@ -523,6 +537,16 @@ func reserveUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		RETURNING balance, frozen_balance
 	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
 	if err == nil {
+		if packageID > 0 && packageHold > 0 {
+			if err := consumeCurrentBalancePackage(ctx, tx, packageID, packageHold); err != nil {
+				return nil, err
+			}
+		}
+		if strings.TrimSpace(cmd.BatchID) != "" {
+			if err := recordBatchImageBalancePackageSource(ctx, tx, cmd.BatchID, cmd.UserID, packageID, packageHold); err != nil {
+				return nil, err
+			}
+		}
 		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -543,8 +567,12 @@ func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 	if cmd.ActualAmount-cmd.HoldAmount > 0.00000001 {
 		return nil, service.ErrBatchImageSettlementCostExceedsHold
 	}
+	source, err := lockBatchImageBalancePackageSource(ctx, tx, cmd.BatchID, cmd.UserID)
+	if err != nil {
+		return nil, err
+	}
 	var balance, frozen float64
-	err := tx.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance
 				+ CASE WHEN $1 > $2 THEN $1 - $2 ELSE 0 END
@@ -555,6 +583,21 @@ func captureUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		RETURNING balance, frozen_balance
 	`, cmd.HoldAmount, cmd.ActualAmount, cmd.UserID).Scan(&balance, &frozen)
 	if err == nil {
+		packageConsumed := minFloat(cmd.ActualAmount, source.holdUSD)
+		packageUnused := source.holdUSD - packageConsumed
+		restored, err := restoreBatchImageBalancePackageSource(ctx, tx, source, cmd.UserID, packageUnused)
+		if err != nil {
+			return nil, err
+		}
+		if !restored {
+			balance, frozen, err = discardExpiredBatchImagePackageRefund(ctx, tx, cmd.UserID, packageUnused)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err := clearBatchImageBalancePackageSource(ctx, tx, cmd.BatchID, cmd.UserID); err != nil {
+			return nil, err
+		}
 		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -582,8 +625,12 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		logger.LegacyPrintf("repository.usage_billing", "[BatchImage] release skipped, hold was never reserved: batch=%s", cmd.BatchID)
 		return &service.BatchImageBalanceHoldResult{}, nil
 	}
+	source, err := lockBatchImageBalancePackageSource(ctx, tx, cmd.BatchID, cmd.UserID)
+	if err != nil {
+		return nil, err
+	}
 	var balance, frozen float64
-	err := tx.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		UPDATE users
 		SET balance = balance + $1,
 			frozen_balance = COALESCE(frozen_balance, 0) - $1,
@@ -592,6 +639,19 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		RETURNING balance, frozen_balance
 	`, cmd.HoldAmount, cmd.UserID).Scan(&balance, &frozen)
 	if err == nil {
+		restored, err := restoreBatchImageBalancePackageSource(ctx, tx, source, cmd.UserID, source.holdUSD)
+		if err != nil {
+			return nil, err
+		}
+		if !restored {
+			balance, frozen, err = discardExpiredBatchImagePackageRefund(ctx, tx, cmd.UserID, source.holdUSD)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if err := clearBatchImageBalancePackageSource(ctx, tx, cmd.BatchID, cmd.UserID); err != nil {
+			return nil, err
+		}
 		return &service.BatchImageBalanceHoldResult{NewBalance: &balance, FrozenBalance: &frozen}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -603,6 +663,109 @@ func releaseUsageBillingBatchImageBalance(ctx context.Context, tx *sql.Tx, cmd *
 		return nil, service.ErrUserNotFound
 	}
 	return nil, errors.New("batch image frozen balance is insufficient")
+}
+
+type batchImageBalancePackageSource struct {
+	packageID int64
+	holdUSD   float64
+}
+
+func recordBatchImageBalancePackageSource(ctx context.Context, tx *sql.Tx, batchID string, userID, packageID int64, holdUSD float64) error {
+	var packageValue any
+	if packageID > 0 {
+		packageValue = packageID
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE batch_image_jobs
+		SET balance_package_id = $1,
+			balance_package_hold_usd = $2,
+			updated_at = NOW()
+		WHERE batch_id = $3 AND user_id = $4
+	`, packageValue, holdUSD, strings.TrimSpace(batchID), userID)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errors.New("batch image job is missing while recording balance package source")
+	}
+	return nil
+}
+
+func lockBatchImageBalancePackageSource(ctx context.Context, tx *sql.Tx, batchID string, userID int64) (batchImageBalancePackageSource, error) {
+	if strings.TrimSpace(batchID) == "" {
+		return batchImageBalancePackageSource{}, nil
+	}
+	var source batchImageBalancePackageSource
+	err := tx.QueryRowContext(ctx, `
+		SELECT COALESCE(balance_package_id, 0), balance_package_hold_usd
+		FROM batch_image_jobs
+		WHERE batch_id = $1 AND user_id = $2
+		FOR UPDATE
+	`, strings.TrimSpace(batchID), userID).Scan(&source.packageID, &source.holdUSD)
+	if errors.Is(err, sql.ErrNoRows) {
+		return source, errors.New("batch image job is missing while loading balance package source")
+	}
+	return source, err
+}
+
+func restoreBatchImageBalancePackageSource(ctx context.Context, tx *sql.Tx, source batchImageBalancePackageSource, userID int64, amount float64) (bool, error) {
+	if source.packageID <= 0 || amount <= 0 {
+		return true, nil
+	}
+	result, err := tx.ExecContext(ctx, `
+		UPDATE user_balance_packages
+		SET remaining_usd = LEAST(
+				weekly_credit_usd,
+				remaining_usd + LEAST(
+					$1,
+					GREATEST((SELECT balance FROM users WHERE id = $3 AND deleted_at IS NULL) - remaining_usd, 0)
+				)
+			),
+			updated_at = NOW()
+		WHERE id = $2
+		  AND status IN ('active', 'completed', 'debt_paused')
+		  AND expires_at > NOW()
+	`, amount, source.packageID, userID)
+	if err != nil {
+		return false, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return affected == 1, nil
+}
+
+func discardExpiredBatchImagePackageRefund(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, float64, error) {
+	if amount <= 0 {
+		return 0, 0, nil
+	}
+	var balance, frozen float64
+	err := tx.QueryRowContext(ctx, `
+		UPDATE users
+		SET balance = balance - $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+		RETURNING balance, frozen_balance
+	`, amount, userID).Scan(&balance, &frozen)
+	return balance, frozen, err
+}
+
+func clearBatchImageBalancePackageSource(ctx context.Context, tx *sql.Tx, batchID string, userID int64) error {
+	if strings.TrimSpace(batchID) == "" {
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `
+		UPDATE batch_image_jobs
+		SET balance_package_id = NULL,
+			balance_package_hold_usd = 0,
+			updated_at = NOW()
+		WHERE batch_id = $1 AND user_id = $2
+	`, strings.TrimSpace(batchID), userID)
+	return err
 }
 
 // batchImageHoldClaimExists 检查 hold request id 是否已在 dedup（或归档）表中被 claim，

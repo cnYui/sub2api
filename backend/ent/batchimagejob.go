@@ -55,6 +55,10 @@ type BatchImageJob struct {
 	EstimatedCost float64 `json:"estimated_cost,omitempty"`
 	// HoldAmount holds the value of the "hold_amount" field.
 	HoldAmount *float64 `json:"hold_amount,omitempty"`
+	// BalancePackageID holds the value of the "balance_package_id" field.
+	BalancePackageID *int64 `json:"balance_package_id,omitempty"`
+	// BalancePackageHoldUsd holds the value of the "balance_package_hold_usd" field.
+	BalancePackageHoldUsd float64 `json:"balance_package_hold_usd,omitempty"`
 	// ActualCost holds the value of the "actual_cost" field.
 	ActualCost *float64 `json:"actual_cost,omitempty"`
 	// Currency holds the value of the "currency" field.
@@ -105,9 +109,9 @@ func (*BatchImageJob) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case batchimagejob.FieldEstimatedCost, batchimagejob.FieldHoldAmount, batchimagejob.FieldActualCost:
+		case batchimagejob.FieldEstimatedCost, batchimagejob.FieldHoldAmount, batchimagejob.FieldBalancePackageHoldUsd, batchimagejob.FieldActualCost:
 			values[i] = new(sql.NullFloat64)
-		case batchimagejob.FieldID, batchimagejob.FieldUserID, batchimagejob.FieldAPIKeyID, batchimagejob.FieldAccountID, batchimagejob.FieldItemCount, batchimagejob.FieldSuccessCount, batchimagejob.FieldFailCount, batchimagejob.FieldCancelledCount, batchimagejob.FieldRetryCount, batchimagejob.FieldVersion:
+		case batchimagejob.FieldID, batchimagejob.FieldUserID, batchimagejob.FieldAPIKeyID, batchimagejob.FieldAccountID, batchimagejob.FieldItemCount, batchimagejob.FieldSuccessCount, batchimagejob.FieldFailCount, batchimagejob.FieldCancelledCount, batchimagejob.FieldBalancePackageID, batchimagejob.FieldRetryCount, batchimagejob.FieldVersion:
 			values[i] = new(sql.NullInt64)
 		case batchimagejob.FieldBatchID, batchimagejob.FieldProvider, batchimagejob.FieldModel, batchimagejob.FieldTaskName, batchimagejob.FieldStatus, batchimagejob.FieldProviderJobName, batchimagejob.FieldProviderInputRef, batchimagejob.FieldProviderOutputRef, batchimagejob.FieldGcsInputURI, batchimagejob.FieldGcsOutputURI, batchimagejob.FieldCurrency, batchimagejob.FieldHoldID, batchimagejob.FieldIdempotencyKey, batchimagejob.FieldRequestHash, batchimagejob.FieldManifestHash, batchimagejob.FieldLastErrorCode, batchimagejob.FieldLastErrorMessage:
 			values[i] = new(sql.NullString)
@@ -255,6 +259,19 @@ func (_m *BatchImageJob) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.HoldAmount = new(float64)
 				*_m.HoldAmount = value.Float64
+			}
+		case batchimagejob.FieldBalancePackageID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_id", values[i])
+			} else if value.Valid {
+				_m.BalancePackageID = new(int64)
+				*_m.BalancePackageID = value.Int64
+			}
+		case batchimagejob.FieldBalancePackageHoldUsd:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field balance_package_hold_usd", values[i])
+			} else if value.Valid {
+				_m.BalancePackageHoldUsd = value.Float64
 			}
 		case batchimagejob.FieldActualCost:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -506,6 +523,14 @@ func (_m *BatchImageJob) String() string {
 		builder.WriteString("hold_amount=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	if v := _m.BalancePackageID; v != nil {
+		builder.WriteString("balance_package_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("balance_package_hold_usd=")
+	builder.WriteString(fmt.Sprintf("%v", _m.BalancePackageHoldUsd))
 	builder.WriteString(", ")
 	if v := _m.ActualCost; v != nil {
 		builder.WriteString("actual_cost=")

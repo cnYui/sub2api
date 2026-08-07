@@ -628,46 +628,50 @@ func init() {
 	batchimagejobDescEstimatedCost := batchimagejobFields[17].Descriptor()
 	// batchimagejob.DefaultEstimatedCost holds the default value on creation for the estimated_cost field.
 	batchimagejob.DefaultEstimatedCost = batchimagejobDescEstimatedCost.Default.(float64)
+	// batchimagejobDescBalancePackageHoldUsd is the schema descriptor for balance_package_hold_usd field.
+	batchimagejobDescBalancePackageHoldUsd := batchimagejobFields[20].Descriptor()
+	// batchimagejob.DefaultBalancePackageHoldUsd holds the default value on creation for the balance_package_hold_usd field.
+	batchimagejob.DefaultBalancePackageHoldUsd = batchimagejobDescBalancePackageHoldUsd.Default.(float64)
 	// batchimagejobDescCurrency is the schema descriptor for currency field.
-	batchimagejobDescCurrency := batchimagejobFields[20].Descriptor()
+	batchimagejobDescCurrency := batchimagejobFields[22].Descriptor()
 	// batchimagejob.DefaultCurrency holds the default value on creation for the currency field.
 	batchimagejob.DefaultCurrency = batchimagejobDescCurrency.Default.(string)
 	// batchimagejob.CurrencyValidator is a validator for the "currency" field. It is called by the builders before save.
 	batchimagejob.CurrencyValidator = batchimagejobDescCurrency.Validators[0].(func(string) error)
 	// batchimagejobDescHoldID is the schema descriptor for hold_id field.
-	batchimagejobDescHoldID := batchimagejobFields[21].Descriptor()
+	batchimagejobDescHoldID := batchimagejobFields[23].Descriptor()
 	// batchimagejob.HoldIDValidator is a validator for the "hold_id" field. It is called by the builders before save.
 	batchimagejob.HoldIDValidator = batchimagejobDescHoldID.Validators[0].(func(string) error)
 	// batchimagejobDescIdempotencyKey is the schema descriptor for idempotency_key field.
-	batchimagejobDescIdempotencyKey := batchimagejobFields[22].Descriptor()
+	batchimagejobDescIdempotencyKey := batchimagejobFields[24].Descriptor()
 	// batchimagejob.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
 	batchimagejob.IdempotencyKeyValidator = batchimagejobDescIdempotencyKey.Validators[0].(func(string) error)
 	// batchimagejobDescRequestHash is the schema descriptor for request_hash field.
-	batchimagejobDescRequestHash := batchimagejobFields[23].Descriptor()
+	batchimagejobDescRequestHash := batchimagejobFields[25].Descriptor()
 	// batchimagejob.RequestHashValidator is a validator for the "request_hash" field. It is called by the builders before save.
 	batchimagejob.RequestHashValidator = batchimagejobDescRequestHash.Validators[0].(func(string) error)
 	// batchimagejobDescManifestHash is the schema descriptor for manifest_hash field.
-	batchimagejobDescManifestHash := batchimagejobFields[24].Descriptor()
+	batchimagejobDescManifestHash := batchimagejobFields[26].Descriptor()
 	// batchimagejob.ManifestHashValidator is a validator for the "manifest_hash" field. It is called by the builders before save.
 	batchimagejob.ManifestHashValidator = batchimagejobDescManifestHash.Validators[0].(func(string) error)
 	// batchimagejobDescRetryCount is the schema descriptor for retry_count field.
-	batchimagejobDescRetryCount := batchimagejobFields[25].Descriptor()
+	batchimagejobDescRetryCount := batchimagejobFields[27].Descriptor()
 	// batchimagejob.DefaultRetryCount holds the default value on creation for the retry_count field.
 	batchimagejob.DefaultRetryCount = batchimagejobDescRetryCount.Default.(int)
 	// batchimagejobDescVersion is the schema descriptor for version field.
-	batchimagejobDescVersion := batchimagejobFields[26].Descriptor()
+	batchimagejobDescVersion := batchimagejobFields[28].Descriptor()
 	// batchimagejob.DefaultVersion holds the default value on creation for the version field.
 	batchimagejob.DefaultVersion = batchimagejobDescVersion.Default.(int)
 	// batchimagejobDescLastErrorCode is the schema descriptor for last_error_code field.
-	batchimagejobDescLastErrorCode := batchimagejobFields[32].Descriptor()
+	batchimagejobDescLastErrorCode := batchimagejobFields[34].Descriptor()
 	// batchimagejob.LastErrorCodeValidator is a validator for the "last_error_code" field. It is called by the builders before save.
 	batchimagejob.LastErrorCodeValidator = batchimagejobDescLastErrorCode.Validators[0].(func(string) error)
 	// batchimagejobDescCreatedAt is the schema descriptor for created_at field.
-	batchimagejobDescCreatedAt := batchimagejobFields[34].Descriptor()
+	batchimagejobDescCreatedAt := batchimagejobFields[36].Descriptor()
 	// batchimagejob.DefaultCreatedAt holds the default value on creation for the created_at field.
 	batchimagejob.DefaultCreatedAt = batchimagejobDescCreatedAt.Default.(func() time.Time)
 	// batchimagejobDescUpdatedAt is the schema descriptor for updated_at field.
-	batchimagejobDescUpdatedAt := batchimagejobFields[35].Descriptor()
+	batchimagejobDescUpdatedAt := batchimagejobFields[37].Descriptor()
 	// batchimagejob.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	batchimagejob.DefaultUpdatedAt = batchimagejobDescUpdatedAt.Default.(func() time.Time)
 	// batchimagejob.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

@@ -736,16 +736,31 @@ func (s *BillingCacheService) IncrementUserPlatformQuotaUsage(userID int64, plat
 // ============================================
 
 // CheckBillingEligibility 检查用户是否有资格发起请求
-// 余额模式：检查缓存余额 > 0
+// 余额模式：以数据库余额作为最终准入事实，Redis 只承担加速与展示同步
 // 订阅模式：检查缓存用量未超过限额（Group限额从参数传入）
 // platform 为请求的目标平台（如 "anthropic"），传空串 "" 时跳过 user × platform quota 检查。
 func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user *User, apiKey *APIKey, group *Group, subscription *UserSubscription, platform string) error {
-	// 简易模式：跳过所有计费检查
-	if s.cfg.RunMode == config.RunModeSimple {
-		return nil
-	}
 	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
 		return ErrBillingServiceUnavailable
+	}
+
+	balance, err := s.getFreshBillingBalance(ctx, user)
+	if err != nil {
+		if s.circuitBreaker != nil {
+			s.circuitBreaker.OnFailure(err)
+		}
+		logger.LegacyPrintf("service.billing_cache", "ALERT: fresh billing balance check failed for user %d: %v", user.ID, err)
+		return ErrBillingServiceUnavailable.WithCause(err)
+	}
+	if s.circuitBreaker != nil {
+		s.circuitBreaker.OnSuccess()
+	}
+	if balance < 0 {
+		return ErrInsufficientBalance
+	}
+	// 简易模式仍必须执行欠费终检，避免运行模式开关成为余额负数的绕过入口。
+	if s.cfg.RunMode == config.RunModeSimple {
+		return nil
 	}
 
 	// 判断计费模式
@@ -756,7 +771,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 			return err
 		}
 	} else {
-		if err := s.checkBalanceEligibility(ctx, user.ID, platform); err != nil {
+		if err := s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance); err != nil {
 			return err
 		}
 	}
@@ -780,6 +795,36 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		return err
 	}
 
+	return nil
+}
+
+func (s *BillingCacheService) getFreshBillingBalance(ctx context.Context, user *User) (float64, error) {
+	if user == nil || user.ID <= 0 {
+		return 0, ErrUserNotFound
+	}
+	if s.userRepo != nil {
+		return s.getUserBalanceFromDB(ctx, user.ID)
+	}
+	if s.cache != nil {
+		// 仅保留给不具备完整仓库注入的单元测试；生产 Wire 始终注入 userRepo。
+		return s.GetUserBalance(ctx, user.ID)
+	}
+	// 简化组件可能同时不注入仓库和缓存；生产不会进入该分支。
+	return user.Balance, nil
+}
+
+// CheckFreshBalanceDebt 只做 PostgreSQL 欠费终检，不增加 RPM 或配额计数。
+func (s *BillingCacheService) CheckFreshBalanceDebt(ctx context.Context, user *User) error {
+	if s == nil {
+		return ErrBillingServiceUnavailable
+	}
+	balance, err := s.getFreshBillingBalance(ctx, user)
+	if err != nil {
+		return ErrBillingServiceUnavailable.WithCause(err)
+	}
+	if balance < 0 {
+		return ErrInsufficientBalance
+	}
 	return nil
 }
 
@@ -896,6 +941,13 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 		s.circuitBreaker.OnSuccess()
 	}
 
+	return s.checkBalanceEligibilityWithBalance(ctx, userID, platform, balance)
+}
+
+func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64) error {
+	if balance < 0 {
+		return ErrInsufficientBalance
+	}
 	if s.balanceBelowEligibilityThreshold(balance) {
 		if s.CanUseTrafficPackCredit(ctx, userID, platform) {
 			return nil

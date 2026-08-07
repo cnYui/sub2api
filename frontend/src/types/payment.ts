@@ -208,7 +208,7 @@ export interface UserBalancePackage {
   starts_at: string
   next_credit_at?: string
   expires_at: string
-  status: 'active' | 'completed' | 'expired' | 'refunded' | string
+  status: 'active' | 'completed' | 'debt_paused' | 'expired' | 'refunded' | string
   created_at: string
   updated_at: string
 }

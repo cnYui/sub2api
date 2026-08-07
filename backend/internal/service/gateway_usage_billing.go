@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -298,6 +299,9 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
+		if deps.cfg != nil && deps.cfg.RunMode == config.RunModeStandard {
+			return false, ErrBillingServiceUnavailable.WithCause(errors.New("unified usage billing repository is unavailable"))
+		}
 		postUsageBilling(ctx, p, deps)
 		return true, nil
 	}

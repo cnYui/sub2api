@@ -391,6 +391,54 @@ func (_u *BatchImageJobUpdate) ClearHoldAmount() *BatchImageJobUpdate {
 	return _u
 }
 
+// SetBalancePackageID sets the "balance_package_id" field.
+func (_u *BatchImageJobUpdate) SetBalancePackageID(v int64) *BatchImageJobUpdate {
+	_u.mutation.ResetBalancePackageID()
+	_u.mutation.SetBalancePackageID(v)
+	return _u
+}
+
+// SetNillableBalancePackageID sets the "balance_package_id" field if the given value is not nil.
+func (_u *BatchImageJobUpdate) SetNillableBalancePackageID(v *int64) *BatchImageJobUpdate {
+	if v != nil {
+		_u.SetBalancePackageID(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageID adds value to the "balance_package_id" field.
+func (_u *BatchImageJobUpdate) AddBalancePackageID(v int64) *BatchImageJobUpdate {
+	_u.mutation.AddBalancePackageID(v)
+	return _u
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (_u *BatchImageJobUpdate) ClearBalancePackageID() *BatchImageJobUpdate {
+	_u.mutation.ClearBalancePackageID()
+	return _u
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (_u *BatchImageJobUpdate) SetBalancePackageHoldUsd(v float64) *BatchImageJobUpdate {
+	_u.mutation.ResetBalancePackageHoldUsd()
+	_u.mutation.SetBalancePackageHoldUsd(v)
+	return _u
+}
+
+// SetNillableBalancePackageHoldUsd sets the "balance_package_hold_usd" field if the given value is not nil.
+func (_u *BatchImageJobUpdate) SetNillableBalancePackageHoldUsd(v *float64) *BatchImageJobUpdate {
+	if v != nil {
+		_u.SetBalancePackageHoldUsd(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageHoldUsd adds value to the "balance_package_hold_usd" field.
+func (_u *BatchImageJobUpdate) AddBalancePackageHoldUsd(v float64) *BatchImageJobUpdate {
+	_u.mutation.AddBalancePackageHoldUsd(v)
+	return _u
+}
+
 // SetActualCost sets the "actual_cost" field.
 func (_u *BatchImageJobUpdate) SetActualCost(v float64) *BatchImageJobUpdate {
 	_u.mutation.ResetActualCost()
@@ -1018,6 +1066,21 @@ func (_u *BatchImageJobUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	if _u.mutation.HoldAmountCleared() {
 		_spec.ClearField(batchimagejob.FieldHoldAmount, field.TypeFloat64)
 	}
+	if value, ok := _u.mutation.BalancePackageID(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageID(); ok {
+		_spec.AddField(batchimagejob.FieldBalancePackageID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalancePackageIDCleared() {
+		_spec.ClearField(batchimagejob.FieldBalancePackageID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalancePackageHoldUsd(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageHoldUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageHoldUsd(); ok {
+		_spec.AddField(batchimagejob.FieldBalancePackageHoldUsd, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.ActualCost(); ok {
 		_spec.SetField(batchimagejob.FieldActualCost, field.TypeFloat64, value)
 	}
@@ -1515,6 +1578,54 @@ func (_u *BatchImageJobUpdateOne) AddHoldAmount(v float64) *BatchImageJobUpdateO
 // ClearHoldAmount clears the value of the "hold_amount" field.
 func (_u *BatchImageJobUpdateOne) ClearHoldAmount() *BatchImageJobUpdateOne {
 	_u.mutation.ClearHoldAmount()
+	return _u
+}
+
+// SetBalancePackageID sets the "balance_package_id" field.
+func (_u *BatchImageJobUpdateOne) SetBalancePackageID(v int64) *BatchImageJobUpdateOne {
+	_u.mutation.ResetBalancePackageID()
+	_u.mutation.SetBalancePackageID(v)
+	return _u
+}
+
+// SetNillableBalancePackageID sets the "balance_package_id" field if the given value is not nil.
+func (_u *BatchImageJobUpdateOne) SetNillableBalancePackageID(v *int64) *BatchImageJobUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageID(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageID adds value to the "balance_package_id" field.
+func (_u *BatchImageJobUpdateOne) AddBalancePackageID(v int64) *BatchImageJobUpdateOne {
+	_u.mutation.AddBalancePackageID(v)
+	return _u
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (_u *BatchImageJobUpdateOne) ClearBalancePackageID() *BatchImageJobUpdateOne {
+	_u.mutation.ClearBalancePackageID()
+	return _u
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (_u *BatchImageJobUpdateOne) SetBalancePackageHoldUsd(v float64) *BatchImageJobUpdateOne {
+	_u.mutation.ResetBalancePackageHoldUsd()
+	_u.mutation.SetBalancePackageHoldUsd(v)
+	return _u
+}
+
+// SetNillableBalancePackageHoldUsd sets the "balance_package_hold_usd" field if the given value is not nil.
+func (_u *BatchImageJobUpdateOne) SetNillableBalancePackageHoldUsd(v *float64) *BatchImageJobUpdateOne {
+	if v != nil {
+		_u.SetBalancePackageHoldUsd(*v)
+	}
+	return _u
+}
+
+// AddBalancePackageHoldUsd adds value to the "balance_package_hold_usd" field.
+func (_u *BatchImageJobUpdateOne) AddBalancePackageHoldUsd(v float64) *BatchImageJobUpdateOne {
+	_u.mutation.AddBalancePackageHoldUsd(v)
 	return _u
 }
 
@@ -2174,6 +2285,21 @@ func (_u *BatchImageJobUpdateOne) sqlSave(ctx context.Context) (_node *BatchImag
 	}
 	if _u.mutation.HoldAmountCleared() {
 		_spec.ClearField(batchimagejob.FieldHoldAmount, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.BalancePackageID(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageID(); ok {
+		_spec.AddField(batchimagejob.FieldBalancePackageID, field.TypeInt64, value)
+	}
+	if _u.mutation.BalancePackageIDCleared() {
+		_spec.ClearField(batchimagejob.FieldBalancePackageID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.BalancePackageHoldUsd(); ok {
+		_spec.SetField(batchimagejob.FieldBalancePackageHoldUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBalancePackageHoldUsd(); ok {
+		_spec.AddField(batchimagejob.FieldBalancePackageHoldUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.ActualCost(); ok {
 		_spec.SetField(batchimagejob.FieldActualCost, field.TypeFloat64, value)

@@ -108,6 +108,7 @@ func RegisterPaymentRoutes(
 		{
 			balancePackages.GET("", adminPaymentHandler.ListBalancePackages)
 			balancePackages.POST("/grant", adminPaymentHandler.GrantBalancePackage)
+			balancePackages.POST("/:id/resume-debt-paused", adminPaymentHandler.ResumeDebtPausedBalancePackage)
 		}
 
 		// Provider Instances

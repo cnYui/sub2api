@@ -104,6 +104,31 @@ func TestCheckBillingEligibility_AllowsBalanceAtMinimumReserve(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestCheckBillingEligibility_FreshDatabaseDebtOverridesPositiveCache(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 10}
+	userRepo := &balanceLoadUserRepoStub{balance: -2.5}
+	cfg := &config.Config{}
+	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1, Balance: 10}, nil, nil, nil, PlatformOpenAI)
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.Equal(t, int64(1), userRepo.calls.Load(), "最终准入必须读取数据库，不能相信旧 Redis 正余额")
+}
+
+func TestCheckBillingEligibility_SimpleModeStillRejectsFreshDatabaseDebt(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 10}
+	userRepo := &balanceLoadUserRepoStub{balance: -2.5}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1, Balance: 10}, nil, nil, nil, PlatformOpenAI)
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.Equal(t, int64(1), userRepo.calls.Load(), "简易模式也必须读取数据库欠费事实")
+}
+
 func TestCanUseTrafficPackCredit_RejectsCreditBelowMinimumReserve(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Billing.MinimumBalanceReserve = 0.01

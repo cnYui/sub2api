@@ -12378,65 +12378,69 @@ func (m *BatchImageItemMutation) ResetEdge(name string) error {
 // BatchImageJobMutation represents an operation that mutates the BatchImageJob nodes in the graph.
 type BatchImageJobMutation struct {
 	config
-	op                  Op
-	typ                 string
-	id                  *int64
-	batch_id            *string
-	user_id             *int64
-	adduser_id          *int64
-	api_key_id          *int64
-	addapi_key_id       *int64
-	account_id          *int64
-	addaccount_id       *int64
-	provider            *string
-	model               *string
-	task_name           *string
-	status              *string
-	provider_job_name   *string
-	provider_input_ref  *string
-	provider_output_ref *string
-	gcs_input_uri       *string
-	gcs_output_uri      *string
-	item_count          *int
-	additem_count       *int
-	success_count       *int
-	addsuccess_count    *int
-	fail_count          *int
-	addfail_count       *int
-	cancelled_count     *int
-	addcancelled_count  *int
-	estimated_cost      *float64
-	addestimated_cost   *float64
-	hold_amount         *float64
-	addhold_amount      *float64
-	actual_cost         *float64
-	addactual_cost      *float64
-	currency            *string
-	hold_id             *string
-	idempotency_key     *string
-	request_hash        *string
-	manifest_hash       *string
-	retry_count         *int
-	addretry_count      *int
-	version             *int
-	addversion          *int
-	output_expires_at   *time.Time
-	input_deleted_at    *time.Time
-	output_deleted_at   *time.Time
-	downloaded_at       *time.Time
-	user_deleted_at     *time.Time
-	last_error_code     *string
-	last_error_message  *string
-	created_at          *time.Time
-	updated_at          *time.Time
-	submitted_at        *time.Time
-	started_at          *time.Time
-	finished_at         *time.Time
-	settled_at          *time.Time
-	clearedFields       map[string]struct{}
-	done                bool
-	oldValue            func(context.Context) (*BatchImageJob, error)
-	predicates          []predicate.BatchImageJob
+	op                          Op
+	typ                         string
+	id                          *int64
+	batch_id                    *string
+	user_id                     *int64
+	adduser_id                  *int64
+	api_key_id                  *int64
+	addapi_key_id               *int64
+	account_id                  *int64
+	addaccount_id               *int64
+	provider                    *string
+	model                       *string
+	task_name                   *string
+	status                      *string
+	provider_job_name           *string
+	provider_input_ref          *string
+	provider_output_ref         *string
+	gcs_input_uri               *string
+	gcs_output_uri              *string
+	item_count                  *int
+	additem_count               *int
+	success_count               *int
+	addsuccess_count            *int
+	fail_count                  *int
+	addfail_count               *int
+	cancelled_count             *int
+	addcancelled_count          *int
+	estimated_cost              *float64
+	addestimated_cost           *float64
+	hold_amount                 *float64
+	addhold_amount              *float64
+	balance_package_id          *int64
+	addbalance_package_id       *int64
+	balance_package_hold_usd    *float64
+	addbalance_package_hold_usd *float64
+	actual_cost                 *float64
+	addactual_cost              *float64
+	currency                    *string
+	hold_id                     *string
+	idempotency_key             *string
+	request_hash                *string
+	manifest_hash               *string
+	retry_count                 *int
+	addretry_count              *int
+	version                     *int
+	addversion                  *int
+	output_expires_at           *time.Time
+	input_deleted_at            *time.Time
+	output_deleted_at           *time.Time
+	downloaded_at               *time.Time
+	user_deleted_at             *time.Time
+	last_error_code             *string
+	last_error_message          *string
+	created_at                  *time.Time
+	updated_at                  *time.Time
+	submitted_at                *time.Time
+	started_at                  *time.Time
+	finished_at                 *time.Time
+	settled_at                  *time.Time
+	clearedFields               map[string]struct{}
+	done                        bool
+	oldValue                    func(context.Context) (*BatchImageJob, error)
+	predicates                  []predicate.BatchImageJob
 }
 
 var _ ent.Mutation = (*BatchImageJobMutation)(nil)
@@ -13508,6 +13512,132 @@ func (m *BatchImageJobMutation) ResetHoldAmount() {
 	delete(m.clearedFields, batchimagejob.FieldHoldAmount)
 }
 
+// SetBalancePackageID sets the "balance_package_id" field.
+func (m *BatchImageJobMutation) SetBalancePackageID(i int64) {
+	m.balance_package_id = &i
+	m.addbalance_package_id = nil
+}
+
+// BalancePackageID returns the value of the "balance_package_id" field in the mutation.
+func (m *BatchImageJobMutation) BalancePackageID() (r int64, exists bool) {
+	v := m.balance_package_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageID returns the old "balance_package_id" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldBalancePackageID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageID: %w", err)
+	}
+	return oldValue.BalancePackageID, nil
+}
+
+// AddBalancePackageID adds i to the "balance_package_id" field.
+func (m *BatchImageJobMutation) AddBalancePackageID(i int64) {
+	if m.addbalance_package_id != nil {
+		*m.addbalance_package_id += i
+	} else {
+		m.addbalance_package_id = &i
+	}
+}
+
+// AddedBalancePackageID returns the value that was added to the "balance_package_id" field in this mutation.
+func (m *BatchImageJobMutation) AddedBalancePackageID() (r int64, exists bool) {
+	v := m.addbalance_package_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearBalancePackageID clears the value of the "balance_package_id" field.
+func (m *BatchImageJobMutation) ClearBalancePackageID() {
+	m.balance_package_id = nil
+	m.addbalance_package_id = nil
+	m.clearedFields[batchimagejob.FieldBalancePackageID] = struct{}{}
+}
+
+// BalancePackageIDCleared returns if the "balance_package_id" field was cleared in this mutation.
+func (m *BatchImageJobMutation) BalancePackageIDCleared() bool {
+	_, ok := m.clearedFields[batchimagejob.FieldBalancePackageID]
+	return ok
+}
+
+// ResetBalancePackageID resets all changes to the "balance_package_id" field.
+func (m *BatchImageJobMutation) ResetBalancePackageID() {
+	m.balance_package_id = nil
+	m.addbalance_package_id = nil
+	delete(m.clearedFields, batchimagejob.FieldBalancePackageID)
+}
+
+// SetBalancePackageHoldUsd sets the "balance_package_hold_usd" field.
+func (m *BatchImageJobMutation) SetBalancePackageHoldUsd(f float64) {
+	m.balance_package_hold_usd = &f
+	m.addbalance_package_hold_usd = nil
+}
+
+// BalancePackageHoldUsd returns the value of the "balance_package_hold_usd" field in the mutation.
+func (m *BatchImageJobMutation) BalancePackageHoldUsd() (r float64, exists bool) {
+	v := m.balance_package_hold_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBalancePackageHoldUsd returns the old "balance_package_hold_usd" field's value of the BatchImageJob entity.
+// If the BatchImageJob object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BatchImageJobMutation) OldBalancePackageHoldUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBalancePackageHoldUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBalancePackageHoldUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBalancePackageHoldUsd: %w", err)
+	}
+	return oldValue.BalancePackageHoldUsd, nil
+}
+
+// AddBalancePackageHoldUsd adds f to the "balance_package_hold_usd" field.
+func (m *BatchImageJobMutation) AddBalancePackageHoldUsd(f float64) {
+	if m.addbalance_package_hold_usd != nil {
+		*m.addbalance_package_hold_usd += f
+	} else {
+		m.addbalance_package_hold_usd = &f
+	}
+}
+
+// AddedBalancePackageHoldUsd returns the value that was added to the "balance_package_hold_usd" field in this mutation.
+func (m *BatchImageJobMutation) AddedBalancePackageHoldUsd() (r float64, exists bool) {
+	v := m.addbalance_package_hold_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetBalancePackageHoldUsd resets all changes to the "balance_package_hold_usd" field.
+func (m *BatchImageJobMutation) ResetBalancePackageHoldUsd() {
+	m.balance_package_hold_usd = nil
+	m.addbalance_package_hold_usd = nil
+}
+
 // SetActualCost sets the "actual_cost" field.
 func (m *BatchImageJobMutation) SetActualCost(f float64) {
 	m.actual_cost = &f
@@ -14567,7 +14697,7 @@ func (m *BatchImageJobMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BatchImageJobMutation) Fields() []string {
-	fields := make([]string, 0, 40)
+	fields := make([]string, 0, 42)
 	if m.batch_id != nil {
 		fields = append(fields, batchimagejob.FieldBatchID)
 	}
@@ -14624,6 +14754,12 @@ func (m *BatchImageJobMutation) Fields() []string {
 	}
 	if m.hold_amount != nil {
 		fields = append(fields, batchimagejob.FieldHoldAmount)
+	}
+	if m.balance_package_id != nil {
+		fields = append(fields, batchimagejob.FieldBalancePackageID)
+	}
+	if m.balance_package_hold_usd != nil {
+		fields = append(fields, batchimagejob.FieldBalancePackageHoldUsd)
 	}
 	if m.actual_cost != nil {
 		fields = append(fields, batchimagejob.FieldActualCost)
@@ -14734,6 +14870,10 @@ func (m *BatchImageJobMutation) Field(name string) (ent.Value, bool) {
 		return m.EstimatedCost()
 	case batchimagejob.FieldHoldAmount:
 		return m.HoldAmount()
+	case batchimagejob.FieldBalancePackageID:
+		return m.BalancePackageID()
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		return m.BalancePackageHoldUsd()
 	case batchimagejob.FieldActualCost:
 		return m.ActualCost()
 	case batchimagejob.FieldCurrency:
@@ -14823,6 +14963,10 @@ func (m *BatchImageJobMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldEstimatedCost(ctx)
 	case batchimagejob.FieldHoldAmount:
 		return m.OldHoldAmount(ctx)
+	case batchimagejob.FieldBalancePackageID:
+		return m.OldBalancePackageID(ctx)
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		return m.OldBalancePackageHoldUsd(ctx)
 	case batchimagejob.FieldActualCost:
 		return m.OldActualCost(ctx)
 	case batchimagejob.FieldCurrency:
@@ -15007,6 +15151,20 @@ func (m *BatchImageJobMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetHoldAmount(v)
 		return nil
+	case batchimagejob.FieldBalancePackageID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageID(v)
+		return nil
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBalancePackageHoldUsd(v)
+		return nil
 	case batchimagejob.FieldActualCost:
 		v, ok := value.(float64)
 		if !ok {
@@ -15189,6 +15347,12 @@ func (m *BatchImageJobMutation) AddedFields() []string {
 	if m.addhold_amount != nil {
 		fields = append(fields, batchimagejob.FieldHoldAmount)
 	}
+	if m.addbalance_package_id != nil {
+		fields = append(fields, batchimagejob.FieldBalancePackageID)
+	}
+	if m.addbalance_package_hold_usd != nil {
+		fields = append(fields, batchimagejob.FieldBalancePackageHoldUsd)
+	}
 	if m.addactual_cost != nil {
 		fields = append(fields, batchimagejob.FieldActualCost)
 	}
@@ -15224,6 +15388,10 @@ func (m *BatchImageJobMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedEstimatedCost()
 	case batchimagejob.FieldHoldAmount:
 		return m.AddedHoldAmount()
+	case batchimagejob.FieldBalancePackageID:
+		return m.AddedBalancePackageID()
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		return m.AddedBalancePackageHoldUsd()
 	case batchimagejob.FieldActualCost:
 		return m.AddedActualCost()
 	case batchimagejob.FieldRetryCount:
@@ -15302,6 +15470,20 @@ func (m *BatchImageJobMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddHoldAmount(v)
 		return nil
+	case batchimagejob.FieldBalancePackageID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageID(v)
+		return nil
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddBalancePackageHoldUsd(v)
+		return nil
 	case batchimagejob.FieldActualCost:
 		v, ok := value.(float64)
 		if !ok {
@@ -15354,6 +15536,9 @@ func (m *BatchImageJobMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(batchimagejob.FieldHoldAmount) {
 		fields = append(fields, batchimagejob.FieldHoldAmount)
+	}
+	if m.FieldCleared(batchimagejob.FieldBalancePackageID) {
+		fields = append(fields, batchimagejob.FieldBalancePackageID)
 	}
 	if m.FieldCleared(batchimagejob.FieldActualCost) {
 		fields = append(fields, batchimagejob.FieldActualCost)
@@ -15440,6 +15625,9 @@ func (m *BatchImageJobMutation) ClearField(name string) error {
 		return nil
 	case batchimagejob.FieldHoldAmount:
 		m.ClearHoldAmount()
+		return nil
+	case batchimagejob.FieldBalancePackageID:
+		m.ClearBalancePackageID()
 		return nil
 	case batchimagejob.FieldActualCost:
 		m.ClearActualCost()
@@ -15553,6 +15741,12 @@ func (m *BatchImageJobMutation) ResetField(name string) error {
 		return nil
 	case batchimagejob.FieldHoldAmount:
 		m.ResetHoldAmount()
+		return nil
+	case batchimagejob.FieldBalancePackageID:
+		m.ResetBalancePackageID()
+		return nil
+	case batchimagejob.FieldBalancePackageHoldUsd:
+		m.ResetBalancePackageHoldUsd()
 		return nil
 	case batchimagejob.FieldActualCost:
 		m.ResetActualCost()

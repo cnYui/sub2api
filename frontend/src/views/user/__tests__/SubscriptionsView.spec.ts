@@ -45,6 +45,9 @@ vi.mock('vue-i18n', async () => {
     'userSubscriptions.status.completed': '已到账',
     'userSubscriptions.status.expired': '已过期',
     'userSubscriptions.status.refunded': '已退款',
+    'userSubscriptions.status.debt_paused': '欠费暂停',
+    'userSubscriptions.debtPausedNotice': '首周额度不足以抵销欠费，后续额度已暂停，请联系管理员',
+    'userSubscriptions.originalNextRefresh': '原计划刷新时间',
     'userSubscriptions.buyAgain': '再次购买',
     'userSubscriptions.daysRemaining': '剩余 {days} 天',
   }
@@ -132,6 +135,20 @@ describe('SubscriptionsView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('本周期已完成，不再刷新')
+    expect(wrapper.text()).not.toContain('下次刷新')
+  })
+
+  it('欠费暂停套餐保持可见并说明后续额度不会自动刷新', async () => {
+    getMyBalancePackages.mockResolvedValue({
+      data: [balancePackage({ status: 'debt_paused', current_remaining_usd: 0 })]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('欠费暂停')
+    expect(wrapper.text()).toContain('首周额度不足以抵销欠费，后续额度已暂停，请联系管理员')
+    expect(wrapper.text()).toContain('原计划刷新时间')
     expect(wrapper.text()).not.toContain('下次刷新')
   })
 })

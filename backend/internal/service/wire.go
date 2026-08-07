@@ -650,12 +650,10 @@ func ProvideBillingCacheService(
 	rateRepo UserGroupRateRepository,
 	cfg *config.Config,
 	userPlatformQuotaRepo UserPlatformQuotaRepository,
-	trafficPackServices ...*TrafficPackService,
+	trafficPackService *TrafficPackService,
 ) *BillingCacheService {
 	svc := NewBillingCacheService(cache, userRepo, subRepo, apiKeyRepo, rpmCache, rateRepo, cfg, userPlatformQuotaRepo)
-	if len(trafficPackServices) > 0 {
-		svc.SetTrafficPackService(trafficPackServices[0])
-	}
+	svc.SetTrafficPackService(trafficPackService)
 	return svc
 }
 
@@ -693,6 +691,7 @@ var ProviderSet = wire.NewSet(
 	NewRedeemService,
 	NewPromoService,
 	NewUsageService,
+	NewTrafficPackService,
 	NewDashboardService,
 	ProvidePricingService,
 	NewBillingService,
@@ -763,7 +762,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountExpiryService,
 	ProvideProxyExpiryService,
 	ProvideSubscriptionExpiryService,
-	NewBalancePackageService,
+	ProvideBalancePackageService,
 	ProvideBalancePackageCreditService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
@@ -818,12 +817,17 @@ func ProvideBalanceNotifyService(emailService *EmailService, settingRepo Setting
 }
 
 // ProvidePaymentService creates PaymentService and attaches notification email delivery.
-func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService, trafficPackServices ...*TrafficPackService) *PaymentService {
+func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService, balancePackages *BalancePackageService, trafficPackService *TrafficPackService) *PaymentService {
 	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, groupRepo, affiliateService)
 	svc.SetNotificationEmailService(notificationEmailService)
-	if len(trafficPackServices) > 0 {
-		svc.SetTrafficPackService(trafficPackServices[0])
-	}
+	svc.balancePackageService = balancePackages
+	svc.SetTrafficPackService(trafficPackService)
+	return svc
+}
+
+func ProvideBalancePackageService(entClient *dbent.Client, billingCache *BillingCacheService) *BalancePackageService {
+	svc := NewBalancePackageService(entClient)
+	svc.SetBillingCache(billingCache)
 	return svc
 }
 
