@@ -153,6 +153,8 @@ const (
 type ChannelService struct {
 	repo                 ChannelRepository
 	groupRepo            GroupRepository
+	plazaAccountRepo     PlazaAccountRepository
+	plazaBillingService  *BillingService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	pricingService       *PricingService // 用于「可用渠道」展示时回落到全局定价；可为 nil（测试场景）
 
@@ -160,17 +162,49 @@ type ChannelService struct {
 	cacheSF singleflight.Group
 }
 
+// PlazaAccountRepository 只暴露模型广场读取账号模型映射所需的最小接口。
+// 实际调度由账号绑定分组决定，不能仅依赖后台渠道配置推导可展示模型。
+type PlazaAccountRepository interface {
+	ListByGroup(ctx context.Context, groupID int64) ([]Account, error)
+}
+
 // NewChannelService 创建渠道服务实例。
 // pricingService 仅供 ListAvailable 在渠道未配置定价时回落到全局 LiteLLM 数据；
 // 计费热路径走独立的 ModelPricingResolver，与此参数无关。可传 nil。
-func NewChannelService(repo ChannelRepository, groupRepo GroupRepository, authCacheInvalidator APIKeyAuthCacheInvalidator, pricingService *PricingService) *ChannelService {
+func NewChannelService(
+	repo ChannelRepository,
+	groupRepo GroupRepository,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	pricingService *PricingService,
+	plazaAccountRepos ...PlazaAccountRepository,
+) *ChannelService {
+	var plazaAccountRepo PlazaAccountRepository
+	if len(plazaAccountRepos) > 0 {
+		plazaAccountRepo = plazaAccountRepos[0]
+	}
 	s := &ChannelService{
 		repo:                 repo,
 		groupRepo:            groupRepo,
+		plazaAccountRepo:     plazaAccountRepo,
 		authCacheInvalidator: authCacheInvalidator,
 		pricingService:       pricingService,
 	}
 	return s
+}
+
+// ProvideChannelService 为运行时模型广场注入账号分组映射。
+// 保留 NewChannelService 的可选依赖，避免纯渠道单元测试承担账号仓储构造成本。
+func ProvideChannelService(
+	repo ChannelRepository,
+	groupRepo GroupRepository,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	pricingService *PricingService,
+	accountRepo AccountRepository,
+	billingService *BillingService,
+) *ChannelService {
+	service := NewChannelService(repo, groupRepo, authCacheInvalidator, pricingService, accountRepo)
+	service.plazaBillingService = billingService
+	return service
 }
 
 // loadCache 加载或返回缓存的渠道数据

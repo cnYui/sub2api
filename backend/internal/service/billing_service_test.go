@@ -124,8 +124,18 @@ func TestGetModelPricing_CaseInsensitive(t *testing.T) {
 	require.Equal(t, p1.InputPricePerToken, p2.InputPricePerToken)
 }
 
-func TestGetModelPricing_KimiK25UsesCalibratedFallbackOverDynamicPrice(t *testing.T) {
+func TestGetModelPricing_KimiUsesCalibratedFallbackOverDynamicPrice(t *testing.T) {
 	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"kimi-k3": {
+			InputCostPerToken:       9e-6,
+			OutputCostPerToken:      99e-6,
+			CacheReadInputTokenCost: 0.9e-6,
+		},
+		"kimi-k2.6": {
+			InputCostPerToken:       0.954e-6,
+			OutputCostPerToken:      3.961e-6,
+			CacheReadInputTokenCost: 0.161e-6,
+		},
 		"kimi-k2.5": {
 			InputCostPerToken:           0.60e-6,
 			OutputCostPerToken:          2.25e-6,
@@ -135,19 +145,87 @@ func TestGetModelPricing_KimiK25UsesCalibratedFallbackOverDynamicPrice(t *testin
 	}}
 	svc := NewBillingService(&config.Config{}, pricingSvc)
 
-	pricing, err := svc.GetModelPricing("kimi-k2.5")
-	require.NoError(t, err)
-	require.InDelta(t, 0.60e-6, pricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.00e-6, pricing.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 0.098e-6, pricing.CacheReadPricePerToken, 1e-12)
+	tests := []struct {
+		model     string
+		input     float64
+		output    float64
+		cacheRead float64
+	}{
+		{model: "kimi-k3", input: 3e-6, output: 15e-6, cacheRead: 0.30e-6},
+		{model: "kimi-k2.6", input: 0.95e-6, output: 4e-6, cacheRead: 0.16e-6},
+		{model: "kimi-k2.5", input: 0.60e-6, output: 3.00e-6, cacheRead: 0.10e-6},
+	}
+	for _, tt := range tests {
+		pricing, err := svc.GetModelPricing(tt.model)
+		require.NoError(t, err, tt.model)
+		require.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12, tt.model)
+		require.InDelta(t, tt.output, pricing.OutputPricePerToken, 1e-12, tt.model)
+		require.InDelta(t, tt.cacheRead, pricing.CacheReadPricePerToken, 1e-12, tt.model)
+	}
 
 	cost, err := svc.CalculateCost("kimi-k2.5", UsageTokens{
 		InputTokens:     55,
 		OutputTokens:    16,
 		CacheReadTokens: 3,
-	}, 3.5)
+	}, 0.5)
 	require.NoError(t, err)
-	require.InDelta(t, 0.000284529, cost.ActualCost, 1e-12)
+	require.InDelta(t, 0.00004065, cost.ActualCost, 1e-12)
+}
+
+func TestGetModelPricing_GLM51UsesCalibratedFallbackOverDynamicPrice(t *testing.T) {
+	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"glm-5.1": {
+			InputCostPerToken:           1.40e-6,
+			OutputCostPerToken:          4.40e-6,
+			CacheReadInputTokenCost:     0.28e-6,
+			CacheCreationInputTokenCost: 1.00e-6,
+		},
+	}}
+	svc := NewBillingService(&config.Config{}, pricingSvc)
+
+	pricing, err := svc.GetModelPricing("glm-5.1")
+	require.NoError(t, err)
+	require.InDelta(t, 6.0/7.0*1e-6, pricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 24.0/7.0*1e-6, pricing.OutputPricePerToken, 1e-12)
+	require.Zero(t, pricing.CacheCreationPricePerToken)
+	require.InDelta(t, 1.3/7.0*1e-6, pricing.CacheReadPricePerToken, 1e-12)
+	require.Equal(t, 31999, pricing.LongContextInputThreshold)
+	require.InDelta(t, 8.0/6.0, pricing.LongContextInputMultiplier, 1e-12)
+	require.InDelta(t, 28.0/24.0, pricing.LongContextOutputMultiplier, 1e-12)
+	require.InDelta(t, 2.0/1.3, pricing.LongContextCacheReadMultiplier, 1e-12)
+
+	long := svc.computeTokenBreakdown(pricing, UsageTokens{
+		InputTokens:     32000,
+		OutputTokens:    1,
+		CacheReadTokens: 1,
+	}, 1, "", true)
+	require.True(t, long.LongContextBillingApplied)
+	require.InDelta(t, 32000*(8.0/7.0)*1e-6+4e-6+(2.0/7.0)*1e-6, long.TotalCost, 1e-12)
+}
+
+func TestGetModelPricing_DeepSeekUsesOfficialFallbackOverDynamicPrice(t *testing.T) {
+	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"deepseek-v4-flash": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+		"deepseek-v4-pro":   {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+	}}
+	svc := NewBillingService(&config.Config{}, pricingSvc)
+
+	tests := []struct {
+		model     string
+		input     float64
+		output    float64
+		cacheRead float64
+	}{
+		{model: "deepseek-v4-flash", input: 0.14e-6, output: 0.28e-6, cacheRead: 0.0028e-6},
+		{model: "deepseek-v4-pro", input: 0.435e-6, output: 0.87e-6, cacheRead: 0.003625e-6},
+	}
+	for _, tt := range tests {
+		pricing, err := svc.GetModelPricing(tt.model)
+		require.NoError(t, err, tt.model)
+		require.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12, tt.model)
+		require.InDelta(t, tt.output, pricing.OutputPricePerToken, 1e-12, tt.model)
+		require.InDelta(t, tt.cacheRead, pricing.CacheReadPricePerToken, 1e-12, tt.model)
+	}
 }
 
 // issue #3394: fallback warn 应按模型名去重,每个模型每进程最多打一条,
@@ -897,8 +975,8 @@ func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 
 	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0, "", false)
 
-	wantTextInput := float64(19) * 5e-6    // 0.000095
-	wantImageInput := float64(352) * 8e-6  // 0.002816
+	wantTextInput := float64(19) * 5e-6     // 0.000095
+	wantImageInput := float64(352) * 8e-6   // 0.002816
 	wantImageOutput := float64(439) * 30e-6 // 0.013170
 	require.InDelta(t, wantTextInput, cost.InputCost, 1e-15, "InputCost 仅含文本输入")
 	require.InDelta(t, wantImageInput, cost.ImageInputCost, 1e-15, "图片输入按 $8/1M 独立计费")

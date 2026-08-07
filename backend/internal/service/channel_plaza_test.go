@@ -7,8 +7,21 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
+
+type plazaAccountRepoStub struct {
+	accountsByGroup map[int64][]Account
+	err             error
+}
+
+func (s *plazaAccountRepoStub) ListByGroup(_ context.Context, groupID int64) ([]Account, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.accountsByGroup[groupID], nil
+}
 
 // newPlazaChannelService 构造 ListPlazaGroups 测试用的 ChannelService。
 func newPlazaChannelService(channels []Channel, groups []Group, pricing *PricingService) *ChannelService {
@@ -171,6 +184,222 @@ func TestListPlazaGroups_OfficialPricingFill(t *testing.T) {
 	require.Nil(t, byName["unknown-model"].OfficialPricing)
 	// TokenPricingAbsent 条目不作为官方 token 价展示
 	require.Nil(t, byName["token-absent"].OfficialPricing)
+}
+
+func TestListPlazaGroups_UsesBoundAccountModelMappings(t *testing.T) {
+	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
+		"kimi-k3": {
+			Mode:                        "chat",
+			InputCostPerToken:           3e-6,
+			OutputCostPerToken:          15e-6,
+			CacheCreationInputTokenCost: 3e-6,
+			CacheReadInputTokenCost:     0.3e-6,
+		},
+	})
+	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
+		7: []Account{{
+			Status: StatusActive,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"kimi-k3": "kimi-k3",
+				},
+			},
+		}},
+	}}
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai", RateMultiplier: 3.5}}},
+		nil,
+		pricingSvc,
+		accounts,
+	)
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Len(t, out[0].Models, 1)
+	require.Equal(t, "kimi-k3", out[0].Models[0].Name)
+	require.NotNil(t, out[0].Models[0].Pricing)
+	require.InDelta(t, 3e-6, *out[0].Models[0].Pricing.InputPrice, 1e-12)
+}
+
+func TestListPlazaGroups_UsesBillingFallbackWhenCatalogMissesModel(t *testing.T) {
+	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
+		7: []Account{{
+			Status: StatusActive,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"kimi-k3": "kimi-k3"},
+			},
+		}},
+	}}
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	billing := NewBillingService(&config.Config{}, nil)
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai"}}},
+		nil,
+		newStubPricingServiceFromMap(nil),
+		accounts,
+	)
+	svc.plazaBillingService = billing
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.NotNil(t, out[0].Models[0].Pricing)
+	require.InDelta(t, 3e-6, *out[0].Models[0].Pricing.InputPrice, 1e-12)
+	require.InDelta(t, 15e-6, *out[0].Models[0].Pricing.OutputPrice, 1e-12)
+}
+
+func TestListPlazaGroups_KimiUsesCalibratedPricingForDisplay(t *testing.T) {
+	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
+		"kimi-k3":   {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+		"kimi-k2.6": {InputCostPerToken: 0.954e-6, OutputCostPerToken: 3.961e-6, CacheReadInputTokenCost: 0.161e-6},
+		"kimi-k2.5": {InputCostPerToken: 0.6e-6, OutputCostPerToken: 2.25e-6, CacheReadInputTokenCost: 0.1e-6},
+	})
+	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
+		7: {{
+			Status: StatusActive,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"kimi-k3": "kimi-k3", "kimi-k2.6": "kimi-k2.6", "kimi-k2.5": "kimi-k2.5",
+				},
+			},
+		}},
+	}}
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	billing := NewBillingService(&config.Config{}, pricingSvc)
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai", RateMultiplier: 0.5}}},
+		nil,
+		pricingSvc,
+		accounts,
+	)
+	svc.plazaBillingService = billing
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, 0.5, out[0].RateMultiplier)
+
+	byName := make(map[string]PlazaModel, len(out[0].Models))
+	for _, model := range out[0].Models {
+		byName[model.Name] = model
+	}
+	assertPlazaPricing(t, byName["kimi-k3"], 3e-6, 15e-6, 0.30e-6)
+	assertPlazaPricing(t, byName["kimi-k2.6"], 0.95e-6, 4e-6, 0.16e-6)
+	assertPlazaPricing(t, byName["kimi-k2.5"], 0.60e-6, 3e-6, 0.10e-6)
+}
+
+func assertPlazaPricing(t *testing.T, model PlazaModel, input, output, cacheRead float64) {
+	t.Helper()
+	require.NotNil(t, model.Pricing)
+	require.NotNil(t, model.OfficialPricing)
+	require.InDelta(t, input, *model.Pricing.InputPrice, 1e-12)
+	require.InDelta(t, output, *model.Pricing.OutputPrice, 1e-12)
+	require.InDelta(t, cacheRead, *model.Pricing.CacheReadPrice, 1e-12)
+	require.InDelta(t, input, *model.OfficialPricing.InputPrice, 1e-12)
+	require.InDelta(t, output, *model.OfficialPricing.OutputPrice, 1e-12)
+	require.InDelta(t, cacheRead, *model.OfficialPricing.CacheReadPrice, 1e-12)
+}
+
+func TestListPlazaGroups_GLMUsesOfficialDomesticPriceTiers(t *testing.T) {
+	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
+		"glm-5.1": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+	})
+	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
+		6: {{
+			Status: StatusActive,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"glm-5.1": "glm-5.1"},
+			},
+		}},
+	}}
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	billing := NewBillingService(&config.Config{}, pricingSvc)
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 6, Name: "GLM", Platform: "openai", RateMultiplier: 0.5}}},
+		nil,
+		pricingSvc,
+		accounts,
+	)
+	svc.plazaBillingService = billing
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	require.Equal(t, 0.5, out[0].RateMultiplier)
+	require.Len(t, out[0].Models, 1)
+	model := out[0].Models[0]
+	require.NotNil(t, model.Pricing)
+	require.NotNil(t, model.OfficialPricing)
+	require.InDelta(t, 6.0/7.0*1e-6, *model.Pricing.InputPrice, 1e-12)
+	require.InDelta(t, 24.0/7.0*1e-6, *model.Pricing.OutputPrice, 1e-12)
+	require.InDelta(t, 1.3/7.0*1e-6, *model.Pricing.CacheReadPrice, 1e-12)
+	require.Len(t, model.Pricing.Intervals, 2)
+	require.Len(t, model.OfficialPricing.Intervals, 2)
+	require.Equal(t, "输入 <32K", model.Pricing.Intervals[0].TierLabel)
+	require.Equal(t, "输入 >=32K", model.Pricing.Intervals[1].TierLabel)
+	require.InDelta(t, 8.0/7.0*1e-6, *model.Pricing.Intervals[1].InputPrice, 1e-12)
+	require.InDelta(t, 4e-6, *model.Pricing.Intervals[1].OutputPrice, 1e-12)
+	require.InDelta(t, 2.0/7.0*1e-6, *model.Pricing.Intervals[1].CacheReadPrice, 1e-12)
+}
+
+func TestListPlazaGroups_DeepSeekUsesOfficialPrice(t *testing.T) {
+	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
+		"deepseek-v4-flash": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+		"deepseek-v4-pro":   {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
+	})
+	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
+		8: {{
+			Status: StatusActive,
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{
+					"deepseek-v4-flash": "deepseek-v4-flash",
+					"deepseek-v4-pro":   "deepseek-v4-pro",
+				},
+			},
+		}},
+	}}
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	billing := NewBillingService(&config.Config{}, pricingSvc)
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 8, Name: "DeepSeek", Platform: "openai", RateMultiplier: 0.5}}},
+		nil,
+		pricingSvc,
+		accounts,
+	)
+	svc.plazaBillingService = billing
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	byName := make(map[string]PlazaModel, len(out[0].Models))
+	for _, model := range out[0].Models {
+		byName[model.Name] = model
+	}
+	assertPlazaPricing(t, byName["deepseek-v4-flash"], 0.14e-6, 0.28e-6, 0.0028e-6)
+	assertPlazaPricing(t, byName["deepseek-v4-pro"], 0.435e-6, 0.87e-6, 0.003625e-6)
+}
+
+func TestListPlazaGroups_AccountSourceErrorsPropagate(t *testing.T) {
+	sentinel := errors.New("account source failed")
+	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
+	svc := NewChannelService(
+		repo,
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai"}}},
+		nil,
+		nil,
+		&plazaAccountRepoStub{err: sentinel},
+	)
+
+	out, err := svc.ListPlazaGroups(context.Background())
+	require.Nil(t, out)
+	require.ErrorIs(t, err, sentinel)
 }
 
 func TestListPlazaGroups_RepoErrorsPropagate(t *testing.T) {

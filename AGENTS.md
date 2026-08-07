@@ -4,6 +4,14 @@
 - 支付订单的金额、退款金额和订单状态以服务端为准，前端金额只用于展示。
 - 退款必须绑定创建订单时的支付服务商实例，并保留可审计的订单状态变化。
 - 设计与实现上下文写入 `docs/ai/context/`，历史文档只新增不覆盖。
+- 模型广场价格换算：外部模型上游按 1 美元=1 人民币展示，国产模型按 1 美元=7 人民币展示；本地若采用 1 美元=10.5 人民币，外部模型页面价乘 10.5，国产模型页面价需先除以 7 再乘 10.5。`BALANCE_RECHARGE_MULTIPLIER` 是每支付 1 CNY 获得多少 USD，应为 `1/10.5`；不要把汇率直接写入模型扣费倍率。详见 `docs/ai/context/20260806-154500-model-pricing-exchange-rate-analysis_CN.md`。
+- 2026-08-06：按隐藏最终倍率之外的口径核对本地与上游模型价格：Grok、Claude Max、GLM、Kimi、DeepSeek 分组倍率未对齐；GPT 三档、Kiro、GPT-Image-2 已对齐。当时运行中的 18082 实际 `BILLING_FINAL_MULTIPLIER=18`。GLM 缓存写入/读取基础单价也与上游不同。详见 `docs/ai/context/20260806-161037-upstream-local-pricing-multiplier-audit_CN.md`。
+- 2026-08-06：按管理员要求完成价格对齐，生产 `BILLING_FINAL_MULTIPLIER` 恢复为 `15`，活跃分组倍率和名称已与上游现有对应分组对齐，GLM 5.1/5.2 缓存价固定为上游口径；部署与验证见 `docs/ai/context/20260806-162623-pricing-alignment-and-final-multiplier-15_CN.md`。
+- 2026-08-06：模型广场已接入左侧用户/管理员侧栏，入口跳转 `/model-plaza?embedded=1`；展示价格只计算模型基础价 × 分组/用户倍率，刻意不展示或叠加隐藏的 `BILLING_FINAL_MULTIPLIER=15x`。模型目录同时复用计费服务的本地兜底价，避免 `glm-5.2`、`kimi-k3` 等目录缺项显示为空；发布与验证见 `docs/ai/context/20260806-171033-model-plaza-sidebar-and-pricing_CN.md`。
+- 2026-08-07：Kimi 分组恢复为 `0.5x`，K3/K2.6/K2.5 的计费与模型广场统一使用校准美元基础价 `$3/$15/$0.30`、`$0.95/$4/$0.16`、`$0.60/$3/$0.10`（输入/输出/缓存读取，每百万 token）；广场不含最终 `15x`，依次显示 `$1.50/$7.50/$0.15`、`$0.475/$2.00/$0.08`、`$0.30/$1.50/$0.05`。详见 `docs/ai/context/20260807-000000-kimi-pricing-and-model-plaza-correction_CN.md`。
+- 2026-08-07：GLM、DeepSeek 分组均设为 `0.5x`。GLM-5.1 按智谱国内官网的 `<32K` / `>=32K` 两档人民币价先除以 7 再打五折；GLM-5.2 同样按国内官网 ¥8/¥28/¥2 换算。DeepSeek V4 Flash/Pro 固定使用官网美元价后打五折。模型广场与实际计费复用同一基础价，广场不含最终 `15x`。详见 `docs/ai/context/20260807-095113-glm-deepseek-official-pricing-50pct_CN.md`。
+- 2026-08-06：按管理员要求将 Claude Kiro 分组 `groups.id=5` 改为 `0.45X Claude - Kiro`、`rate_multiplier=0.45`，账号 `id=3` 名称同步为“Claude Kiro反代官方0.45倍价格”。模型广场、API Key 计费接口和公网展示均为 `0.45x`；真实扣费为基础成本 × `0.45` × 最终 `15`。本次上游账号 `/v1/sub2api/billing` 仍返回 `0.35`，该上游差异未由本地变更改写；详见 `docs/ai/context/20260806-172524-claude-kiro-045-rate-sync_CN.md`。
+- 2026-08-06：按管理员要求撤销用户 `1032726009@qq.com`（ID `505`）的临时手动 `520 USD`。该笔额度自兑换码 `id=43` 使用后产生 `40.3352458125 USD` 用量；保留入账前 `0.4004884125 USD` 后，用户余额调整为 `-39.93475740 USD`，写入欠费账本和 `BALANCE_MANUAL_GRANT_REVOKED` 审计。当前余额套餐 `id=21`（订单 `163`）标记为 `cancelled`、剩余额度归零，订单保持 `COMPLETED` 以保留支付审计；有效套餐校验已无记录，用户可重新购买。详见 `docs/ai/context/20260806-195007-user-1032726009-manual-520-revoke-and-debt_CN.md`。
 
 ## 支付实现上下文
 
@@ -35,6 +43,7 @@
 - 2026-08-04：为发布当前源码，重建并替换 `sub2api-official-18082` 应用容器；旧应用容器已停止，`sub2api-dev` 保持退出状态，18080 无监听。发布核验见 `docs/ai/context/20260804-112927-aaccx-public-deploy-result_CN.md`。
 - 2026-08-04：修复公网 `/login` 白屏。Vite 公共依赖分包由 `vendor-*` 改为 `lib-*`，规避 Cloudflare 对 `vendor-*` 静态资源路径的 403；只重建并替换 18082 应用容器，数据库和 Redis 未重建。入口脚本、Vue、i18n、CSS 资源均已通过公网 200 校验，浏览器页面正常渲染。记录见 `docs/ai/context/20260804-114424-login-blank-fix_CN.md`。
 - 2026-08-05：基于 `main` 最新提交重建并替换 `sub2api-official-18082` 应用容器，仅更新应用镜像，PostgreSQL、Redis 和数据卷未重建；本地、Nginx 与三个公网健康检查均返回 200。记录见 `docs/ai/context/20260805-114632-18082-production-rebuild-hide-image-guide_CN.md`。
+- 2026-08-06：基于本地 `main` 提交 `b0765e243` 重建 `deploy-sub2api` 并替换 `sub2api-official-18082` 应用容器；PostgreSQL、Redis、数据卷和 Cloudflare Tunnel 未重建。`127.0.0.1:18082`、本地 Nginx 与 `aaccx.pw` 三个公网域名健康检查均为 200，公网新版 Codex 使用方法 chunk 和 5 张截图均返回 200。记录见 `docs/ai/context/20260806-100809-18082-codex-guide-production-deploy_CN.md`。
 
 ## 流量卡 10% 迁移上下文
 
@@ -79,6 +88,7 @@
 - 2026-08-04：计费链路可追溯本地用户/API Key/上游账号/请求 ID/模型/token/费用快照，但不能把每笔本地请求一一映射到上游 `/usage` 页面具体账单行；`/v1/sub2api/billing` 只返回 Key 级倍率元数据，逐笔费用由本地标准价格重算。详见 `docs/ai/context/20260804-131437-billing-traceability-explanation_CN.md`。
 - 2026-08-04：按中转站单条明细和官方单价重新核对后，确认 GLM 与 DeepSeek 的中转有效倍率均为 `3.5x`；将 18082 的 GLM `1.4x`、DeepSeek `3.0x` 修正为 `3.5x`，保留其它已核对分组倍率和最终 `15x`。新公式为“标准成本 × 中转倍率 = 中转站实际费用；再 ×15 扣本地余额”，记录见 `docs/ai/context/20260804-140327-upstream-pricing-calibration_CN.md`。
 - 2026-08-04：DeepSeek 分组 `ID 8` 的用户展示名称从“官方0.42折价格”修正为“官方0.5折价格”；仅改名称，平台、状态和 `3.5x` 计费倍率不变。记录见 `docs/ai/context/20260804-201035-deepseek-group-display-name-correction_CN.md`。
+- 2026-08-06：DeepSeek 分组 `ID 8` 当前展示名称为“DeepSeek模型官方0.7折价格”；生产库、实时名称快照表和 Redis 分组缓存均已核验，未修改计费倍率、模型映射或历史审计记录。记录见 `docs/ai/context/20260806-100616-deepseek-channel-name-verification_CN.md`。
 - 2026-08-04：浏览器复核 Claude Kiro 的 `claude-fable-5`：`36/1` token 按 `$10/$50` 和 `0.35x` 得 `$0.0001435`，页面显示 `$0.000143`；本地最终余额扣费为 `$0.0021525`（再乘 `15x`），记录见 `docs/ai/context/20260804-142941-kiro-fable-price-verification_CN.md`。
 - 2026-08-04：浏览器复核 Kimi K3 的 `135/33` token：按 `$3/$15` 和 `3.5x` 得 `$0.003150`，与中转站页面完全一致；本地最终余额扣费为 `$0.047250`（再乘 `15x`），记录见 `docs/ai/context/20260804-143527-kimi-k3-price-verification_CN.md`。
 - 2026-08-04：浏览器复核 GLM-5.1 的 `62/128` token：按 `$1.40/$4.40` 和 `3.5x` 得 `$0.002275`，与中转站页面完全一致；本地最终余额扣费为 `$0.034125`（再乘 `15x`），记录见 `docs/ai/context/20260804-143650-glm-price-verification_CN.md`。
@@ -101,6 +111,10 @@
 - 2026-08-05：按用户要求将 Claude Kiro 分组 `groups.id=5` 恢复为 `0.35x`；最终倍率 `15x` 不变，5 条认证缓存失效事件已清空，历史用量与余额未修改。记录见 `docs/ai/context/20260805-133012-claude-kiro-rate-restore_CN.md`。
 - 2026-08-05：按用户要求将 Grok 分组 `groups.id=3` 恢复为 `0.6x`；最终倍率 `15x` 不变，2 条认证缓存失效事件已清空，历史用量与余额未修改。记录见 `docs/ai/context/20260805-133157-grok-rate-restore_CN.md`。
 - 2026-08-05：按管理员要求将 `18082` 实例的服务端最终计费倍率从 `15x` 调整为 `18x`；分组倍率、账户统计倍率、图片/视频独立倍率、历史用量和余额均未修改。配置与发布核验见 `docs/ai/context/20260805-181500-final-billing-multiplier-18_CN.md`。
+- 2026-08-06：按管理员要求将 `18082` 实例的服务端最终计费倍率从 `18x` 恢复为 `15x`；分组倍率、账户统计倍率、图片/视频独立倍率、历史用量和余额均未修改。配置与发布核验见 `docs/ai/context/20260806-101213-final-billing-multiplier-15_CN.md`。
+- 2026-08-07：按管理员要求将 `18082` 实例的服务端最终计费倍率恢复为 `18x`；仅替换 `sub2api-official-18082` 应用容器，PostgreSQL 与 Redis 未重建。本地和三个公网健康检查均为 200，模型广场展示价格不含该最终倍率。详见 `docs/ai/context/20260807-115049-final-billing-multiplier-18-deploy-result_CN.md`。
+- 2026-08-05：按管理员授权，对最终复核保留的 85 条单笔超过 `$3` 的普通余额日志执行整笔退款，合计 `$389.0187845250`，涉及 11 位用户；全部原路退回普通余额，写入 85 条 `BALANCE_MANUAL_REFUND` 审计并清理余额/API Key 缓存。执行记录见 `docs/ai/context/20260805-203905-over-3-balance-refund-execution_CN.md`。
+- 2026-08-06：只读审计最近一小时用量确认 673 条记录全部满足 `actual_cost = total_cost × rate_multiplier × 15`，无空费用、负费用、基础成本非零未扣费或最终倍率不匹配。模型广场只展示“基础单价 × 生效倍率”，不含最终 `15x`；15 条 Claude Kiro 记录保留调价前 `0.35x` 快照，其余当前记录按页面倍率一致。Kiro 仅由账号 3 承接，持续使用者为 `1032726009@qq.com`（近 24 小时 38 次、近一小时 18 次）。记录见 `docs/ai/context/20260806-180013-recent-usage-billing-and-kiro-audit_CN.md`。
 
 ## 18082 数据清空上下文
 
@@ -129,6 +143,7 @@
 - 2026-08-04：余额套餐改为按 7 天窗口刷新而非追加；`user_balance_packages.remaining_usd` 仅表示本周套餐未用额度。刷新只调整 `weekly_credit_usd - old_remaining_usd`，到期只清除该字段，普通充值、返利和 18080 迁移承接的非套餐余额不被清理。200 号迁移已按旧周期审计和窗口实际用量回收可识别的错误结转，并重建当前窗口额度；`/subscriptions` 显示“本周剩余额度”和“下次刷新”。生产核验、公式与测试结果见 `docs/ai/context/20260804-182800-balance-package-weekly-refresh-production_CN.md`。
 - 2026-08-05：余额套餐首期到账和周刷新统一先抵扣用户负余额，周额度不足时继续保持负数，只有偿还后的剩余部分进入 `user_balance_packages.remaining_usd`。新增 `balance_debt_ledger` 保存不可变欠费/还款流水；新增 `billing_reconciliation_cases` 保存无法从历史响应恢复 token 的计费失败请求，金额留空等待外部逐笔账单，不得用次数或平均价伪造扣费。实现与生产核验见 `docs/ai/context/20260805-192000-billing-reconciliation-and-debt-first-credit_CN.md`。
 - 2026-08-05：18082 的请求前资格检查统一要求普通余额或 OpenAI 流量卡至少为 `BILLING_MINIMUM_BALANCE_RESERVE=0.01 USD`；余额和流量卡均为碎额时直接 `403`，不进入上游、不产生用量。已放行请求仍可在结算后形成负余额，后续请求会被该预检阻断。线上复测见 `docs/ai/context/20260805-193133-billing-preflight-reserve-verification_CN.md`。
+- 2026-08-05：核查用户 `1032726009@qq.com`（ID `505`）确认其当前为 ¥199 余额套餐（订单 `163`），4/4 次到账，2026-08-08 到期；当前窗口用量 `544.1321814000 USD` 超过每周 `520 USD`，故 `remaining_usd=0`。同日 `19:37` 执行的 36 条 `BALANCE_MANUAL_REFUND` 合计 `149.3559957750 USD` 已退回普通余额，不会回填套餐周额度；核查记录见 `docs/ai/context/20260805-213153-user-1032726009-subscription-balance-investigation_CN.md`。
 - 2026-08-04：用户 `1850226892@qq.com` 的订单 `537` 因容器退款代理拒绝连接而保持 `REFUND_FAILED`；按管理员要求已人工取消其余额套餐权益、将普通余额归零并保留订单与失败审计，未误标退款成功，也未动其独立流量卡额度。记录见 `docs/ai/context/20260804-203510-user-1850226892-manual-package-cancellation_CN.md`。
 - 2026-08-05：用户 `3415991811@qq.com` 的 29 元余额套餐（订单 `149`）因退款网关失败保持 `REFUND_FAILED`；按管理员要求仅人工取消当前套餐权益，将 `user_balance_packages.id=29` 标记为 `cancelled` 并清零剩余额度，普通余额 `0.45314656 USD` 和独立流量卡额度均未改动。记录见 `docs/ai/context/20260805-102620-user-3415991811-manual-package-cancellation_CN.md`。
 - 2026-08-05：在上述套餐取消后，按管理员追加要求将用户 `3415991811@qq.com` 的普通余额从 `0.45314656 USD` 归零；套餐、退款失败订单和独立流量卡额度未改变，并写入 `BALANCE_MANUAL_RESET` 审计。记录见 `docs/ai/context/20260805-103207-user-3415991811-balance-reset_CN.md`。
@@ -149,3 +164,19 @@
 - 2026-08-04：用户侧 `/monitor` 已加入 GPT 0.35 稳定、GPT 0.1 低价和 GPT-Image-2 三个渠道；前两者通过当前服务按 60 秒持续检测，首次均为 `operational`。
 - GPT 0.35 最新一次检测曾因响应 7512ms 超过 6 秒阈值显示 `degraded`，这代表慢响应，不是认证、路由或模型不可用。
 - GPT-Image-2 不得用聊天请求或周期性生图探测。当前线上版本只完成一次已认证的 `/v1/models` 校验并展示该事实状态，未重启或重建公网 `18082`；后续持续监控必须先发布无费用的模型目录探测协议。完整记录见 `docs/ai/context/20260804-191548-three-gpt-channel-monitor-status_CN.md`。
+- 2026-08-07：补齐 `/monitor` 新增 GPT 渠道的模型集合：8 号 GPT 0.35 监控返回 7 个模型，9 号 GPT 0.1 监控返回 5 个文本/Codex 模型，10 号 GPT-Image-2 监控保持单模型；数据库去重、最近调度历史和 `18082/health` 均验证通过。认证详情接口因当前浏览器无登录会话未做 UI 点击验证，执行记录见 `docs/ai/context/20260807-104311-monitor-complete-channel-models-execution_CN.md`。
+
+## Usage 双端对照与计费绕过审计
+
+- 2026-08-05：已登录并对照 `api.ai-genesis.app/usage` 与 `aaccx.pw/admin/usage`。4 条同 Token 请求的左侧上游用户价约为右侧 `A` 的 `0.15x`；左侧费用除以 `0.15` 后与右侧悬浮窗原始 `total_cost` 按显示精度逐条相同，右侧绿色用户费用符合 `原始成本 × 0.15 × 18`。两侧时间相差约 2-3 秒，左侧页面存在展示延迟。未发现费用不一致或重复扣费。
+- 生产 `18082` 未覆盖 `gateway.usage_record.*`，使用默认 `overflow_policy=sync`；队列满和进程停止均有同步兜底，最近日志未发现 `usage_record.task_dropped`。`count_tokens` 为明确非计费接口，不属于绕过。详细记录见 `docs/ai/context/20260805-222239-usage-cross-check-and-billing-bypass-audit_CN.md`。
+- 2026-08-06：勘误此前基于“同模型、时间差正负 5 秒”的上游 Usage 对账。该方法不能把共享上游账号账单可靠归属到本地用户；`xunskyler@gmail.com` `$384.62055975` 和总计 `$652.17178575` 均撤回，不得用于补扣。相关失败事件缺少请求 ID、Token 和费用快照，所有 reconciliation case 继续保持待核对且金额为空。详见 `docs/ai/context/20260806-111430-upstream-usage-reconciliation-correction_CN.md`。
+
+## 上游 Usage 未追回扣费对账
+
+- 2026-08-06：用用户提供的上游 Usage Excel（97,500 行）与生产 `record_usage_failed` 事件对账。GPT 0.15 上游账号 `1128` 的 2,952 条余额不足后扣失败中，2,870 条可按模型与 +-3 秒窗口同上游账单一一匹配；按历史公式“上游原始 × 上游倍率 × 15”确认未追回 `$652.17178575`，涉及 10 位用户。另有 62 条 `$15.99961050` 仅在 3-5 秒窗口匹配，20 条无唯一候选，均待人工复核。未执行补扣或修改数据。明细、边界和安全执行要求见 `docs/ai/context/20260806-104500-upstream-usage-unrecovered-charge-reconciliation_CN.md`。
+
+## 忘记密码与 SMTP
+
+- 2026-08-06：`18082` 已启用邮箱验证与忘记密码，数据库设置为 `email_verify_enabled=true`、`password_reset_enabled=true`、`frontend_url=https://aaccx.pw`；重置链接使用既有 SMTP 异步队列投递。未发送测试邮件，接口与单元测试验证见 `docs/ai/context/20260806-165637-password-reset-enable_CN.md`。
+- 2026-08-07：按管理员要求取消用户 `xunskyler@gmail.com`（ID `454`）的当前余额套餐（`user_balance_packages.id=4`，订单 `540`）；套餐标记为 `cancelled`、剩余额度归零并停止下一次刷新。订单继续保持 `REFUND_FAILED`，普通余额和 OpenAI 流量卡额度未改动；审计为 `payment_audit_logs.id=1398`。详见 `docs/ai/context/20260807-104755-user-xunskyler-balance-package-cancellation_CN.md`。

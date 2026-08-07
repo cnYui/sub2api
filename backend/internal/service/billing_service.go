@@ -107,6 +107,7 @@ type ModelPricing struct {
 	LongContextInputThreshold          int     // 超过阈值后按整次会话提升输入价格
 	LongContextInputMultiplier         float64 // 长上下文整次会话输入倍率
 	LongContextOutputMultiplier        float64 // 长上下文整次会话输出倍率
+	LongContextCacheReadMultiplier     float64 // 长上下文整次会话缓存读取倍率；未设时复用输入倍率
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
 	ImageOutputPriceExplicit           bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
 }
@@ -115,6 +116,8 @@ const (
 	openAIGPT54LongContextInputThreshold   = 272000
 	openAIGPT54LongContextInputMultiplier  = 2.0
 	openAIGPT54LongContextOutputMultiplier = 1.5
+	glm51LongContextInputThreshold         = 31999
+	domesticModelCNYToUSD                  = 1.0 / 7.0
 )
 
 func normalizeBillingServiceTier(serviceTier string) string {
@@ -400,22 +403,28 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 
-	// ---- 智谱 GLM（Z.AI）----
-	// Source: https://docs.z.ai/guides/overview/pricing (USD per 1M tokens)
-	// 注意：CacheReadPricePerToken 即"缓存命中"价格，CacheCreationPricePerToken 留空（智谱未公开写入价，按 0 处理）。
-	// GLM-4.6 与 GLM-4.5 在 z.ai 国际版上定价一致；GLM-4.5 国内按 ¥0.8/¥2，汇率换算后约 $0.112/$0.28，与国际版 $0.6/$2.2 不同，本分支采用国际版 USD 口径与现有 Claude/GPT 一致。
-	// GLM-5.2 与 GLM-5.1 在 z.ai 上同价。
+	// ---- 智谱 GLM（国内官方 API）----
+	// Source: https://open.bigmodel.cn/pricing （人民币 / 1M tokens）。
+	// 本项目国产模型口径固定为 1 USD = 7 CNY，因此先除以 7 取得美元基础价；
+	// 用户折扣由分组倍率单独承担，不能混入此处。官网缓存存储限时免费，不等同于
+	// 请求中的 cache_creation token，故仅设置缓存命中价。
 	s.fallbackPrices["glm-5.2"] = &ModelPricing{
-		InputPricePerToken:     1.4e-6, // $1.40 per MTok
-		OutputPricePerToken:    4.4e-6, // $4.40 per MTok
-		CacheReadPricePerToken: 0.26e-6,
+		InputPricePerToken:     8 * domesticModelCNYToUSD * 1e-6,
+		OutputPricePerToken:    28 * domesticModelCNYToUSD * 1e-6,
+		CacheReadPricePerToken: 2 * domesticModelCNYToUSD * 1e-6,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["glm-5.1"] = &ModelPricing{
-		InputPricePerToken:     1.4e-6, // $1.40 per MTok
-		OutputPricePerToken:    4.4e-6, // $4.40 per MTok
-		CacheReadPricePerToken: 0.26e-6,
+		// 官网短上下文（输入 <32K）：¥6 / ¥24 / ¥1.3。
+		InputPricePerToken:     6 * domesticModelCNYToUSD * 1e-6,
+		OutputPricePerToken:    24 * domesticModelCNYToUSD * 1e-6,
+		CacheReadPricePerToken: 1.3 * domesticModelCNYToUSD * 1e-6,
 		SupportsCacheBreakdown: false,
+		// 官网输入 >=32K：¥8 / ¥28 / ¥2；三项涨幅不同，缓存读取不能沿用输入倍率。
+		LongContextInputThreshold:      glm51LongContextInputThreshold,
+		LongContextInputMultiplier:     8.0 / 6.0,
+		LongContextOutputMultiplier:    28.0 / 24.0,
+		LongContextCacheReadMultiplier: 2.0 / 1.3,
 	}
 	s.fallbackPrices["glm-5"] = &ModelPricing{
 		InputPricePerToken:     1e-6, // $1.00 per MTok
@@ -493,9 +502,9 @@ func (s *BillingService) initFallbackPricing() {
 	//       交叉验证：https://www.tmtpost.com/7961404.html (USD 口径)
 	// Moonshot V1 (¥2/¥5/¥10 多 tier) 公开页未直接标注 USD 价，本分支不覆盖，避免误计价。
 	// K2-0905 / K2-0711 官方页面未保留定价，不覆盖。
-	// Kimi K3 国际站 USD 价目：https://platform.kimi.ai/docs/pricing/chat-k3.md
-	// Kimi Code bare aliases（k3 / k3-256k）官方无按 token 价目；复用 API Platform
-	// kimi-k3 档位作代理计费 fallback（同 kimi-for-coding 对 K2.6 的处理口径）。
+	// Kimi 上游美元基准价。国产模型的人民币折扣已由分组倍率表达，不能把上游
+	// 内置的 1 USD = 7 CNY 展示换算再次带入计费倍率。
+	// Kimi Code bare aliases（k3 / k3-256k）没有独立按 token 价目，复用 K3 基准。
 	s.fallbackPrices["kimi-k3"] = &ModelPricing{
 		InputPricePerToken:     3e-6,    // $3.00 per MTok (cache miss)
 		OutputPricePerToken:    15e-6,   // $15.00 per MTok
@@ -505,7 +514,7 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["kimi-k2.6"] = &ModelPricing{
 		InputPricePerToken:     0.95e-6, // $0.95 per MTok (cache miss)
 		OutputPricePerToken:    4e-6,    // $4.00 per MTok
-		CacheReadPricePerToken: 0.15e-6, // $0.15 per MTok (cache hit, ¥1.10)
+		CacheReadPricePerToken: 0.16e-6, // $0.16 per MTok (cache hit)
 		SupportsCacheBreakdown: false,
 	}
 	// kimi-for-coding 走 Kimi Coding endpoint，按当前 K2.6 coding 档位兜底计费。
@@ -518,7 +527,7 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["kimi-k2.5"] = &ModelPricing{
 		InputPricePerToken:     0.60e-6, // $0.60 per MTok
 		OutputPricePerToken:    3e-6,    // $3.00 per MTok
-		CacheReadPricePerToken: 0.098e-6,
+		CacheReadPricePerToken: 0.10e-6,
 		SupportsCacheBreakdown: false,
 	}
 	s.fallbackPrices["kimi-k2-thinking"] = &ModelPricing{
@@ -732,9 +741,7 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	if strings.Contains(modelLower, "kimi-for-coding") {
 		return s.fallbackPrices["kimi-for-coding"]
 	}
-	if modelLower == "kimi-k3" || strings.HasSuffix(modelLower, "/kimi-k3") ||
-		modelLower == "k3" || modelLower == "k3-256k" ||
-		strings.HasSuffix(modelLower, "/k3") || strings.HasSuffix(modelLower, "/k3-256k") {
+	if isKimiK3Model(modelLower) {
 		return s.fallbackPrices["kimi-k3"]
 	}
 	if strings.Contains(modelLower, "kimi-k2.6") || strings.Contains(modelLower, "kimi-k2-6") {
@@ -837,9 +844,9 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 			litellmPricing = nil
 		}
 		if litellmPricing != nil {
-			// K2.5 的远程目录输出价为 $2.25/M，与已核对的上游标准费用口径不一致；
-			// 固定使用本地已验证的 fallback 单价，避免远程同步后本地 15 倍前金额再次偏低。
-			if isKimiK25Model(model) {
+			// K2.5 与 GLM 5.1/5.2 的远程目录缓存/输出价与已核对的上游用户价格不一致，
+			// 固定使用经过复核的 fallback，避免远程同步改变对用户的既定计费口径。
+			if usesCalibratedFallbackPricing(model) {
 				if fallback := s.getFallbackPricing(model); fallback != nil {
 					return s.applyModelSpecificPricingPolicy(model, fallback), nil
 				}
@@ -888,6 +895,26 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 func isKimiK25Model(model string) bool {
 	modelLower := strings.ToLower(model)
 	return strings.Contains(modelLower, "kimi-k2.5") || strings.Contains(modelLower, "kimi-k2-5")
+}
+
+func isKimiK3Model(model string) bool {
+	modelLower := strings.ToLower(model)
+	return modelLower == "kimi-k3" || strings.HasSuffix(modelLower, "/kimi-k3") ||
+		modelLower == "k3" || modelLower == "k3-256k" ||
+		strings.HasSuffix(modelLower, "/k3") || strings.HasSuffix(modelLower, "/k3-256k")
+}
+
+func usesCalibratedFallbackPricing(model string) bool {
+	modelLower := strings.ToLower(model)
+	return isKimiK3Model(modelLower) ||
+		strings.Contains(modelLower, "kimi-k2.6") ||
+		strings.Contains(modelLower, "kimi-k2-6") ||
+		strings.Contains(modelLower, "kimi-for-coding") ||
+		isKimiK25Model(modelLower) ||
+		strings.Contains(modelLower, "glm-5.1") ||
+		strings.Contains(modelLower, "glm-5.2") ||
+		strings.Contains(modelLower, "deepseek-v4-flash") ||
+		strings.Contains(modelLower, "deepseek-v4-pro")
 }
 
 // GetModelPricingWithChannel 获取模型定价，渠道配置的价格覆盖默认值
@@ -1061,9 +1088,13 @@ func (s *BillingService) computeTokenBreakdown(
 		baselineCost = s.computeTokenBreakdown(pricing, tokens, rateMultiplier, serviceTier, false)
 		inputPrice *= pricing.LongContextInputMultiplier
 		outputPrice *= pricing.LongContextOutputMultiplier
-		// 缓存读取本质上是输入侧的复用，应与 input 一同应用长上下文倍率；
-		// 否则 cache hit 越多，少计的费用越多（见 #2293）。
-		cacheReadPrice *= pricing.LongContextInputMultiplier
+		// 多数模型缓存命中随输入同倍率变化；GLM-5.1 官方单列的长上下文缓存
+		// 价格不同，使用其独立倍率，避免把 ¥1.3 错算为 ¥1.7333 而非 ¥2。
+		cacheReadMultiplier := pricing.LongContextCacheReadMultiplier
+		if cacheReadMultiplier <= 0 {
+			cacheReadMultiplier = pricing.LongContextInputMultiplier
+		}
+		cacheReadPrice *= cacheReadMultiplier
 		// 缓存创建（cache_write）也是输入侧操作，三档价格（标准 / 5m / 1h）
 		// 都通过 computeCacheCreationCost 直接读取 pricing.*，不会经过这里
 		// 的倍率修改，因此显式向下传一个倍率，避免长上下文场景下被漏乘。

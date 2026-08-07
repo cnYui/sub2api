@@ -42,6 +42,20 @@ describe('AppSidebar scroll position persistence', () => {
   })
 })
 
+describe('AppSidebar 模型广场入口', () => {
+  it('在功能开关启用时将模型广场加入用户侧栏', () => {
+    expect(componentSource).toContain("const flagModelPlaza = makeSidebarFlag(FeatureFlags.modelPlaza)")
+    expect(componentSource).toContain("path: '/model-plaza'")
+    expect(componentSource).toContain("label: t('nav.modelPlaza')")
+    expect(componentSource).toContain('featureFlag: flagModelPlaza')
+  })
+
+  it('通过嵌入式页面参数进入，保持后台布局和左侧导航', () => {
+    expect(componentSource).toContain("to: { path: '/model-plaza', query: { embedded: '1' } }")
+    expect(componentSource).toContain(':to="item.to ?? item.path"')
+  })
+})
+
 describe('AppSidebar header styles', () => {
   it('does not clip the version badge dropdown', () => {
     const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)

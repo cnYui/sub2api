@@ -70,6 +70,118 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('0.5x')
   })
 
+  it('Kimi 5 折价格按 0.5x 显示，且不包含隐藏最终倍率', () => {
+    const models = [
+      tokenModel({
+        name: 'kimi-k3',
+        pricing: {
+          billing_mode: 'token', input_price: 3e-6, output_price: 15e-6,
+          cache_write_price: null, cache_read_price: 0.3e-6,
+          image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+        }
+      }),
+      tokenModel({
+        name: 'kimi-k2.6',
+        pricing: {
+          billing_mode: 'token', input_price: 0.95e-6, output_price: 4e-6,
+          cache_write_price: null, cache_read_price: 0.16e-6,
+          image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+        }
+      }),
+      tokenModel({
+        name: 'kimi-k2.5',
+        pricing: {
+          billing_mode: 'token', input_price: 0.6e-6, output_price: 3e-6,
+          cache_write_price: null, cache_read_price: 0.1e-6,
+          image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+        }
+      })
+    ]
+
+    const text = mountTable(models, 0.5).text()
+    expect(text).toContain('$1.50')
+    expect(text).toContain('$7.50')
+    expect(text).toContain('$0.15')
+    expect(text).toContain('$0.475')
+    expect(text).toContain('$2.00')
+    expect(text).toContain('$0.08')
+    expect(text).toContain('$0.30')
+    expect(text).toContain('$0.05')
+  })
+
+  it('GLM-5.1 的 32K 官方分档与 5 折实付价都应展示', () => {
+    const intervals = [
+      {
+        min_tokens: 0, max_tokens: 31999, tier_label: '输入 <32K',
+        input_price: 6 / 7 * 1e-6, output_price: 24 / 7 * 1e-6,
+        cache_write_price: null, cache_read_price: 1.3 / 7 * 1e-6, per_request_price: null
+      },
+      {
+        min_tokens: 31999, max_tokens: null, tier_label: '输入 >=32K',
+        input_price: 8 / 7 * 1e-6, output_price: 4e-6,
+        cache_write_price: null, cache_read_price: 2 / 7 * 1e-6, per_request_price: null
+      }
+    ]
+    const model = tokenModel({
+      name: 'glm-5.1',
+      pricing: {
+        billing_mode: 'token', input_price: 6 / 7 * 1e-6, output_price: 24 / 7 * 1e-6,
+        cache_write_price: null, cache_read_price: 1.3 / 7 * 1e-6,
+        image_input_price: null, image_output_price: null, per_request_price: null, intervals
+      },
+      official_pricing: {
+        input_price: 6 / 7 * 1e-6, output_price: 24 / 7 * 1e-6,
+        cache_write_price: null, cache_write_1h_price: null, cache_read_price: 1.3 / 7 * 1e-6,
+        intervals
+      }
+    })
+
+    const text = mountTable([model], 0.5).text()
+    expect(text).toContain('输入 <32K')
+    expect(text).toContain('输入 >=32K')
+    // 短上下文: ¥6 / ¥24 / ¥1.3，按 1 USD = 7 CNY 再打五折。
+    expect(text).toContain('$0.4285714286')
+    expect(text).toContain('$1.714285714')
+    expect(text).toContain('$0.09285714286')
+    // 长上下文: ¥8 / ¥28 / ¥2，按同口径打五折。
+    expect(text).toContain('$0.5714285714')
+    expect(text).toContain('$2.00')
+    expect(text).toContain('$0.1428571429')
+    // 官方列保留未折扣的 GLM 基准价。
+    expect(text).toContain('$1.142857143')
+    expect(text).toContain('$4.00')
+    expect(text).toContain('$0.2857142857')
+  })
+
+  it('DeepSeek 官方美元价按 0.5x 显示', () => {
+    const models = [
+      tokenModel({
+        name: 'deepseek-v4-flash',
+        pricing: {
+          billing_mode: 'token', input_price: 0.14e-6, output_price: 0.28e-6,
+          cache_write_price: null, cache_read_price: 0.0028e-6,
+          image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+        }
+      }),
+      tokenModel({
+        name: 'deepseek-v4-pro',
+        pricing: {
+          billing_mode: 'token', input_price: 0.435e-6, output_price: 0.87e-6,
+          cache_write_price: null, cache_read_price: 0.003625e-6,
+          image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+        }
+      })
+    ]
+
+    const text = mountTable(models, 0.5).text()
+    expect(text).toContain('$0.07')
+    expect(text).toContain('$0.14')
+    expect(text).toContain('$0.0014')
+    expect(text).toContain('$0.2175')
+    expect(text).toContain('$0.435')
+    expect(text).toContain('$0.0018125')
+  })
+
   it('用户专属倍率覆盖分组倍率,并划线展示原倍率', () => {
     const wrapper = mountTable([tokenModel()], 1, 0.8)
     const text = wrapper.text()
