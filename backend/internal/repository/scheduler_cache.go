@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -607,6 +608,38 @@ func (c *schedulerCache) DeleteAccount(ctx context.Context, accountID int64) err
 	return c.rdb.Del(ctx, schedulerAccountKey(id), schedulerAccountMetaKey(id), schedulerLastUsedKey(id)).Err()
 }
 
+// PurgeLegacyCredentialPayloads 清除升级前可能携带完整凭证的账号 JSON，保留热路径时间戳。
+func (c *schedulerCache) PurgeLegacyCredentialPayloads(ctx context.Context) error {
+	for _, pattern := range []string{schedulerAccountPrefix + "*", schedulerAccountMetaPrefix + "*"} {
+		var cursor uint64
+		for {
+			keys, next, err := c.rdb.Scan(ctx, cursor, pattern, int64(c.writeChunkSize)).Result()
+			if err != nil {
+				return err
+			}
+			if pattern == schedulerAccountPrefix+"*" {
+				filtered := keys[:0]
+				for _, key := range keys {
+					if !strings.HasPrefix(key, schedulerAccountLastUsedPrefix) {
+						filtered = append(filtered, key)
+					}
+				}
+				keys = filtered
+			}
+			if len(keys) > 0 {
+				if err := c.rdb.Del(ctx, keys...).Err(); err != nil {
+					return err
+				}
+			}
+			cursor = next
+			if cursor == 0 {
+				break
+			}
+		}
+	}
+	return nil
+}
+
 func (c *schedulerCache) UpdateLastUsed(ctx context.Context, updates map[int64]time.Time) error {
 	if len(updates) == 0 {
 		return nil
@@ -827,15 +860,12 @@ func (c *schedulerCache) writeAccountIDs(ctx context.Context, accounts []service
 }
 
 func marshalSchedulerCacheAccount(account service.Account) ([]byte, []byte, error) {
-	fullPayload, err := json.Marshal(account)
-	if err != nil {
-		return nil, nil, fmt.Errorf("marshal account: %w", err)
-	}
-	metaPayload, err := json.Marshal(buildSchedulerMetadataAccount(account))
+	metadata := buildSchedulerMetadataAccount(account)
+	payload, err := json.Marshal(metadata)
 	if err != nil {
 		return nil, nil, fmt.Errorf("marshal account metadata: %w", err)
 	}
-	return fullPayload, metaPayload, nil
+	return payload, payload, nil
 }
 
 func (c *schedulerCache) mgetChunked(ctx context.Context, keys []string) ([]any, error) {
@@ -954,7 +984,7 @@ func filterSchedulerCredentials(credentials map[string]any) map[string]any {
 	if len(credentials) == 0 {
 		return nil
 	}
-	keys := []string{"model_mapping", "compact_model_mapping", "api_key", "project_id", "oauth_type", "plan_type"}
+	keys := []string{"model_mapping", "compact_model_mapping", "project_id", "oauth_type", "plan_type"}
 	filtered := make(map[string]any)
 	for _, key := range keys {
 		if value, ok := credentials[key]; ok && value != nil {

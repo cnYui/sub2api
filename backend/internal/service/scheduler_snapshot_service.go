@@ -68,6 +68,10 @@ type schedulerSnapshotAccountIDWriter interface {
 	SetSnapshotByAccountIDs(ctx context.Context, bucket SchedulerBucket, token SchedulerBucketWriteToken, accountIDs []int64) error
 }
 
+type schedulerLegacyCredentialPurger interface {
+	PurgeLegacyCredentialPayloads(context.Context) error
+}
+
 func newSchedulerAccountQueryCache(taskSets ...[]schedulerBucketWriteTask) *schedulerAccountQueryCache {
 	queries := &schedulerAccountQueryCache{
 		remaining:          make(map[schedulerAccountQueryKey]int),
@@ -263,13 +267,18 @@ func (s *SchedulerSnapshotService) GetAccount(ctx context.Context, accountID int
 	if accountID <= 0 {
 		return nil, nil
 	}
+	var cached *Account
 	if s.cache != nil {
 		account, err := s.cache.GetAccount(ctx, accountID)
 		if err != nil {
 			logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] account cache read failed: id=%d err=%v", accountID, err)
-		} else if account != nil {
-			return account, nil
+		} else {
+			cached = account
 		}
+	}
+	// 账号快照不再保存上游凭证。生产路径必须回源，确保请求只从受控仓储取得解密后的凭证。
+	if s.accountRepo == nil {
+		return cached, nil
 	}
 
 	if err := s.guardFallback(ctx); err != nil {
@@ -310,6 +319,15 @@ func (s *SchedulerSnapshotService) UpdateAccountInCache(ctx context.Context, acc
 func (s *SchedulerSnapshotService) runInitialRebuild() {
 	if s.cache == nil {
 		return
+	}
+	if purger, ok := s.cache.(schedulerLegacyCredentialPurger); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		err := purger.PurgeLegacyCredentialPayloads(ctx)
+		cancel()
+		if err != nil {
+			logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] purge legacy credential payloads failed: %v", err)
+			return
+		}
 	}
 	_ = s.coalesceFullRebuild(func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

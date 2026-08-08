@@ -288,7 +288,7 @@ func TestMarshalSchedulerCacheAccountKeepsEncodingJSONWireFormat(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			full, meta, err := marshalSchedulerCacheAccount(tc.account)
 			require.NoError(t, err)
-			wantFull, err := json.Marshal(tc.account)
+			wantFull, err := json.Marshal(buildSchedulerMetadataAccount(tc.account))
 			require.NoError(t, err)
 			wantMeta, err := json.Marshal(buildSchedulerMetadataAccount(tc.account))
 			require.NoError(t, err)
@@ -296,6 +296,36 @@ func TestMarshalSchedulerCacheAccountKeepsEncodingJSONWireFormat(t *testing.T) {
 			require.Equal(t, wantMeta, meta)
 		})
 	}
+}
+
+func TestMarshalSchedulerCacheAccountNeverStoresCredentials(t *testing.T) {
+	full, meta, err := marshalSchedulerCacheAccount(service.Account{
+		ID: 804,
+		Credentials: map[string]any{
+			"api_key":       "sk-secret",
+			"refresh_token": "refresh-secret",
+			"model_mapping": map[string]any{"m": "m"},
+		},
+	})
+	require.NoError(t, err)
+	require.NotContains(t, string(full), "sk-secret")
+	require.NotContains(t, string(full), "refresh-secret")
+	require.NotContains(t, string(full), "api_key")
+	require.NotContains(t, string(meta), "sk-secret")
+	require.NotContains(t, string(meta), "api_key")
+}
+
+func TestSchedulerCachePurgeLegacyCredentialPayloadsDeletesOnlyAccountJSON(t *testing.T) {
+	ctx := context.Background()
+	cache, mr := newSchedulerCacheUnitWithRedis(t)
+	mr.Set(schedulerAccountKey("804"), `{"Credentials":{"api_key":"sk-secret"}}`)
+	mr.Set(schedulerAccountMetaKey("804"), `{"Credentials":{"api_key":"sk-secret"}}`)
+	mr.Set(schedulerLastUsedKey("804"), "123")
+
+	require.NoError(t, cache.PurgeLegacyCredentialPayloads(ctx))
+	require.False(t, mr.Exists(schedulerAccountKey("804")))
+	require.False(t, mr.Exists(schedulerAccountMetaKey("804")))
+	require.True(t, mr.Exists(schedulerLastUsedKey("804")))
 }
 
 func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSFlags(t *testing.T) {
