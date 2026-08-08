@@ -73,6 +73,7 @@ type Config struct {
 	Ops                     OpsConfig                     `mapstructure:"ops"`
 	JWT                     JWTConfig                     `mapstructure:"jwt"`
 	Totp                    TotpConfig                    `mapstructure:"totp"`
+	AccountCredentials      AccountCredentialsConfig      `mapstructure:"account_credentials"`
 	WebAuthn                WebAuthnConfig                `mapstructure:"webauthn"`
 	LinuxDo                 LinuxDoConnectConfig          `mapstructure:"linuxdo_connect"`
 	WeChat                  WeChatConnectConfig           `mapstructure:"wechat_connect"`
@@ -1525,6 +1526,14 @@ type TotpConfig struct {
 	EncryptionKeyConfigured bool `mapstructure:"-"`
 }
 
+// AccountCredentialsConfig 控制上游账号凭证的服务端加密密钥。
+type AccountCredentialsConfig struct {
+	// EncryptionKey 是开发/测试可直接注入的 64 位十六进制 AES-256 密钥。
+	EncryptionKey string `mapstructure:"encryption_key"`
+	// EncryptionKeyFile 是生产环境推荐的 Docker Secret 挂载路径。
+	EncryptionKeyFile string `mapstructure:"encryption_key_file"`
+}
+
 type TurnstileConfig struct {
 	Required bool `mapstructure:"required"`
 }
@@ -1690,6 +1699,18 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		cfg.Security.ForwardedClientIPHeaders = normalizeStringSlice(strings.Split(forwardedClientIPHeadersEnv, ","))
 	}
 	cfg.Server.TrustedProxiesConfigured = trustedProxiesConfigured
+	if keyFile := strings.TrimSpace(os.Getenv("ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_FILE")); keyFile != "" {
+		cfg.AccountCredentials.EncryptionKeyFile = keyFile
+	}
+	cfg.AccountCredentials.EncryptionKey = strings.TrimSpace(cfg.AccountCredentials.EncryptionKey)
+	cfg.AccountCredentials.EncryptionKeyFile = strings.TrimSpace(cfg.AccountCredentials.EncryptionKeyFile)
+	if cfg.AccountCredentials.EncryptionKeyFile != "" {
+		key, err := os.ReadFile(cfg.AccountCredentials.EncryptionKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("read account credentials encryption key file: %w", err)
+		}
+		cfg.AccountCredentials.EncryptionKey = strings.TrimSpace(string(key))
+	}
 	if cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs == 0 {
 		cfg.Gateway.OpenAIScheduler.StickyEscapeTTFTMs = 15000
 	}

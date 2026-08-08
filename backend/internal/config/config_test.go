@@ -23,6 +23,18 @@ func resetViperWithJWTSecret(t *testing.T) {
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
 }
 
+func TestLoadReadsAccountCredentialsEncryptionKeyFile(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	keyFile := filepath.Join(t.TempDir(), "account-credentials.key")
+	key := strings.Repeat("42", 32)
+	require.NoError(t, os.WriteFile(keyFile, []byte("\n"+key+"\n"), 0o600))
+	t.Setenv("ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_FILE", keyFile)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, key, cfg.AccountCredentials.EncryptionKey)
+}
+
 func TestLoadServerTimingConfig(t *testing.T) {
 	t.Run("disabled by default", func(t *testing.T) {
 		resetViperWithJWTSecret(t)
