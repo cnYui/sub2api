@@ -7,12 +7,18 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/stretchr/testify/require"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 )
+
+func TestCredentialMigrationInitializesEntRuntimeDefaults(t *testing.T) {
+	require.NotNil(t, securitysecret.DefaultCreatedAt)
+	require.NotNil(t, securitysecret.DefaultUpdatedAt)
+}
 
 func TestCredentialMapNeedsMigration(t *testing.T) {
 	tests := []struct {
