@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -183,6 +185,99 @@ func TestListOllamaCloudUsageGroupAccountsUsesOneStrictBatchQuery(t *testing.T) 
 	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'"))
 	require.NotContains(t, query, "~*")
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestOllamaCloudUsageQueriesUseAPIKeyFingerprintWithCredentialCodec(t *testing.T) {
+	codec, err := NewCredentialCodecHex(strings.Repeat("42", 32), nil)
+	require.NoError(t, err)
+	account := ollamaCloudUsageRepositoryAccount()
+	fingerprint := codec.APIKeyFingerprint("key")
+	credentialFingerprint, err := codec.FingerprintMap(account.Credentials)
+	require.NoError(t, err)
+
+	t.Run("分组查询", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		var capturedSQL string
+		var capturedArgs []any
+		mock.ExpectQuery("SELECT id").
+			WithArgs(sqlmock.AnyArg()).
+			WillReturnRows(sqlmock.NewRows([]string{"id"}))
+		repo := newAccountRepositoryWithSQLAndCredentialCodec(nil, captureQuerySQL{db: db, captured: &capturedSQL, args: &capturedArgs}, nil, codec)
+
+		accounts, err := repo.ListOllamaCloudUsageGroupAccounts(context.Background(), []*service.Account{account})
+
+		require.NoError(t, err)
+		require.Empty(t, accounts)
+		require.Contains(t, normalizeSQLWhitespace(capturedSQL), "credentials ->> '_api_key_fingerprint' = ANY($1)")
+		require.NotContains(t, capturedSQL, "credentials ->> 'api_key'")
+		require.NotContains(t, capturedSQL, "credentials -> 'api_key'")
+		require.Len(t, capturedArgs, 1)
+		lookupArgs, ok := capturedArgs[0].(driver.Valuer)
+		require.True(t, ok)
+		value, err := lookupArgs.Value()
+		require.NoError(t, err)
+		require.Contains(t, value, fingerprint)
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("组锁与更新", func(t *testing.T) {
+		var capturedSQL []string
+		matcher := sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+			capturedSQL = append(capturedSQL, actualSQL)
+			return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+		})
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(matcher))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+		t.Cleanup(func() { _ = client.Close() })
+		mock.ExpectBegin()
+		mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
+			WithArgs(fingerprint, account.ID, account.Platform, account.Type, credentialFingerprint, nil).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "anchor_matches", "session", "auto_refresh", "snapshot"}).
+				AddRow(account.ID, true, `"cipher:wos-session=secret"`, `true`, `null`))
+		mock.ExpectExec(`(?s)`+regexp.QuoteMeta("UPDATE accounts")).
+			WithArgs(`{"ollama_cloud_usage_auto_refresh":true,"ollama_cloud_usage_session":"cipher:wos-session=replacement"}`, fingerprint, sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+		mock.ExpectCommit()
+		repo := newAccountRepositoryWithSQLAndCredentialCodec(client, nil, nil, codec)
+
+		err = repo.SaveOllamaCloudUsageSession(context.Background(), account, "cipher:wos-session=replacement", true)
+
+		require.NoError(t, err)
+		joinedSQL := strings.Join(capturedSQL, "\n")
+		require.Contains(t, joinedSQL, "credentials ->> '_api_key_fingerprint'")
+		require.Contains(t, joinedSQL, "credentials ->> '_credential_fingerprint' = $5")
+		require.NotContains(t, joinedSQL, "credentials ->> 'api_key'")
+		require.NotContains(t, joinedSQL, "credentials -> 'api_key'")
+		require.NotContains(t, joinedSQL, "credentials = $5::jsonb")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+
+	t.Run("到期扫描", func(t *testing.T) {
+		db, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = db.Close() })
+		var capturedSQL string
+		now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+		mock.ExpectQuery("WITH eligible AS").
+			WithArgs(now.UTC(), time.Minute.Seconds(), time.Hour.Seconds(), 20, service.OllamaCloudUsageMinFetchInterval.Seconds()).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "group_last_used_at"}))
+		repo := newAccountRepositoryWithSQLAndCredentialCodec(nil, captureQuerySQL{db: db, captured: &capturedSQL}, nil, codec)
+
+		accounts, err := repo.ListDueOllamaCloudUsageAccounts(context.Background(), now, time.Minute, time.Hour, 20)
+
+		require.NoError(t, err)
+		require.Empty(t, accounts)
+		normalized := normalizeSQLWhitespace(capturedSQL)
+		require.Contains(t, normalized, "credentials ->> '_api_key_fingerprint' AS api_key")
+		require.Contains(t, normalized, "GROUP BY credentials ->> '_api_key_fingerprint'")
+		require.NotContains(t, capturedSQL, "credentials ->> 'api_key'")
+		require.NotContains(t, capturedSQL, "credentials -> 'api_key'")
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
 }
 
 func TestListDueOllamaCloudUsageAccountsFiltersOrdersAndLimits(t *testing.T) {

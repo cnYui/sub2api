@@ -5,9 +5,14 @@ services:
       - "127.0.0.1:18082:8080"
     volumes:
       - ./data-18082:/app/data:Z
+    secrets:
+      - source: account_credentials_encryption_key
+        target: account_credentials_encryption_key
+        mode: 0400
     environment:
       - BILLING_FINAL_MULTIPLIER=18
       - BILLING_MINIMUM_BALANCE_RESERVE=0.01
+      - ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_FILE=/run/secrets/account_credentials_encryption_key
 
   postgres:
     container_name: sub2api-official-18082-postgres
@@ -23,3 +28,7 @@ networks:
   sub2api-network:
     external: true
     name: sub2api-official-18082_sub2api-network
+
+secrets:
+  account_credentials_encryption_key:
+    file: ${ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_HOST_FILE:?ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_HOST_FILE is required}

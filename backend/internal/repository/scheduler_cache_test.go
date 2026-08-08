@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilterSchedulerCredentialsKeepsSubscriptionPlanType(t *testing.T) {
-	filtered := filterSchedulerCredentials(map[string]any{
+func TestSchedulerCredentialMetadataKeepsSubscriptionPlanType(t *testing.T) {
+	filtered := buildSchedulerCredentialMetadata(map[string]any{
 		"plan_type":     "plus",
 		"access_token":  "secret-access-token",
 		"refresh_token": "secret-refresh-token",
@@ -90,9 +90,9 @@ func TestSchedulerMetadataAccountProjectsUpstreamBillingProbe(t *testing.T) {
 	require.NotContains(t, filteredData, "effective_rate_multiplier")
 	require.NotContains(t, filteredData, "remote_diagnostic")
 	require.NotContains(t, metadata.Extra, "unused_large_field")
-	require.Contains(t, string(fullPayload), lastError)
+	require.NotContains(t, string(fullPayload), lastError)
 	require.NotContains(t, string(metaPayload), "last_error")
-	require.Less(t, len(metaPayload)*4, len(fullPayload))
+	require.Equal(t, metaPayload, fullPayload)
 }
 
 func TestSchedulerMetadataAccountDropsInvalidUpstreamBillingProbe(t *testing.T) {

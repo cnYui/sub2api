@@ -140,6 +140,7 @@ var ProviderSet = wire.NewSet(
 
 	// Encryptors
 	NewAESEncryptor,
+	NewCredentialCodecFromConfig,
 
 	// Backup infrastructure
 	NewPgDumper,

@@ -919,7 +919,7 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		QuotaDimension:          account.QuotaDimension,
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
-		Credentials:             filterSchedulerCredentials(account.Credentials),
+		Credentials:             buildSchedulerCredentialMetadata(account.Credentials),
 		Extra:                   filterSchedulerExtra(account.Extra),
 	}
 }
@@ -980,7 +980,7 @@ func filterSchedulerGroupIDs(groupIDs []int64, accountGroups []service.AccountGr
 	return filtered
 }
 
-func filterSchedulerCredentials(credentials map[string]any) map[string]any {
+func buildSchedulerCredentialMetadata(credentials map[string]any) map[string]any {
 	if len(credentials) == 0 {
 		return nil
 	}

@@ -188,3 +188,7 @@
 - 2026-08-08：负余额硬拦截已发布到 `sub2api-official-18082` 并同步公网。仅替换应用容器，PostgreSQL、Redis、数据卷、Nginx 和 Cloudflare Tunnel 未重建；204/205 迁移已执行，4 个活动欠费套餐均进入 `debt_paused`，公网五个健康端点均返回 200。发布与线上核验见 `docs/ai/context/20260808-004200-negative-balance-guard-production-release_CN.md`。
 - 2026-08-08：为使运行实例与最新本地 `main` 完全一致，基于提交 `dceca8676` 再次构建并替换 18082 应用容器；数据库、Redis、数据卷、Nginx 和 Cloudflare Tunnel 未重建。最终镜像与替换后拒绝探针核验见 `docs/ai/context/20260808-004236-negative-balance-guard-final-image-verification_CN.md`。
 - 2026-08-08：按管理员要求硬删除 `xiaobianfuai@gmail.com` 的软删除旧用户 ID `461` 及其旧 API Key，保留有效用户 ID `448` 和历史系统安全审计。该有效用户的 GPT Key 认证与模型目录正常，但 GPT 分组唯一账号 `1128` 上游账户已失效：`gpt-5.6-luna` 返回上游 502，`gpt-5.6-terra` 返回“账号未激活”。需恢复上游账户或增加备用账号，不能通过改用户余额解决；详见 `docs/ai/context/20260808-094445-xiaobianfuai-duplicate-user-delete-and-gpt-upstream-diagnosis_CN.md`。
+
+## 上游账号凭证安全改造上下文
+
+- 2026-08-08：在隔离分支 `codex/secure-account-credentials` 完成 Redis 调度快照去凭证、PostgreSQL `accounts.credentials` 服务端 AES-256-GCM 加密、HMAC 指纹 CAS/Ollama 查询、旧明文迁移命令和 Docker Secret 配置。生产迁移前必须停止应用、准备 `ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_HOST_FILE`、先 dry-run 再 `-Apply`；本轮未启动公网服务、未执行生产迁移。实现见 `docs/ai/context/20260808-140000-account-credential-security-implementation_CN.md`，最终验证及服务层既有测试失败记录见 `docs/ai/context/20260808-125202-account-credential-security-final-verification_CN.md`。

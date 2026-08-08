@@ -392,9 +392,18 @@ func (r *usageLogRepository) loadAccounts(ctx context.Context, ids []int64) (map
 		return nil, err
 	}
 	for _, m := range models {
-		out[m.ID] = accountEntityToService(m)
+		out[m.ID] = usageLogAccountSummary(accountEntityToService(m))
 	}
 	return out, nil
+}
+
+func usageLogAccountSummary(account *service.Account) *service.Account {
+	if account == nil {
+		return nil
+	}
+	summary := *account
+	summary.Credentials = nil
+	return &summary
 }
 
 func (r *usageLogRepository) loadGroups(ctx context.Context, ids []int64) (map[int64]*service.Group, error) {

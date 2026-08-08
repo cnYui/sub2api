@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -358,6 +360,78 @@ func TestUpdateCredentialsAtomicallyClearsProbeForOpenAIAPIKeyIdentityChange(t *
 	err = repo.UpdateCredentials(context.Background(), 27, map[string]any{"api_key": "sk-new"})
 
 	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateCredentialsWithCredentialCodecUsesFingerprintsForIdentityCleanup(t *testing.T) {
+	var capturedSQL string
+	matcher := sqlmock.QueryMatcherFunc(func(expectedSQL, actualSQL string) error {
+		if strings.Contains(actualSQL, "UPDATE accounts") {
+			capturedSQL = actualSQL
+		}
+		return sqlmock.QueryMatcherRegexp.Match(expectedSQL, actualSQL)
+	})
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(matcher))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+	codec, err := NewCredentialCodecHex(strings.Repeat("42", 32), nil)
+	require.NoError(t, err)
+	mock.ExpectBegin()
+	mock.ExpectExec(`(?s)UPDATE accounts`).
+		WithArgs(sqlmock.AnyArg(), int64(27)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
+		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(27), nil, nil, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	repo := newAccountRepositoryWithSQLAndCredentialCodec(client, db, nil, codec)
+
+	err = repo.UpdateCredentials(context.Background(), 27, map[string]any{
+		"api_key": "sk-new", "base_url": "https://ollama.com",
+	})
+
+	require.NoError(t, err)
+	normalized := normalizeSQLWhitespace(capturedSQL)
+	require.Contains(t, normalized, "credentials ->> '_credential_fingerprint' IS DISTINCT FROM $1::jsonb ->> '_credential_fingerprint'")
+	require.Contains(t, normalized, "credentials ->> '_api_key_fingerprint' IS DISTINCT FROM $1::jsonb ->> '_api_key_fingerprint'")
+	require.NotContains(t, normalized, "credentials -> 'api_key'")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestBulkUpdateWithCredentialCodecLocksBeforeMergingCredentials(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
+	t.Cleanup(func() { _ = client.Close() })
+	codec, err := NewCredentialCodecHex(strings.Repeat("42", 32), nil)
+	require.NoError(t, err)
+	stored, err := codec.EncryptMap(map[string]any{"api_key": "sk-old", "refresh_token": "rt-current"})
+	require.NoError(t, err)
+	storedJSON, err := json.Marshal(stored)
+	require.NoError(t, err)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery(`(?s)SELECT id, credentials FROM accounts.*FOR UPDATE`).
+		WithArgs(sqlmock.AnyArg()).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "credentials"}).AddRow(int64(27), storedJSON))
+	mock.ExpectExec(`(?s)UPDATE accounts`).
+		WithArgs(sqlmock.AnyArg(), int64(27)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
+		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(27), nil, nil, sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+	repo := newAccountRepositoryWithSQLAndCredentialCodec(client, db, nil, codec)
+
+	rows, err := repo.BulkUpdate(context.Background(), []int64{27}, service.AccountBulkUpdate{
+		Credentials: map[string]any{"api_key": "sk-new"},
+	})
+
+	require.NoError(t, err)
+	require.EqualValues(t, 1, rows)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
