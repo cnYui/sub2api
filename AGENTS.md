@@ -9,6 +9,7 @@
 - 2026-08-09：复核发现 detached billing 工作树仍有旧版结算差异和固定 `BILLING_FINAL_MULTIPLIER=15` 的临时 Compose；两者均与当前 `main`/生产配置冲突，未合并、未删除并继续由排除规则隔离。详见 `docs/ai/context/20260809-202934-billing-worktree-exclusion-correction_CN.md`。
 - 2026-08-09：`main` 合并完成后重新构建并替换公网应用，随后重启 `sub2api-official-18082`；新镜像摘要为 `sha256:607eccf01f8d88483b540ea3eb014ebaa7d36ec4e3164c09782a62d336e5a0c0`，容器 healthy，五个健康端点均返回 200。详见 `docs/ai/context/20260809-203230-main-docker-rebuild-restart_CN.md`。
 - 2026-08-09：按管理员要求执行 Docker Desktop 引擎重启；应用曾因 PostgreSQL 启动竞态自动重试，依赖恢复后 `sub2api-official-18082`、PostgreSQL、Redis 均 healthy，五个健康端点再次返回 200。详见 `docs/ai/context/20260809-203746-docker-desktop-restart-recovery_CN.md`。
+- 2026-08-09：复核固定最终计费倍率已为 `16x`：部署 Compose 与公网应用运行时环境一致，容器 healthy，无需重复发布。详见 `docs/ai/context/20260809-204224-billing-final-multiplier-16-verification_CN.md`。
 - 2026-08-09：`/keys` 的 API 端点复制入口固定展示 `https://api.aaccx.pw/v1`，不依赖公开设置中的 `api_base_url`；公开设置中的自定义端点仍作为补充线路展示。详见 `docs/ai/context/20260809-190459-keys-fixed-api-endpoint-copy_CN.md`。
 - 模型广场价格换算：外部模型上游按 1 美元=1 人民币展示，国产模型按 1 美元=7 人民币展示；本地若采用 1 美元=10.5 人民币，外部模型页面价乘 10.5，国产模型页面价需先除以 7 再乘 10.5。`BALANCE_RECHARGE_MULTIPLIER` 是每支付 1 CNY 获得多少 USD，应为 `1/10.5`；不要把汇率直接写入模型扣费倍率。详见 `docs/ai/context/20260806-154500-model-pricing-exchange-rate-analysis_CN.md`。
 - 2026-08-06：按隐藏最终倍率之外的口径核对本地与上游模型价格：Grok、Claude Max、GLM、Kimi、DeepSeek 分组倍率未对齐；GPT 三档、Kiro、GPT-Image-2 已对齐。当时运行中的 18082 实际 `BILLING_FINAL_MULTIPLIER=18`。GLM 缓存写入/读取基础单价也与上游不同。详见 `docs/ai/context/20260806-161037-upstream-local-pricing-multiplier-audit_CN.md`。
