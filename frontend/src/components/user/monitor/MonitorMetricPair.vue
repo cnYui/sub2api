@@ -1,5 +1,8 @@
 <template>
-  <div class="mt-5 grid grid-cols-2 gap-2">
+  <div
+    class="mt-5 grid gap-2"
+    :class="secondaryLabel ? 'grid-cols-2' : 'grid-cols-1'"
+  >
     <div
       class="rounded-xl p-3 bg-gray-50/80 dark:bg-dark-900/40 border border-gray-100 dark:border-dark-700/50"
     >
@@ -14,12 +17,13 @@
       </div>
     </div>
     <div
+      v-if="secondaryLabel"
       class="rounded-xl p-3 bg-gray-50/80 dark:bg-dark-900/40 border border-gray-100 dark:border-dark-700/50"
     >
       <div
         class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400"
       >
-        <Icon :name="secondaryIcon" size="xs" />
+        <Icon :name="secondaryIcon ?? 'globe'" size="xs" />
         <span>{{ secondaryLabel }}</span>
       </div>
       <div class="mt-1.5 text-lg font-bold font-mono tabular-nums text-gray-900 dark:text-gray-100">
@@ -36,10 +40,10 @@ defineProps<{
   primaryLabel: string
   primaryValue: string
   primaryUnit: string
-  primaryIcon: 'bolt' | 'globe' | 'clock' | 'link'
-  secondaryLabel: string
-  secondaryValue: string
-  secondaryUnit: string
-  secondaryIcon: 'bolt' | 'globe' | 'clock' | 'link'
+  primaryIcon: 'bolt' | 'globe' | 'clock' | 'link' | 'database'
+  secondaryLabel?: string
+  secondaryValue?: string
+  secondaryUnit?: string
+  secondaryIcon?: 'bolt' | 'globe' | 'clock' | 'link' | 'database'
 }>()
 </script>

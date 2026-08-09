@@ -18,21 +18,13 @@ func validateProvider(p string) error {
 	return nil
 }
 
-// validateAPIMode 校验 provider 与 api_mode 的组合。
-// responses 只对 OpenAI 有意义；其它 provider 使用 chat_completions 作为默认占位。
+// validateAPIMode 校验监控模式。目录探测是当前唯一允许的模式。
 func validateAPIMode(provider, apiMode string) error {
 	apiMode = defaultAPIMode(apiMode)
-	switch apiMode {
-	case MonitorAPIModeChatCompletions:
+	if apiMode == MonitorAPIModeModels {
 		return nil
-	case MonitorAPIModeResponses:
-		if provider == "" || provider == MonitorProviderOpenAI {
-			return nil
-		}
-		return ErrChannelMonitorInvalidAPIMode
-	default:
-		return ErrChannelMonitorInvalidAPIMode
 	}
+	return ErrChannelMonitorInvalidAPIMode
 }
 
 // validateInterval 校验 interval_seconds 范围。
@@ -134,10 +126,10 @@ func normalizeMonitorPrimaryModel(provider, model string) string {
 	return model
 }
 
-// defaultAPIMode 空串归一为 chat_completions，保证历史数据与旧客户端兼容。
+// defaultAPIMode 空串归一为 models，保证新建配置不会退回真实推理探测。
 func defaultAPIMode(apiMode string) string {
 	if strings.TrimSpace(apiMode) == "" {
-		return MonitorAPIModeChatCompletions
+		return MonitorAPIModeModels
 	}
 	return strings.TrimSpace(apiMode)
 }

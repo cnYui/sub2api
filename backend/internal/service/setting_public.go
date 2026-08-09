@@ -354,7 +354,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 const (
 	channelMonitorIntervalMin      = 15
 	channelMonitorIntervalMax      = 3600
-	channelMonitorIntervalFallback = 60
+	channelMonitorIntervalFallback = 1800
 )
 
 // parseChannelMonitorInterval parses the stored string and clamps to [15, 3600].

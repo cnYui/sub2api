@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -20,9 +19,6 @@ import (
 // monitorHTTPClient 共享一个 http.Client，避免每次检测重建 transport。
 // 自定义 Transport 在 dial 时强制再次校验 IP，防止 DNS rebinding 绕过 validateEndpoint。
 var monitorHTTPClient = newSSRFSafeHTTPClient(monitorRequestTimeout)
-
-// monitorPingHTTPClient 用于 endpoint origin 的 HEAD ping，超时更短。
-var monitorPingHTTPClient = newSSRFSafeHTTPClient(monitorPingTimeout)
 
 // newSSRFSafeHTTPClient 返回一个使用 safeDialContext 的 http.Client。
 // 仅供监控模块对外发起请求使用——所有目标都应是公网 endpoint。
@@ -41,7 +37,7 @@ func newSSRFSafeHTTPClient(timeout time.Duration) *http.Client {
 // CheckOptions 承载一次检测的自定义入参。
 // 所有字段都是可选（零值即等价于"用默认行为"）。
 type CheckOptions struct {
-	// APIMode 仅对 OpenAI provider 生效；空串等同 chat_completions。
+	// APIMode 当前固定为 models；保留字段用于 API/模板快照兼容。
 	APIMode string
 	// ExtraHeaders 用户自定义 HTTP 头（merge 到 adapter 默认 headers，用户优先）。
 	ExtraHeaders map[string]string
@@ -52,59 +48,122 @@ type CheckOptions struct {
 	BodyOverride map[string]any
 }
 
-// runCheckForModel 对单个 (provider, model) 做一次完整检测。
+// runCheckForModel 对单个 (provider, model) 做一次目录检测。
 // 不返回 error：所有失败都包装进 CheckResult.Status=error/failed。
 //
 // opts 承载模板 / 监控快照带来的自定义配置。nil 等同于 "off + 无 extra headers"。
 func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
+	results := runChecksForModels(ctx, provider, endpoint, apiKey, []string{model}, opts)
+	if len(results) > 0 {
+		return results[0]
+	}
 	res := &CheckResult{
 		Model:     model,
 		Status:    MonitorStatusError,
 		CheckedAt: time.Now(),
 	}
+	res.Message = "models probe returned no result"
+	return res
+}
 
-	challenge := generateChallenge()
-	mode := bodyOverrideMode(opts)
-
+// runChecksForModels 对一个监控的所有模型共享一次 GET /v1/models 请求。
+// 目录探测只验证 HTTP 2xx、响应可解析以及目标模型是否存在，不产生推理 token。
+func runChecksForModels(ctx context.Context, provider, endpoint, apiKey string, models []string, opts *CheckOptions) []*CheckResult {
+	checkedAt := time.Now()
 	start := time.Now()
-	respText, rawBody, statusCode, err := callProvider(ctx, provider, endpoint, apiKey, model, challenge.Prompt, opts)
-	latency := time.Since(start)
-	latencyMs := int(latency / time.Millisecond)
-	res.LatencyMs = &latencyMs
-
-	if err != nil {
-		res.Status = MonitorStatusError
-		res.Message = truncateMessage(sanitizeErrorMessage(err.Error()))
-		return res
-	}
-	if statusCode < 200 || statusCode >= 300 {
-		// 错误路径：用 rawBody 而非 respText（gjson textPath 抽取在错误响应里通常为空，
-		// 会丢掉真正的上游错误信息，例如 `{"error":{"message":"No available accounts ..."}}`）。
-		res.Status = MonitorStatusError
-		bodySnippet := truncateForErrorBody(rawBody)
-		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("upstream HTTP %d: %s", statusCode, bodySnippet)))
-		return res
-	}
-
-	// Replace 模式：跳过 challenge 校验（用户 body 是静态的，challenge 没法嵌入）。
-	// 改用「HTTP 2xx + 响应文本（adapter.textPath 抽取）非空」作为 operational 判定。
-	// 响应文本为空则降级为 failed（视为上游回了 200 但没实际内容）。
-	if mode == MonitorBodyOverrideModeReplace {
-		if strings.TrimSpace(respText) == "" {
-			res.Status = MonitorStatusFailed
-			res.Message = truncateMessage("replace-mode: upstream returned 2xx with empty text")
-			return res
+	catalog, rawBody, statusCode, err := callModels(ctx, provider, endpoint, apiKey, opts)
+	latencyMs := int(time.Since(start) / time.Millisecond)
+	results := make([]*CheckResult, len(models))
+	for i, model := range models {
+		result := &CheckResult{
+			Model:     model,
+			Status:    MonitorStatusError,
+			LatencyMs: &latencyMs,
+			CheckedAt: checkedAt,
 		}
-		return finalizeOperationalOrDegraded(res, latency, latencyMs)
+		if err != nil {
+			result.Message = truncateMessage(sanitizeErrorMessage(err.Error()))
+			results[i] = result
+			continue
+		}
+		if statusCode < 200 || statusCode >= 300 {
+			result.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("upstream HTTP %d: %s", statusCode, truncateForErrorBody(rawBody))))
+			results[i] = result
+			continue
+		}
+		if _, ok := catalog[strings.TrimSpace(model)]; !ok {
+			result.Status = MonitorStatusFailed
+			result.Message = truncateMessage(fmt.Sprintf("model %q not found in /v1/models", strings.TrimSpace(model)))
+			results[i] = result
+			continue
+		}
+		// 目录探测的成功语义就是“目录请求返回 2xx 且模型存在”。
+		result.Status = MonitorStatusOperational
+		results[i] = result
 	}
+	return results
+}
 
-	if !validateChallenge(respText, challenge.Expected) {
-		res.Status = MonitorStatusFailed
-		res.Message = truncateMessage(sanitizeErrorMessage(fmt.Sprintf("challenge mismatch (expected %s, got %q)", challenge.Expected, respText)))
-		return res
+// callModels 发起一次带鉴权的 GET /v1/models，并解析 OpenAI 兼容目录。
+func callModels(ctx context.Context, provider, endpoint, apiKey string, opts *CheckOptions) (map[string]struct{}, string, int, error) {
+	if err := validateAPIMode(provider, checkAPIMode(opts)); err != nil {
+		return nil, "", 0, err
 	}
+	headers := modelsProbeHeaders(provider, apiKey)
+	headers = mergeHeaders(headers, opts)
+	respBytes, status, err := getRawJSON(ctx, joinURL(endpoint, providerModelsPath), headers)
+	if err != nil {
+		return nil, "", status, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, string(respBytes), status, nil
+	}
+	catalog, err := parseModelsCatalog(respBytes)
+	if err != nil {
+		return nil, string(respBytes), status, fmt.Errorf("parse /v1/models response: %w", err)
+	}
+	return catalog, string(respBytes), status, nil
+}
 
-	return finalizeOperationalOrDegraded(res, latency, latencyMs)
+func modelsProbeHeaders(provider, apiKey string) map[string]string {
+	switch provider {
+	case MonitorProviderAnthropic:
+		return map[string]string{"x-api-key": apiKey, "anthropic-version": monitorAnthropicAPIVersion}
+	case MonitorProviderGemini:
+		return map[string]string{"x-goog-api-key": apiKey}
+	default:
+		return map[string]string{"Authorization": "Bearer " + apiKey}
+	}
+}
+
+type modelsCatalogItem struct {
+	ID string `json:"id"`
+}
+
+type modelsCatalogResponse struct {
+	Data   []modelsCatalogItem `json:"data"`
+	Models []modelsCatalogItem `json:"models"`
+}
+
+func parseModelsCatalog(body []byte) (map[string]struct{}, error) {
+	var envelope modelsCatalogResponse
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, err
+	}
+	items := envelope.Data
+	if len(items) == 0 {
+		items = envelope.Models
+	}
+	if items == nil {
+		return nil, errors.New("response has no data array")
+	}
+	catalog := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if id := strings.TrimSpace(item.ID); id != "" {
+			catalog[id] = struct{}{}
+		}
+	}
+	return catalog, nil
 }
 
 // finalizeOperationalOrDegraded 负责走到最后一步的 operational/degraded 判定。
@@ -125,28 +184,6 @@ func bodyOverrideMode(opts *CheckOptions) string {
 		return MonitorBodyOverrideModeOff
 	}
 	return opts.BodyOverrideMode
-}
-
-// pingEndpointOrigin 对 endpoint 的 origin (scheme://host) 发起 HEAD 请求，返回耗时。
-// 失败时返回 nil（不影响主状态判定）。
-func pingEndpointOrigin(ctx context.Context, endpoint string) *int {
-	origin, err := extractOrigin(endpoint)
-	if err != nil || origin == "" {
-		return nil
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, origin, nil)
-	if err != nil {
-		return nil
-	}
-	start := time.Now()
-	resp, err := monitorPingHTTPClient.Do(req)
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, monitorPingDiscardMaxBytes))
-	ms := int(time.Since(start) / time.Millisecond)
-	return &ms
 }
 
 // providerAdapter 描述某个 provider 在 challenge 检测中需要的几件事：
@@ -451,7 +488,7 @@ var bodyMergeKeyDenyList = map[string]map[string]bool{
 
 func checkAPIMode(opts *CheckOptions) string {
 	if opts == nil {
-		return MonitorAPIModeChatCompletions
+		return MonitorAPIModeModels
 	}
 	return defaultAPIMode(opts.APIMode)
 }
@@ -528,6 +565,30 @@ func postRawJSON(ctx context.Context, fullURL string, payload []byte, headers ma
 	return respBody, resp.StatusCode, nil
 }
 
+// getRawJSON 发送 GET 请求并限制响应体大小，供无 token 的目录探测使用。
+func getRawJSON(ctx context.Context, fullURL string, headers map[string]string) ([]byte, int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := monitorHTTPClient.Do(req)
+	if err != nil {
+		return nil, 0, fmt.Errorf("do request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, monitorResponseMaxBytes))
+	if err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("read body: %w", err)
+	}
+	return respBody, resp.StatusCode, nil
+}
+
 // joinURL 把 base origin 与 path 拼成完整 URL。
 // 容忍 base 末尾有/无斜杠，path 必带前导斜杠。
 func joinURL(base, path string) string {
@@ -536,18 +597,6 @@ func joinURL(base, path string) string {
 		path = "/" + path
 	}
 	return base + path
-}
-
-// extractOrigin 从一个 endpoint URL 中提取 scheme://host[:port] 部分。
-func extractOrigin(endpoint string) (string, error) {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return "", err
-	}
-	if u.Scheme == "" || u.Host == "" {
-		return "", errors.New("endpoint missing scheme or host")
-	}
-	return u.Scheme + "://" + u.Host, nil
 }
 
 // monitorSensitiveQueryParamRegex 匹配 URL query 中可能泄露凭证的参数：

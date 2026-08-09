@@ -802,7 +802,7 @@ func defaultBodyModeRepo(mode string) string {
 
 func defaultAPIModeRepo(apiMode string) string {
 	if apiMode == "" {
-		return "chat_completions"
+		return "models"
 	}
 	return apiMode
 }

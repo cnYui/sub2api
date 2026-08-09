@@ -44,6 +44,7 @@ const messages: Record<string, string> = {
   'keys.group': 'Group',
   'keys.id': 'ID',
   'keys.currentConcurrency': 'Current Concurrency',
+  'keys.endpoints.copied': 'Copied',
   'keys.lastUsedAt': 'Last Used',
   'keys.lastUsedIP': 'Last Used IP',
   'keys.rateLimitColumn': 'Rate Limit',
@@ -230,7 +231,6 @@ const mountView = async () => {
         SearchInput: SearchInputStub,
         Icon: IconStub,
         UseKeyModal: true,
-        EndpointPopover: true,
         GroupBadge: true,
         GroupOptionItem: true,
         Teleport: true,
@@ -268,6 +268,7 @@ describe('user KeysView column settings', () => {
     showError.mockReset()
     showSuccess.mockReset()
     copyToClipboard.mockReset()
+    copyToClipboard.mockResolvedValue(true)
     isCurrentStep.mockReset()
     nextStep.mockReset()
 
@@ -303,6 +304,18 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
+  })
+
+  it('在公开设置未配置端点时仍展示并复制固定 API 端点', async () => {
+    const wrapper = await mountView()
+
+    const endpoint = wrapper.get('[role="button"]')
+    expect(endpoint.text()).toBe('https://api.aaccx.pw/v1')
+
+    await endpoint.trigger('click')
+    await flushPromises()
+
+    expect(copyToClipboard).toHaveBeenCalledWith('https://api.aaccx.pw/v1', 'Copied')
   })
 
   it('shows a hidden column when toggled and persists the preference', async () => {

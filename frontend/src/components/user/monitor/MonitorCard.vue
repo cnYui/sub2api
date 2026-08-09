@@ -44,14 +44,10 @@
 
     <!-- Metrics -->
     <MonitorMetricPair
-      primary-icon="bolt"
-      :primary-label="t('monitorCommon.dialogLatency')"
+      primary-icon="database"
+      :primary-label="t('monitorCommon.modelCatalogLatency')"
       :primary-value="formatLatency(item.primary_latency_ms)"
       primary-unit="ms"
-      secondary-icon="globe"
-      :secondary-label="t('monitorCommon.endpointPing')"
-      :secondary-value="formatLatency(item.primary_ping_latency_ms)"
-      secondary-unit="ms"
     />
 
     <!-- Divider -->

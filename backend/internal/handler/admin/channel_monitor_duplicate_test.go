@@ -75,7 +75,7 @@ func setupDuplicateChannelMonitorRouter(t *testing.T) (*gin.Engine, *duplicateCh
 			ID:               42,
 			Name:             "primary",
 			Provider:         service.MonitorProviderOpenAI,
-			APIMode:          service.MonitorAPIModeResponses,
+			APIMode:          service.MonitorAPIModeModels,
 			Endpoint:         "https://api.example.com",
 			APIKey:           "ENC:top-secret",
 			PrimaryModel:     "gpt-5.4-mini",

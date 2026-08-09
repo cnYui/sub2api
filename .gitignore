@@ -131,6 +131,11 @@ scripts/*
 code-reviews/
 backend/cmd/server/server
 deploy/docker-compose.override.yml
+# 本地账号恢复工件可能包含凭证或二进制，不进入仓库
+backend/.restore-account-*
+backend/cmd/restore-account-*/
+# billing 工作树的临时发布覆盖文件，避免覆盖当前 16 倍配置
+deploy/docker-compose.production-billing-fix.yml
 .gocache/
 vite.config.js
 docs/*

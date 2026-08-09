@@ -53,6 +53,10 @@ coverage/
 config.yaml
 config.local.yaml
 
+# 本地账号恢复工件可能包含凭证或二进制，不进入镜像构建上下文
+backend/.restore-account-*
+backend/cmd/restore-account-*/
+
 # Logs
 *.log
 logs/

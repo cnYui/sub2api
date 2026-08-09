@@ -8,10 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // ChannelMonitorRepository 渠道监控数据访问接口。
@@ -465,38 +462,17 @@ func (s *ChannelMonitorService) persistCheckResults(ctx context.Context, m *Chan
 	}
 }
 
-// runChecksConcurrent 对 primary + extra 模型并发执行检测。
-// errgroup 仅用于等待，不传播错误（每个 model 失败都已打包进 CheckResult）。
+// runChecksConcurrent 对 primary + extra 模型共享一次目录探测。
+// /v1/models 返回的是整个目录，因此同一监控无需为每个模型重复请求上游。
 func (s *ChannelMonitorService) runChecksConcurrent(ctx context.Context, m *ChannelMonitor) []*CheckResult {
 	models := append([]string{m.PrimaryModel}, m.ExtraModels...)
-	results := make([]*CheckResult, len(models))
-
-	// ping 共享一次，所有模型记录同一个 ping 延迟。
-	pingMs := pingEndpointOrigin(ctx, m.Endpoint)
-
-	// 所有模型共用同一份 CheckOptions（来自监控的快照字段）。
 	opts := &CheckOptions{
 		APIMode:          m.APIMode,
 		ExtraHeaders:     m.ExtraHeaders,
 		BodyOverrideMode: m.BodyOverrideMode,
 		BodyOverride:     m.BodyOverride,
 	}
-
-	var eg errgroup.Group
-	var mu sync.Mutex
-	for i, model := range models {
-		i, model := i, model
-		eg.Go(func() error {
-			r := runCheckForModel(ctx, m.Provider, m.Endpoint, m.APIKey, model, opts)
-			r.PingLatencyMs = pingMs
-			mu.Lock()
-			results[i] = r
-			mu.Unlock()
-			return nil
-		})
-	}
-	_ = eg.Wait()
-	return results
+	return runChecksForModels(ctx, m.Provider, m.Endpoint, m.APIKey, models, opts)
 }
 
 // ---------- 调度器协作 ----------
@@ -719,7 +695,7 @@ func applyMonitorAdvancedUpdate(existing *ChannelMonitor, p ChannelMonitorUpdate
 	if p.APIMode != nil {
 		newAPIMode = defaultAPIMode(*p.APIMode)
 	} else if existing.Provider != MonitorProviderOpenAI {
-		newAPIMode = MonitorAPIModeChatCompletions
+		newAPIMode = MonitorAPIModeModels
 	}
 	if err := validateAPIMode(existing.Provider, newAPIMode); err != nil {
 		return err

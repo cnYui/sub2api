@@ -31,13 +31,13 @@ func TestApplyChannelMonitorTemplatePreservesDuplicateOperationMetadataAtomicall
 	mock.ExpectExec(`(?s)UPDATE "channel_monitors" SET "body_override" = NULL, "updated_at" = \$1, "api_mode" = \$2, "body_override_mode" = \$3 WHERE .*"template_id" = \$4.*"id" IN \(\$5, \$6\).*"provider" = \$7.*"api_mode" = \$8`).
 		WithArgs(
 			sqlmock.AnyArg(),
-			service.MonitorAPIModeResponses,
+			service.MonitorAPIModeModels,
 			service.MonitorBodyOverrideModeOff,
 			templateID,
 			monitorIDs[0],
 			monitorIDs[1],
 			service.MonitorProviderOpenAI,
-			service.MonitorAPIModeResponses,
+			service.MonitorAPIModeModels,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 2))
 	mock.ExpectExec(`(?s)UPDATE channel_monitors\s+SET extra_headers = \$1::jsonb \|\| CASE\s+WHEN COALESCE\(extra_headers, '\{\}'::jsonb\) \? \(\$2::text\)\s+THEN jsonb_build_object\(\$2::text, COALESCE\(extra_headers, '\{\}'::jsonb\) -> \(\$2::text\)\)\s+ELSE '\{\}'::jsonb\s+END\s+WHERE template_id = \$3\s+AND id = ANY\(\$4\)\s+AND provider = \$5\s+AND api_mode = \$6`).
@@ -47,7 +47,7 @@ func TestApplyChannelMonitorTemplatePreservesDuplicateOperationMetadataAtomicall
 			templateID,
 			`{41,42}`,
 			service.MonitorProviderOpenAI,
-			service.MonitorAPIModeResponses,
+			service.MonitorAPIModeModels,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 2))
 	mock.ExpectCommit()
@@ -80,7 +80,7 @@ func TestApplyChannelMonitorTemplateRollsBackWhenHeaderRowCountDiffers(t *testin
 			templateID,
 			`{41,42}`,
 			service.MonitorProviderOpenAI,
-			service.MonitorAPIModeResponses,
+			service.MonitorAPIModeModels,
 		).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectRollback()
@@ -102,7 +102,7 @@ func expectChannelMonitorTemplateForApply(mock sqlmock.Sqlmock, templateID int64
 			"extra_headers", "body_override_mode", "body_override",
 		}).AddRow(
 			templateID, now, now, "monitor-template", service.MonitorProviderOpenAI,
-			service.MonitorAPIModeResponses, "", []byte(`{"User-Agent":"template-client"}`),
+			service.MonitorAPIModeModels, "", []byte(`{"User-Agent":"template-client"}`),
 			service.MonitorBodyOverrideModeOff, nil,
 		))
 }

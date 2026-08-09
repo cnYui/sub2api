@@ -4,6 +4,8 @@
 - 支付订单的金额、退款金额和订单状态以服务端为准，前端金额只用于展示。
 - 退款必须绑定创建订单时的支付服务商实例，并保留可审计的订单状态变化。
 - 设计与实现上下文写入 `docs/ai/context/`，历史文档只新增不覆盖。
+- 2026-08-09：本地具名分支均已是 `main` 祖先，无待合并分支；账号恢复二进制/工具和 billing 临时 Compose 含本地敏感或过期发布状态，仅保留在工作区并由 Git/Docker 排除。其余未跟踪源码、迁移、测试和上下文文档纳入 `main`，整合边界见 `docs/ai/context/20260809-201602-main-consolidation-and-public-deploy-plan_CN.md`。
+- 2026-08-09：`/keys` 的 API 端点复制入口固定展示 `https://api.aaccx.pw/v1`，不依赖公开设置中的 `api_base_url`；公开设置中的自定义端点仍作为补充线路展示。详见 `docs/ai/context/20260809-190459-keys-fixed-api-endpoint-copy_CN.md`。
 - 模型广场价格换算：外部模型上游按 1 美元=1 人民币展示，国产模型按 1 美元=7 人民币展示；本地若采用 1 美元=10.5 人民币，外部模型页面价乘 10.5，国产模型页面价需先除以 7 再乘 10.5。`BALANCE_RECHARGE_MULTIPLIER` 是每支付 1 CNY 获得多少 USD，应为 `1/10.5`；不要把汇率直接写入模型扣费倍率。详见 `docs/ai/context/20260806-154500-model-pricing-exchange-rate-analysis_CN.md`。
 - 2026-08-06：按隐藏最终倍率之外的口径核对本地与上游模型价格：Grok、Claude Max、GLM、Kimi、DeepSeek 分组倍率未对齐；GPT 三档、Kiro、GPT-Image-2 已对齐。当时运行中的 18082 实际 `BILLING_FINAL_MULTIPLIER=18`。GLM 缓存写入/读取基础单价也与上游不同。详见 `docs/ai/context/20260806-161037-upstream-local-pricing-multiplier-audit_CN.md`。
 - 2026-08-06：按管理员要求完成价格对齐，生产 `BILLING_FINAL_MULTIPLIER` 恢复为 `15`，活跃分组倍率和名称已与上游现有对应分组对齐，GLM 5.1/5.2 缓存价固定为上游口径；部署与验证见 `docs/ai/context/20260806-162623-pricing-alignment-and-final-multiplier-15_CN.md`。
@@ -44,6 +46,7 @@
 - 2026-08-04：修复公网 `/login` 白屏。Vite 公共依赖分包由 `vendor-*` 改为 `lib-*`，规避 Cloudflare 对 `vendor-*` 静态资源路径的 403；只重建并替换 18082 应用容器，数据库和 Redis 未重建。入口脚本、Vue、i18n、CSS 资源均已通过公网 200 校验，浏览器页面正常渲染。记录见 `docs/ai/context/20260804-114424-login-blank-fix_CN.md`。
 - 2026-08-05：基于 `main` 最新提交重建并替换 `sub2api-official-18082` 应用容器，仅更新应用镜像，PostgreSQL、Redis 和数据卷未重建；本地、Nginx 与三个公网健康检查均返回 200。记录见 `docs/ai/context/20260805-114632-18082-production-rebuild-hide-image-guide_CN.md`。
 - 2026-08-06：基于本地 `main` 提交 `b0765e243` 重建 `deploy-sub2api` 并替换 `sub2api-official-18082` 应用容器；PostgreSQL、Redis、数据卷和 Cloudflare Tunnel 未重建。`127.0.0.1:18082`、本地 Nginx 与 `aaccx.pw` 三个公网域名健康检查均为 200，公网新版 Codex 使用方法 chunk 和 5 张截图均返回 200。记录见 `docs/ai/context/20260806-100809-18082-codex-guide-production-deploy_CN.md`。
+- 2026-08-09：按管理员要求从当前工作区重建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`；新镜像 `sha256:99730d92b42caae2babafeb7d951cbfc46b15ab6e5284baf902a12a2b4ad5474`，应用容器 healthy。PostgreSQL、Redis、Nginx、Cloudflare Tunnel 与数据卷未重建；本地与三个公网健康检查均为 200。详见 `docs/ai/context/20260809-172730-public-docker-rebuild-and-replace_CN.md`。
 
 ## 流量卡 10% 迁移上下文
 
@@ -114,6 +117,10 @@
 - 2026-08-05：按管理员要求将 `18082` 实例的服务端最终计费倍率从 `15x` 调整为 `18x`；分组倍率、账户统计倍率、图片/视频独立倍率、历史用量和余额均未修改。配置与发布核验见 `docs/ai/context/20260805-181500-final-billing-multiplier-18_CN.md`。
 - 2026-08-06：按管理员要求将 `18082` 实例的服务端最终计费倍率从 `18x` 恢复为 `15x`；分组倍率、账户统计倍率、图片/视频独立倍率、历史用量和余额均未修改。配置与发布核验见 `docs/ai/context/20260806-101213-final-billing-multiplier-15_CN.md`。
 - 2026-08-07：按管理员要求将 `18082` 实例的服务端最终计费倍率恢复为 `18x`；仅替换 `sub2api-official-18082` 应用容器，PostgreSQL 与 Redis 未重建。本地和三个公网健康检查均为 200，模型广场展示价格不含该最终倍率。详见 `docs/ai/context/20260807-115049-final-billing-multiplier-18-deploy-result_CN.md`。
+- 2026-08-08：按管理员要求将 `18082` 实例的服务端最终计费倍率调整为 `20x`。仅替换应用容器，PostgreSQL 与 Redis 未重建；发布期间应用和既有 Nginx 同时被外部正常停止，已在不修改 Nginx 或 Tunnel 配置的前提下恢复 Nginx 与 Cloudflared。应用容器环境变量为 `20`，本地与三个公网健康检查均为 200；模型广场展示价格不含最终倍率。详见 `docs/ai/context/20260808-100204-final-billing-multiplier-20-deploy-result_CN.md`。
+- 2026-08-08：按管理员要求将 `18082` 实例的服务端最终计费倍率恢复为 `18x`；仅替换应用容器，PostgreSQL 与 Redis 未重建，凭证文件挂载保持存在。应用容器环境变量为 `18`，本地与三个公网健康检查均为 200；模型广场展示价格不含最终倍率。详见 `docs/ai/context/20260808-142102-final-billing-multiplier-18-deploy-result_CN.md`。
+- 2026-08-09：按管理员要求将 `18082` 实例的隐藏最终计费倍率调整为 `16x`；仅替换 `sub2api-official-18082` 应用容器，PostgreSQL、Redis、Nginx 和 Cloudflare Tunnel 未重建或修改。应用运行时环境变量为 `16`，本地与三个公网健康检查均为 200；模型广场展示价格不含最终倍率，历史用量与余额未改写。详见 `docs/ai/context/20260809-092852-final-billing-multiplier-16-deploy-result_CN.md`。
+- 2026-08-09：按管理员要求基于当前工作区重新构建 `deploy-sub2api:latest` 并替换 `sub2api-official-18082`，将隐藏最终倍率 `16x` 更新到公网应用镜像。PostgreSQL、Redis、Nginx 和 Cloudflare Tunnel 未重建或修改；新应用容器为 healthy，运行态倍率为 `16`，本地与三个公网健康检查均为 200。详见 `docs/ai/context/20260809-100232-final-billing-multiplier-16-public-rebuild_CN.md`。
 - 2026-08-05：按管理员授权，对最终复核保留的 85 条单笔超过 `$3` 的普通余额日志执行整笔退款，合计 `$389.0187845250`，涉及 11 位用户；全部原路退回普通余额，写入 85 条 `BALANCE_MANUAL_REFUND` 审计并清理余额/API Key 缓存。执行记录见 `docs/ai/context/20260805-203905-over-3-balance-refund-execution_CN.md`。
 - 2026-08-06：只读审计最近一小时用量确认 673 条记录全部满足 `actual_cost = total_cost × rate_multiplier × 15`，无空费用、负费用、基础成本非零未扣费或最终倍率不匹配。模型广场只展示“基础单价 × 生效倍率”，不含最终 `15x`；15 条 Claude Kiro 记录保留调价前 `0.35x` 快照，其余当前记录按页面倍率一致。Kiro 仅由账号 3 承接，持续使用者为 `1032726009@qq.com`（近 24 小时 38 次、近一小时 18 次）。记录见 `docs/ai/context/20260806-180013-recent-usage-billing-and-kiro-audit_CN.md`。
 
@@ -166,6 +173,12 @@
 - GPT 0.35 最新一次检测曾因响应 7512ms 超过 6 秒阈值显示 `degraded`，这代表慢响应，不是认证、路由或模型不可用。
 - GPT-Image-2 不得用聊天请求或周期性生图探测。当前线上版本只完成一次已认证的 `/v1/models` 校验并展示该事实状态，未重启或重建公网 `18082`；后续持续监控必须先发布无费用的模型目录探测协议。完整记录见 `docs/ai/context/20260804-191548-three-gpt-channel-monitor-status_CN.md`。
 - 2026-08-07：补齐 `/monitor` 新增 GPT 渠道的模型集合：8 号 GPT 0.35 监控返回 7 个模型，9 号 GPT 0.1 监控返回 5 个文本/Codex 模型，10 号 GPT-Image-2 监控保持单模型；数据库去重、最近调度历史和 `18082/health` 均验证通过。认证详情接口因当前浏览器无登录会话未做 UI 点击验证，执行记录见 `docs/ai/context/20260807-104311-monitor-complete-channel-models-execution_CN.md`。
+- 2026-08-09：按管理员要求将 `/monitor` 全部渠道统一改为低成本 `GET /v1/models` 目录探测；不再接受 `chat_completions` / `responses` 监控模式，不发送真实推理请求。每个监控一次请求共享全部模型目录，生产检测间隔统一为 1800 秒；实现与发布记录见 `docs/ai/context/20260809-104516-channel-monitor-models-probe_CN.md`。
+- 2026-08-09：最终收紧监控运行链路为每个监控只发起一次带鉴权的 `GET /v1/models`，移除额外 HEAD 探测；空模式默认归一为 `models`，服务端缺省监控间隔回退改为 1800 秒，迁移同时把已有监控间隔统一为 1800 秒。历史 `ping_latency_ms` 字段保留兼容但新探测不再写入；详见 `docs/ai/context/20260809-112631-channel-monitor-models-only-final_CN.md`。
+- 2026-08-09：生产发布时发现已应用的 207 迁移 checksum 保护，已恢复 207 原始内容并新增不可变 208 迁移更新已有监控间隔；最终 `sub2api-official-18082` healthy，本地、Nginx 和公网健康检查均为 200，12 条监控和 5 个模板已核验为目标配置。详见 `docs/ai/context/20260809-114442-channel-monitor-models-only-production_CN.md`。
+- 2026-08-09：`/monitor` 用户卡片随目录探测协议调整为仅展示“模型目录延迟”，不再展示无数据来源的“对话延迟”或“端点 PING”；状态徽章和时间线继续将上游鉴权失败等真实 `error/failed` 结果显示为红色，不得以 UI 样式掩盖探测失败。详见 `docs/ai/context/20260809-133546-monitor-models-ui-alignment_CN.md`。
+- 2026-08-09：目录探测展示调整已重新构建并仅替换 `sub2api-official-18082` 应用容器；PostgreSQL、Redis、Nginx 和 Cloudflare Tunnel 未重建，容器健康且本地、Nginx、公网健康检查均为 200。详见 `docs/ai/context/20260809-135007-monitor-models-ui-production_CN.md`。
+- 2026-08-09：监控 `1-9` 的独立 API Key 快照已同步为账号 `1-6`、`1128-1130` 当前有效凭证；同步通过服务层重新加密，未暴露明文。每条仅执行一次认证 `GET /v1/models`，全部 `operational`，间隔保持 1800 秒；详见 `docs/ai/context/20260809-143815-channel-monitor-current-key-sync_CN.md`。
 
 ## Usage 双端对照与计费绕过审计
 
@@ -188,7 +201,23 @@
 - 2026-08-08：负余额硬拦截已发布到 `sub2api-official-18082` 并同步公网。仅替换应用容器，PostgreSQL、Redis、数据卷、Nginx 和 Cloudflare Tunnel 未重建；204/205 迁移已执行，4 个活动欠费套餐均进入 `debt_paused`，公网五个健康端点均返回 200。发布与线上核验见 `docs/ai/context/20260808-004200-negative-balance-guard-production-release_CN.md`。
 - 2026-08-08：为使运行实例与最新本地 `main` 完全一致，基于提交 `dceca8676` 再次构建并替换 18082 应用容器；数据库、Redis、数据卷、Nginx 和 Cloudflare Tunnel 未重建。最终镜像与替换后拒绝探针核验见 `docs/ai/context/20260808-004236-negative-balance-guard-final-image-verification_CN.md`。
 - 2026-08-08：按管理员要求硬删除 `xiaobianfuai@gmail.com` 的软删除旧用户 ID `461` 及其旧 API Key，保留有效用户 ID `448` 和历史系统安全审计。该有效用户的 GPT Key 认证与模型目录正常，但 GPT 分组唯一账号 `1128` 上游账户已失效：`gpt-5.6-luna` 返回上游 502，`gpt-5.6-terra` 返回“账号未激活”。需恢复上游账户或增加备用账号，不能通过改用户余额解决；详见 `docs/ai/context/20260808-094445-xiaobianfuai-duplicate-user-delete-and-gpt-upstream-diagnosis_CN.md`。
+- 2026-08-08：按管理员要求停止当前公网服务。已停止 `sub2api-public-nginx-local`、`sub2api-official-18082` 和 Cloudflare Tunnel 进程；数据库与 Redis 保留运行，公网三个域名健康检查均返回 502。详见 `docs/ai/context/20260808-100452-public-service-stop_CN.md`。
+- 2026-08-08：只读审计当前上游 API 配置：10 个 active 的 `openai/apikey` 账号凭证位于 PostgreSQL `accounts.credentials` JSONB，统一上游地址为 `https://api.ai-genesis.app`；Redis `sched:acc:*`/`sched:*` 保存含凭证的调度快照，轮换必须同时考虑缓存同步。生产入口保持停止，详见 `docs/ai/context/20260808-102128-upstream-api-config-locations_CN.md`。
+- 2026-08-08：按管理员授权，从已登录的上游 Key 页面轮换 10 个本地 OpenAI API Key 账号（1-6、1128-1131）。通过数据库与 Redis `sched:acc:*` 快照逐条同步，最终 10 个 Key 指纹均不同且数据库/缓存一一对应；上游 Qwen 无本地对应渠道，未创建。轮换过程保持公网关闭，最终应用、Nginx 与 Cloudflare Tunnel 均已停止。详见 `docs/ai/context/20260808-104356-upstream-api-key-rotation_CN.md`。
 
 ## 上游账号凭证安全改造上下文
 
 - 2026-08-08：在隔离分支 `codex/secure-account-credentials` 完成 Redis 调度快照去凭证、PostgreSQL `accounts.credentials` 服务端 AES-256-GCM 加密、HMAC 指纹 CAS/Ollama 查询、旧明文迁移命令和 Docker Secret 配置。生产迁移前必须停止应用、准备 `ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_HOST_FILE`、先 dry-run 再 `-Apply`；本轮未启动公网服务、未执行生产迁移。实现见 `docs/ai/context/20260808-140000-account-credential-security-implementation_CN.md`，最终验证及服务层既有测试失败记录见 `docs/ai/context/20260808-125202-account-credential-security-final-verification_CN.md`。
+- 2026-08-08：只读核查用户 `xinlise@gmail.com`（ID `504`）确认其账户 active、余额 `258 USD`、API Key 均 active；其 `codex`/`古月` Key 绑定的分组 `9` 唯一账号 `1128` 因上游 `401 API key is disabled` 进入 error 且不可调度，导致该分组无法调用。分组 `13` 账号 `1132` 当前可调度，建议迁移 Key 或恢复账号凭证；详见 `docs/ai/context/20260808-144229-xinlise-user-unavailability-diagnosis_CN.md`。
+- 2026-08-08：按管理员授权，用户 `441565547@qq.com`（ID `472`）的余额套餐 `id=10`（订单 `541`）第二期 `76 USD` 已提前结算，用于优先抵扣 `0.30025848 USD` 欠费；余额与本周剩余额度均为 `75.69974152 USD`，套餐从 `debt_paused` 恢复为 `active` 的第 `2/4` 期，下次刷新为 `2026-08-15 13:01:56 +08:00`。订单保持 `COMPLETED` 且未退款；已记录欠费还款账本和订单审计。详见 `docs/ai/context/20260808-171014-user-441565547-early-second-credit-debt-offset_CN.md`。
+- 2026-08-08：按管理员要求移除用户 `441565547@qq.com`（ID `472`）的余额套餐 `id=10`（订单 `541`），套餐标记为 `cancelled`、剩余额度清零并停止后续到账；普通余额从 `-0.95582240 USD` 清零为 `0 USD`。订单继续保持 `REFUND_FAILED`，退款金额 `12.43 CNY` 未改动；流量卡、历史用量和 API Key 未修改。已写入 `BALANCE_PACKAGE_MANUAL_CANCELLATION` 与 `BALANCE_MANUAL_RESET` 审计并清理余额缓存。详见 `docs/ai/context/20260808-215412-user-441565547-package-remove-and-balance-reset_CN.md`。
+- 2026-08-09：按管理员要求取消用户 `380361319@qq.com`（ID `603`）的余额套餐 `id=128`（订单 `617`）；套餐标记为 `cancelled`、剩余额度归零并停止下一次刷新，普通余额 `-0.26459774 USD` 保持不变。订单继续保持 `REFUND_FAILED`，退款金额 `44.22 CNY` 未改动；审计为 `payment_audit_logs.id=1505`。详见 `docs/ai/context/20260809-084722-user-380361319-package-cancellation_CN.md`。
+- 2026-08-09：购买页商品卡、支付方式、订单摘要和支付状态面板统一复用监控卡/模型广场的半透明形状：`rounded-2xl`、低对比度边框、`backdrop-blur` 与 `shadow-card`；原有中文文案、金额计算和支付流程保持不变。验证记录见 `docs/ai/context/20260809-113222-purchase-glass-ui-alignment_CN.md`。
+- 2026-08-09：购买页商品目录改为 `auto-fit + minmax(280px, 1fr)` 自适应网格，标题、价格、明细和值列避免窄卡片逐字换行；删除仅用于视觉核对的 `/purchase-preview` 临时入口。验证记录见 `docs/ai/context/20260809-114656-purchase-card-responsive_CN.md`。
+- 2026-08-09：购买页自适应改动已完成类型检查、购买卡单测、定向 ESLint、生产构建和 `git diff --check`，并在内置浏览器默认、窄桌面和等效手机视口完成核对。详见 `docs/ai/context/20260809-114942-purchase-card-responsive-verification_CN.md`。
+
+## 原生 Gemini 与 Claude 渠道
+
+- 2026-08-09：生产新增公开标准分组 `Gemini1倍率`（ID 70、`gemini`、`1.0x`）和 `Claude0.78倍率`（ID 71、`anthropic`、`0.78x`）；对应账号 ID 为 1165/1166，均 active 且仅绑定各自分组。用户 API Key 页面会自动显示 active、非专属的标准分组。两个 `/monitor` 监控 ID 为 13/14，均通过带鉴权 `GET /v1/models` 每 1800 秒刷新，首轮所有公开模型为 operational。凭证仅以服务端加密形式保存，详见 `docs/ai/context/20260809-170900-native-gemini-claude-channel-addition_CN.md`。
+- 2026-08-09：基于当前工作区重建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，新镜像为 `sha256:f2f422b244fe4f9a792ad71d08ac97a25eb09432d9e67ac873538c7a81c984f3`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 与数据卷未重建，应用容器 healthy，监控调度器加载 14 条任务，本地与三个公网健康检查均为 200。详见 `docs/ai/context/20260809-181925-gemini-claude-public-docker-rebuild_CN.md`。
+- 2026-08-09：按管理员要求修正旧渠道平台类型：Grok0.9 分组/账号/监控 ID 3/1/1 改为 `grok`，Claude1.5 分组/账号/监控 ID 4/2/2 与 Claude0.45 分组/账号/监控 ID 5/3/3 改为 `anthropic`；同步清理 Kiro 监控一个不存在模型并刷新调度与认证缓存。三把对应 Key 的 `/v1/models` 均 200，监控配置模型全部 operational。详见 `docs/ai/context/20260809-185941-legacy-channel-platform-type-correction_CN.md`。

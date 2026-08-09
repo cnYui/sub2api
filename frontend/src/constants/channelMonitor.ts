@@ -17,8 +17,7 @@ export const PROVIDER_GROK: Provider = 'grok'
 export const DEFAULT_GROK_ENDPOINT = 'https://api.x.ai'
 export const DEFAULT_GROK_MODEL = 'grok-4.5'
 
-export const API_MODE_CHAT_COMPLETIONS: APIMode = 'chat_completions'
-export const API_MODE_RESPONSES: APIMode = 'responses'
+export const API_MODE_MODELS: APIMode = 'models'
 
 export const PROVIDERS: readonly Provider[] = [
   PROVIDER_OPENAI,
@@ -28,8 +27,7 @@ export const PROVIDERS: readonly Provider[] = [
 ]
 
 export const API_MODES: readonly APIMode[] = [
-  API_MODE_CHAT_COMPLETIONS,
-  API_MODE_RESPONSES,
+  API_MODE_MODELS,
 ]
 
 export const STATUS_OPERATIONAL: MonitorStatus = 'operational'
@@ -45,4 +43,4 @@ export const MONITOR_STATUSES: readonly MonitorStatus[] = [
 ]
 
 /** Default polling interval (seconds) for new monitors. */
-export const DEFAULT_INTERVAL_SECONDS = 60
+export const DEFAULT_INTERVAL_SECONDS = 1800

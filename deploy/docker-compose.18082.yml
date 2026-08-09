@@ -10,7 +10,7 @@ services:
         target: account_credentials_encryption_key
         mode: 0400
     environment:
-      - BILLING_FINAL_MULTIPLIER=18
+      - BILLING_FINAL_MULTIPLIER=16
       - BILLING_MINIMUM_BALANCE_RESERVE=0.01
       - ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_FILE=/run/secrets/account_credentials_encryption_key
 

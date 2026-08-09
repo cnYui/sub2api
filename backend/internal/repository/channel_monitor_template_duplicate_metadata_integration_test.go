@@ -21,7 +21,7 @@ func TestApplyChannelMonitorTemplatePreservesDuplicateOperationMetadata(t *testi
 	template, err := client.ChannelMonitorRequestTemplate.Create().
 		SetName("duplicate-metadata-template").
 		SetProvider(channelmonitorrequesttemplate.ProviderOpenai).
-		SetAPIMode(service.MonitorAPIModeResponses).
+		SetAPIMode(service.MonitorAPIModeModels).
 		SetExtraHeaders(map[string]string{"User-Agent": "template-client"}).
 		SetBodyOverrideMode(service.MonitorBodyOverrideModeOff).
 		Save(ctx)
@@ -30,7 +30,7 @@ func TestApplyChannelMonitorTemplatePreservesDuplicateOperationMetadata(t *testi
 	monitor, err := client.ChannelMonitor.Create().
 		SetName("duplicate-copy").
 		SetProvider(channelmonitor.ProviderOpenai).
-		SetAPIMode(service.MonitorAPIModeResponses).
+		SetAPIMode(service.MonitorAPIModeModels).
 		SetEndpoint("https://api.example.com").
 		SetAPIKeyEncrypted("encrypted-key").
 		SetPrimaryModel("gpt-5.4-mini").

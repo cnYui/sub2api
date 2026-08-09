@@ -108,7 +108,6 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { APIMode, BodyOverrideMode, Provider } from '@/api/admin/channelMonitor'
 import {
-  API_MODE_RESPONSES,
   DEFAULT_GROK_MODEL,
   PROVIDER_GROK,
   PROVIDER_OPENAI,
@@ -301,12 +300,6 @@ const bodyModeHint = computed(() => {
 })
 
 const bodyPlaceholder = computed(() => {
-  if (props.provider === PROVIDER_OPENAI && props.apiMode === API_MODE_RESPONSES) {
-    if (props.bodyOverrideMode === 'merge') {
-      return '{\n  "max_output_tokens": 20\n}'
-    }
-    return '{\n  "model": "gpt-4o-mini",\n  "instructions": "You are a health check endpoint. Reply briefly.",\n  "input": "Reply with exactly: ok",\n  "max_output_tokens": 20,\n  "stream": false\n}'
-  }
   if (props.provider === PROVIDER_OPENAI || props.provider === PROVIDER_GROK) {
     if (props.bodyOverrideMode === 'merge') {
       return '{\n  "max_tokens": 20\n}'

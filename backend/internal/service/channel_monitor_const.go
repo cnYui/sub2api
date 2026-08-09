@@ -11,8 +11,6 @@ import (
 const (
 	// monitorRequestTimeout 单次模型请求总超时（含 Body 读取）。
 	monitorRequestTimeout = 45 * time.Second
-	// monitorPingTimeout HEAD 请求 endpoint origin 的超时。
-	monitorPingTimeout = 8 * time.Second
 	// monitorDegradedThreshold 主请求成功但耗时超过该阈值视为 degraded。
 	monitorDegradedThreshold = 6 * time.Second
 	// monitorHistoryRetentionDays 明细历史保留天数。
@@ -45,11 +43,11 @@ const (
 	monitorChallengeMin = 1
 	monitorChallengeMax = 50
 
-	// providerOpenAIPath OpenAI Chat Completions 路径。
-	providerOpenAIPath = "/v1/chat/completions"
-	// providerGrokPath Grok OpenAI-compatible Chat Completions 路径。
-	providerGrokPath = "/v1/chat/completions"
-	// providerOpenAIResponsesPath OpenAI Responses API 路径。
+	// providerModelsPath OpenAI-compatible 模型目录路径。
+	providerModelsPath = "/v1/models"
+	// 保留旧路径常量以避免历史测试/辅助代码失去编译能力；生产 checker 不再调用它们。
+	providerOpenAIPath          = "/v1/chat/completions"
+	providerGrokPath            = "/v1/chat/completions"
 	providerOpenAIResponsesPath = "/v1/responses"
 	// providerAnthropicPath Anthropic Messages 路径。
 	providerAnthropicPath = "/v1/messages"
@@ -103,8 +101,6 @@ const (
 	monitorTLSHandshakeTimeout = 10 * time.Second
 	// monitorResponseHeaderTimeout HTTP transport 等待响应头超时。
 	monitorResponseHeaderTimeout = 30 * time.Second
-	// monitorPingDiscardMaxBytes ping 时丢弃响应体的最大字节数。
-	monitorPingDiscardMaxBytes = 1024
 
 	// monitorDialTimeout 自定义 dialer 单次连接超时。
 	monitorDialTimeout = 10 * time.Second
@@ -121,10 +117,10 @@ var (
 		"CHANNEL_MONITOR_INVALID_PROVIDER", "provider must be one of openai/anthropic/gemini/grok",
 	)
 	ErrChannelMonitorInvalidAPIMode = infraerrors.BadRequest(
-		"CHANNEL_MONITOR_INVALID_API_MODE", "api_mode must be chat_completions or responses; responses is only supported for openai",
+		"CHANNEL_MONITOR_INVALID_API_MODE", "api_mode must be models; monitoring only uses GET /v1/models",
 	)
 	ErrChannelMonitorInvalidRequestBody = infraerrors.BadRequest(
-		"CHANNEL_MONITOR_INVALID_REQUEST_BODY", "openai-compatible replace-mode body_override must include non-empty messages for chat_completions or non-empty instructions and input for responses",
+		"CHANNEL_MONITOR_INVALID_REQUEST_BODY", "models monitoring does not accept a request body override",
 	)
 	ErrChannelMonitorInvalidInterval = infraerrors.BadRequest(
 		"CHANNEL_MONITOR_INVALID_INTERVAL", "interval_seconds must be in [15, 3600]",
