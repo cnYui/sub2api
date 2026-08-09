@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div :class="['relative mx-auto space-y-6', viewMode === 'catalog' ? 'max-w-7xl' : 'max-w-4xl']">
+    <div :class="['purchase-page relative mx-auto space-y-6', viewMode === 'catalog' ? 'max-w-7xl' : 'max-w-4xl']">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-gray-900 border-t-transparent dark:border-gray-100 dark:border-t-transparent" />
       </div>
@@ -26,7 +26,7 @@
           />
 
           <template v-else-if="viewMode === 'catalog'">
-            <div v-if="products.length === 0" class="card py-16 text-center">
+            <div v-if="products.length === 0" class="purchase-panel py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.noPlans') }}</p>
             </div>
             <div v-else :class="catalogGridClass">
@@ -60,7 +60,7 @@
             </button>
 
             <template v-if="selectedTrafficPack">
-              <div class="card p-5">
+              <div class="purchase-panel p-5 sm:p-6">
                 <p class="text-xs font-medium uppercase tracking-wider text-gray-400">GPT 流量卡</p>
                 <h3 class="mt-2 text-lg font-bold text-gray-900 dark:text-white">{{ selectedTrafficPack.name }}</h3>
                 <div class="mt-3 flex items-baseline gap-2">
@@ -74,7 +74,7 @@
               </div>
             </template>
             <template v-else-if="selectedBalancePackage">
-              <div class="card p-5">
+              <div class="purchase-panel p-5 sm:p-6">
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ selectedBalancePackage.name }}</h3>
                 <div class="flex items-baseline gap-2">
                   <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ formatCNY(selectedBalancePackage.price_cny) }}</span>
@@ -89,12 +89,12 @@
               </div>
             </template>
 
-            <div v-if="methodOptions.length" class="card p-6">
+            <div v-if="methodOptions.length" class="purchase-panel p-5 sm:p-6">
               <PaymentMethodSelector :methods="methodOptions" :selected="selectedMethod" @select="selectedMethod = $event" />
             </div>
-            <div v-else class="card p-4 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</div>
+            <div v-else class="purchase-panel p-4 text-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</div>
 
-            <div class="card p-6">
+            <div class="purchase-panel p-5 sm:p-6">
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.paymentAmount') }}</span>
@@ -104,7 +104,7 @@
                   <span class="text-gray-500 dark:text-gray-400">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                   <span class="text-gray-900 dark:text-white">{{ formatCNY(feeAmount) }}</span>
                 </div>
-                <div class="flex justify-between border-t border-gray-200 pt-2 dark:border-dark-600">
+                <div class="flex justify-between border-t border-gray-200/80 pt-3 dark:border-dark-700/60">
                   <span class="font-medium text-gray-700 dark:text-gray-300">{{ t('payment.actualPay') }}</span>
                   <span class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ formatCNY(totalAmount) }}</span>
                 </div>
@@ -120,7 +120,7 @@
             </button>
           </template>
 
-          <div v-if="errorMessage" class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+          <div v-if="errorMessage" class="rounded-xl border border-red-200/80 bg-red-50/70 px-4 py-3 text-sm text-red-700 backdrop-blur-sm dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
             {{ errorMessage }}
           </div>
         </section>
@@ -242,10 +242,7 @@ const products = computed<CatalogProduct[]>(() => (checkout.value.balance_packag
   },
 })))
 const catalogGridClass = computed(() => {
-  const count = Math.max(products.value.length, trafficProducts.value.length)
-  if (count <= 2) return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8'
-  if (count >= 4) return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4 lg:gap-12'
-  return 'grid auto-rows-[minmax(380px,auto)] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3 lg:gap-12'
+  return 'purchase-catalog-grid'
 })
 
 function formatCNY(value: number): string {
@@ -355,6 +352,18 @@ onMounted(async () => {
 .payment-phase-leave-active { transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out); }
 .payment-phase-enter-from,
 .payment-phase-leave-to { opacity: 0; transform: translate3d(0, 4px, 0); }
+
+.purchase-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .purchase-catalog-grid { gap: 2rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .payment-phase-enter-active,
   .payment-phase-leave-active { transition-property: opacity; }

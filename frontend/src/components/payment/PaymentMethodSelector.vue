@@ -14,12 +14,12 @@
         :title="methodLabel(method)"
         :disabled="!method.available"
         :class="[
-          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
+          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-xl border px-3 backdrop-blur-sm transition-all',
           !method.available
-            ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
+            ? 'cursor-not-allowed border-gray-200/80 bg-gray-50/70 opacity-50 dark:border-dark-700/70 dark:bg-dark-900/40'
             : selected === method.type
               ? methodSelectedClass(method.type)
-              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+              : 'border-gray-200/80 bg-white/60 text-gray-700 hover:border-gray-300 hover:bg-white/80 dark:border-dark-700/70 dark:bg-dark-900/30 dark:text-gray-200 dark:hover:border-dark-600 dark:hover:bg-dark-800/60',
         ]"
         @click="method.available && emit('select', method.type)"
       >
@@ -99,10 +99,10 @@ function methodLabel(method: PaymentMethodOption): string {
 }
 
 function methodSelectedClass(type: string): string {
-  if (isBuiltInAlipayMethod(type)) return 'border-[#02A9F1] bg-blue-50 text-gray-900 shadow-sm dark:bg-blue-950 dark:text-gray-100'
-  if (isBuiltInWxpayMethod(type)) return 'border-[#09BB07] bg-green-50 text-gray-900 shadow-sm dark:bg-green-950 dark:text-gray-100'
-  if (type === 'stripe') return 'border-[#676BE5] bg-indigo-50 text-gray-900 shadow-sm dark:bg-indigo-950 dark:text-gray-100'
-  if (type === 'airwallex') return 'border-[#FF6B3D] bg-orange-50 text-gray-900 shadow-sm dark:border-[#FF8E3C] dark:bg-orange-950 dark:text-gray-100'
-  return 'border-primary-500 bg-primary-50 text-gray-900 shadow-sm dark:bg-primary-950 dark:text-gray-100'
+  if (isBuiltInAlipayMethod(type)) return 'border-[#02A9F1]/70 bg-blue-50/70 text-gray-900 shadow-card dark:bg-blue-950/40 dark:text-gray-100'
+  if (isBuiltInWxpayMethod(type)) return 'border-[#09BB07]/70 bg-green-50/70 text-gray-900 shadow-card dark:bg-green-950/40 dark:text-gray-100'
+  if (type === 'stripe') return 'border-[#676BE5]/70 bg-indigo-50/70 text-gray-900 shadow-card dark:bg-indigo-950/40 dark:text-gray-100'
+  if (type === 'airwallex') return 'border-[#FF6B3D]/70 bg-orange-50/70 text-gray-900 shadow-card dark:border-[#FF8E3C]/70 dark:bg-orange-950/40 dark:text-gray-100'
+  return 'border-primary-500/70 bg-primary-50/70 text-gray-900 shadow-card dark:bg-primary-950/40 dark:text-gray-100'
 }
 </script>

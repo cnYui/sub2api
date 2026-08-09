@@ -29,20 +29,17 @@ describe('PurchaseProductCard', () => {
     expect(card.classes()).toEqual(expect.arrayContaining([
       'rounded-2xl',
       'border',
-      'bg-gradient-to-b',
-      'from-white',
-      'to-gray-50',
-      'dark:bg-black',
-      'dark:from-black',
-      'dark:to-black',
+      'bg-white/70',
+      'backdrop-blur-xl',
+      'shadow-card',
+      'dark:bg-dark-800/60',
     ]))
     expect(wrapper.text()).toContain('28 天订阅套餐A')
     expect(wrapper.text()).toContain('周限额58刀')
     expect(button.classes()).toEqual(expect.arrayContaining([
-      'rounded-full',
-      'bg-gray-950',
-      'dark:bg-white',
-      'py-4',
+      'btn',
+      'btn-primary',
+      'py-3',
     ]))
 
     await button.trigger('click')
