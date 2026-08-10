@@ -203,11 +203,16 @@ import claudeCodeStep03Image from '@/assets/usage-guide/claude-code-step-03-prov
 import claudeCodeStep04Image from '@/assets/usage-guide/claude-code-step-04-model-select.png'
 import claudeCodeStep05Image from '@/assets/usage-guide/claude-code-step-05-enable-route.png'
 import claudeCodeStep06Image from '@/assets/usage-guide/claude-code-step-06-restart-desktop.png'
-import codexLatestStep01Image from '@/assets/usage-guide/codex-latest-step-01-select-gpt-group.png'
-import codexLatestStep02Image from '@/assets/usage-guide/codex-latest-step-02-ccswitch-gpt.png'
-import codexLatestStep03Image from '@/assets/usage-guide/codex-latest-step-03-provider-config.png'
-import codexLatestStep04Image from '@/assets/usage-guide/codex-latest-step-04-use-credential.png'
-import codexLatestStep05Image from '@/assets/usage-guide/codex-latest-step-05-codex-success.png'
+import codexCCSwitchStep01Image from '@/assets/usage-guide/codex-ccswitch-step-01.png'
+import codexCCSwitchStep02Image from '@/assets/usage-guide/codex-ccswitch-step-02.png'
+import codexCCSwitchStep03Image from '@/assets/usage-guide/codex-ccswitch-step-03.png'
+import codexCCSwitchStep04Image from '@/assets/usage-guide/codex-ccswitch-step-04.png'
+import codexCCSwitchStep05Image from '@/assets/usage-guide/codex-ccswitch-step-05.png'
+import codexCCSwitchStep06Image from '@/assets/usage-guide/codex-ccswitch-step-06.png'
+import codexCCSwitchStep07Image from '@/assets/usage-guide/codex-ccswitch-step-07.png'
+import codexCCSwitchStep08Image from '@/assets/usage-guide/codex-ccswitch-step-08.png'
+import codexCCSwitchStep09Image from '@/assets/usage-guide/codex-ccswitch-step-09.png'
+import codexCCSwitchStep10Image from '@/assets/usage-guide/codex-ccswitch-step-10.png'
 
 type GuideStep = {
   step: number
@@ -281,26 +286,53 @@ type GuideTopic =
 const codexSetupSteps: GuideStep[] = [
   {
     step: 1,
-    title: '先在网站创建 API Key，或将已有 API Key 切换到 GPT 分组，然后复制 GPT API Key',
-    images: [{ src: codexLatestStep01Image, alt: 'Codex 接入步骤 1：将 API Key 切换到 GPT 分组并复制' }],
+    title: '在网站创建包含 KIMI 分组的 API Key',
+    images: [{ src: codexCCSwitchStep01Image, alt: 'Codex 接入步骤 1：创建包含 KIMI 分组的密钥' }],
   },
   {
     step: 2,
-    title: '打开 CC Switch，点击 GPT 图标，再点击右上角的加号新建凭证',
-    images: [{ src: codexLatestStep02Image, alt: 'Codex 接入步骤 2：在 CC Switch 打开 GPT 栏目并新建凭证' }],
+    title: '打开 CC Switch，点击 Codex 图标和 ChatGPT 图标，再点击右上角加号新建凭证',
+    images: [{ src: codexCCSwitchStep02Image, alt: 'Codex 接入步骤 2：在 CC Switch 打开 Codex 和 ChatGPT 并新建凭证' }],
   },
   {
     step: 3,
-    title: '输入供应商名称、API Key 和 API 请求地址 https://api.aaccx.pw/v1，然后点击保存',
-    images: [{ src: codexLatestStep03Image, alt: 'Codex 接入步骤 3：填写供应商、API Key 和 API 请求地址并保存' }],
+    title: '填写供应商名称、API Key 和 API 请求地址',
+    images: [{ src: codexCCSwitchStep03Image, alt: 'Codex 接入步骤 3：填写 API Key 和 API 请求地址' }],
   },
   {
     step: 4,
-    title: '退出配置页后点击新建的凭证并使用，重启 Codex；看到成功运行后即可使用',
-    images: [
-      { src: codexLatestStep04Image, alt: 'Codex 接入步骤 4：点击新建的凭证并使用' },
-      { src: codexLatestStep05Image, alt: 'Codex 接入步骤 4：重启 Codex 后成功运行' },
-    ],
+    title: '确认 API Key 和 API 请求地址已填写完成',
+    images: [{ src: codexCCSwitchStep04Image, alt: 'Codex 接入步骤 4：确认 API Key 和 API 请求地址已填写' }],
+  },
+  {
+    step: 5,
+    title: '翻到页面下部，打开“高级选项”',
+    images: [{ src: codexCCSwitchStep05Image, alt: 'Codex 接入步骤 5：打开高级选项' }],
+  },
+  {
+    step: 6,
+    title: '点击“获取模型列表”，查看获取到的对应模型',
+    images: [{ src: codexCCSwitchStep06Image, alt: 'Codex 接入步骤 6：获取模型列表' }],
+  },
+  {
+    step: 7,
+    title: '点击“添加”，在下拉列表中选择获取到的模型进行模型映射',
+    images: [{ src: codexCCSwitchStep07Image, alt: 'Codex 接入步骤 7：添加模型并选择模型映射' }],
+  },
+  {
+    step: 8,
+    title: '确认模型映射成功，菜单显示名与实际请求模型均已填好',
+    images: [{ src: codexCCSwitchStep08Image, alt: 'Codex 接入步骤 8：模型映射成功' }],
+  },
+  {
+    step: 9,
+    title: '点击“保存”完成供应商凭证配置',
+    images: [{ src: codexCCSwitchStep09Image, alt: 'Codex 接入步骤 9：保存供应商凭证配置' }],
+  },
+  {
+    step: 10,
+    title: '重启 Codex，底部模型选择变成自定义模型即表示接入成功',
+    images: [{ src: codexCCSwitchStep10Image, alt: 'Codex 接入步骤 10：重启 Codex 后选择自定义模型' }],
   },
 ]
 
@@ -557,8 +589,8 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'codex',
     title: 'Codex 接入',
-    updatedAt: '2026-08-05',
-    description: '从创建或切换 GPT API Key 到在 CC Switch 配置并启用 Codex 的最新版步骤。',
+    updatedAt: '2026-08-09',
+    description: '使用 KIMI 分组 API Key，通过 CC Switch 配置模型映射并在 Codex 中启用自定义模型。',
     kind: 'steps',
     steps: codexSetupSteps,
   },
