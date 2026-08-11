@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-11：已将当前 `main` 的全部已审计未提交改动和上下文文档提交为 `01180abc5`，并快进同步到私有 GitHub 仓库 `fork` 的 `main`；本地 `main`、远程 `fork/main` 指向同一提交，工作区干净。同步范围和校验见 `docs/ai/context/20260811-190406-main-sync-private-github_CN.md`。
+
 - 2026-08-11：从当前工作区构建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，将管理员余额套餐“取消套餐”入口发布到公网。新镜像摘要为 `sha256:fee7afdf593f5750488f5a820de3a4e076ff1c4750db52a2afa3a4d54e920d6b`，应用 healthy；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，凭证 secret 挂载保留。应用实际最终计费倍率保持现有 `18x`。本地、Nginx 与三个公网健康端点均为 200，未认证取消接口返回 401，详见 `docs/ai/context/20260811-185117-admin-balance-package-cancellation-production-deploy_CN.md`。
 
 - 2026-08-11：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率由 `16x` 调整为 `18x`。仅更新 `deploy/docker-compose.18082.yml` 并强制替换应用容器，模型分组、用户余额、订单和历史用量未改；容器 healthy，Nginx、本地与三个公网健康端点均为 200。详见 `docs/ai/context/20260811-184618-billing-final-multiplier-18-execution_CN.md`。
