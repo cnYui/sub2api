@@ -30,6 +30,10 @@
               <Icon name="x" size="sm" />
               {{ t('payment.orders.cancel') }}
             </button>
+            <button v-if="row.can_cancel_balance_package" @click="openCancelBalancePackageDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+              <Icon name="x" size="sm" />
+              {{ t('payment.admin.cancelBalancePackage') }}
+            </button>
             <button v-if="row.status === 'FAILED'" @click="handleRetryOrder(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20">
               <Icon name="refresh" size="sm" />
               {{ t('payment.admin.retry') }}
@@ -112,6 +116,17 @@
     </BaseDialog>
 
     <AdminRefundDialog :show="showRefundDialog" :order="selectedOrder" :submitting="refundSubmitting" @confirm="handleRefund" @cancel="showRefundDialog = false" />
+    <ConfirmDialog
+      :show="!!cancelBalancePackageOrder"
+      :title="t('payment.admin.cancelBalancePackage')"
+      :message="t('payment.admin.cancelBalancePackageConfirm', { id: cancelBalancePackageOrder?.id })"
+      :confirm-text="t('payment.admin.confirmCancelBalancePackage')"
+      :cancel-text="t('common.cancel')"
+      danger
+      :submitting="cancelBalancePackageSubmitting"
+      @confirm="confirmCancelBalancePackage"
+      @cancel="cancelBalancePackageOrder = null"
+    />
   </AppLayout>
 </template>
 
@@ -126,6 +141,7 @@ import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AdminRefundDialog from '@/components/admin/payment/AdminRefundDialog.vue'
@@ -154,6 +170,8 @@ const showDetailDialog = ref(false)
 const showRefundDialog = ref(false)
 const refundSubmitting = ref(false)
 const refundQueryingIds = ref(new Set<number>())
+const cancelBalancePackageOrder = ref<PaymentOrder | null>(null)
+const cancelBalancePackageSubmitting = ref(false)
 const orderAuditLogs = ref<AuditLog[]>([])
 const creditedAmountSymbol = currencySymbol('USD')
 
@@ -228,6 +246,28 @@ async function showOrderDetail(order: PaymentOrder) {
 async function handleCancelOrder(order: PaymentOrder) {
   try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
+}
+
+function openCancelBalancePackageDialog(order: PaymentOrder) {
+  cancelBalancePackageOrder.value = order
+}
+
+async function confirmCancelBalancePackage() {
+  const order = cancelBalancePackageOrder.value
+  if (!order || cancelBalancePackageSubmitting.value) return
+  cancelBalancePackageSubmitting.value = true
+  try {
+    const requestID = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    await adminPaymentAPI.cancelBalancePackage(order.id, `balance-package-cancel-${order.id}-${requestID}`)
+    appStore.showSuccess(t('payment.admin.balancePackageCancelled'))
+    cancelBalancePackageOrder.value = null
+    if (selectedOrder.value?.id === order.id) selectedOrder.value.can_cancel_balance_package = false
+    await loadOrders()
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    cancelBalancePackageSubmitting.value = false
+  }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {

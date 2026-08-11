@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
+	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
@@ -22,11 +23,13 @@ const (
 	balancePackageStatusCompleted   = "completed"
 	balancePackageStatusDebtPaused  = "debt_paused"
 	balancePackageStatusExpired     = "expired"
+	balancePackageStatusCancelled   = "cancelled"
 	balancePackageCreditBatchSize   = 100
 	balancePackageRenewalAudit      = "BALANCE_PACKAGE_RENEWAL"
 	balancePackageWeeklyCreditAudit = "BALANCE_PACKAGE_WEEKLY_CREDIT"
 	balancePackageDebtPausedAudit   = "BALANCE_PACKAGE_DEBT_PAUSED"
 	balancePackageDebtResumedAudit  = "BALANCE_PACKAGE_DEBT_RESUMED"
+	balancePackageManualCancelAudit = "BALANCE_PACKAGE_MANUAL_CANCELLATION"
 )
 
 type defaultBalancePackagePlan struct {
@@ -633,6 +636,129 @@ func (s *BalancePackageService) ResumeDebtPausedPackage(ctx context.Context, pac
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit debt package resume: %w", err)
 	}
+	return nil
+}
+
+// CancellableOrderIDs 返回仍绑定当前有效余额套餐的订单，用于管理员端展示取消权益入口。
+func (s *BalancePackageService) CancellableOrderIDs(ctx context.Context, orderIDs []int64, now time.Time) (map[int64]bool, error) {
+	result := make(map[int64]bool)
+	if s == nil || s.entClient == nil || len(orderIDs) == 0 {
+		return result, nil
+	}
+	packages, err := s.entClient.UserBalancePackage.Query().
+		Where(
+			userbalancepackage.PaymentOrderIDIn(orderIDs...),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted, balancePackageStatusDebtPaused),
+			userbalancepackage.ExpiresAtGT(now),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list cancellable balance packages: %w", err)
+	}
+	for _, item := range packages {
+		result[item.PaymentOrderID] = true
+	}
+	return result, nil
+}
+
+// CancelPackageByOrder 仅停止当前套餐权益，不发起退款或改写订单状态。
+func (s *BalancePackageService) CancelPackageByOrder(ctx context.Context, orderID, adminUserID int64, now time.Time) error {
+	if s == nil || s.entClient == nil {
+		return infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+	}
+	if orderID <= 0 || adminUserID <= 0 {
+		return infraerrors.BadRequest("INVALID_CANCEL_INPUT", "order and admin are required")
+	}
+
+	candidate, err := s.entClient.UserBalancePackage.Query().
+		Where(userbalancepackage.PaymentOrderIDEQ(orderID)).
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
+		}
+		return fmt.Errorf("find balance package for cancellation: %w", err)
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin balance package cancellation: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("lock balance package user for cancellation: %w", err)
+	}
+
+	packageQuery := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(candidate.ID))
+	if client.Driver().Dialect() == dialect.Postgres {
+		packageQuery = packageQuery.ForUpdate()
+	}
+	current, err := packageQuery.Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock balance package for cancellation: %w", err)
+	}
+	if current.PaymentOrderID != orderID || !isExpirableBalancePackageStatus(current.Status) || !current.ExpiresAt.After(now) {
+		return infraerrors.Conflict("BALANCE_PACKAGE_NOT_CANCELLABLE", "balance package is no longer cancellable")
+	}
+
+	orderQuery := client.PaymentOrder.Query().
+		Where(paymentorder.IDEQ(orderID), paymentorder.UserIDEQ(lockedUser.ID), paymentorder.OrderTypeEQ(payment.OrderTypeBalanceSubscription), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundFailed))
+	if client.Driver().Dialect() == dialect.Postgres {
+		orderQuery = orderQuery.ForUpdate()
+	}
+	if _, err := orderQuery.Only(txCtx); err != nil {
+		if dbent.IsNotFound(err) {
+			return infraerrors.Conflict("BALANCE_PACKAGE_NOT_CANCELLABLE", "balance package order is no longer cancellable")
+		}
+		return fmt.Errorf("lock balance package order for cancellation: %w", err)
+	}
+
+	if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
+		Where(userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusCompleted, balancePackageStatusDebtPaused)).
+		SetStatus(balancePackageStatusCancelled).
+		SetRemainingUsd(0).
+		ClearNextCreditAt().
+		Save(txCtx); err != nil {
+		return fmt.Errorf("cancel balance package: %w", err)
+	}
+
+	detail, err := json.Marshal(map[string]any{
+		"reason":                  "管理员取消当前余额套餐权益，用户可重新购买",
+		"user_id":                 lockedUser.ID,
+		"package_id":              current.ID,
+		"package_status_before":   current.Status,
+		"package_status_after":    balancePackageStatusCancelled,
+		"remaining_usd_before":    current.RemainingUsd,
+		"remaining_usd_after":     0,
+		"credited_count":          current.CreditedCount,
+		"next_credit_at_before":   current.NextCreditAt,
+		"next_credit_at_after":    nil,
+		"balance_unchanged_usd":   lockedUser.Balance,
+		"gateway_refund_executed": false,
+	})
+	if err != nil {
+		return fmt.Errorf("encode balance package cancellation audit: %w", err)
+	}
+	if _, err := client.PaymentAuditLog.Create().
+		SetOrderID(fmt.Sprintf("%d", orderID)).
+		SetAction(balancePackageManualCancelAudit).
+		SetDetail(string(detail)).
+		SetOperator(fmt.Sprintf("admin:%d", adminUserID)).
+		Save(txCtx); err != nil {
+		return fmt.Errorf("record balance package cancellation audit: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit balance package cancellation: %w", err)
+	}
+	s.invalidateBalanceCache(ctx, current.UserID)
 	return nil
 }
 

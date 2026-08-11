@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -405,6 +407,81 @@ func TestResumeDebtPausedPackageRequiresNonNegativeBalance(t *testing.T) {
 	updated, _ := client.UserBalancePackage.Get(ctx, pkg.ID)
 	if updated.Status != balancePackageStatusActive || updated.NextCreditAt == nil || !updated.NextCreditAt.Equal(now) {
 		t.Fatalf("unexpected resumed package: %#v", updated)
+	}
+}
+
+func TestCancelPackageByOrderStopsFutureCreditsWithoutRefundOrBalanceAdjustment(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-cancel@example.com").SetPasswordHash("hash").SetBalance(155).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-cancel-plan", 100)
+	now := time.Now().UTC().Truncate(time.Second)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(account.ID).
+		SetUserEmail(account.Email).
+		SetUserName("cancel target").
+		SetAmount(29).
+		SetPayAmount(29).
+		SetRechargeCode("cancel-package-order").
+		SetPaymentType(string(payment.TypeAlipay)).
+		SetPaymentTradeNo("trade-cancel").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		SetStatus(OrderStatusRefundFailed).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("test.local").
+		SetExpiresAt(now.Add(24 * time.Hour)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create order: %v", err)
+	}
+	pkg, err := client.UserBalancePackage.Create().
+		SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(order.ID).
+		SetWeeklyCreditUsd(100).SetRemainingUsd(55).SetCreditedCount(2).SetRefreshCount(4).
+		SetRefreshIntervalDays(7).SetStartsAt(now.Add(-7 * 24 * time.Hour)).SetNextCreditAt(now.Add(7 * 24 * time.Hour)).
+		SetExpiresAt(now.Add(21 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create package: %v", err)
+	}
+
+	svc := NewBalancePackageService(client)
+	if err := svc.CancelPackageByOrder(ctx, order.ID, 99, now); err != nil {
+		t.Fatalf("cancel package: %v", err)
+	}
+	updatedPackage, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+	if err != nil {
+		t.Fatalf("get cancelled package: %v", err)
+	}
+	if updatedPackage.Status != balancePackageStatusCancelled || updatedPackage.RemainingUsd != 0 || updatedPackage.NextCreditAt != nil {
+		t.Fatalf("unexpected cancelled package: %#v", updatedPackage)
+	}
+	updatedUser, err := client.User.Get(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updatedUser.Balance != account.Balance {
+		t.Fatalf("balance changed from %v to %v", account.Balance, updatedUser.Balance)
+	}
+	updatedOrder, err := client.PaymentOrder.Get(ctx, order.ID)
+	if err != nil {
+		t.Fatalf("get order: %v", err)
+	}
+	if updatedOrder.Status != OrderStatusRefundFailed {
+		t.Fatalf("order status = %q, want %q", updatedOrder.Status, OrderStatusRefundFailed)
+	}
+	auditCount, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(fmt.Sprintf("%d", order.ID)), paymentauditlog.ActionEQ(balancePackageManualCancelAudit)).
+		Count(ctx)
+	if err != nil {
+		t.Fatalf("count cancellation audit: %v", err)
+	}
+	if auditCount != 1 {
+		t.Fatalf("cancellation audit count = %d, want 1", auditCount)
+	}
+	if err := svc.CancelPackageByOrder(ctx, order.ID, 99, now); infraerrors.Reason(err) != "BALANCE_PACKAGE_NOT_CANCELLABLE" {
+		t.Fatalf("second cancellation error = %q, want BALANCE_PACKAGE_NOT_CANCELLABLE", infraerrors.Reason(err))
 	}
 }
 

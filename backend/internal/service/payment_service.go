@@ -234,6 +234,20 @@ func (s *PaymentService) ResumeDebtPausedBalancePackage(ctx context.Context, pac
 	return s.balancePackageService.ResumeDebtPausedPackage(ctx, packageID, adminUserID, time.Now().UTC())
 }
 
+func (s *PaymentService) CancellableBalancePackageOrderIDs(ctx context.Context, orderIDs []int64) (map[int64]bool, error) {
+	if s == nil || s.balancePackageService == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.CancellableOrderIDs(ctx, orderIDs, time.Now().UTC())
+}
+
+func (s *PaymentService) CancelBalancePackageForOrder(ctx context.Context, orderID, adminUserID int64) error {
+	if s == nil || s.balancePackageService == nil {
+		return fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.CancelPackageByOrder(ctx, orderID, adminUserID, time.Now().UTC())
+}
+
 func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
 	s.notificationEmailService = notificationEmailService
 }

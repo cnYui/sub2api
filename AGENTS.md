@@ -1,5 +1,15 @@
 # 项目协作约定
 
+- 2026-08-11：从当前工作区构建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，将管理员余额套餐“取消套餐”入口发布到公网。新镜像摘要为 `sha256:fee7afdf593f5750488f5a820de3a4e076ff1c4750db52a2afa3a4d54e920d6b`，应用 healthy；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，凭证 secret 挂载保留。应用实际最终计费倍率保持现有 `18x`。本地、Nginx 与三个公网健康端点均为 200，未认证取消接口返回 401，详见 `docs/ai/context/20260811-185117-admin-balance-package-cancellation-production-deploy_CN.md`。
+
+- 2026-08-11：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率由 `16x` 调整为 `18x`。仅更新 `deploy/docker-compose.18082.yml` 并强制替换应用容器，模型分组、用户余额、订单和历史用量未改；容器 healthy，Nginx、本地与三个公网健康端点均为 200。详见 `docs/ai/context/20260811-184618-billing-final-multiplier-18-execution_CN.md`。
+
+- 2026-08-11：管理员订单页新增余额套餐“取消套餐”入口。仅后端确认订单仍关联未过期的 `active` / `completed` / `debt_paused` 余额套餐时展示；取消仅停止后续到账、清除套餐当前剩余额度并写审计，不调用支付退款、不改订单状态、不回收已入账余额，用户随后可重新购买。实现和验证见 `docs/ai/context/20260811-172747-admin-balance-package-cancellation-ui_CN.md`。
+
+- 2026-08-11：按管理员授权提前结算用户 `yuheng-wu@foxmail.com`（ID `518`）余额套餐 `26`（订单 `357`）最后一期 `520 USD` 周额度，以修复余额额度击穿后的欠费暂停。`0.08877124 USD` 欠费已优先抵扣，余额与当前套餐额度均为 `519.91122876 USD`；套餐完成 `4/4`、状态为 `completed`，未续期、退款或改写历史用量/订单。支付审计 `1559`、欠费还款账本 `17` 和缓存失效均已完成，详见 `docs/ai/context/20260811-164947-user-yuheng-wu-early-final-weekly-credit-execution_CN.md`。
+
+- 2026-08-11：用户 `731205940@qq.com`（ID `516`）续费后的余额套餐因已完成的 `4/4` 到账进度未随续费重置，未排入新周期周额度；按管理员授权已提前发放下一周 `258 USD`，先抵扣 `$0.66703840` 欠费后余额为 `$257.33296160`，套餐恢复为 `active`，下次自动刷新为 2026-08-20 18:17:39（+08）。本次仅纠正该用户数据；全局续费周期规则需单独确认，详见 `docs/ai/context/20260811-155356-user-731205940-early-weekly-credit-execution_CN.md`。
+
 - 2026-08-10：按并发调整手册完成生产运行时热更新：15 个上游账号并发由实际 `50` 调至 `100`，157 个现有用户并发校准为 `20`，新用户默认并发已核验为 `20`；本地应用与 Nginx 健康检查均为 200。最近 1 小时历史窗口仍有 `P99=84494ms` 和 109 条 `503`，需在新流量窗口继续观察，详见 `docs/ai/context/20260810-215926-concurrency-adjustment-execution_CN.md`。
 
 - 2026-08-10：用户 `2262423876@qq.com`（ID `549`）无法使用的原因已确认：两把 API Key（`164`、`274`）均绑定 GPT `0.15x` 分组 `9`，该分组仅有下游账号 `1128`，近 6 小时持续出现上游 `502/503`，网关返回 `503 Service temporarily unavailable`；用户状态、余额和套餐均正常。本次未修改数据，详见 `docs/ai/context/20260810-140207-user-2262423876-unavailable-diagnosis_CN.md`。
@@ -240,3 +250,4 @@
 - 2026-08-09：基于当前工作区重建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，新镜像为 `sha256:f2f422b244fe4f9a792ad71d08ac97a25eb09432d9e67ac873538c7a81c984f3`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 与数据卷未重建，应用容器 healthy，监控调度器加载 14 条任务，本地与三个公网健康检查均为 200。详见 `docs/ai/context/20260809-181925-gemini-claude-public-docker-rebuild_CN.md`。
 - 2026-08-09：按管理员要求修正旧渠道平台类型：Grok0.9 分组/账号/监控 ID 3/1/1 改为 `grok`，Claude1.5 分组/账号/监控 ID 4/2/2 与 Claude0.45 分组/账号/监控 ID 5/3/3 改为 `anthropic`；同步清理 Kiro 监控一个不存在模型并刷新调度与认证缓存。三把对应 Key 的 `/v1/models` 均 200，监控配置模型全部 operational。详见 `docs/ai/context/20260809-185941-legacy-channel-platform-type-correction_CN.md`。
 - 2026-08-11：客户端出现 `stream disconnected before completion: Our servers are currently overloaded`。只读核查确认根因是上游 `api.ai-genesis.app` 过载/暂时不可用：最近 6 小时 174 次 OpenAI 流式转发失败主要集中在账号 1128/分组 9 与账号 1129/分组 10，两分组各只有一个账号且共享同一上游主机；本地应用、Nginx、数据库、Redis 和健康端点均正常。响应头写出后的流内失败会以断流提示暴露给客户端；未修改生产配置。详见 `docs/ai/context/20260811-133730-openai-upstream-overload-diagnosis_CN.md`。
+- 2026-08-11：按管理员要求取消用户 `1510623550@qq.com`（ID `476`）的当前余额套餐 `id=136`（订单 `625`），以允许其重新购买。套餐已标记为 `cancelled`、本周剩余额度清零、后续到账时间清空；普通余额 `-0.48059154 USD`、有效流量卡额度、订单 `REFUND_FAILED` 状态及 `59.20 CNY` 退款金额均未修改。审计为 `payment_audit_logs.id=1564`，余额缓存已失效。详见 `docs/ai/context/20260811-165812-user-1510623550-balance-package-cancellation_CN.md`。

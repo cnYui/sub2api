@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -117,7 +118,12 @@ func (h *PaymentHandler) ListOrders(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders), int64(total), page, pageSize)
+	items := sanitizeAdminPaymentOrdersForResponse(orders)
+	if err := h.setCancellableBalancePackageOrders(c.Request.Context(), items); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, int64(total), page, pageSize)
 }
 
 // GetOrderDetail returns detailed information about a single order.
@@ -132,8 +138,13 @@ func (h *PaymentHandler) GetOrderDetail(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	item := sanitizeAdminPaymentOrderForResponse(order)
+	if err := h.setCancellableBalancePackageOrders(c.Request.Context(), []*AdminPaymentOrderResult{item}); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	auditLogs, _ := h.paymentService.GetOrderAuditLogs(c.Request.Context(), orderID)
-	response.Success(c, gin.H{"order": sanitizeAdminPaymentOrderForResponse(order), "auditLogs": auditLogs})
+	response.Success(c, gin.H{"order": item, "auditLogs": auditLogs})
 }
 
 // CancelOrder cancels a pending order (admin).
@@ -151,6 +162,22 @@ func (h *PaymentHandler) CancelOrder(c *gin.Context) {
 	response.Success(c, gin.H{"message": msg})
 }
 
+// CancelBalancePackage 停止已生效余额套餐的后续权益，不向支付服务商发起退款。
+// POST /api/v1/admin/payment/orders/:id/cancel-balance-package
+func (h *PaymentHandler) CancelBalancePackage(c *gin.Context) {
+	orderID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	adminID := getAdminIDFromContext(c)
+	executeAdminIdempotentJSON(c, "admin.balance_packages.cancel", gin.H{"order_id": orderID}, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		if err := h.paymentService.CancelBalancePackageForOrder(ctx, orderID, adminID); err != nil {
+			return nil, err
+		}
+		return gin.H{"message": "balance package cancelled"}, nil
+	})
+}
+
 // RetryFulfillment retries fulfillment for a paid order.
 // POST /api/v1/admin/payment/orders/:id/retry
 func (h *PaymentHandler) RetryFulfillment(c *gin.Context) {
@@ -166,52 +193,53 @@ func (h *PaymentHandler) RetryFulfillment(c *gin.Context) {
 }
 
 type AdminPaymentOrderResult struct {
-	ID                   int64      `json:"id"`
-	UserID               int64      `json:"user_id"`
-	UserEmail            string     `json:"user_email,omitempty"`
-	UserName             string     `json:"user_name,omitempty"`
-	UserNotes            *string    `json:"user_notes,omitempty"`
-	Amount               float64    `json:"amount"`
-	PayAmount            float64    `json:"pay_amount"`
-	FeeRate              float64    `json:"fee_rate"`
-	Currency             string     `json:"currency"`
-	RechargeCode         string     `json:"recharge_code,omitempty"`
-	OutTradeNo           string     `json:"out_trade_no"`
-	PaymentType          string     `json:"payment_type"`
-	PaymentTradeNo       string     `json:"payment_trade_no,omitempty"`
-	PayURL               *string    `json:"pay_url,omitempty"`
-	QRCode               *string    `json:"qr_code,omitempty"`
-	QRCodeImg            *string    `json:"qr_code_img,omitempty"`
-	OrderType            string     `json:"order_type"`
-	PlanID               *int64     `json:"plan_id,omitempty"`
-	BalancePackagePlanID *int64     `json:"balance_package_plan_id,omitempty"`
-	TrafficPackID        *int64     `json:"traffic_pack_id,omitempty"`
-	TrafficPackName      string     `json:"traffic_pack_name,omitempty"`
-	TrafficPackCreditUSD *float64   `json:"traffic_pack_credit_usd,omitempty"`
-	TrafficPackValidity  *int       `json:"traffic_pack_validity_days,omitempty"`
-	TrafficPackPlatform  string     `json:"traffic_pack_platform,omitempty"`
-	SubscriptionGroupID  *int64     `json:"subscription_group_id,omitempty"`
-	SubscriptionDays     *int       `json:"subscription_days,omitempty"`
-	ProviderInstanceID   *string    `json:"provider_instance_id,omitempty"`
-	ProviderKey          *string    `json:"provider_key,omitempty"`
-	Status               string     `json:"status"`
-	RefundAmount         float64    `json:"refund_amount"`
-	RefundReason         *string    `json:"refund_reason,omitempty"`
-	RefundAt             *time.Time `json:"refund_at,omitempty"`
-	ForceRefund          bool       `json:"force_refund,omitempty"`
-	RefundRequestedAt    *time.Time `json:"refund_requested_at,omitempty"`
-	RefundRequestReason  *string    `json:"refund_request_reason,omitempty"`
-	RefundRequestedBy    *string    `json:"refund_requested_by,omitempty"`
-	ExpiresAt            time.Time  `json:"expires_at"`
-	PaidAt               *time.Time `json:"paid_at,omitempty"`
-	CompletedAt          *time.Time `json:"completed_at,omitempty"`
-	FailedAt             *time.Time `json:"failed_at,omitempty"`
-	FailedReason         *string    `json:"failed_reason,omitempty"`
-	ClientIP             string     `json:"client_ip,omitempty"`
-	SrcHost              string     `json:"src_host,omitempty"`
-	SrcURL               *string    `json:"src_url,omitempty"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	ID                      int64      `json:"id"`
+	UserID                  int64      `json:"user_id"`
+	UserEmail               string     `json:"user_email,omitempty"`
+	UserName                string     `json:"user_name,omitempty"`
+	UserNotes               *string    `json:"user_notes,omitempty"`
+	Amount                  float64    `json:"amount"`
+	PayAmount               float64    `json:"pay_amount"`
+	FeeRate                 float64    `json:"fee_rate"`
+	Currency                string     `json:"currency"`
+	RechargeCode            string     `json:"recharge_code,omitempty"`
+	OutTradeNo              string     `json:"out_trade_no"`
+	PaymentType             string     `json:"payment_type"`
+	PaymentTradeNo          string     `json:"payment_trade_no,omitempty"`
+	PayURL                  *string    `json:"pay_url,omitempty"`
+	QRCode                  *string    `json:"qr_code,omitempty"`
+	QRCodeImg               *string    `json:"qr_code_img,omitempty"`
+	OrderType               string     `json:"order_type"`
+	PlanID                  *int64     `json:"plan_id,omitempty"`
+	BalancePackagePlanID    *int64     `json:"balance_package_plan_id,omitempty"`
+	CanCancelBalancePackage bool       `json:"can_cancel_balance_package"`
+	TrafficPackID           *int64     `json:"traffic_pack_id,omitempty"`
+	TrafficPackName         string     `json:"traffic_pack_name,omitempty"`
+	TrafficPackCreditUSD    *float64   `json:"traffic_pack_credit_usd,omitempty"`
+	TrafficPackValidity     *int       `json:"traffic_pack_validity_days,omitempty"`
+	TrafficPackPlatform     string     `json:"traffic_pack_platform,omitempty"`
+	SubscriptionGroupID     *int64     `json:"subscription_group_id,omitempty"`
+	SubscriptionDays        *int       `json:"subscription_days,omitempty"`
+	ProviderInstanceID      *string    `json:"provider_instance_id,omitempty"`
+	ProviderKey             *string    `json:"provider_key,omitempty"`
+	Status                  string     `json:"status"`
+	RefundAmount            float64    `json:"refund_amount"`
+	RefundReason            *string    `json:"refund_reason,omitempty"`
+	RefundAt                *time.Time `json:"refund_at,omitempty"`
+	ForceRefund             bool       `json:"force_refund,omitempty"`
+	RefundRequestedAt       *time.Time `json:"refund_requested_at,omitempty"`
+	RefundRequestReason     *string    `json:"refund_request_reason,omitempty"`
+	RefundRequestedBy       *string    `json:"refund_requested_by,omitempty"`
+	ExpiresAt               time.Time  `json:"expires_at"`
+	PaidAt                  *time.Time `json:"paid_at,omitempty"`
+	CompletedAt             *time.Time `json:"completed_at,omitempty"`
+	FailedAt                *time.Time `json:"failed_at,omitempty"`
+	FailedReason            *string    `json:"failed_reason,omitempty"`
+	ClientIP                string     `json:"client_ip,omitempty"`
+	SrcHost                 string     `json:"src_host,omitempty"`
+	SrcURL                  *string    `json:"src_url,omitempty"`
+	CreatedAt               time.Time  `json:"created_at"`
+	UpdatedAt               time.Time  `json:"updated_at"`
 }
 
 func sanitizeAdminPaymentOrdersForResponse(orders []*dbent.PaymentOrder) []*AdminPaymentOrderResult {
@@ -288,6 +316,29 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		CreatedAt:            order.CreatedAt,
 		UpdatedAt:            order.UpdatedAt,
 	}
+}
+
+func (h *PaymentHandler) setCancellableBalancePackageOrders(ctx context.Context, orders []*AdminPaymentOrderResult) error {
+	orderIDs := make([]int64, 0, len(orders))
+	for _, order := range orders {
+		if order == nil || order.OrderType != payment.OrderTypeBalanceSubscription || (order.Status != service.OrderStatusCompleted && order.Status != service.OrderStatusRefundFailed) {
+			continue
+		}
+		orderIDs = append(orderIDs, order.ID)
+	}
+	if len(orderIDs) == 0 {
+		return nil
+	}
+	cancellable, err := h.paymentService.CancellableBalancePackageOrderIDs(ctx, orderIDs)
+	if err != nil {
+		return err
+	}
+	for _, order := range orders {
+		if order != nil {
+			order.CanCancelBalancePackage = cancellable[order.ID]
+		}
+	}
+	return nil
 }
 
 // AdminProcessRefundRequest is the request body for admin refund processing.

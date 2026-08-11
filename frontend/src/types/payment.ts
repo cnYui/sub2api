@@ -107,6 +107,7 @@ export interface PaymentOrder {
   refund_request_reason?: string
   plan_id?: number
   balance_package_plan_id?: number
+  can_cancel_balance_package?: boolean
   traffic_pack_id?: number
   traffic_pack_name?: string
   traffic_pack_credit_usd?: number

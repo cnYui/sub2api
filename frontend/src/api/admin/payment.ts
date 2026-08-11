@@ -111,6 +111,15 @@ export const adminPaymentAPI = {
     return apiClient.post(`/admin/payment/orders/${id}/cancel`)
   },
 
+  /** 取消已生效余额套餐的后续权益，不发起支付退款。 */
+  cancelBalancePackage(id: number, idempotencyKey: string) {
+    return apiClient.post(
+      `/admin/payment/orders/${id}/cancel-balance-package`,
+      undefined,
+      { headers: { 'Idempotency-Key': idempotencyKey } }
+    )
+  },
+
   /** Retry recharge for a failed order */
   retryRecharge(id: number) {
     return apiClient.post(`/admin/payment/orders/${id}/retry`)
