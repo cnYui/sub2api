@@ -1,5 +1,8 @@
 # 项目协作约定
 
+- 2026-08-10：按并发调整手册完成生产运行时热更新：15 个上游账号并发由实际 `50` 调至 `100`，157 个现有用户并发校准为 `20`，新用户默认并发已核验为 `20`；本地应用与 Nginx 健康检查均为 200。最近 1 小时历史窗口仍有 `P99=84494ms` 和 109 条 `503`，需在新流量窗口继续观察，详见 `docs/ai/context/20260810-215926-concurrency-adjustment-execution_CN.md`。
+
+- 2026-08-10：用户 `2262423876@qq.com`（ID `549`）无法使用的原因已确认：两把 API Key（`164`、`274`）均绑定 GPT `0.15x` 分组 `9`，该分组仅有下游账号 `1128`，近 6 小时持续出现上游 `502/503`，网关返回 `503 Service temporarily unavailable`；用户状态、余额和套餐均正常。本次未修改数据，详见 `docs/ai/context/20260810-140207-user-2262423876-unavailable-diagnosis_CN.md`。
 - 默认使用中文；代码注释只说明原因。
 - 支付订单的金额、退款金额和订单状态以服务端为准，前端金额只用于展示。
 - 退款必须绑定创建订单时的支付服务商实例，并保留可审计的订单状态变化。
@@ -8,6 +11,7 @@
 - 2026-08-09：Codex CC Switch KIMI 教程的定向测试、类型检查、生产构建和 diff 检查均通过；构建保留既有警告，当前执行策略阻止启动本地 Vite 后台服务，因此未进行浏览器人工访问。详见 `docs/ai/context/20260809-211953-codex-ccswitch-kimi-guide-verification_CN.md`。
 - 2026-08-10：Codex CC Switch KIMI 教程已在 `main` 提交 `78ae21ccb`，基于新镜像 `sha256:ecb8a3aae441a8204a8b32d152a7901e4f138c1e3c985134ed42a7034c41257b` 仅替换 `sub2api-official-18082`；应用 healthy，最终倍率 16，密钥挂载保留，本地、Nginx 和三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260810-093305-main-merge-public-redeploy_CN.md`。
 - 2026-08-10：按管理员要求重启 Docker Desktop 引擎；18082 应用、PostgreSQL、Redis 与 Nginx 全部恢复，应用继续使用 Codex 教程新镜像、最终倍率 16 和原凭证密钥挂载，本地、Nginx、三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260810-093633-docker-desktop-restart-recovery_CN.md`。
+- 2026-08-10：基于当前工作区构建镜像 `sha256:3baf4276113ae86264440c6c0ced6b390bcba1f540ffd35d7a5b0a4b067ce3b5` 并仅替换 `sub2api-official-18082`，WorkBuddy 教程四张截图已同步公网；应用 healthy、最终倍率 16、凭证 secret 挂载保持不变，Nginx、本地和三个公网健康端点、`/usage-guide` 及四张截图均返回 200。详见 `docs/ai/context/20260810-111119-workbuddy-public-docker-deploy_CN.md`。
 - 2026-08-09：本地具名分支均已是 `main` 祖先，无待合并分支；账号恢复二进制/工具和 billing 临时 Compose 含本地敏感或过期发布状态，仅保留在工作区并由 Git/Docker 排除。其余未跟踪源码、迁移、测试和上下文文档纳入 `main`，整合边界见 `docs/ai/context/20260809-201602-main-consolidation-and-public-deploy-plan_CN.md`。
 - 2026-08-09：提交 `1db97d589` 已在本地 `main` 汇总并发布；基于当前工作区构建 `deploy-sub2api:latest`，镜像摘要 `sha256:8d17820336d7af0796816b6f8c56f5228fb353777192bce48013c9d623f6a58c`，仅替换 `sub2api-official-18082` 应用容器。运行时 `BILLING_FINAL_MULTIPLIER=16`，应用、Nginx 和三个公网域名健康检查均为 200；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建。详见 `docs/ai/context/20260809-202348-main-consolidation-public-deploy-result_CN.md`。
 - 2026-08-09：复核发现 detached billing 工作树仍有旧版结算差异和固定 `BILLING_FINAL_MULTIPLIER=15` 的临时 Compose；两者均与当前 `main`/生产配置冲突，未合并、未删除并继续由排除规则隔离。详见 `docs/ai/context/20260809-202934-billing-worktree-exclusion-correction_CN.md`。
@@ -224,9 +228,13 @@
 - 2026-08-09：购买页商品卡、支付方式、订单摘要和支付状态面板统一复用监控卡/模型广场的半透明形状：`rounded-2xl`、低对比度边框、`backdrop-blur` 与 `shadow-card`；原有中文文案、金额计算和支付流程保持不变。验证记录见 `docs/ai/context/20260809-113222-purchase-glass-ui-alignment_CN.md`。
 - 2026-08-09：购买页商品目录改为 `auto-fit + minmax(280px, 1fr)` 自适应网格，标题、价格、明细和值列避免窄卡片逐字换行；删除仅用于视觉核对的 `/purchase-preview` 临时入口。验证记录见 `docs/ai/context/20260809-114656-purchase-card-responsive_CN.md`。
 - 2026-08-09：购买页自适应改动已完成类型检查、购买卡单测、定向 ESLint、生产构建和 `git diff --check`，并在内置浏览器默认、窄桌面和等效手机视口完成核对。详见 `docs/ai/context/20260809-114942-purchase-card-responsive-verification_CN.md`。
+- 2026-08-10：`/usage-guide` 新增 WorkBuddy 外部模型接入教程，包含添加自定义模型、选择 Custom 服务商、填写 `/v1` Endpoint/API Key/准确模型名和开始对话四步截图；资源位于 `frontend/src/assets/usage-guide/workbuddy-*.png`，实现与验证见 `docs/ai/context/20260810-105012-workbuddy-usage-guide_CN.md`。
+- 2026-08-11：`/usage-guide` 将旧“Claude Code 桌面端接入”替换为“Claude Desktop 接入中转站 Claude 渠道模型方法”四步图文教程；请求地址固定为 `https://api.aaccx.pw`，新增 7 张用户截图并移除旧教程专用资源。详见 `docs/ai/context/20260811-132817-claude-desktop-usage-guide-update_CN.md`。
+- 2026-08-11：`/usage-guide` 四个教程标题改为明确的中转站模型范围：WorkBuddy、VS Code Copilot 和 Trae 标注“接入中转站所有模型”，Codex 标注“接入中转站除GPT模型以外的外部模型”，减少仅写“接入”造成的范围误导。详见 `docs/ai/context/20260811-133037-usage-guide-topic-title-clarification_CN.md`。
 
 ## 原生 Gemini 与 Claude 渠道
 
 - 2026-08-09：生产新增公开标准分组 `Gemini1倍率`（ID 70、`gemini`、`1.0x`）和 `Claude0.78倍率`（ID 71、`anthropic`、`0.78x`）；对应账号 ID 为 1165/1166，均 active 且仅绑定各自分组。用户 API Key 页面会自动显示 active、非专属的标准分组。两个 `/monitor` 监控 ID 为 13/14，均通过带鉴权 `GET /v1/models` 每 1800 秒刷新，首轮所有公开模型为 operational。凭证仅以服务端加密形式保存，详见 `docs/ai/context/20260809-170900-native-gemini-claude-channel-addition_CN.md`。
 - 2026-08-09：基于当前工作区重建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，新镜像为 `sha256:f2f422b244fe4f9a792ad71d08ac97a25eb09432d9e67ac873538c7a81c984f3`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 与数据卷未重建，应用容器 healthy，监控调度器加载 14 条任务，本地与三个公网健康检查均为 200。详见 `docs/ai/context/20260809-181925-gemini-claude-public-docker-rebuild_CN.md`。
 - 2026-08-09：按管理员要求修正旧渠道平台类型：Grok0.9 分组/账号/监控 ID 3/1/1 改为 `grok`，Claude1.5 分组/账号/监控 ID 4/2/2 与 Claude0.45 分组/账号/监控 ID 5/3/3 改为 `anthropic`；同步清理 Kiro 监控一个不存在模型并刷新调度与认证缓存。三把对应 Key 的 `/v1/models` 均 200，监控配置模型全部 operational。详见 `docs/ai/context/20260809-185941-legacy-channel-platform-type-correction_CN.md`。
+- 2026-08-11：客户端出现 `stream disconnected before completion: Our servers are currently overloaded`。只读核查确认根因是上游 `api.ai-genesis.app` 过载/暂时不可用：最近 6 小时 174 次 OpenAI 流式转发失败主要集中在账号 1128/分组 9 与账号 1129/分组 10，两分组各只有一个账号且共享同一上游主机；本地应用、Nginx、数据库、Redis 和健康端点均正常。响应头写出后的流内失败会以断流提示暴露给客户端；未修改生产配置。详见 `docs/ai/context/20260811-133730-openai-upstream-overload-diagnosis_CN.md`。

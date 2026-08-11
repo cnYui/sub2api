@@ -197,12 +197,17 @@ import traeStep01Image from '@/assets/usage-guide/trae-step-01-add-model.png'
 import traeStep02Image from '@/assets/usage-guide/trae-step-02-custom-config.png'
 import traeStep03Image from '@/assets/usage-guide/trae-step-03-fill-url-key.png'
 import traeStep04Image from '@/assets/usage-guide/trae-step-04-select-model.png'
-import claudeCodeStep01Image from '@/assets/usage-guide/claude-code-step-01-select-group.png'
-import claudeCodeStep02Image from '@/assets/usage-guide/claude-code-step-02-ccswitch-route.png'
-import claudeCodeStep03Image from '@/assets/usage-guide/claude-code-step-03-provider-config.png'
-import claudeCodeStep04Image from '@/assets/usage-guide/claude-code-step-04-model-select.png'
-import claudeCodeStep05Image from '@/assets/usage-guide/claude-code-step-05-enable-route.png'
-import claudeCodeStep06Image from '@/assets/usage-guide/claude-code-step-06-restart-desktop.png'
+import workbuddyStep01Image from '@/assets/usage-guide/workbuddy-step-01-add-custom-model.png'
+import workbuddyStep02Image from '@/assets/usage-guide/workbuddy-step-02-select-custom-provider.png'
+import workbuddyStep03Image from '@/assets/usage-guide/workbuddy-step-03-fill-custom-model.png'
+import workbuddyStep04Image from '@/assets/usage-guide/workbuddy-step-04-start-chat.png'
+import claudeDesktopStep01Image from '@/assets/usage-guide/claude-desktop-step-01-select-and-add.png'
+import claudeDesktopStep02Image from '@/assets/usage-guide/claude-desktop-step-02-create-key.png'
+import claudeDesktopStep03Image from '@/assets/usage-guide/claude-desktop-step-03-provider-fields.png'
+import claudeDesktopStep04Image from '@/assets/usage-guide/claude-desktop-step-04-provider-result.png'
+import claudeDesktopStep05Image from '@/assets/usage-guide/claude-desktop-step-05-enable-and-restart.png'
+import claudeDesktopStep06Image from '@/assets/usage-guide/claude-desktop-step-06-quit-menu.png'
+import claudeDesktopStep07Image from '@/assets/usage-guide/claude-desktop-step-07-select-model.png'
 import codexCCSwitchStep01Image from '@/assets/usage-guide/codex-ccswitch-step-01.png'
 import codexCCSwitchStep02Image from '@/assets/usage-guide/codex-ccswitch-step-02.png'
 import codexCCSwitchStep03Image from '@/assets/usage-guide/codex-ccswitch-step-03.png'
@@ -562,25 +567,57 @@ const traeSetupSteps: GuideStep[] = [
   },
 ]
 
-const claudeCodeSetupSteps: GuideStep[] = [
+const workbuddySetupSteps: GuideStep[] = [
   {
     step: 1,
-    title: '在网站的 API Key 页面，把密钥分组切换为 Cloud 分组',
-    images: [{ src: claudeCodeStep01Image, alt: 'Claude Code 桌面端接入步骤 1：切换 Cloud 分组' }],
+    title: '下载并打开 WorkBuddy，在右下角模型选择器中点击“添加自定义模型”',
+    images: [{ src: workbuddyStep01Image, alt: 'WorkBuddy 接入步骤 1：点击添加自定义模型' }],
   },
   {
     step: 2,
-    title: '打开 CC Switch，点击 Cloud Desktop 所属栏目，再点击右上角的加号',
-    images: [{ src: claudeCodeStep02Image, alt: 'Claude Code 桌面端接入步骤 2：在 CC Switch 添加供应商' }],
+    title: '在添加模型窗口打开服务商下拉框，滚动到列表最底部，在“Other”下选择“Custom”',
+    images: [{ src: workbuddyStep02Image, alt: 'WorkBuddy 接入步骤 2：选择 Custom 服务商' }],
   },
   {
     step: 3,
-    title: '填写 API Key 和请求地址，点击“获取模型列表”并选择模型；保存退出后打开顶部路由，重启 Claude Code 桌面端即可使用',
+    title: '填写 Endpoint https://api.aaccx.pw/v1、自己的 API Key 和准确的模型名称；模型名称必须与该 API Key 的 /v1/models 返回值一致（示例：gpt-5.5）',
+    images: [{ src: workbuddyStep03Image, alt: 'WorkBuddy 接入步骤 3：填写 Endpoint、API Key 和模型名称' }],
+  },
+  {
+    step: 4,
+    title: '保存后选择自定义模型开始对话；能正常收到回复即表示 WorkBuddy 已连通',
+    images: [{ src: workbuddyStep04Image, alt: 'WorkBuddy 接入步骤 4：选择模型并开始对话' }],
+  },
+]
+
+const claudeDesktopSetupSteps: GuideStep[] = [
+  {
+    step: 1,
+    title: '点击 Cloud Desktop，然后点击右上角的加号',
+    images: [{ src: claudeDesktopStep01Image, alt: 'Claude Desktop 接入步骤 1：点击 Cloud Desktop 和加号' }],
+  },
+  {
+    step: 2,
+    title: '创建密钥并按图中箭头填写 API Key；请求地址填写 https://api.aaccx.pw，不要在末尾添加斜杠',
     images: [
-      { src: claudeCodeStep03Image, alt: 'Claude Code 桌面端接入步骤 3：填写 API Key 和请求地址并获取模型列表' },
-      { src: claudeCodeStep04Image, alt: 'Claude Code 桌面端接入步骤 3：选择模型映射' },
-      { src: claudeCodeStep05Image, alt: 'Claude Code 桌面端接入步骤 3：打开顶部路由' },
-      { src: claudeCodeStep06Image, alt: 'Claude Code 桌面端接入步骤 3：重启 Claude Code 桌面端' },
+      { src: claudeDesktopStep02Image, alt: 'Claude Desktop 接入步骤 2：创建 Claude 渠道密钥' },
+      { src: claudeDesktopStep03Image, alt: 'Claude Desktop 接入步骤 2：填写 API Key 和请求地址' },
+      { src: claudeDesktopStep04Image, alt: 'Claude Desktop 接入步骤 2：确认 Claude 渠道配置结果' },
+    ],
+  },
+  {
+    step: 3,
+    title: '点击“添加”并启用该供应商，然后重新启动 Claude Desktop',
+    images: [
+      { src: claudeDesktopStep05Image, alt: 'Claude Desktop 接入步骤 3：添加并启用供应商' },
+    ],
+  },
+  {
+    step: 4,
+    title: '选择模型，然后愉快地开始聊天吧！',
+    images: [
+      { src: claudeDesktopStep06Image, alt: 'Claude Desktop 接入步骤 4：退出并重新启动桌面端' },
+      { src: claudeDesktopStep07Image, alt: 'Claude Desktop 接入步骤 4：选择 Claude 模型并开始聊天' },
     ],
   },
 ]
@@ -588,7 +625,7 @@ const claudeCodeSetupSteps: GuideStep[] = [
 const allGuideTopics: GuideTopic[] = [
   {
     id: 'codex',
-    title: 'Codex 接入',
+    title: 'Codex 接入中转站除GPT模型以外的外部模型',
     updatedAt: '2026-08-09',
     description: '使用 KIMI 分组 API Key，通过 CC Switch 配置模型映射并在 Codex 中启用自定义模型。',
     kind: 'steps',
@@ -648,7 +685,7 @@ const allGuideTopics: GuideTopic[] = [
   },
   {
     id: 'copilot-vscode',
-    title: 'VS Code Copilot 接入',
+    title: 'VS Code Copilot 接入中转站所有模型',
     updatedAt: '2026-07-10',
     description: '把 VS Code Copilot 的 Custom Endpoint Provider 指向 AACCX 的 Responses API。',
     kind: 'sections',
@@ -747,19 +784,27 @@ const allGuideTopics: GuideTopic[] = [
   },
   {
     id: 'trae',
-    title: 'Trae 接入',
+    title: 'Trae 接入中转站所有模型',
     updatedAt: '2026-06-24',
     description: '把这里生成的 API Key 配置到 Trae 自定义模型中使用。',
     kind: 'steps',
     steps: traeSetupSteps,
   },
   {
-    id: 'claude-code-desktop',
-    title: 'Claude Code 桌面端接入',
-    updatedAt: '2026-08-05',
-    description: '使用 Cloud 分组和 CC Switch，把 Claude Code 桌面端连接到当前 API 服务。',
+    id: 'workbuddy',
+    title: 'WorkBuddy 接入中转站所有模型',
+    updatedAt: '2026-08-10',
+    description: '在 WorkBuddy 中添加 OpenAI 兼容的 Custom 模型，使用本站 API Key 连接外部模型。',
     kind: 'steps',
-    steps: claudeCodeSetupSteps,
+    steps: workbuddySetupSteps,
+  },
+  {
+    id: 'claude-desktop',
+    title: 'Claude Desktop 接入中转站 Claude 渠道模型方法',
+    updatedAt: '2026-08-11',
+    description: '使用 CC Switch 配置 Claude 渠道模型，并在 Claude Desktop 中启用中转站服务。',
+    kind: 'steps',
+    steps: claudeDesktopSetupSteps,
   },
 ]
 
