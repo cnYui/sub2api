@@ -218,6 +218,10 @@ import codexCCSwitchStep07Image from '@/assets/usage-guide/codex-ccswitch-step-0
 import codexCCSwitchStep08Image from '@/assets/usage-guide/codex-ccswitch-step-08.png'
 import codexCCSwitchStep09Image from '@/assets/usage-guide/codex-ccswitch-step-09.png'
 import codexCCSwitchStep10Image from '@/assets/usage-guide/codex-ccswitch-step-10.png'
+import codexGptStep01Image from '@/assets/usage-guide/codex-gpt-step-01-create-key.png'
+import codexGptStep02Image from '@/assets/usage-guide/codex-gpt-step-02-select-gpt.png'
+import codexGptStep03Image from '@/assets/usage-guide/codex-gpt-step-03-provider-config.png'
+import codexGptStep04Image from '@/assets/usage-guide/codex-gpt-step-04-enable-restart.png'
 
 type GuideStep = {
   step: number
@@ -338,6 +342,27 @@ const codexSetupSteps: GuideStep[] = [
     step: 10,
     title: '重启 Codex，底部模型选择变成自定义模型即表示接入成功',
     images: [{ src: codexCCSwitchStep10Image, alt: 'Codex 接入步骤 10：重启 Codex 后选择自定义模型' }],
+  },
+]
+
+const codexGptSetupSteps: GuideStep[] = [
+  {
+    step: 1,
+    title: '选择 GPT 分组，然后点击右上角橙色的加号',
+    images: [
+      { src: codexGptStep01Image, alt: 'Codex GPT 接入步骤 1：创建 GPT 分组密钥' },
+      { src: codexGptStep02Image, alt: 'Codex GPT 接入步骤 1：选择 GPT 栏目并点击加号' },
+    ],
+  },
+  {
+    step: 2,
+    title: '按图中箭头正确填写供应商名称、API Key 和请求地址，然后保存；请求地址填写 https://api.aaccx.pw 即可',
+    images: [{ src: codexGptStep03Image, alt: 'Codex GPT 接入步骤 2：填写配置并保存' }],
+  },
+  {
+    step: 3,
+    title: '点击启用后，重启 Codex 即可使用',
+    images: [{ src: codexGptStep04Image, alt: 'Codex GPT 接入步骤 3：启用供应商并重启 Codex' }],
   },
 ]
 
@@ -630,6 +655,14 @@ const allGuideTopics: GuideTopic[] = [
     description: '使用 KIMI 分组 API Key，通过 CC Switch 配置模型映射并在 Codex 中启用自定义模型。',
     kind: 'steps',
     steps: codexSetupSteps,
+  },
+  {
+    id: 'codex-gpt',
+    title: 'Codex 接入 GPT 模型',
+    updatedAt: '2026-08-11',
+    description: '通过 CC Switch 配置 GPT 分组 API Key，在 Codex 中启用中转站 GPT 模型。',
+    kind: 'steps',
+    steps: codexGptSetupSteps,
   },
   {
     id: 'ccswitch-video',

@@ -231,6 +231,7 @@
 - 2026-08-10：`/usage-guide` 新增 WorkBuddy 外部模型接入教程，包含添加自定义模型、选择 Custom 服务商、填写 `/v1` Endpoint/API Key/准确模型名和开始对话四步截图；资源位于 `frontend/src/assets/usage-guide/workbuddy-*.png`，实现与验证见 `docs/ai/context/20260810-105012-workbuddy-usage-guide_CN.md`。
 - 2026-08-11：`/usage-guide` 将旧“Claude Code 桌面端接入”替换为“Claude Desktop 接入中转站 Claude 渠道模型方法”四步图文教程；请求地址固定为 `https://api.aaccx.pw`，新增 7 张用户截图并移除旧教程专用资源。详见 `docs/ai/context/20260811-132817-claude-desktop-usage-guide-update_CN.md`。
 - 2026-08-11：`/usage-guide` 四个教程标题改为明确的中转站模型范围：WorkBuddy、VS Code Copilot 和 Trae 标注“接入中转站所有模型”，Codex 标注“接入中转站除GPT模型以外的外部模型”，减少仅写“接入”造成的范围误导。详见 `docs/ai/context/20260811-133037-usage-guide-topic-title-clarification_CN.md`。
+- 2026-08-11：`/usage-guide` 新增独立“Codex 接入 GPT 模型”三步教程，使用 4 张用户截图，请求地址固定为 `https://api.aaccx.pw`；第 3 张截图中的完整 API Key 已脱敏为 `sk-xxxx`。详见 `docs/ai/context/20260811-134829-codex-gpt-usage-guide-update_CN.md`。
 
 ## 原生 Gemini 与 Claude 渠道
 
