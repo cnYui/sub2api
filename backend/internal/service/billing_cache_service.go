@@ -743,6 +743,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
 		return ErrBillingServiceUnavailable
 	}
+	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
 
 	balance, err := s.getFreshBillingBalance(ctx, user)
 	if err != nil {
@@ -755,16 +756,11 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	if s.circuitBreaker != nil {
 		s.circuitBreaker.OnSuccess()
 	}
-	if balance < 0 {
-		return ErrInsufficientBalance
+	runModeSimple := s.cfg != nil && s.cfg.RunMode == config.RunModeSimple
+	// 简易模式同样遵循余额与流量卡的自动切换规则，避免运行模式形成欠费旁路。
+	if runModeSimple {
+		return s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance)
 	}
-	// 简易模式仍必须执行欠费终检，避免运行模式开关成为余额负数的绕过入口。
-	if s.cfg.RunMode == config.RunModeSimple {
-		return nil
-	}
-
-	// 判断计费模式
-	isSubscriptionMode := group != nil && group.IsSubscriptionType() && subscription != nil
 
 	if isSubscriptionMode {
 		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
@@ -813,7 +809,7 @@ func (s *BillingCacheService) getFreshBillingBalance(ctx context.Context, user *
 	return user.Balance, nil
 }
 
-// CheckFreshBalanceDebt 只做 PostgreSQL 欠费终检，不增加 RPM 或配额计数。
+// CheckFreshBalanceDebt 在长连接首回合执行数据库终检；双重欠费时拒绝继续请求。
 func (s *BillingCacheService) CheckFreshBalanceDebt(ctx context.Context, user *User) error {
 	if s == nil {
 		return ErrBillingServiceUnavailable
@@ -822,10 +818,7 @@ func (s *BillingCacheService) CheckFreshBalanceDebt(ctx context.Context, user *U
 	if err != nil {
 		return ErrBillingServiceUnavailable.WithCause(err)
 	}
-	if balance < 0 {
-		return ErrInsufficientBalance
-	}
-	return nil
+	return s.checkBalanceEligibilityWithBalance(ctx, user.ID, "", balance)
 }
 
 // checkRPM 执行并行 RPM 限流，所有适用的限制同时生效，任一超限即拒绝：
@@ -945,9 +938,6 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 }
 
 func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64) error {
-	if balance < 0 {
-		return ErrInsufficientBalance
-	}
 	if s.balanceBelowEligibilityThreshold(balance) {
 		if s.CanUseTrafficPackCredit(ctx, userID, platform) {
 			return nil
@@ -961,7 +951,7 @@ func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Con
 // CanUseTrafficPackCredit 判断流量卡能否满足与普通余额相同的预检保底额度。
 // 流量卡仅剩碎额时继续放行会让已欠费用户反复到达上游，因此不能只判断“剩余额度大于零”。
 func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
-	if s == nil || s.trafficPackService == nil || !IsTrafficPackPlatform(platform) {
+	if s == nil || s.trafficPackService == nil {
 		return false
 	}
 	summary, err := s.trafficPackService.GetSummary(ctx, userID, time.Now().UTC())

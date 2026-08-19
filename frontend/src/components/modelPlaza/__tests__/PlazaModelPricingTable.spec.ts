@@ -153,33 +153,41 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('$0.2857142857')
   })
 
-  it('DeepSeek 官方美元价按 0.5x 显示', () => {
+  it('DeepSeek 官方美元价按 3.5x 显示', () => {
     const models = [
       tokenModel({
         name: 'deepseek-v4-flash',
+        official_pricing: {
+          input_price: 0.22e-6, output_price: 0.66e-6, cache_write_price: null,
+          cache_write_1h_price: null, cache_read_price: 0.007e-6
+        },
         pricing: {
-          billing_mode: 'token', input_price: 0.14e-6, output_price: 0.28e-6,
-          cache_write_price: null, cache_read_price: 0.0028e-6,
+          billing_mode: 'token', input_price: 0.22e-6, output_price: 0.66e-6,
+          cache_write_price: null, cache_read_price: 0.007e-6,
           image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
         }
       }),
       tokenModel({
         name: 'deepseek-v4-pro',
+        official_pricing: {
+          input_price: 0.66e-6, output_price: 1.98e-6, cache_write_price: null,
+          cache_write_1h_price: null, cache_read_price: 0.022e-6
+        },
         pricing: {
-          billing_mode: 'token', input_price: 0.435e-6, output_price: 0.87e-6,
-          cache_write_price: null, cache_read_price: 0.003625e-6,
+          billing_mode: 'token', input_price: 0.66e-6, output_price: 1.98e-6,
+          cache_write_price: null, cache_read_price: 0.022e-6,
           image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
         }
       })
     ]
 
-    const text = mountTable(models, 0.5).text()
-    expect(text).toContain('$0.07')
-    expect(text).toContain('$0.14')
-    expect(text).toContain('$0.0014')
-    expect(text).toContain('$0.2175')
-    expect(text).toContain('$0.435')
-    expect(text).toContain('$0.0018125')
+    const text = mountTable(models, 3.5).text()
+    expect(text).toContain('$0.77')
+    expect(text).toContain('$2.31')
+    expect(text).toContain('$0.0245')
+    expect(text).toContain('$2.31')
+    expect(text).toContain('$6.93')
+    expect(text).toContain('$0.077')
   })
 
   it('用户专属倍率覆盖分组倍率,并划线展示原倍率', () => {

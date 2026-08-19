@@ -71,7 +71,7 @@ func psOrderTrafficPackSnapshot(order *dbent.PaymentOrder) *paymentOrderTrafficP
 		snapshot.ValidityDays = TrafficPackValidityDays
 	}
 	if snapshot.Platform == "" {
-		snapshot.Platform = TrafficPackPlatformOpenAI
+		snapshot.Platform = TrafficPackPlatformAll
 	}
 	return snapshot
 }

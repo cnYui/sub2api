@@ -174,7 +174,7 @@ func TestCreditInitialBalanceRepaysDebtBeforePackageRemaining(t *testing.T) {
 	}
 }
 
-func TestCreditInitialBalancePausesFutureCreditsWhenFirstWeekCannotClearDebt(t *testing.T) {
+func TestCreditInitialBalanceKeepsFutureCreditsWhenFirstWeekCannotClearDebt(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	account, err := client.User.Create().SetEmail("package-initial-debt-paused@example.com").SetPasswordHash("hash").SetBalance(-150).Save(ctx)
@@ -203,12 +203,12 @@ func TestCreditInitialBalancePausesFutureCreditsWhenFirstWeekCannotClearDebt(t *
 	if err != nil {
 		t.Fatalf("get package: %v", err)
 	}
-	if updatedUser.Balance != -50 || updatedPackage.RemainingUsd != 0 || updatedPackage.Status != balancePackageStatusDebtPaused || updatedPackage.NextCreditAt == nil {
-		t.Fatalf("unexpected debt-paused package: user=%#v package=%#v", updatedUser, updatedPackage)
+	if updatedUser.Balance != -50 || updatedPackage.RemainingUsd != 0 || updatedPackage.Status != balancePackageStatusActive || updatedPackage.NextCreditAt == nil {
+		t.Fatalf("unexpected active debt package: user=%#v package=%#v", updatedUser, updatedPackage)
 	}
 }
 
-func TestCreditInitialBalanceKeepsDebtPausedWhenSingleWeekCannotClearDebt(t *testing.T) {
+func TestCreditInitialBalanceCompletesSingleWeekWhenDebtCannotClear(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	account, err := client.User.Create().SetEmail("package-single-week-debt-paused@example.com").SetPasswordHash("hash").SetBalance(-150).Save(ctx)
@@ -240,8 +240,8 @@ func TestCreditInitialBalanceKeepsDebtPausedWhenSingleWeekCannotClearDebt(t *tes
 	if err != nil {
 		t.Fatalf("get package: %v", err)
 	}
-	if updated.Status != balancePackageStatusDebtPaused || updated.RemainingUsd != 0 || updated.NextCreditAt != nil {
-		t.Fatalf("unexpected single-week debt-paused package: %#v", updated)
+	if updated.Status != balancePackageStatusCompleted || updated.RemainingUsd != 0 || updated.NextCreditAt != nil {
+		t.Fatalf("unexpected single-week completed package: %#v", updated)
 	}
 }
 
@@ -287,7 +287,7 @@ func TestCreditDueBalancesReplacesPreviousWeeklyCredit(t *testing.T) {
 	}
 }
 
-func TestCreditDueBalancesPausesDebtBeforeDueWeeklyCredit(t *testing.T) {
+func TestCreditDueBalancesRepaysDebtBeforeDueWeeklyCredit(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	account, err := client.User.Create().SetEmail("package-debt-refresh@example.com").SetPasswordHash("hash").SetBalance(-40).Save(ctx)
@@ -309,26 +309,26 @@ func TestCreditDueBalancesPausesDebtBeforeDueWeeklyCredit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("refresh package: %v", err)
 	}
-	if credited != 0 {
-		t.Fatalf("credited = %d, want 0", credited)
+	if credited != 1 {
+		t.Fatalf("credited = %d, want 1", credited)
 	}
 	updatedPackage, err := client.UserBalancePackage.Get(ctx, pkg.ID)
 	if err != nil {
 		t.Fatalf("get package: %v", err)
 	}
-	if updatedPackage.Status != balancePackageStatusDebtPaused || updatedPackage.RemainingUsd != 0 || updatedPackage.CreditedCount != 1 {
-		t.Fatalf("unexpected debt-paused package: %#v", updatedPackage)
+	if updatedPackage.Status != balancePackageStatusActive || updatedPackage.RemainingUsd != 60 || updatedPackage.CreditedCount != 2 {
+		t.Fatalf("unexpected refreshed package: %#v", updatedPackage)
 	}
 	updatedUser, err := client.User.Get(ctx, account.ID)
 	if err != nil {
 		t.Fatalf("get user: %v", err)
 	}
-	if updatedUser.Balance != -40 {
-		t.Fatalf("balance = %f, want -40", updatedUser.Balance)
+	if updatedUser.Balance != 60 {
+		t.Fatalf("balance = %f, want 60", updatedUser.Balance)
 	}
 }
 
-func TestCreditDueBalancesPausesActiveDebtWithoutConsumingAnotherWeek(t *testing.T) {
+func TestCreditDueBalancesDoesNotPauseActiveDebtBeforeNextCycle(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	account, err := client.User.Create().SetEmail("package-runtime-debt-paused@example.com").SetPasswordHash("hash").SetBalance(-40).Save(ctx)
@@ -352,12 +352,12 @@ func TestCreditDueBalancesPausesActiveDebtWithoutConsumingAnotherWeek(t *testing
 	}
 	updatedPackage, _ := client.UserBalancePackage.Get(ctx, pkg.ID)
 	updatedUser, _ := client.User.Get(ctx, account.ID)
-	if credited != 0 || updatedPackage.Status != balancePackageStatusDebtPaused || updatedPackage.CreditedCount != 1 || updatedUser.Balance != -40 {
-		t.Fatalf("unexpected runtime pause result: credited=%d user=%#v package=%#v", credited, updatedUser, updatedPackage)
+	if credited != 0 || updatedPackage.Status != balancePackageStatusActive || updatedPackage.CreditedCount != 1 || updatedUser.Balance != -40 {
+		t.Fatalf("unexpected active debt package: credited=%d user=%#v package=%#v", credited, updatedUser, updatedPackage)
 	}
 }
 
-func TestDebtPausedPackageRemainsVisibleAndBlocksPurchase(t *testing.T) {
+func TestDebtPausedPackageRemainsVisibleAndAllowsSamePlanRenewal(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	account, _ := client.User.Create().SetEmail("package-debt-paused-visible@example.com").SetPasswordHash("hash").SetBalance(-1).Save(ctx)
@@ -377,8 +377,8 @@ func TestDebtPausedPackageRemainsVisibleAndBlocksPurchase(t *testing.T) {
 	if err != nil || len(packages) != 1 || packages[0].Status != balancePackageStatusDebtPaused {
 		t.Fatalf("unexpected visible packages: %#v err=%v", packages, err)
 	}
-	if err := svc.ValidateUserPurchase(ctx, account.ID, plan.ID); infraerrors.Reason(err) != "BALANCE_PACKAGE_DEBT_PAUSED" {
-		t.Fatalf("purchase error reason = %q, want BALANCE_PACKAGE_DEBT_PAUSED", infraerrors.Reason(err))
+	if err := svc.ValidateUserPurchase(ctx, account.ID, plan.ID); err != nil {
+		t.Fatalf("same-plan renewal should remain available: %v", err)
 	}
 }
 

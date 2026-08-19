@@ -153,6 +153,40 @@ func TestCanUseTrafficPackCredit_AllowsCreditAtMinimumReserve(t *testing.T) {
 	require.True(t, svc.CanUseTrafficPackCredit(context.Background(), 1, PlatformOpenAI))
 }
 
+func TestCheckFreshBalanceDebtAllowsAllPlatformsWhenTrafficCardHasNetCredit(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: -2}
+	userRepo := &balanceLoadUserRepoStub{balance: -2}
+	cfg := &config.Config{}
+	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TotalRemainingUSD: 0.01},
+	}))
+
+	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity} {
+		t.Run(platform, func(t *testing.T) {
+			require.NoError(t, svc.checkBalanceEligibilityWithBalance(context.Background(), 1, platform, -2))
+		})
+	}
+	require.NoError(t, svc.CheckFreshBalanceDebt(context.Background(), &User{ID: 1, Balance: -2}))
+}
+
+func TestCheckFreshBalanceDebtRejectsWhenBalanceAndTrafficCardAreBothInDebt(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: -2}
+	userRepo := &balanceLoadUserRepoStub{balance: -2}
+	cfg := &config.Config{}
+	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TrafficDebtUSD: 1},
+	}))
+
+	err := svc.CheckFreshBalanceDebt(context.Background(), &User{ID: 1, Balance: -2})
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+}
+
 func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T) {
 	cache := &balanceEligibilityCacheStub{
 		balance:                  0.50,

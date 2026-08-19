@@ -266,13 +266,6 @@ func lockBalancePackageUser(ctx context.Context, client *dbent.Client, userID in
 }
 
 func validateBalancePackagePlanChange(current *dbent.UserBalancePackage, planID int64) error {
-	if current != nil && current.Status == balancePackageStatusDebtPaused {
-		return infraerrors.Conflict("BALANCE_PACKAGE_DEBT_PAUSED", "当前余额套餐因欠费暂停，请联系管理员处理后再购买").
-			WithMetadata(map[string]string{
-				"current_plan_id":   fmt.Sprintf("%d", current.PlanID),
-				"requested_plan_id": fmt.Sprintf("%d", planID),
-			})
-	}
 	if current == nil || current.PlanID == planID {
 		return nil
 	}
@@ -389,9 +382,7 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	remainingCredit := balancePackageRemainingAfterDebt(lockedUser.Balance, weeklyCredit)
 	debtRepaid := minFloat(maxFloat(-lockedUser.Balance, 0), weeklyCredit)
 	newBalance := lockedUser.Balance + weeklyCredit
-	if newBalance < 0 {
-		status = balancePackageStatusDebtPaused
-	} else if refreshCount == 1 {
+	if refreshCount == 1 {
 		status = balancePackageStatusCompleted
 	}
 
@@ -415,7 +406,7 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 		SetStartsAt(startsAt).
 		SetExpiresAt(startsAt.AddDate(0, 0, validityDays)).
 		SetStatus(status)
-	if status == balancePackageStatusActive || (status == balancePackageStatusDebtPaused && refreshCount > 1) {
+	if status == balancePackageStatusActive {
 		builder.SetNextCreditAt(startsAt.AddDate(0, 0, refreshIntervalDays))
 	}
 	pkg, err := builder.Save(ctx)
@@ -427,11 +418,6 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	}
 	if debtRepaid > 0 {
 		if err := recordBalanceDebtLedger(ctx, client, order.UserID, "repayment", debtRepaid, lockedUser.Balance, newBalance, "balance_package_initial_credit", fmt.Sprintf("order:%d", order.ID)); err != nil {
-			return nil, err
-		}
-	}
-	if status == balancePackageStatusDebtPaused {
-		if err := createBalancePackageDebtAudit(ctx, client, order.ID, balancePackageDebtPausedAudit, 1, lockedUser.Balance, newBalance, weeklyCredit, startsAt.AddDate(0, 0, refreshIntervalDays), "system"); err != nil {
 			return nil, err
 		}
 	}
@@ -465,12 +451,9 @@ func (s *BalancePackageService) CreditDueBalances(ctx context.Context, now time.
 	if err := s.expireDueBalances(ctx, now.UTC()); err != nil {
 		return 0, err
 	}
-	if _, err := s.PauseDebtPackages(ctx, now.UTC()); err != nil {
-		return 0, err
-	}
 	due, err := s.entClient.UserBalancePackage.Query().
 		Where(
-			userbalancepackage.StatusEQ(balancePackageStatusActive),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusDebtPaused),
 			userbalancepackage.NextCreditAtLTE(now.UTC()),
 			userbalancepackage.ExpiresAtGT(now.UTC()),
 		).
@@ -494,38 +477,10 @@ func (s *BalancePackageService) CreditDueBalances(ctx context.Context, now time.
 	return credited, nil
 }
 
-// PauseDebtPackages 把仍有后续期数的欠费活动套餐持久化为人工暂停状态。
+// PauseDebtPackages 保留旧调度接口；新规则不再因欠费暂停活动套餐。
 func (s *BalancePackageService) PauseDebtPackages(ctx context.Context, now time.Time) (int, error) {
-	if s == nil || s.entClient == nil {
-		return 0, fmt.Errorf("balance package service is unavailable")
-	}
-	candidates, err := s.entClient.UserBalancePackage.Query().
-		Where(
-			userbalancepackage.StatusEQ(balancePackageStatusActive),
-			userbalancepackage.ExpiresAtGT(now),
-			userbalancepackage.HasUserWith(user.BalanceLT(0)),
-		).
-		Order(userbalancepackage.ByUpdatedAt(), userbalancepackage.ByID()).
-		Limit(balancePackageCreditBatchSize).
-		All(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("list debt balance packages: %w", err)
-	}
-
-	paused := 0
-	for _, candidate := range candidates {
-		if candidate.CreditedCount >= candidate.RefreshCount {
-			continue
-		}
-		applied, pauseErr := s.pauseDebtPackage(ctx, candidate, now, "system")
-		if pauseErr != nil {
-			return paused, pauseErr
-		}
-		if applied {
-			paused++
-		}
-	}
-	return paused, nil
+	// 保留旧接口以兼容管理员工具；欠费不再暂停套餐，周额度刷新会自动抵消余额欠费。
+	return 0, nil
 }
 
 func (s *BalancePackageService) pauseDebtPackage(ctx context.Context, candidate *dbent.UserBalancePackage, now time.Time, operator string) (bool, error) {
@@ -579,7 +534,7 @@ func (s *BalancePackageService) pauseDebtPackage(ctx context.Context, candidate 
 	return true, nil
 }
 
-// ResumeDebtPausedPackage 由管理员在用户还清欠费后重新开启下一周到账节奏。
+// ResumeDebtPausedPackage 兼容历史 debt_paused 数据的管理员恢复接口。
 func (s *BalancePackageService) ResumeDebtPausedPackage(ctx context.Context, packageID, adminUserID int64, now time.Time) error {
 	if s == nil || s.entClient == nil {
 		return infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
@@ -793,23 +748,8 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 		}
 		return false, fmt.Errorf("lock scheduled balance package: %w", err)
 	}
-	if current.Status != balancePackageStatusActive || current.NextCreditAt == nil ||
+	if (current.Status != balancePackageStatusActive && current.Status != balancePackageStatusDebtPaused) || current.NextCreditAt == nil ||
 		current.CreditedCount >= current.RefreshCount || !current.ExpiresAt.After(now) {
-		return false, nil
-	}
-	if currentBalance < 0 {
-		if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
-			Where(userbalancepackage.StatusEQ(balancePackageStatusActive)).
-			SetStatus(balancePackageStatusDebtPaused).
-			Save(txCtx); err != nil {
-			return false, fmt.Errorf("pause debt package before refresh: %w", err)
-		}
-		if err := createBalancePackageDebtAudit(txCtx, client, current.PaymentOrderID, balancePackageDebtPausedAudit, current.CreditedCount, currentBalance, currentBalance, current.WeeklyCreditUsd, timeOrZero(current.NextCreditAt), "system"); err != nil {
-			return false, err
-		}
-		if err := tx.Commit(); err != nil {
-			return false, fmt.Errorf("commit debt package pause before refresh: %w", err)
-		}
 		return false, nil
 	}
 	periodsDue := balancePackagePeriodsDue(current.NextCreditAt, now, current.RefreshIntervalDays)
@@ -823,7 +763,7 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	newNextCreditAt := current.NextCreditAt.AddDate(0, 0, periodsDue*current.RefreshIntervalDays)
 	update := client.UserBalancePackage.UpdateOneID(current.ID).
 		Where(
-			userbalancepackage.StatusEQ(balancePackageStatusActive),
+			userbalancepackage.StatusIn(balancePackageStatusActive, balancePackageStatusDebtPaused),
 			userbalancepackage.CreditedCountEQ(current.CreditedCount),
 			userbalancepackage.NextCreditAtLTE(now),
 			userbalancepackage.ExpiresAtGT(now),
@@ -837,6 +777,7 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	if newCount >= current.RefreshCount {
 		update.SetStatus(balancePackageStatusCompleted).ClearNextCreditAt()
 	} else {
+		update.SetStatus(balancePackageStatusActive)
 		update.SetNextCreditAt(newNextCreditAt)
 	}
 	if _, err := update.Save(txCtx); err != nil {

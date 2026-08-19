@@ -61,14 +61,14 @@
 
             <template v-if="selectedTrafficPack">
               <div class="purchase-panel p-5 sm:p-6">
-                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">GPT 流量卡</p>
+                <p class="text-xs font-medium uppercase tracking-wider text-gray-400">流量卡</p>
                 <h3 class="mt-2 text-lg font-bold text-gray-900 dark:text-white">{{ selectedTrafficPack.name }}</h3>
                 <div class="mt-3 flex items-baseline gap-2">
                   <span class="text-3xl font-bold text-gray-900 dark:text-white">{{ formatCNY(selectedTrafficPack.price) }}</span>
                   <span class="text-sm text-gray-500 dark:text-gray-400">/ ${{ formatUSDValue(selectedTrafficPack.credit_usd) }} 额度</span>
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-3">
-                  <div><span class="text-xs text-gray-400">可用平台</span><div class="text-lg font-semibold text-gray-800 dark:text-gray-200">OpenAI</div></div>
+                  <div><span class="text-xs text-gray-400">可用渠道</span><div class="text-lg font-semibold text-gray-800 dark:text-gray-200">全部渠道</div></div>
                   <div><span class="text-xs text-gray-400">有效期</span><div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedTrafficPack.validity_days }} 天</div></div>
                 </div>
               </div>
@@ -196,7 +196,7 @@ const trafficProducts = computed<CatalogProduct[]>(() => trafficPacks.value.map(
   trafficPack,
   product: {
     testId: `traffic-pack-card-${trafficPack.id}`,
-    eyebrowText: 'GPT 流量卡',
+    eyebrowText: '流量卡',
     title: trafficPack.name,
     priceLabel: '实付',
     priceText: formatCNY(calculatePaymentTotal(trafficPack.price, feeRate.value)),

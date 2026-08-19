@@ -368,7 +368,7 @@ func TestListPlazaGroups_DeepSeekUsesOfficialPrice(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, pricingSvc)
 	svc := NewChannelService(
 		repo,
-		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 8, Name: "DeepSeek", Platform: "openai", RateMultiplier: 0.5}}},
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 8, Name: "DeepSeek", Platform: "openai", RateMultiplier: 3.5}}},
 		nil,
 		pricingSvc,
 		accounts,
@@ -382,8 +382,8 @@ func TestListPlazaGroups_DeepSeekUsesOfficialPrice(t *testing.T) {
 	for _, model := range out[0].Models {
 		byName[model.Name] = model
 	}
-	assertPlazaPricing(t, byName["deepseek-v4-flash"], 0.14e-6, 0.28e-6, 0.0028e-6)
-	assertPlazaPricing(t, byName["deepseek-v4-pro"], 0.435e-6, 0.87e-6, 0.003625e-6)
+	assertPlazaPricing(t, byName["deepseek-v4-flash"], 0.22e-6, 0.66e-6, 0.007e-6)
+	assertPlazaPricing(t, byName["deepseek-v4-pro"], 0.66e-6, 1.98e-6, 0.022e-6)
 }
 
 func TestListPlazaGroups_AccountSourceErrorsPropagate(t *testing.T) {

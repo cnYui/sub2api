@@ -13,7 +13,7 @@ const (
 	TrafficCreditLedgerTypePurchase  = "purchase"
 	TrafficCreditLedgerTypeDeduction = "deduction"
 	TrafficCreditLedgerTypeRefund    = "refund"
-	TrafficPackPlatformOpenAI        = PlatformOpenAI
+	TrafficPackPlatformAll           = "all"
 	TrafficPackValidityDays          = 28
 )
 
@@ -60,6 +60,7 @@ type TrafficCreditDeduction struct {
 type TrafficCreditSummary struct {
 	TotalInitialUSD   float64    `json:"total_initial_usd"`
 	TotalRemainingUSD float64    `json:"total_remaining_usd"`
+	TrafficDebtUSD    float64    `json:"traffic_debt_usd"`
 	NextExpiringUSD   float64    `json:"next_expiring_usd"`
 	NextExpiresAt     *time.Time `json:"next_expires_at,omitempty"`
 }
@@ -92,7 +93,7 @@ func NewTrafficPackService(repo TrafficPackRepository) *TrafficPackService {
 }
 
 func IsTrafficPackPlatform(platform string) bool {
-	return strings.EqualFold(strings.TrimSpace(platform), TrafficPackPlatformOpenAI)
+	return strings.TrimSpace(platform) != ""
 }
 
 func (s *TrafficPackService) ListForSale(ctx context.Context) ([]TrafficPack, error) {

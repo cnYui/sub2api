@@ -179,6 +179,46 @@ func TestEasyPayRefundResponseErrors(t *testing.T) {
 	}
 }
 
+func TestEasyPayRefundBypassesStaleProxyForConfiguredEndpoint(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":1,"msg":"ok"}`))
+	}))
+	defer server.Close()
+
+	provider := newTestEasyPay(t, server.URL)
+	transport, ok := provider.httpClient.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("EasyPay transport = %T, want *http.Transport", provider.httpClient.Transport)
+	}
+	probe, err := http.NewRequest(http.MethodPost, server.URL+"/api.php?act=refund", nil)
+	if err != nil {
+		t.Fatalf("create probe request: %v", err)
+	}
+	proxyURL, err := transport.Proxy(probe)
+	if err != nil {
+		t.Fatalf("resolve proxy: %v", err)
+	}
+	if proxyURL != nil {
+		t.Fatalf("configured EasyPay endpoint uses proxy %q, want direct connection", proxyURL.String())
+	}
+	resp, err := provider.Refund(context.Background(), payment.RefundRequest{
+		OrderID: "out-direct",
+		Amount:  "1.50",
+	})
+	if err != nil {
+		t.Fatalf("Refund returned error through stale proxy: %v", err)
+	}
+	if resp == nil || resp.Status != payment.ProviderStatusSuccess {
+		t.Fatalf("Refund response = %+v, want success", resp)
+	}
+	if requests != 1 {
+		t.Fatalf("refund requests = %d, want 1", requests)
+	}
+}
+
 func TestEasyPayCustomMethodsUseConfiguredUpstreamType(t *testing.T) {
 	t.Parallel()
 

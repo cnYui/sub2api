@@ -146,6 +146,7 @@ export interface TrafficPack {
 export interface TrafficCreditSummary {
   total_initial_usd: number
   total_remaining_usd: number
+  traffic_debt_usd: number
   next_expiring_usd: number
   next_expires_at?: string
 }

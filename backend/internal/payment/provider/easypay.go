@@ -58,10 +58,24 @@ func NewEasyPay(instanceID string, config map[string]string) (*EasyPay, error) {
 		cfg[k] = v
 	}
 	cfg["apiBase"] = normalizeEasyPayAPIBase(cfg["apiBase"])
+	apiURL, err := url.Parse(cfg["apiBase"])
+	if err != nil || strings.TrimSpace(apiURL.Hostname()) == "" {
+		return nil, fmt.Errorf("easypay config has invalid apiBase")
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	configuredHost := strings.ToLower(apiURL.Hostname())
+	transport.Proxy = func(req *http.Request) (*url.URL, error) {
+		// Payment callbacks and refunds must reach the configured merchant
+		// endpoint directly; a stale local proxy must not break real refunds.
+		if req != nil && req.URL != nil && strings.EqualFold(req.URL.Hostname(), configuredHost) {
+			return nil, nil
+		}
+		return http.ProxyFromEnvironment(req)
+	}
 	return &EasyPay{
 		instanceID: instanceID,
 		config:     cfg,
-		httpClient: &http.Client{Timeout: easypayHTTPTimeout},
+		httpClient: &http.Client{Timeout: easypayHTTPTimeout, Transport: transport},
 	}, nil
 }
 

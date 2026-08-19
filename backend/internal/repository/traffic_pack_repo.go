@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -50,11 +51,21 @@ func (r *trafficPackRepository) GetForSaleByID(ctx context.Context, id int64) (*
 
 func (r *trafficPackRepository) GetSummary(ctx context.Context, userID int64, now time.Time) (*service.TrafficCreditSummary, error) {
 	s := &service.TrafficCreditSummary{}
-	if err := r.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(initial_usd),0), COALESCE(SUM(remaining_usd),0) FROM user_traffic_credits WHERE user_id=$1 AND platform=$2 AND remaining_usd>0 AND expires_at>$3`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&s.TotalInitialUSD, &s.TotalRemainingUSD); err != nil {
+	if err := r.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(initial_usd),0), COALESCE(SUM(remaining_usd),0) FROM user_traffic_credits WHERE user_id=$1 AND remaining_usd>0 AND expires_at>$2`, userID, now).Scan(&s.TotalInitialUSD, &s.TotalRemainingUSD); err != nil {
 		return nil, err
 	}
+	if err := r.db.QueryRowContext(ctx, `SELECT COALESCE(SUM(CASE WHEN entry_type='debt' THEN amount_usd ELSE -amount_usd END),0) FROM traffic_credit_debt_ledger WHERE user_id=$1`, userID).Scan(&s.TrafficDebtUSD); err != nil {
+		return nil, err
+	}
+	if s.TrafficDebtUSD < 0 {
+		s.TrafficDebtUSD = 0
+	}
+	s.TotalRemainingUSD -= s.TrafficDebtUSD
+	if s.TotalRemainingUSD < 0 {
+		s.TotalRemainingUSD = 0
+	}
 	var expires time.Time
-	err := r.db.QueryRowContext(ctx, `SELECT expires_at, COALESCE(SUM(remaining_usd),0) FROM user_traffic_credits WHERE user_id=$1 AND platform=$2 AND remaining_usd>0 AND expires_at>$3 GROUP BY expires_at ORDER BY expires_at LIMIT 1`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&expires, &s.NextExpiringUSD)
+	err := r.db.QueryRowContext(ctx, `SELECT expires_at, COALESCE(SUM(remaining_usd),0) FROM user_traffic_credits WHERE user_id=$1 AND remaining_usd>0 AND expires_at>$2 GROUP BY expires_at ORDER BY expires_at LIMIT 1`, userID, now).Scan(&expires, &s.NextExpiringUSD)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s, nil
 	}
@@ -66,7 +77,7 @@ func (r *trafficPackRepository) GetSummary(ctx context.Context, userID int64, no
 }
 
 func (r *trafficPackRepository) ListUserCredits(ctx context.Context, userID int64, now time.Time) ([]service.TrafficCredit, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at FROM user_traffic_credits WHERE user_id=$1 AND platform=$2 AND expires_at>$3 ORDER BY expires_at, credited_at, id`, userID, service.TrafficPackPlatformOpenAI, now)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at FROM user_traffic_credits WHERE user_id=$1 AND expires_at>$2 ORDER BY expires_at, credited_at, id`, userID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +122,11 @@ func (r *trafficPackRepository) GetCreditByOrderID(ctx context.Context, orderID 
 }
 
 func (r *trafficPackRepository) HasAvailableCredit(ctx context.Context, userID int64, now time.Time) (bool, error) {
-	var id int64
-	err := r.db.QueryRowContext(ctx, `SELECT id FROM user_traffic_credits WHERE user_id=$1 AND platform=$2 AND remaining_usd>0 AND expires_at>$3 ORDER BY expires_at,credited_at,id LIMIT 1`, userID, service.TrafficPackPlatformOpenAI, now).Scan(&id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+	summary, err := r.GetSummary(ctx, userID, now)
+	if err != nil {
+		return false, err
 	}
-	return err == nil, err
+	return summary != nil && summary.TotalRemainingUSD > 0, nil
 }
 
 func (r *trafficPackRepository) CreditPurchase(ctx context.Context, input service.CreditTrafficPackInput) error {
@@ -138,16 +148,38 @@ func (r *trafficPackRepository) CreditPurchase(ctx context.Context, input servic
 		return err
 	}
 	defer tx.Rollback()
+	var lockedUserID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, input.UserID).Scan(&lockedUserID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return service.ErrUserNotFound
+		}
+		return err
+	}
+	var debt float64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(CASE WHEN entry_type='debt' THEN amount_usd ELSE -amount_usd END),0) FROM traffic_credit_debt_ledger WHERE user_id=$1`, input.UserID).Scan(&debt); err != nil {
+		return err
+	}
+	if debt < 0 {
+		debt = 0
+	}
 	var id int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO user_traffic_credits(user_id,order_id,pack_id,platform,initial_usd,remaining_usd,credited_at,expires_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$5,$6,$7,$6,$6) ON CONFLICT(order_id) DO NOTHING RETURNING id`, input.UserID, input.OrderID, input.PackID, service.TrafficPackPlatformOpenAI, amount, credited, expires).Scan(&id)
+	debtRepaid := math.Min(amount, debt)
+	remaining := amount - debtRepaid
+	err = tx.QueryRowContext(ctx, `INSERT INTO user_traffic_credits(user_id,order_id,pack_id,platform,initial_usd,remaining_usd,credited_at,expires_at,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$7,$7) ON CONFLICT(order_id) DO NOTHING RETURNING id`, input.UserID, input.OrderID, input.PackID, service.TrafficPackPlatformAll, amount, remaining, credited, expires).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return tx.Commit()
 	}
 	if err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO traffic_credit_ledger(user_id,credit_id,order_id,request_id,entry_type,amount_usd,balance_after_usd,created_at) VALUES($1,$2,$3,'',$4,$5,$5,$6)`, input.UserID, id, input.OrderID, service.TrafficCreditLedgerTypePurchase, amount, credited); err != nil {
+	if _, err = tx.ExecContext(ctx, `INSERT INTO traffic_credit_ledger(user_id,credit_id,order_id,request_id,entry_type,amount_usd,balance_after_usd,created_at) VALUES($1,$2,$3,'',$4,$5,$6,$7)`, input.UserID, id, input.OrderID, service.TrafficCreditLedgerTypePurchase, amount, remaining, credited); err != nil {
 		return err
+	}
+	if debtRepaid > 0 {
+		debtAfter := debt - debtRepaid
+		if _, err = tx.ExecContext(ctx, `INSERT INTO traffic_credit_debt_ledger(user_id,entry_type,amount_usd,balance_after_usd,source_type,source_ref,created_at) VALUES($1,'repayment',$2,$3,'traffic_pack_purchase',$4,$5)`, input.UserID, debtRepaid, debtAfter, fmt.Sprintf("order:%d", input.OrderID), credited); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -162,7 +194,7 @@ func (r *trafficPackRepository) Deduct(ctx context.Context, userID int64, amount
 	if r.isPostgres {
 		lock = " FOR UPDATE"
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id,user_id,order_id,pack_id,initial_usd,remaining_usd,credited_at,expires_at FROM user_traffic_credits WHERE user_id=$1 AND platform=$2 AND remaining_usd>0 AND expires_at>$3 ORDER BY expires_at,credited_at,id`+lock, userID, service.TrafficPackPlatformOpenAI, now)
+	rows, err := tx.QueryContext(ctx, `SELECT id,user_id,order_id,pack_id,initial_usd,remaining_usd,credited_at,expires_at FROM user_traffic_credits WHERE user_id=$1 AND remaining_usd>0 AND expires_at>$2 ORDER BY expires_at,credited_at,id`+lock, userID, now)
 	if err != nil {
 		return false, nil, err
 	}

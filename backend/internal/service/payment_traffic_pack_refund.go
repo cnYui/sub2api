@@ -49,7 +49,7 @@ func (s *PaymentService) calculateTrafficPackRefundQuote(ctx context.Context, o 
 		}
 		return nil, fmt.Errorf("find traffic credit: %w", err)
 	}
-	if !IsTrafficPackPlatform(TrafficPackPlatformOpenAI) || credit.ExpiresAt.Before(credit.CreditedAt) || credit.ExpiresAt.Equal(credit.CreditedAt) {
+	if credit.ExpiresAt.Before(credit.CreditedAt) || credit.ExpiresAt.Equal(credit.CreditedAt) {
 		quote.ManualReviewRequired = true
 		return quote, nil
 	}

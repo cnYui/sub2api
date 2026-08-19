@@ -502,6 +502,10 @@ type fakeZeroQuotaCache struct {
 	called bool
 }
 
+func (f *fakeZeroQuotaCache) GetUserBalance(_ context.Context, _ int64) (float64, error) {
+	return 0, nil
+}
+
 func (f *fakeZeroQuotaCache) GetUserPlatformQuotaCache(_ context.Context, _ int64, _ string) (*UserPlatformQuotaCacheEntry, bool, error) {
 	f.called = true
 	daily := 0.0

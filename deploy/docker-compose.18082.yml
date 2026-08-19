@@ -13,6 +13,9 @@ services:
       - BILLING_FINAL_MULTIPLIER=18
       - BILLING_MINIMUM_BALANCE_RESERVE=0.01
       - ACCOUNT_CREDENTIALS_ENCRYPTION_KEY_FILE=/run/secrets/account_credentials_encryption_key
+      # ZPay 退款必须绕过本机开发代理，避免支付请求被失效的 7897 端口拦截。
+      - NO_PROXY=127.0.0.1,localhost,::1,postgres,redis,sub2api,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,.local,zpayz.cn
+      - no_proxy=127.0.0.1,localhost,::1,postgres,redis,sub2api,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,.local,zpayz.cn
 
   postgres:
     container_name: sub2api-official-18082-postgres

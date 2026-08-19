@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
@@ -21,15 +22,20 @@ const (
 	captureBatchImageHoldSQL     = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	releaseBatchImageHoldSQL     = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	userExistsForBillingSQL      = `(?s)SELECT 1\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL`
-	trafficCreditBatchesSQL      = `(?s)SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at\s+FROM user_traffic_credits\s+WHERE user_id = \$1 AND platform = \$2 AND remaining_usd > 0 AND expires_at > NOW\(\)`
+	trafficCreditBatchesSQL      = `(?s)SELECT id, user_id, order_id, pack_id, initial_usd, remaining_usd, credited_at, expires_at\s+FROM user_traffic_credits\s+WHERE user_id = \$1 AND remaining_usd > 0 AND expires_at > NOW\(\)`
 	usageBillingUserLockSQL      = `(?s)SELECT id\s+FROM users\s+WHERE id = \$1 AND deleted_at IS NULL\s+FOR UPDATE`
+	lockedUsageBillingBalanceSQL = `(?s)SELECT balance FROM users\s+WHERE id = \$1 AND deleted_at IS NULL`
+	trafficCreditDeductSQL       = `(?s)UPDATE user_traffic_credits\s+SET remaining_usd = remaining_usd - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND remaining_usd \+ 0\.0000000001 >= \$1\s+RETURNING remaining_usd`
+	trafficCreditLedgerSQL       = `(?s)INSERT INTO traffic_credit_ledger \(user_id, credit_id, order_id, request_id, entry_type, amount_usd, balance_after_usd, created_at\)`
+	trafficDebtNetSQL            = `(?s)SELECT COALESCE\(SUM\(CASE WHEN entry_type='debt' THEN amount_usd ELSE -amount_usd END\),0\) FROM traffic_credit_debt_ledger WHERE user_id=\$1`
+	trafficDebtLedgerSQL         = `(?s)INSERT INTO traffic_credit_debt_ledger\(user_id,entry_type,amount_usd,balance_after_usd,source_type,source_ref,created_at\)`
 	currentBalancePackageLockSQL = `(?s)SELECT id, remaining_usd\s+FROM user_balance_packages\s+WHERE user_id = \$1.*FOR UPDATE`
 	consumeBalancePackageSQL     = `(?s)UPDATE user_balance_packages\s+SET remaining_usd = GREATEST\(remaining_usd - \$1, 0\), updated_at = NOW\(\)\s+WHERE id = \$2 AND remaining_usd > 0`
 	recordBatchImageSourceSQL    = `(?s)UPDATE batch_image_jobs\s+SET balance_package_id = \$1,\s+balance_package_hold_usd = \$2,\s+updated_at = NOW\(\)\s+WHERE batch_id = \$3 AND user_id = \$4`
 	loadBatchImageSourceSQL      = `(?s)SELECT COALESCE\(balance_package_id, 0\), balance_package_hold_usd\s+FROM batch_image_jobs\s+WHERE batch_id = \$1 AND user_id = \$2\s+FOR UPDATE`
 	clearBatchImageSourceSQL     = `(?s)UPDATE batch_image_jobs\s+SET balance_package_id = NULL,\s+balance_package_hold_usd = 0,\s+updated_at = NOW\(\)\s+WHERE batch_id = \$1 AND user_id = \$2`
 	restoreBalancePackageSQL     = `(?s)UPDATE user_balance_packages\s+SET remaining_usd = LEAST\(.*weekly_credit_usd.*remaining_usd.*SELECT balance FROM users.*\$3.*\).*WHERE id = \$2.*status IN \('active', 'completed', 'debt_paused'\).*expires_at > NOW\(\)`
-	discardExpiredPackageSQL    = `(?s)UPDATE users\s+SET balance = balance - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance, frozen_balance`
+	discardExpiredPackageSQL     = `(?s)UPDATE users\s+SET balance = balance - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL\s+RETURNING balance, frozen_balance`
 )
 
 func expectUsageBillingUserAndPackageLocks(mock sqlmock.Sqlmock, userID int64) {
@@ -106,6 +112,12 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	mock.ExpectQuery(userExistsForBillingSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
+	mock.ExpectQuery(trafficCreditBatchesSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at"}))
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
@@ -125,7 +137,7 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestApplyUsageBillingEffectsRecordsDebtForUncoveredTrafficPackCost(t *testing.T) {
+func TestApplyUsageBillingEffectsOverdraftsBalanceForNonDebtUserWhenTrafficCannotCover(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -141,8 +153,11 @@ func TestApplyUsageBillingEffectsRecordsDebtForUncoveredTrafficPackCost(t *testi
 	mock.ExpectQuery(userExistsForBillingSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
 	mock.ExpectQuery(trafficCreditBatchesSQL).
-		WithArgs(int64(42), service.TrafficPackPlatformOpenAI).
+		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
 		}))
@@ -155,13 +170,67 @@ func TestApplyUsageBillingEffectsRecordsDebtForUncoveredTrafficPackCost(t *testi
 	result := &service.UsageBillingApplyResult{Applied: true}
 	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
 		UserID:      42,
-		Platform:    service.TrafficPackPlatformOpenAI,
+		Platform:    service.PlatformAnthropic,
 		BalanceCost: 10,
 	}, result)
 	require.NoError(t, err)
 	require.NotNil(t, result.NewBalance)
 	require.InDelta(t, -5.0, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyUsageBillingEffectsUsesTrafficPackForDebtAcrossPlatforms(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	expectUsageBillingUserAndPackageLocks(mock, 42)
+	mock.ExpectQuery(sufficientBalanceDeductSQL).
+		WithArgs(10.0, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-2.0))
+	mock.ExpectQuery(trafficCreditBatchesSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
+		}).AddRow(55, 42, nil, nil, 3.0, 3.0, time.Now().Add(-time.Hour), time.Now().Add(time.Hour)))
+	mock.ExpectQuery(trafficCreditDeductSQL).
+		WithArgs(3.0, int64(55)).
+		WillReturnRows(sqlmock.NewRows([]string{"remaining_usd"}).AddRow(0.0))
+	mock.ExpectExec(trafficCreditLedgerSQL).
+		WithArgs(int64(42), int64(55), "anthropic-request", service.TrafficCreditLedgerTypeDeduction, 3.0, 0.0).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectQuery(trafficDebtNetSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"debt"}).AddRow(0.0))
+	mock.ExpectExec(trafficDebtLedgerSQL).
+		WithArgs(int64(42), 7.0, 7.0, "anthropic-request").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:      42,
+		Platform:    service.PlatformAnthropic,
+		RequestID:   "anthropic-request",
+		BalanceCost: 10,
+	}, result)
+	require.NoError(t, err)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, -2.0, *result.NewBalance, 0.000001)
+	require.True(t, result.TrafficCreditCharged)
+	require.False(t, result.BalanceOverdrafted)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }

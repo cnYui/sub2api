@@ -216,8 +216,8 @@ func TestGetModelPricing_DeepSeekUsesOfficialFallbackOverDynamicPrice(t *testing
 		output    float64
 		cacheRead float64
 	}{
-		{model: "deepseek-v4-flash", input: 0.14e-6, output: 0.28e-6, cacheRead: 0.0028e-6},
-		{model: "deepseek-v4-pro", input: 0.435e-6, output: 0.87e-6, cacheRead: 0.003625e-6},
+		{model: "deepseek-v4-flash", input: 0.22e-6, output: 0.66e-6, cacheRead: 0.007e-6},
+		{model: "deepseek-v4-pro", input: 0.66e-6, output: 1.98e-6, cacheRead: 0.022e-6},
 	}
 	for _, tt := range tests {
 		pricing, err := svc.GetModelPricing(tt.model)

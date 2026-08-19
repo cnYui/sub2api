@@ -529,7 +529,7 @@ const errorCatalogRows: GuideErrorRow[] = [
   { id: '权限', code: 'GROUP_NOT_ALLOWED', http: '403', message: 'API Key 所属专属分组不再允许当前用户使用。' },
   { id: '订阅', code: 'SUBSCRIPTION_NOT_FOUND', http: '403', message: '当前 Key 分组没有有效订阅。' },
   { id: '订阅', code: 'USAGE_LIMIT_EXCEEDED', http: '429', message: '订阅的 5 小时、1 天或 7 天用量窗口已达到上限。' },
-  { id: '余额', code: 'INSUFFICIENT_BALANCE', http: '403', message: '普通余额不足且当前请求没有可用的 OpenAI 流量卡额度。' },
+  { id: '余额', code: 'INSUFFICIENT_BALANCE', http: '403', message: '普通余额不足且当前请求没有可用的流量卡额度。' },
   { id: '额度', code: 'API_KEY_QUOTA_EXHAUSTED', http: '429', message: 'API Key 自身配额已用完；OpenAI Responses 可能改用 insufficient_quota 格式返回。' },
   { id: '系统', code: 'API_KEY_AUTH_OVERLOADED', http: '503', message: 'API Key 鉴权服务暂时过载，请稍后重试。' },
   { id: '系统', code: 'SUBSCRIPTION_MAINTENANCE_FAILED', http: '500', message: '订阅用量窗口维护失败，请稍后重试或联系管理员。' },
@@ -710,7 +710,7 @@ const allGuideTopics: GuideTopic[] = [
         paragraphs: [
           'Codex 的 base_url 只配置到 /v1，wire_api 使用 responses；不要把 /responses 或 /backend-api/codex/responses 填进 base_url。Claude Code 使用 /v1/messages，并把 API Key 放到客户端要求的认证字段。',
           '先用同一个 API Key 请求 /v1/models，确认目标模型确实属于该 Key 的分组；模型列表为空、模型不支持或没有可用上游时，换路径不会解决问题，应回到 API Key 分组和服务状态排查。',
-          '扣费、订单状态和退款以服务端为准。普通余额与流量卡额度分开显示；OpenAI 请求在普通余额不足时才会按服务端规则尝试扣有效流量卡，额度不足仍会拒绝请求。',
+          '扣费、订单状态和退款以服务端为准。普通余额与流量卡额度分开显示；所有渠道在普通余额不足后都会按服务端规则尝试扣有效流量卡，额度不足仍会拒绝请求。',
         ],
         code: codexFormalConfigExample,
       },

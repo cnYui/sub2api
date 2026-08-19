@@ -1,5 +1,35 @@
 # 项目协作约定
 
+- 2026-08-19：在分支 `codex/refund-real-and-cancel` 实现真实 EasyPay/ZPay 退款路径：配置的支付 API 域名直连并在 Compose 的 `NO_PROXY`/`no_proxy` 中加入 `zpayz.cn`；退款成功后余额套餐/流量卡权益按既有逻辑撤销。用户已手动处理的 20 笔代理失败订单未重试、未改库；详情见 `docs/ai/context/20260819-210107-refund-real-and-cancel-implementation_CN.md`。
+
+- 2026-08-19：余额套餐与流量卡欠费规则改为连续结算：余额套餐不因欠费暂停，下一周额度优先抵消余额欠费；普通余额已欠费后，所有渠道统一扣用户级流量卡额度，流量卡不足部分记入独立欠费账本，余额和流量卡均无净可用额度时拒绝后续请求；流量卡充值优先抵消流量卡欠费。迁移 `209_balance_and_traffic_debt_continuation.sql` 将历史流量卡转为 `all` 全渠道额度池并恢复可刷新旧套餐，详见 `docs/ai/context/20260819-204249-balance-and-traffic-debt-continuation_CN.md`。
+
+- 2026-08-19：只读诊断当天用户多次退款失败：主因是生产应用继承 `host.docker.internal:7897` 失效代理，20 笔 `REFUND_FAILED`（余额套餐 17、流量卡 3，18 个用户）均在到达 ZPay 前连接被拒；另有 10 笔为 ZPay“卖家余额不足”。重试会继续走同一失效代理；同时前端对缺少顶层 `provider_instance_id` 的历史订单隐藏退款入口，当前仍有 229 笔有效流量卡订单和 5 笔有效余额套餐订单受影响。详见 `docs/ai/context/20260819-202101-refund-failure-diagnosis_CN.md`。
+
+- 2026-08-19：退款失败诊断更正：缺少顶层支付实例绑定的历史订单，快照也缺少可验证实例 ID，后端同样会安全拒绝退款；不能仅通过前端改动或猜测当前商户开放入口，必须先核验原始支付归属并补全审计绑定。详见 `docs/ai/context/20260819-202302-refund-failure-diagnosis-correction_CN.md`。
+
+- 2026-08-19：按管理员要求提前结算用户 `1032726009@qq.com`（ID `505`）当前余额套餐 `123`（订单 `600`）第 `3/4` 期 `781 USD` 周额度。用户执行期间持续产生用量，固定快照前置校验已安全回滚后，再以事务内实时状态完成刷新；旧周剩余 `28.91773960 USD` 按窗口规则替换，余额与当前套餐剩余均为 `781 USD`，套餐保持 `active`，下次刷新为 `2026-08-27 19:53:21 +08`。本次无欠费抵扣，新增支付审计 `1950`，缓存失效已处理；历史取消/过期套餐、订单、退款、流量卡和有效期未修改，详见 `docs/ai/context/20260819-170441-user-1032726009-early-weekly-credit-execution_CN.md`。
+
+- 2026-08-19：按管理员要求提前结算用户 `441565547@qq.com`（ID `472`）当前余额套餐 `130`（订单 `619`）第 `2/4` 期 `128 USD` 周额度。`0.14335308 USD` 欠费已优先抵扣，事务提交后余额与当前套餐剩余均为 `127.85664692 USD`；套餐从 `debt_paused` 恢复 `active`，下次刷新为 `2026-08-22 21:42:10 +08`。支付审计 `1946`、欠费还款账本 `29` 和缓存失效均已处理；历史取消套餐 `10` 未修改，订单、退款、流量卡和有效期未修改，详见 `docs/ai/context/20260819-121921-user-441565547-early-weekly-credit-debt-offset-execution_CN.md`。
+
+- 2026-08-19：按管理员要求提前结算用户 `2686838264@qq.com`（ID `610`）余额套餐 `143`（订单 `639`）第 `2/4` 期 `76 USD` 周额度。`1.25219097 USD` 欠费已优先抵扣，事务提交后余额与当前套餐剩余均为 `74.74780903 USD`；套餐从 `debt_paused` 恢复 `active`，下次刷新为 `2026-08-28 10:17:50 +08`。支付审计 `1945`、欠费还款账本 `28` 和缓存失效均已处理；订单、退款、流量卡和有效期未修改，详见 `docs/ai/context/20260819-113510-user-2686838264-early-weekly-credit-debt-offset-execution_CN.md`。
+
+- 2026-08-19：按管理员要求提前结算用户 `859591608@qq.com`（ID `492`）余额套餐 `114`（订单 `578`）第 `3/4` 期 `520 USD` 周额度。`0.32017480 USD` 欠费已优先抵扣，事务提交后余额与当前套餐剩余均为 `519.67982520 USD`；套餐从 `debt_paused` 恢复 `active`，下次刷新为 `2026-08-24 07:45:11 +08`。支付审计 `1943`、欠费还款账本 `27` 和缓存失效均已处理；订单、退款、流量卡和有效期未修改，详见 `docs/ai/context/20260819-113108-user-859591608-early-weekly-credit-debt-offset-execution_CN.md`。
+
+- 2026-08-19：按管理员要求从 `api.ai-genesis.app/model-plaza?embedded=1` 核对 DeepSeek 新定价；页面官方基准为 V4 Pro `$0.66/$1.98/$0.022`、V4 Flash `$0.22/$0.66/$0.007`（输入/输出/缓存读取，每百万 token），DeepSeek 分组倍率为 `3.5x`。本地旧价与 `0.35x` 分组倍率已同步调整，账号统计倍率未修改，详见 `docs/ai/context/20260819-111655-deepseek-pricing-sync_CN.md`。
+
+- 2026-08-14：按管理员要求提前结算用户 `2197057077@qq.com`（ID `565`）余额套餐 `121`（订单 `589`）第 `2/4` 期 `520 USD` 周额度。`0.07226668 USD` 欠费已优先抵扣，事务提交时余额与当前套餐额度均为 `519.92773332 USD`；套餐恢复 `active`，下次刷新为 `2026-08-19 22:26:42 +08`。支付审计 `1672`、欠费还款账本 `20` 和缓存失效均已完成；订单、退款、流量卡和有效期未修改，详见 `docs/ai/context/20260814-005741-user-2197057077-early-weekly-credit-debt-offset-execution_CN.md`。
+
+- 2026-08-13：按管理员要求处理 `xunskyler@gmail.com`（ID `454`）和 `3867878292@qq.com`（ID `599`）的下一周余额套餐额度。套餐 `124`（订单 `603`）提前结算第 `2/4` 期 `128 USD`，余额变为 `128.28974170 USD`、恢复 `active`；套餐 `122`（订单 `590`）提前结算第 `2/4` 期 `76 USD`，优先抵扣 `0.41669895 USD` 欠费后余额与套餐剩余均为 `75.58330105 USD`、恢复 `active`。支付审计分别为 `1656`、`1657`，欠费还款账本为 `19`；订单、退款、流量卡和有效期未修改，缓存已失效。详见 `docs/ai/context/20260813-190119-users-xunskyler-3867878292-early-weekly-credit-execution_CN.md`。
+
+- 2026-08-13：按管理员要求将用户 `itjiangzengwen@gmail.com`（ID `463`）余额套餐 ID `6` 的第 3 期 `128 USD` 周额度提前结算，用于恢复因历史欠费暂停的套餐。执行前余额已由此前人工余额调整恢复为 `0.00227127 USD`，`balance_debt_ledger` 无未结欠费，因此本次欠费抵扣为 `0`；事务提交后余额为 `128.00227127 USD`，套餐恢复 `active`、到账 `3/4`、下次刷新为 `2026-08-19 19:43:54 +08`。新增支付审计 `1639`，未修改订单、退款、流量卡和有效期；详见 `docs/ai/context/20260813-081800-user-itjiangzengwen-early-weekly-credit-debt-offset-execution_CN.md`。
+
+- 2026-08-13：恢复 Docker Desktop Linux 引擎后，既有 `sub2api-official-18082`、PostgreSQL、Redis 与本地公网 Nginx 容器自动恢复；按既有配置启动 Cloudflare Tunnel `7f5fafd9-8a59-4013-ba42-3116dfc29463`。应用仅绑定 `127.0.0.1:18082`，Nginx 转发 `127.0.0.1:8080`；本地和 `aaccx.pw`、`www.aaccx.pw`、`api.aaccx.pw` 的健康检查均为 200。未重建镜像、数据库、Redis、Nginx 或数据卷，详见 `docs/ai/context/20260813-060905-local-start-and-public-tunnel-recovery_CN.md`。
+
+- 2026-08-13：按用户授权，以其提供的 API Key 对 `https://api.aaccx.pw/v1/chat/completions` 发送 `gpt-5.6-terra` 最小真实请求；请求成功返回 `OK`，`finish_reason=stop`，共使用 `4691` token。请求凭证未写入仓库或执行文档；详见 `docs/ai/context/20260813-061531-gpt-56-terra-live-api-verification_CN.md`。
+
+- 2026-08-11：按管理员授权，将用户 `1850226892@qq.com`（ID `480`）余额套餐 `115`（订单 `580`）原定第 2 期 `154 USD` 周额度结算，用于抵扣 `1.93300329 USD` 欠费；结算事务提交时余额与当前套餐额度均为 `152.06699671 USD`，套餐恢复 `active` 的 `2/4` 期，下次自动刷新为 `2026-08-18 19:35:42`（+08）。订单、退款金额和流量卡未修改；支付审计 `1569`、欠费还款账本 `18` 和缓存失效均已完成，详见 `docs/ai/context/20260811-232124-user-1850226892-early-weekly-credit-debt-offset-execution_CN.md`。
+
 - 2026-08-11：已将当前 `main` 的全部已审计未提交改动和上下文文档提交为 `01180abc5`，并快进同步到私有 GitHub 仓库 `fork` 的 `main`；本地 `main`、远程 `fork/main` 指向同一提交，工作区干净。同步范围和校验见 `docs/ai/context/20260811-190406-main-sync-private-github_CN.md`。
 
 - 2026-08-11：从当前工作区构建 `deploy-sub2api:latest` 并仅替换 `sub2api-official-18082`，将管理员余额套餐“取消套餐”入口发布到公网。新镜像摘要为 `sha256:fee7afdf593f5750488f5a820de3a4e076ff1c4750db52a2afa3a4d54e920d6b`，应用 healthy；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，凭证 secret 挂载保留。应用实际最终计费倍率保持现有 `18x`。本地、Nginx 与三个公网健康端点均为 200，未认证取消接口返回 401，详见 `docs/ai/context/20260811-185117-admin-balance-package-cancellation-production-deploy_CN.md`。
@@ -253,3 +283,6 @@
 - 2026-08-09：按管理员要求修正旧渠道平台类型：Grok0.9 分组/账号/监控 ID 3/1/1 改为 `grok`，Claude1.5 分组/账号/监控 ID 4/2/2 与 Claude0.45 分组/账号/监控 ID 5/3/3 改为 `anthropic`；同步清理 Kiro 监控一个不存在模型并刷新调度与认证缓存。三把对应 Key 的 `/v1/models` 均 200，监控配置模型全部 operational。详见 `docs/ai/context/20260809-185941-legacy-channel-platform-type-correction_CN.md`。
 - 2026-08-11：客户端出现 `stream disconnected before completion: Our servers are currently overloaded`。只读核查确认根因是上游 `api.ai-genesis.app` 过载/暂时不可用：最近 6 小时 174 次 OpenAI 流式转发失败主要集中在账号 1128/分组 9 与账号 1129/分组 10，两分组各只有一个账号且共享同一上游主机；本地应用、Nginx、数据库、Redis 和健康端点均正常。响应头写出后的流内失败会以断流提示暴露给客户端；未修改生产配置。详见 `docs/ai/context/20260811-133730-openai-upstream-overload-diagnosis_CN.md`。
 - 2026-08-11：按管理员要求取消用户 `1510623550@qq.com`（ID `476`）的当前余额套餐 `id=136`（订单 `625`），以允许其重新购买。套餐已标记为 `cancelled`、本周剩余额度清零、后续到账时间清空；普通余额 `-0.48059154 USD`、有效流量卡额度、订单 `REFUND_FAILED` 状态及 `59.20 CNY` 退款金额均未修改。审计为 `payment_audit_logs.id=1564`，余额缓存已失效。详见 `docs/ai/context/20260811-165812-user-1510623550-balance-package-cancellation_CN.md`。
+- 2026-08-11：只读核查用户 `2799523972@qq.com`（ID `466`）：普通余额 `0 USD`，无当前有效余额套餐；历史套餐 `id=7` 已于 2026-08-09 过期，套餐 `id=66` 对应订单 `157` 已部分退款并无剩余额度；另有 5 张有效 OpenAI 流量卡合计 `44.987631 USD`。详见 `docs/ai/context/20260811-194149-user-2799523972-package-audit_CN.md`。
+- 2026-08-11：只读核查当前生产扣费与用量日志：新应用容器启动后 99 条扣费去重记录、99 条用量日志和 14 条流量卡扣款请求均逐条对应，全部按实际最终 `18x` 计费；最近 24 小时/7 天/统一去重启用以来的去重记录与用量日志也均无差集，未发现少扣、漏扣或已扣费未写日志。历史 `billing_reconciliation_cases` 的 3,933 条余额不足待外部核对案件未新增。详见 `docs/ai/context/20260811-190437-billing-usage-log-audit_CN.md`。
+- 2026-08-11：修复本机 `rg` 不可用问题：WinGet Links 下原符号链接执行时触发“不受信任的装入点”，已保留原链接备份并重建为同目标文件的 NTFS 硬链接；`rg --version` 与项目搜索均验证通过。详见 `docs/ai/context/20260811-193722-rg-command-repair_CN.md`。
