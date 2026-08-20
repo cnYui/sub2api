@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-20：提交 `336bc0393` 已同步到私有 GitHub `fork/main`，移除余额套餐订阅页过时的首周欠费暂停提示；基于当前工作区构建镜像 `sha256:962fcfdd387478c678110eb4067e052e8bbae1f2f26b14fc771b5c4319346aab` 并仅替换 `sub2api-official-18082`。应用 healthy，运行态最终倍率 `16x`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，本地与三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260820-152731-debt-notice-main-sync-public-redeploy_CN.md`。
+
 - 2026-08-20：依据 `20260819-204249-balance-and-traffic-debt-continuation_CN.md` 的连续结算规则，移除用户订阅页“首周额度不足以抵销欠费，后续额度已暂停，请联系管理员”过时提示；历史 `debt_paused` 兼容数据若有 `next_credit_at` 统一显示“下次刷新”。实现与验证见 `docs/ai/context/20260820-144153-balance-package-debt-notice-removal_CN.md`。
 
 - 2026-08-20：确认当前 `main` 工作区干净、没有未跟踪文件，本地具名分支均已合并进 `main`；随后重启 `sub2api-official-18082`，基于 `main` 构建镜像 `sha256:b2a892da1f52985e411cd31951e659c6685dbbe939c0f9c7723c155ef3f76132` 并仅替换公网应用容器。应用、本地/Nginx/三个公网健康端点及 `/usage-guide` 均返回 200；PostgreSQL、Redis、Nginx、Tunnel 和数据卷未重建。详见 `docs/ai/context/20260820-090629-main-local-restart-public-redeploy_CN.md`。
