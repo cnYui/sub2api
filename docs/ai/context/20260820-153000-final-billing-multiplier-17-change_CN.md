@@ -10,4 +10,6 @@
 
 ## 验证
 
-替换容器后确认应用为 `healthy`，回读运行态环境变量为 `BILLING_FINAL_MULTIPLIER=17`，并检查本地、Nginx 与三个公网健康端点。
+构建镜像 `deploy-sub2api:latest` 的 manifest 为 `sha256:68bf16de670bd9f886914917f2cd6ef1a5f3d5fa479bf9d242fcc6d83d211256`。替换容器后确认应用为 `healthy`，回读运行态环境变量为 `BILLING_FINAL_MULTIPLIER=17`；凭证 Secret 挂载保持不变。
+
+`127.0.0.1:18082/health`、本地 Nginx `127.0.0.1:8080/health`、`aaccx.pw/health`、`www.aaccx.pw/health`、`api.aaccx.pw/health` 和 `https://api.aaccx.pw/usage-guide` 均返回 HTTP 200。PostgreSQL、Redis、Nginx 的启动时间未变化，未重建。
