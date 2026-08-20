@@ -67,12 +67,6 @@
               </div>
 
               <div class="space-y-4 p-4">
-                <div
-                  v-if="balancePackage.status === 'debt_paused'"
-                  class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200"
-                >
-                  {{ t('userSubscriptions.debtPausedNotice') }}
-                </div>
                 <div class="grid grid-cols-2 gap-3">
                   <div class="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/30">
                     <p class="text-xs text-emerald-700/70 dark:text-emerald-300/70">{{ t('userSubscriptions.weeklyRemaining') }}</p>
@@ -106,12 +100,8 @@
                     <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.expires') }}</span>
                     <span :class="getExpirationClass(balancePackage.expires_at)">{{ formatExpirationDate(balancePackage.expires_at) }}</span>
                   </div>
-                  <div v-if="balancePackage.next_credit_at && balancePackage.status === 'active'" class="flex items-center justify-between">
+                  <div v-if="balancePackage.next_credit_at" class="flex items-center justify-between">
                     <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextRefresh') }}</span>
-                    <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
-                  </div>
-                  <div v-else-if="balancePackage.next_credit_at && balancePackage.status === 'debt_paused'" class="flex items-center justify-between">
-                    <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.originalNextRefresh') }}</span>
                     <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
                   </div>
                   <div v-else-if="balancePackage.status === 'completed'" class="text-gray-500 dark:text-dark-400">

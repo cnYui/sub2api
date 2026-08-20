@@ -132,8 +132,6 @@ export default {
     nextCredit: '下次到账',
     nextRefresh: '下次刷新',
     refreshCompleted: '本周期已完成，不再刷新',
-    debtPausedNotice: '首周额度不足以抵销欠费，后续额度已暂停，请联系管理员',
-    originalNextRefresh: '原计划刷新时间',
     buyAgain: '再次购买',
     modelSubscriptionsTitle: '模型订阅',
     usage: '用量',

@@ -135,8 +135,6 @@ export default {
     nextCredit: 'Next credit',
     nextRefresh: 'Next refresh',
     refreshCompleted: 'This billing period is complete. No further refreshes.',
-    debtPausedNotice: 'The first weekly credit did not clear the debt. Future credits are paused pending administrator review.',
-    originalNextRefresh: 'Originally scheduled refresh',
     buyAgain: 'Buy again',
     modelSubscriptionsTitle: 'Model Subscriptions',
     usage: 'Usage',

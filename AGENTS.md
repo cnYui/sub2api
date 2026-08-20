@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-20：依据 `20260819-204249-balance-and-traffic-debt-continuation_CN.md` 的连续结算规则，移除用户订阅页“首周额度不足以抵销欠费，后续额度已暂停，请联系管理员”过时提示；历史 `debt_paused` 兼容数据若有 `next_credit_at` 统一显示“下次刷新”。实现与验证见 `docs/ai/context/20260820-144153-balance-package-debt-notice-removal_CN.md`。
+
 - 2026-08-20：确认当前 `main` 工作区干净、没有未跟踪文件，本地具名分支均已合并进 `main`；随后重启 `sub2api-official-18082`，基于 `main` 构建镜像 `sha256:b2a892da1f52985e411cd31951e659c6685dbbe939c0f9c7723c155ef3f76132` 并仅替换公网应用容器。应用、本地/Nginx/三个公网健康端点及 `/usage-guide` 均返回 200；PostgreSQL、Redis、Nginx、Tunnel 和数据卷未重建。详见 `docs/ai/context/20260820-090629-main-local-restart-public-redeploy_CN.md`。
 
 - 2026-08-19：在分支 `codex/refund-real-and-cancel` 实现真实 EasyPay/ZPay 退款路径：配置的支付 API 域名直连并在 Compose 的 `NO_PROXY`/`no_proxy` 中加入 `zpayz.cn`；退款成功后余额套餐/流量卡权益按既有逻辑撤销。用户已手动处理的 20 笔代理失败订单未重试、未改库；详情见 `docs/ai/context/20260819-210107-refund-real-and-cancel-implementation_CN.md`。
