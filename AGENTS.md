@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-20：确认当前 `main` 工作区干净、没有未跟踪文件，本地具名分支均已合并进 `main`；随后重启 `sub2api-official-18082`，基于 `main` 构建镜像 `sha256:b2a892da1f52985e411cd31951e659c6685dbbe939c0f9c7723c155ef3f76132` 并仅替换公网应用容器。应用、本地/Nginx/三个公网健康端点及 `/usage-guide` 均返回 200；PostgreSQL、Redis、Nginx、Tunnel 和数据卷未重建。详见 `docs/ai/context/20260820-090629-main-local-restart-public-redeploy_CN.md`。
+
 - 2026-08-19：在分支 `codex/refund-real-and-cancel` 实现真实 EasyPay/ZPay 退款路径：配置的支付 API 域名直连并在 Compose 的 `NO_PROXY`/`no_proxy` 中加入 `zpayz.cn`；退款成功后余额套餐/流量卡权益按既有逻辑撤销。用户已手动处理的 20 笔代理失败订单未重试、未改库；详情见 `docs/ai/context/20260819-210107-refund-real-and-cancel-implementation_CN.md`。
 
 - 2026-08-19：余额套餐与流量卡欠费规则改为连续结算：余额套餐不因欠费暂停，下一周额度优先抵消余额欠费；普通余额已欠费后，所有渠道统一扣用户级流量卡额度，流量卡不足部分记入独立欠费账本，余额和流量卡均无净可用额度时拒绝后续请求；流量卡充值优先抵消流量卡欠费。迁移 `209_balance_and_traffic_debt_continuation.sql` 将历史流量卡转为 `all` 全渠道额度池并恢复可刷新旧套餐，详见 `docs/ai/context/20260819-204249-balance-and-traffic-debt-continuation_CN.md`。
