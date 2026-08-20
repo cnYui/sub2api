@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-20：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率调整为 `17x`。仅更新 `deploy/docker-compose.18082.yml` 并替换应用容器；模型分组、用户余额、订单、退款、历史用量、PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷均不修改。详见 `docs/ai/context/20260820-153000-final-billing-multiplier-17-change_CN.md`。
+
 - 2026-08-20：提交 `336bc0393` 已同步到私有 GitHub `fork/main`，移除余额套餐订阅页过时的首周欠费暂停提示；基于当前工作区构建镜像 `sha256:962fcfdd387478c678110eb4067e052e8bbae1f2f26b14fc771b5c4319346aab` 并仅替换 `sub2api-official-18082`。应用 healthy，运行态最终倍率 `16x`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，本地与三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260820-152731-debt-notice-main-sync-public-redeploy_CN.md`。
 
 - 2026-08-20：依据 `20260819-204249-balance-and-traffic-debt-continuation_CN.md` 的连续结算规则，移除用户订阅页“首周额度不足以抵销欠费，后续额度已暂停，请联系管理员”过时提示；历史 `debt_paused` 兼容数据若有 `next_credit_at` 统一显示“下次刷新”。实现与验证见 `docs/ai/context/20260820-144153-balance-package-debt-notice-removal_CN.md`。
