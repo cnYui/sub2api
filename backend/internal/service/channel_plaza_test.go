@@ -272,7 +272,7 @@ func TestListPlazaGroups_KimiUsesCalibratedPricingForDisplay(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, pricingSvc)
 	svc := NewChannelService(
 		repo,
-		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai", RateMultiplier: 0.5}}},
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 7, Name: "Kimi", Platform: "openai", RateMultiplier: 4.9}}},
 		nil,
 		pricingSvc,
 		accounts,
@@ -282,7 +282,7 @@ func TestListPlazaGroups_KimiUsesCalibratedPricingForDisplay(t *testing.T) {
 	out, err := svc.ListPlazaGroups(context.Background())
 	require.NoError(t, err)
 	require.Len(t, out, 1)
-	require.Equal(t, 0.5, out[0].RateMultiplier)
+	require.Equal(t, 4.9, out[0].RateMultiplier)
 
 	byName := make(map[string]PlazaModel, len(out[0].Models))
 	for _, model := range out[0].Models {
@@ -321,7 +321,7 @@ func TestListPlazaGroups_GLMUsesOfficialDomesticPriceTiers(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, pricingSvc)
 	svc := NewChannelService(
 		repo,
-		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 6, Name: "GLM", Platform: "openai", RateMultiplier: 0.5}}},
+		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 6, Name: "GLM", Platform: "openai", RateMultiplier: 3.5}}},
 		nil,
 		pricingSvc,
 		accounts,
@@ -331,7 +331,7 @@ func TestListPlazaGroups_GLMUsesOfficialDomesticPriceTiers(t *testing.T) {
 	out, err := svc.ListPlazaGroups(context.Background())
 	require.NoError(t, err)
 	require.Len(t, out, 1)
-	require.Equal(t, 0.5, out[0].RateMultiplier)
+	require.Equal(t, 3.5, out[0].RateMultiplier)
 	require.Len(t, out[0].Models, 1)
 	model := out[0].Models[0]
 	require.NotNil(t, model.Pricing)
@@ -378,6 +378,7 @@ func TestListPlazaGroups_DeepSeekUsesOfficialPrice(t *testing.T) {
 	out, err := svc.ListPlazaGroups(context.Background())
 	require.NoError(t, err)
 	require.Len(t, out, 1)
+	require.InDelta(t, 3.5, out[0].RateMultiplier, 1e-12)
 	byName := make(map[string]PlazaModel, len(out[0].Models))
 	for _, model := range out[0].Models {
 		byName[model.Name] = model

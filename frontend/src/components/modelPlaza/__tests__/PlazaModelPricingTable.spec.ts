@@ -70,7 +70,7 @@ describe('PlazaModelPricingTable', () => {
     expect(text).toContain('0.5x')
   })
 
-  it('Kimi 5 折价格按 0.5x 显示，且不包含隐藏最终倍率', () => {
+  it('Kimi 价格按 4.9x 显示，且不包含隐藏最终倍率', () => {
     const models = [
       tokenModel({
         name: 'kimi-k3',
@@ -98,18 +98,18 @@ describe('PlazaModelPricingTable', () => {
       })
     ]
 
-    const text = mountTable(models, 0.5).text()
-    expect(text).toContain('$1.50')
-    expect(text).toContain('$7.50')
-    expect(text).toContain('$0.15')
-    expect(text).toContain('$0.475')
-    expect(text).toContain('$2.00')
-    expect(text).toContain('$0.08')
-    expect(text).toContain('$0.30')
-    expect(text).toContain('$0.05')
+    const text = mountTable(models, 4.9).text()
+    expect(text).toContain('$14.70')
+    expect(text).toContain('$73.50')
+    expect(text).toContain('$1.47')
+    expect(text).toContain('$4.655')
+    expect(text).toContain('$19.60')
+    expect(text).toContain('$0.784')
+    expect(text).toContain('$2.94')
+    expect(text).toContain('$0.49')
   })
 
-  it('GLM-5.1 的 32K 官方分档与 5 折实付价都应展示', () => {
+  it('GLM-5.1 的 32K 官方分档与 3.5x 实付价都应展示', () => {
     const intervals = [
       {
         min_tokens: 0, max_tokens: 31999, tier_label: '输入 <32K',
@@ -136,17 +136,17 @@ describe('PlazaModelPricingTable', () => {
       }
     })
 
-    const text = mountTable([model], 0.5).text()
+    const text = mountTable([model], 3.5).text()
     expect(text).toContain('输入 <32K')
     expect(text).toContain('输入 >=32K')
-    // 短上下文: ¥6 / ¥24 / ¥1.3，按 1 USD = 7 CNY 再打五折。
-    expect(text).toContain('$0.4285714286')
-    expect(text).toContain('$1.714285714')
-    expect(text).toContain('$0.09285714286')
-    // 长上下文: ¥8 / ¥28 / ¥2，按同口径打五折。
-    expect(text).toContain('$0.5714285714')
-    expect(text).toContain('$2.00')
-    expect(text).toContain('$0.1428571429')
+    // 短上下文: ¥6 / ¥24 / ¥1.3，先按 1 USD = 7 CNY 换算，再乘 3.5x。
+    expect(text).toContain('$3.00')
+    expect(text).toContain('$12.00')
+    expect(text).toContain('$0.65')
+    // 长上下文: ¥8 / ¥28 / ¥2，按同口径乘 3.5x。
+    expect(text).toContain('$4.00')
+    expect(text).toContain('$14.00')
+    expect(text).toContain('$1.00')
     // 官方列保留未折扣的 GLM 基准价。
     expect(text).toContain('$1.142857143')
     expect(text).toContain('$4.00')

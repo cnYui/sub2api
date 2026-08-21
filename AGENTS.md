@@ -1,12 +1,44 @@
 # 项目协作约定
 
-- 2026-08-20：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率调整为 `17x`。仅更新 `deploy/docker-compose.18082.yml` 并替换应用容器；镜像 manifest 为 `sha256:68bf16de670bd9f886914917f2cd6ef1a5f3d5fa479bf9d242fcc6d83d211256`，应用 healthy，运行态环境变量为 `BILLING_FINAL_MULTIPLIER=17`；模型分组、用户余额、订单、退款、历史用量、PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷均不修改，本地与三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260820-153000-final-billing-multiplier-17-change_CN.md`。
+- 2026-08-21：7 元 30 USD 流量卡已完成生产上架；迁移 `210_add_traffic_pack_30usd_7cny.sql` 已执行，页面实测显示标价 `¥7.00`、手续费 `¥0.07`、实付 `¥7.07`、额度 `$30`，应用 healthy，三个健康端点均为 200。仅替换应用容器，详见 `docs/ai/context/20260821-105600-traffic-pack-30usd-7cny-verification_CN.md`。
 
-- 2026-08-20：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率调整为 `17x`。仅更新 `deploy/docker-compose.18082.yml` 并替换应用容器；模型分组、用户余额、订单、退款、历史用量、PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷均不修改。详见 `docs/ai/context/20260820-153000-final-billing-multiplier-17-change_CN.md`。
+- 2026-08-21：按管理员要求将生产 `groups.id=6` 的 GLM 分组倍率从 `0.5x` 改为 `3.5x`；官方基础价不变，模型广场实付价为 `glm-5.1` 短上下文 `$3/$12/$0.65`、长上下文 `$4/$14/$1`，`glm-5.2` `$4/$14/$1`。当前分组名称仍为 `GLM0.5倍率`，名称与数值暂不一致；详见 `docs/ai/context/20260821-105535-glm-rate-multiplier-35-execution_CN.md`。
+
+- 2026-08-21：按管理员要求将生产 `groups.id=7` 的 Kimi 分组倍率从 `0.7x` 改为 `4.9x`；官方基础价不变，模型广场实付价为 K3 `$14.70/$73.50/$1.47`、K2.6 `$4.655/$19.60/$0.784`、K2.5 `$2.94/$14.70/$0.49`。当前分组名称仍为 `Kimi0.7倍率`，名称与数值暂不一致；详见 `docs/ai/context/20260821-104729-kimi-rate-multiplier-49-execution_CN.md`。
+
+- 2026-08-21：按管理员要求在 `/purchase` 上架 7 元购买 30 USD 的全渠道流量卡，手续费沿用 1% 为 0.07 元，新增迁移 `210_add_traffic_pack_30usd_7cny.sql`，复用既有流量卡购买、支付和到账代码；详见 `docs/ai/context/20260821-104719-traffic-pack-30usd-7cny_CN.md`。
+
+- 2026-08-21：按管理员要求为 `itjiangzengwen@gmail.com`（用户 ID `463`）新增一张 20 USD、28 天有效的全渠道流量卡；新增零金额管理员赠送订单 `696`、额度批次 `434`、流水 `13726` 和支付审计 `1990`，普通余额及既有流量卡未修改。详见 `docs/ai/context/20260821-094557-itjiangzengwen-20usd-traffic-grant_CN.md`。
+
+- 2026-08-21：按管理员最新要求将生产 `groups.id=8` 的 DeepSeek 分组倍率从 `0.5x` 恢复为 `3.5x`；官方基础价未变，模型广场实付价恢复为 Pro `$2.31/$6.93/$0.077`、Flash `$0.77/$2.31/$0.0245`。后端/前端定向测试及本地、公网接口核验通过，详见 `docs/ai/context/20260821-104025-deepseek-rate-multiplier-35-restore_CN.md`。
+
+- 2026-08-21：按管理员要求将生产 `groups.id=8` 的 DeepSeek 分组倍率从 `3.5x` 改为 `0.5x`。官方基础价保持 Pro `$0.66/$1.98/$0.022`、Flash `$0.22/$0.66/$0.007`，模型广场实付价变为 Pro `$0.33/$0.99/$0.011`、Flash `$0.11/$0.33/$0.0035`；历史用量、余额、订单和账号统计倍率未修改。后端/前端定向测试及本地、公网模型广场接口核验通过，详见 `docs/ai/context/20260821-103204-deepseek-rate-multiplier-05-execution_CN.md`。
+
+- 2026-08-21：只读核查 DeepSeek 涨价后官方价格。官方页当前为 V4 Pro 非峰值/峰值 `$0.66/$1.32` 输入、`$1.98/$3.96` 输出、`$0.022/$0.044` 缓存读取；V4 Flash 为 `$0.22/$0.44`、`$0.66/$1.32`、`$0.007/$0.014`。按官方价格乘 `0.5` 的完整表格及统一实时价建议见 `docs/ai/context/20260821-101535-deepseek-official-pricing-half-rate-lookup_CN.md`；本次未修改代码或运行配置。
+
+- 2026-08-21：本地模型广场标题下新增固定汇率说明，解释国产模型按 `1 USD = 7 CNY`、国外模型按 `1 USD = 1 CNY` 展示，并提示国产模型比较时除以 7；独立与内嵌页面均显示，中文/英文文案已补齐。详见 `docs/ai/context/20260821-101554-model-plaza-exchange-rate-hint_CN.md`。
+
+- 2026-08-21：只读核查 `varmons@proton.me`（用户 ID `456`）：当前普通余额 `75.48288134 USD`，有效余额套餐 `id=141` 剩余同额；流量卡 `id=254` 剩余 `0.000954673 USD`。截图中的 `-$0.52` 对应当天余额套餐到账前 `0.51711866 USD` 欠费，`2026-08-21 03:22:46 +08` 已由第 2 期到账自动抵扣；1,788 条使用记录均属于该用户自己的 API Key，没有跨用户串记录。页面存在余额套餐到账后未主动广播刷新、使用页不随余额变化自动重载的展示时效性缺口，详见 `docs/ai/context/20260821-093515-varmons-balance-usage-audit_CN.md`。
+
+- 2026-08-21：按管理员要求为 `yuheng-wu@foxmail.com`（用户 ID `518`）发放一张 20 USD、28 天有效的全渠道流量卡；新增零金额管理员赠送订单 `692`、额度批次 `432`、流水 `13724` 和支付审计 `1988`，普通余额及既有流量卡未修改。详见 `docs/ai/context/20260821-074521-yuheng-wu-20usd-traffic-grant_CN.md`。
+
+- 2026-08-20：按管理员要求为 `dreamcmi@qq.com`（用户 ID `632`）发放一张 20 USD、28 天有效的全渠道流量卡；新增零金额管理员赠送订单 `690`、额度批次 `431`、流水 `13702` 和支付审计 `1985`，普通余额及既有数据未修改。详见 `docs/ai/context/20260820-201322-dreamcmi-20usd-traffic-grant_CN.md`。
+
+- 2026-08-20：按管理员要求硬删除 `1915474749@qq.com` 的软删除残留用户 ID `460`（余额 0、无业务关联），并向 8 位目标用户各发放一张 20 USD、28 天有效的全渠道流量卡；输入的 `bymax1107@gmial.com` 按库内唯一真实账户 `bymax1107@gmail.com`（ID `629`）处理。共新增 8 笔零金额管理员赠送订单、8 张额度卡、8 条流水和 8 条支付审计，合计 160 USD；用户 `1915474749@qq.com` 发放给 ID `451`。详见 `docs/ai/context/20260820-210034-eight-users-20usd-traffic-grant-and-user-460-hard-delete_CN.md`。
+
+- 2026-08-20：只读核查欠费用户及 `961109198@qq.com`（ID `506`）：当前普通余额 `-34.26361296 USD`；订单 `587` 的余额套餐 `id=119` 原有 3 期未到账额度已于 2026-08-07 一次性抵扣 `384 USD` 欠费后取消，`next_credit_at=NULL`，不会再自动刷新或抵扣。抵扣后产生的 `12.64 USD` 为订单 `617`、`620` 的邀请返利，当前无新的欠费还款流水。20 个负余额用户中，仍有 7 个用户保留有效套餐和后续刷新时间；详见 `docs/ai/context/20260820-160046-negative-balance-audit-961109198_CN.md`。
+
+- 2026-08-20：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率调整为 `17x`。仅更新 `deploy/docker-compose.18082.yml` 并替换应用容器；镜像 manifest 为 `sha256:68bf16de670bd9f886914917f2cd6ef1a5f3d5fa479bf9d242fcc6d83d211256`，应用 healthy，运行态环境变量为 `BILLING_FINAL_MULTIPLIER=17`；模型分组、用户余额、订单、退款、历史用量、PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷均不修改，本地与三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260820-153000-final-billing-multiplier-17-change_CN.md`。
 
 - 2026-08-20：提交 `336bc0393` 已同步到私有 GitHub `fork/main`，移除余额套餐订阅页过时的首周欠费暂停提示；基于当前工作区构建镜像 `sha256:962fcfdd387478c678110eb4067e052e8bbae1f2f26b14fc771b5c4319346aab` 并仅替换 `sub2api-official-18082`。应用 healthy，运行态最终倍率 `16x`；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建，本地与三个公网健康端点及 `/usage-guide` 均返回 200。详见 `docs/ai/context/20260820-152731-debt-notice-main-sync-public-redeploy_CN.md`。
 
+- 2026-08-20：使用管理员提供的 API Key 对 `https://api.aaccx.pw/v1` 进行 DeepSeek 最小真实调用核验；`deepseek-v4-flash` 与 `deepseek-v4-pro` 均返回 HTTP 200 和 `DS_OK`，当前公网 DeepSeek 可用。凭证未落盘，详见 `docs/ai/context/20260820-151257-deepseek-public-live-api-verification_CN.md`。
+
+- 2026-08-20：订单 679 退款失败已核实为 ZPay 返回“卖家余额不足”。生产应用已移除失效代理并命中原支付实例 1，直连修复已生效；订单套餐随后被管理员取消但未执行网关退款。重复失败还会因 payment_audit_logs(order_id, action) 唯一索引导致 REFUND_FAILED 审计写入冲突。详见 docs/ai/context/20260820-144444-order-679-refund-failure-diagnosis_CN.md。
+
 - 2026-08-20：依据 `20260819-204249-balance-and-traffic-debt-continuation_CN.md` 的连续结算规则，移除用户订阅页“首周额度不足以抵销欠费，后续额度已暂停，请联系管理员”过时提示；历史 `debt_paused` 兼容数据若有 `next_credit_at` 统一显示“下次刷新”。实现与验证见 `docs/ai/context/20260820-144153-balance-package-debt-notice-removal_CN.md`。
+
+- 2026-08-20：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率由 `18x` 调整为 `16x`。仅更新 `deploy/docker-compose.18082.yml` 并强制替换应用容器；PostgreSQL、Redis、Nginx、Cloudflare Tunnel 和数据卷未重建。新容器运行态环境变量为 `BILLING_FINAL_MULTIPLIER=16`，状态为 `healthy`；历史用量、余额、订单、模型分组倍率和账户统计倍率未修改。详见 `docs/ai/context/20260820-093730-final-billing-multiplier-16-change_CN.md`。
 
 - 2026-08-20：确认当前 `main` 工作区干净、没有未跟踪文件，本地具名分支均已合并进 `main`；随后重启 `sub2api-official-18082`，基于 `main` 构建镜像 `sha256:b2a892da1f52985e411cd31951e659c6685dbbe939c0f9c7723c155ef3f76132` 并仅替换公网应用容器。应用、本地/Nginx/三个公网健康端点及 `/usage-guide` 均返回 200；PostgreSQL、Redis、Nginx、Tunnel 和数据卷未重建。详见 `docs/ai/context/20260820-090629-main-local-restart-public-redeploy_CN.md`。
 
@@ -296,3 +328,4 @@
 - 2026-08-11：只读核查用户 `2799523972@qq.com`（ID `466`）：普通余额 `0 USD`，无当前有效余额套餐；历史套餐 `id=7` 已于 2026-08-09 过期，套餐 `id=66` 对应订单 `157` 已部分退款并无剩余额度；另有 5 张有效 OpenAI 流量卡合计 `44.987631 USD`。详见 `docs/ai/context/20260811-194149-user-2799523972-package-audit_CN.md`。
 - 2026-08-11：只读核查当前生产扣费与用量日志：新应用容器启动后 99 条扣费去重记录、99 条用量日志和 14 条流量卡扣款请求均逐条对应，全部按实际最终 `18x` 计费；最近 24 小时/7 天/统一去重启用以来的去重记录与用量日志也均无差集，未发现少扣、漏扣或已扣费未写日志。历史 `billing_reconciliation_cases` 的 3,933 条余额不足待外部核对案件未新增。详见 `docs/ai/context/20260811-190437-billing-usage-log-audit_CN.md`。
 - 2026-08-11：修复本机 `rg` 不可用问题：WinGet Links 下原符号链接执行时触发“不受信任的装入点”，已保留原链接备份并重建为同目标文件的 NTFS 硬链接；`rg --version` 与项目搜索均验证通过。详见 `docs/ai/context/20260811-193722-rg-command-repair_CN.md`。
+- 2026-08-20：只读调查当天扣费与流量卡账务（数据库 `Asia/Shanghai`，截至 15:36:52 东京时间）未发现漏扣、重复扣费或流量卡流水错误；695 条用量均有统一扣费幂等键，683 条实际收费合计 `572.5704413600 USD`，9 笔流量卡扣费合计 `1.8595609600 USD` 与对应 `usage_logs.actual_cost` 逐笔一致，流量卡余额/欠费账本均无异常。发现 12 条零 token/零成本占位记录，暂不构成账务异常但需确认请求类型 2 的业务语义。详见 `docs/ai/context/20260820-153652-daily-billing-reconciliation_CN.md`。
