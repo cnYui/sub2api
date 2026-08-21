@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-21：当前工作区修改已合并到本地 `main` 并提交 `fb821052e`，已同步到私有 GitHub `fork/main`；随后重启 Docker Desktop，仅替换 `sub2api-official-18082` 应用容器。新镜像为 `sha256:368cdaec0987b33521f585d7ec6c7ca032ef4331549b19163735f35b6aa8e6bd`，应用 healthy，迁移 210 和 7 元 30 USD 流量卡核验通过，本地、公网健康端点及 `/usage-guide` 均正常。详见 `docs/ai/context/20260821-111641-main-sync-docker-restart-public-redeploy_CN.md`。
+
 - 2026-08-21：7 元 30 USD 流量卡已完成生产上架；迁移 `210_add_traffic_pack_30usd_7cny.sql` 已执行，页面实测显示标价 `¥7.00`、手续费 `¥0.07`、实付 `¥7.07`、额度 `$30`，应用 healthy，三个健康端点均为 200。仅替换应用容器，详见 `docs/ai/context/20260821-105600-traffic-pack-30usd-7cny-verification_CN.md`。
 
 - 2026-08-21：按管理员要求将生产 `groups.id=6` 的 GLM 分组倍率从 `0.5x` 改为 `3.5x`；官方基础价不变，模型广场实付价为 `glm-5.1` 短上下文 `$3/$12/$0.65`、长上下文 `$4/$14/$1`，`glm-5.2` `$4/$14/$1`。当前分组名称仍为 `GLM0.5倍率`，名称与数值暂不一致；详见 `docs/ai/context/20260821-105535-glm-rate-multiplier-35-execution_CN.md`。
