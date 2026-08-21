@@ -6,6 +6,14 @@
       <p class="mt-1.5 text-sm text-gray-500 dark:text-dark-400">{{ t('modelPlaza.description') }}</p>
     </div>
 
+    <!-- 价格展示采用上游模型广场的汇率口径，避免国产模型价格被误读。 -->
+    <div
+      class="flex items-start gap-2.5 rounded-2xl border border-gray-200 bg-gray-50 px-5 py-3.5 text-sm text-gray-700 shadow-card dark:border-dark-700/60 dark:bg-dark-800/60 dark:text-dark-200"
+    >
+      <Icon name="infoCircle" size="sm" class="mt-0.5 h-4 w-4 shrink-0 text-gray-500 dark:text-dark-400" />
+      <p class="leading-6">{{ t('modelPlaza.exchangeRateHint') }}</p>
+    </div>
+
     <!-- 全局价格说明(管理员配置,Markdown) -->
     <div
       v-if="descriptionHtml"

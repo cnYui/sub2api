@@ -533,6 +533,7 @@ export default {
     loadFailed: '加载模型广场失败',
     noSearchResult: '没有匹配的模型',
     anonymousHint: '登录后可查看你的专属分组与专属倍率',
+    exchangeRateHint: '国产大型模型按照汇率 1 美元等于 7 人民币计算价格，国外模型按照 1 美元等于 1 人民币来计算价格。因此，您看到国产模型价格偏贵，是因为汇率转换问题，请除以7进行计算。',
     filters: {
       platformLabel: '平台',
       groupLabel: '分组',

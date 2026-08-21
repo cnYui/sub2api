@@ -528,6 +528,7 @@ export default {
     loadFailed: 'Failed to load model plaza',
     noSearchResult: 'No matching models',
     anonymousHint: 'Sign in to see your exclusive groups and personal rates',
+    exchangeRateHint: 'Prices for domestic models use an exchange rate of 1 USD = 7 CNY, while international models use 1 USD = 1 CNY. Domestic model prices may therefore appear higher; divide by 7 to compare them on the same basis.',
     filters: {
       platformLabel: 'Platform',
       groupLabel: 'Group',
