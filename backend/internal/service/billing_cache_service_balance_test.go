@@ -82,21 +82,32 @@ func (s *balanceEligibilityCacheStub) InvalidateUserBalance(context.Context, int
 	return nil
 }
 
-func TestCheckBillingEligibility_RejectsBalanceBelowMinimumReserve(t *testing.T) {
+func TestCheckBillingEligibility_AllowsAnyNonNegativeBalance(t *testing.T) {
 	cache := &balanceEligibilityCacheStub{balance: 0.005}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
 	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
-	require.ErrorIs(t, err, ErrInsufficientBalance)
+	require.NoError(t, err)
 }
 
-func TestCheckBillingEligibility_AllowsBalanceAtMinimumReserve(t *testing.T) {
-	cache := &balanceEligibilityCacheStub{balance: 0.01}
+func TestCheckBillingEligibility_AllowsPositiveBalanceWithoutTrafficPack(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0.005}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TotalRemainingUSD: 1},
+	}))
+
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, PlatformOpenAI)
+	require.NoError(t, err)
+}
+
+func TestCheckBillingEligibility_AllowsZeroBalance(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0}
+	cfg := &config.Config{}
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
@@ -108,7 +119,6 @@ func TestCheckBillingEligibility_FreshDatabaseDebtOverridesPositiveCache(t *test
 	cache := &balanceEligibilityCacheStub{balance: 10}
 	userRepo := &balanceLoadUserRepoStub{balance: -2.5}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
@@ -129,21 +139,30 @@ func TestCheckBillingEligibility_SimpleModeStillRejectsFreshDatabaseDebt(t *test
 	require.Equal(t, int64(1), userRepo.calls.Load(), "简易模式也必须读取数据库欠费事实")
 }
 
-func TestCanUseTrafficPackCredit_RejectsCreditBelowMinimumReserve(t *testing.T) {
+func TestCanUseTrafficPackCredit_AllowsAnyPositiveNetCredit(t *testing.T) {
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
 		summary: &TrafficCreditSummary{TotalRemainingUSD: 0.00039155},
 	}))
 
+	require.True(t, svc.CanUseTrafficPackCredit(context.Background(), 1, PlatformOpenAI))
+}
+
+func TestCanUseTrafficPackCredit_RejectsZeroCredit(t *testing.T) {
+	cfg := &config.Config{}
+	svc := NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{},
+	}))
+
 	require.False(t, svc.CanUseTrafficPackCredit(context.Background(), 1, PlatformOpenAI))
 }
 
-func TestCanUseTrafficPackCredit_AllowsCreditAtMinimumReserve(t *testing.T) {
+func TestCanUseTrafficPackCredit_AllowsSmallPositiveCredit(t *testing.T) {
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
@@ -157,7 +176,6 @@ func TestCheckFreshBalanceDebtAllowsAllPlatformsWhenTrafficCardHasNetCredit(t *t
 	cache := &balanceEligibilityCacheStub{balance: -2}
 	userRepo := &balanceLoadUserRepoStub{balance: -2}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
@@ -176,7 +194,6 @@ func TestCheckFreshBalanceDebtRejectsWhenBalanceAndTrafficCardAreBothInDebt(t *t
 	cache := &balanceEligibilityCacheStub{balance: -2}
 	userRepo := &balanceLoadUserRepoStub{balance: -2}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
@@ -194,7 +211,6 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T
 	}
 	userRepo := &balanceLoadUserRepoStub{balance: -0.25}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
@@ -215,10 +231,9 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesExhaustedBalance(t *testing.T
 	require.Equal(t, int64(1), userRepo.calls.Load())
 }
 
-func TestSyncBalanceCacheAfterDeduction_InvalidatesWhenBalanceFallsBelowReserve(t *testing.T) {
+func TestSyncBalanceCacheAfterDeduction_QueuesDeductForPositiveBalance(t *testing.T) {
 	cache := &balanceEligibilityCacheStub{balance: 0.50}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
@@ -228,14 +243,15 @@ func TestSyncBalanceCacheAfterDeduction_InvalidatesWhenBalanceFallsBelowReserve(
 		User: &User{ID: 1},
 	}, &billingDeps{billingCacheService: svc}, &UsageBillingApplyResult{NewBalance: &newBalance})
 
-	require.Equal(t, int64(1), cache.invalidateCalls.Load())
-	require.Equal(t, int64(0), cache.deductCalls.Load())
+	require.Equal(t, int64(0), cache.invalidateCalls.Load())
+	require.Eventually(t, func() bool {
+		return cache.deductCalls.Load() == 1
+	}, 2*time.Second, 10*time.Millisecond)
 }
 
 func TestSyncBalanceCacheAfterDeduction_QueuesDeductWhenBalanceStillEligible(t *testing.T) {
 	cache := &balanceEligibilityCacheStub{balance: 1}
 	cfg := &config.Config{}
-	cfg.Billing.MinimumBalanceReserve = 0.01
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 

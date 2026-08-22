@@ -905,21 +905,6 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 	return nil
 }
 
-func (s *BillingCacheService) minimumBalanceReserve() float64 {
-	if s == nil || s.cfg == nil || s.cfg.Billing.MinimumBalanceReserve <= 0 {
-		return 0
-	}
-	return s.cfg.Billing.MinimumBalanceReserve
-}
-
-func (s *BillingCacheService) balanceBelowEligibilityThreshold(balance float64) bool {
-	if balance <= 0 {
-		return true
-	}
-	minimumReserve := s.minimumBalanceReserve()
-	return minimumReserve > 0 && balance < minimumReserve
-}
-
 // checkBalanceEligibility 检查余额模式资格
 func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64, platform string) error {
 	balance, err := s.GetUserBalance(ctx, userID)
@@ -938,18 +923,17 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 }
 
 func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64) error {
-	if s.balanceBelowEligibilityThreshold(balance) {
+	if balance < 0 {
 		if s.CanUseTrafficPackCredit(ctx, userID, platform) {
 			return nil
 		}
 		return ErrInsufficientBalance
 	}
-
 	return nil
 }
 
-// CanUseTrafficPackCredit 判断流量卡能否满足与普通余额相同的预检保底额度。
-// 流量卡仅剩碎额时继续放行会让已欠费用户反复到达上游，因此不能只判断“剩余额度大于零”。
+// CanUseTrafficPackCredit 判断负余额用户能否切换到仍有正数净额度的流量卡。
+// 正余额永远不切换，避免流量卡替代仍可用的普通余额。
 func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
 	if s == nil || s.trafficPackService == nil {
 		return false
@@ -958,11 +942,7 @@ func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userI
 	if err != nil || summary == nil {
 		return false
 	}
-	minimumReserve := s.minimumBalanceReserve()
-	if minimumReserve <= 0 {
-		minimumReserve = 0.000001
-	}
-	return summary.TotalRemainingUSD >= minimumReserve
+	return summary.TotalRemainingUSD > 0
 }
 
 // checkSubscriptionEligibility 检查订阅模式资格

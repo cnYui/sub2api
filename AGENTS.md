@@ -1,5 +1,17 @@
 # 项目协作约定
 
+- 2026-08-22：最终余额/流量卡规则已确认并发布：余额 `>=0` 时不切换流量卡；余额 `<0` 后下一次请求不再扣普通余额，必须使用用户级全渠道流量卡；流量卡净额度必须严格 `>0` 才允许本次调用，用尽或形成流量卡欠费后下一次请求拒绝。源码已删除 `0.01 USD` 保底阈值及其配置，生产应用镜像 `sha256:98f3942f0c3c7141e115539b1984eb51535eae320b74371bfdee9a562ef51387` 已包含该业务规则且保持 healthy，本次清理不参与运行的旧配置字段后未重复替换容器。用户 `q3337569176@163.com`（ID `529`）余额保持 `0.01000000 USD`，详见 `docs/ai/context/20260822-192730-final-negative-balance-traffic-pack-rule_CN.md`。
+
+- 2026-08-22：负余额流量卡切换规则已发布到生产 `sub2api-official-18082`；仅替换应用容器，镜像 `sha256:46256fc1b48a6bf168415d7a1e5850c924628ea7cae9c2a796bb42d29d461a95`，健康检查全部通过。用户 `q3337569176@163.com` 余额保持 `0.01000000 USD`，流量卡扣款流水 `13836` 保留。详见 `docs/ai/context/20260822-171638-traffic-pack-fallback-production-deploy_CN.md`。
+
+- 2026-08-22：进一步明确流量卡准入：普通余额 `<0` 后下一次请求不得再扣普通余额，必须切到流量卡；流量卡净额度只需严格 `>0` 即可完成一次调用，调用后归零或形成流量卡欠费则下一次拒绝。余额 `>=0` 始终不切流量卡。详见 `docs/ai/context/20260822-170556-traffic-pack-positive-credit-rule-correction_CN.md`。
+
+- 2026-08-22：早期版本曾按 `0.01 USD` 保底阈值准入；该规则已由上方最终规则取代，历史实现与诊断仍见 `docs/ai/context/20260822-170243-negative-balance-traffic-pack-fallback-rule_CN.md`。
+
+- 2026-08-22：用户 `q3337569176@163.com`（ID `529`）因源码仍保留负余额硬拦截，普通余额 `-2.93420205 USD` 时无法使用已有全渠道流量卡；按管理员要求将余额临时调整为 `0.01 USD`，新增审计 `payment_audit_logs.id=2030`，清理认证/余额缓存，流量卡与套餐未修改。源码根因及待修复项见 `docs/ai/context/20260822-164053-q3337569176-traffic-card-balance-floor_CN.md`。
+
+- 2026-08-22：按管理员要求将生产 `sub2api-official-18082` 的隐藏最终计费倍率由 `17x` 调整为 `18x`；仅更新 `deploy/docker-compose.18082.yml` 并替换应用容器，数据库、Redis、Nginx、Cloudflare Tunnel、数据卷、模型分组倍率、用户余额、订单和历史用量均不修改。详见 `docs/ai/context/20260822-141037-final-billing-multiplier-18-change_CN.md`。
+
 - 2026-08-21：当前工作区修改已合并到本地 `main` 并提交 `fb821052e`，已同步到私有 GitHub `fork/main`；随后重启 Docker Desktop，仅替换 `sub2api-official-18082` 应用容器。新镜像为 `sha256:368cdaec0987b33521f585d7ec6c7ca032ef4331549b19163735f35b6aa8e6bd`，应用 healthy，迁移 210 和 7 元 30 USD 流量卡核验通过，本地、公网健康端点及 `/usage-guide` 均正常。详见 `docs/ai/context/20260821-111641-main-sync-docker-restart-public-redeploy_CN.md`。
 
 - 2026-08-21：7 元 30 USD 流量卡已完成生产上架；迁移 `210_add_traffic_pack_30usd_7cny.sql` 已执行，页面实测显示标价 `¥7.00`、手续费 `¥0.07`、实付 `¥7.07`、额度 `$30`，应用 healthy，三个健康端点均为 200。仅替换应用容器，详见 `docs/ai/context/20260821-105600-traffic-pack-30usd-7cny-verification_CN.md`。
@@ -249,7 +261,7 @@
 - 设计记录见 `docs/ai/context/20260804-120632-subscriptions-balance-packages_CN.md`；本轮实现与验证见 `docs/ai/context/20260804-151715-balance-package-lifecycle-rules_CN.md`；基础接口验证见 `docs/ai/context/20260804-121614-subscriptions-balance-packages-verification_CN.md`。
 - 2026-08-04：余额套餐改为按 7 天窗口刷新而非追加；`user_balance_packages.remaining_usd` 仅表示本周套餐未用额度。刷新只调整 `weekly_credit_usd - old_remaining_usd`，到期只清除该字段，普通充值、返利和 18080 迁移承接的非套餐余额不被清理。200 号迁移已按旧周期审计和窗口实际用量回收可识别的错误结转，并重建当前窗口额度；`/subscriptions` 显示“本周剩余额度”和“下次刷新”。生产核验、公式与测试结果见 `docs/ai/context/20260804-182800-balance-package-weekly-refresh-production_CN.md`。
 - 2026-08-05：余额套餐首期到账和周刷新统一先抵扣用户负余额，周额度不足时继续保持负数，只有偿还后的剩余部分进入 `user_balance_packages.remaining_usd`。新增 `balance_debt_ledger` 保存不可变欠费/还款流水；新增 `billing_reconciliation_cases` 保存无法从历史响应恢复 token 的计费失败请求，金额留空等待外部逐笔账单，不得用次数或平均价伪造扣费。实现与生产核验见 `docs/ai/context/20260805-192000-billing-reconciliation-and-debt-first-credit_CN.md`。
-- 2026-08-05：18082 的请求前资格检查统一要求普通余额或 OpenAI 流量卡至少为 `BILLING_MINIMUM_BALANCE_RESERVE=0.01 USD`；余额和流量卡均为碎额时直接 `403`，不进入上游、不产生用量。已放行请求仍可在结算后形成负余额，后续请求会被该预检阻断。线上复测见 `docs/ai/context/20260805-193133-billing-preflight-reserve-verification_CN.md`。
+- 2026-08-05（历史规则，已废弃）：18082 曾要求普通余额或 OpenAI 流量卡至少为 `BILLING_MINIMUM_BALANCE_RESERVE=0.01 USD`；该阈值已由 2026-08-22 的最终负余额流量卡规则删除。原始线上复测见 `docs/ai/context/20260805-193133-billing-preflight-reserve-verification_CN.md`。
 - 2026-08-05：核查用户 `1032726009@qq.com`（ID `505`）确认其当前为 ¥199 余额套餐（订单 `163`），4/4 次到账，2026-08-08 到期；当前窗口用量 `544.1321814000 USD` 超过每周 `520 USD`，故 `remaining_usd=0`。同日 `19:37` 执行的 36 条 `BALANCE_MANUAL_REFUND` 合计 `149.3559957750 USD` 已退回普通余额，不会回填套餐周额度；核查记录见 `docs/ai/context/20260805-213153-user-1032726009-subscription-balance-investigation_CN.md`。
 - 2026-08-04：用户 `1850226892@qq.com` 的订单 `537` 因容器退款代理拒绝连接而保持 `REFUND_FAILED`；按管理员要求已人工取消其余额套餐权益、将普通余额归零并保留订单与失败审计，未误标退款成功，也未动其独立流量卡额度。记录见 `docs/ai/context/20260804-203510-user-1850226892-manual-package-cancellation_CN.md`。
 - 2026-08-05：用户 `3415991811@qq.com` 的 29 元余额套餐（订单 `149`）因退款网关失败保持 `REFUND_FAILED`；按管理员要求仅人工取消当前套餐权益，将 `user_balance_packages.id=29` 标记为 `cancelled` 并清零剩余额度，普通余额 `0.45314656 USD` 和独立流量卡额度均未改动。记录见 `docs/ai/context/20260805-102620-user-3415991811-manual-package-cancellation_CN.md`。

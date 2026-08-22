@@ -18,11 +18,30 @@ func APIKeyAuthGoogle(apiKeyService *service.APIKeyService, cfg *config.Config) 
 	return APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, cfg)
 }
 
+// APIKeyAuthWithSubscriptionGoogleWithBillingCache 创建带流量卡余额切换能力的 Gemini 认证中间件。
+func APIKeyAuthWithSubscriptionGoogleWithBillingCache(
+	apiKeyService *service.APIKeyService,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+	billingCacheService *service.BillingCacheService,
+) gin.HandlerFunc {
+	return apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(apiKeyService, subscriptionService, cfg, billingCacheService)
+}
+
 // APIKeyAuthWithSubscriptionGoogle behaves like ApiKeyAuthWithSubscription but returns Google-style errors:
 // {"error":{"code":401,"message":"...","status":"UNAUTHENTICATED"}}
 //
 // It is intended for Gemini native endpoints (/v1beta) to match Gemini SDK expectations.
 func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
+	return apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(apiKeyService, subscriptionService, cfg, nil)
+}
+
+func apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(
+	apiKeyService *service.APIKeyService,
+	subscriptionService *service.SubscriptionService,
+	cfg *config.Config,
+	trafficPackChecker trafficPackCreditChecker,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if rejectInvalidAuthAbuse(c, apiKeyService) {
 			abortWithGoogleError(c, 429, "Too many invalid authentication attempts; retry later")
@@ -130,9 +149,14 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 403, "API Key 所属专属分组不再允许当前用户使用")
 			return
 		}
+		trafficPackCreditAvailable := false
 		if apiKey.User.Balance < 0 {
-			abortWithGoogleError(c, 403, "Insufficient account balance")
-			return
+			// 负余额用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
+			trafficPackCreditAvailable = canUseTrafficPackCredit(c, apiKey, trafficPackChecker)
+			if !trafficPackCreditAvailable {
+				abortWithGoogleError(c, 403, "Insufficient account balance")
+				return
+			}
 		}
 
 		// 简易模式：跳过余额和订阅检查
@@ -204,10 +228,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 
 			c.Set(string(ContextKeySubscription), subscription)
 		} else {
-			if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
-				abortWithGoogleError(c, 403, "Insufficient account balance")
-				return
-			}
+			// 非订阅模式允许非负余额继续请求；余额变负后的下一次请求已在前置分支切到流量卡。
 		}
 
 		c.Set(string(ContextKeyAPIKey), apiKey)

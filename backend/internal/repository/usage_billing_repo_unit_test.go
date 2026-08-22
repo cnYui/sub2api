@@ -115,9 +115,6 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
-	mock.ExpectQuery(trafficCreditBatchesSQL).
-		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at"}))
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
@@ -137,7 +134,7 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestApplyUsageBillingEffectsOverdraftsBalanceForNonDebtUserWhenTrafficCannotCover(t *testing.T) {
+func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForNonDebtBalance(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -156,11 +153,6 @@ func TestApplyUsageBillingEffectsOverdraftsBalanceForNonDebtUserWhenTrafficCanno
 	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
-	mock.ExpectQuery(trafficCreditBatchesSQL).
-		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
-		}))
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).

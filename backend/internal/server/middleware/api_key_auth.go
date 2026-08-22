@@ -193,9 +193,14 @@ func apiKeyAuthWithTrafficPackChecker(
 		// authenticated key and must remain available after the completed
 		// generation consumes the key's remaining balance.
 		skipBilling := c.Request.URL.Path == "/v1/usage" || billingInfoRequest || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
+		trafficPackCreditAvailable := false
 		if !skipBilling && apiKey.User.Balance < 0 {
-			AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
-			return
+			// 负余额用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
+			trafficPackCreditAvailable = canUseTrafficPackCredit(c, apiKey, trafficPackChecker)
+			if !trafficPackCreditAvailable {
+				AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+				return
+			}
 		}
 
 		// ── 4. SimpleMode → early return ─────────────────────────────
@@ -286,12 +291,7 @@ func apiKeyAuthWithTrafficPackChecker(
 					return
 				}
 			} else {
-				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
-				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) &&
-					!canUseTrafficPackCredit(c, apiKey, trafficPackChecker) {
-					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
-					return
-				}
+				// 非订阅模式允许非负余额继续请求；余额变负后的下一次请求已在前置分支切到流量卡。
 			}
 		}
 
@@ -424,18 +424,6 @@ func setGroupContext(c *gin.Context, group *service.Group) {
 	}
 	ctx := context.WithValue(c.Request.Context(), ctxkey.Group, group)
 	c.Request = c.Request.WithContext(ctx)
-}
-
-// apiKeyBalanceBelowAuthThreshold 与结算预检使用同一保底金额，避免余额或流量卡仅剩极小碎额时继续放行。
-func apiKeyBalanceBelowAuthThreshold(balance float64, cfg *config.Config) bool {
-	minimumReserve := 0.0
-	if cfg != nil && cfg.Billing.MinimumBalanceReserve > 0 {
-		minimumReserve = cfg.Billing.MinimumBalanceReserve
-	}
-	if minimumReserve <= 0 {
-		return balance <= 0
-	}
-	return balance < minimumReserve
 }
 
 func abortIfAPIKeyGroupUnavailable(c *gin.Context, apiKey *service.APIKey) bool {

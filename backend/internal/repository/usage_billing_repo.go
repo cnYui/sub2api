@@ -204,21 +204,13 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 				result.NewBalance = &balanceBefore
 				result.TrafficCreditCharged = true
 			} else {
-				covered, trafficErr := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequestID, false)
-				if trafficErr != nil {
-					return trafficErr
+				// 正余额仍优先扣普通余额；流量卡只在余额已经为负时接管后续请求。
+				newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
+				if err != nil {
+					return err
 				}
-				if covered >= cmd.BalanceCost-0.0000000001 {
-					result.NewBalance = &balanceBefore
-					result.TrafficCreditCharged = true
-				} else {
-					newBalance, _, err = deductUsageBillingBalance(ctx, tx, cmd.UserID, cmd.BalanceCost)
-					if err != nil {
-						return err
-					}
-					result.NewBalance = &newBalance
-					result.BalanceOverdrafted = true
-				}
+				result.NewBalance = &newBalance
+				result.BalanceOverdrafted = true
 			}
 		}
 	}
