@@ -180,6 +180,7 @@ func (s *PaymentService) revokeBalancePackage(ctx context.Context, orderID int64
 	_, err := s.entClient.UserBalancePackage.Update().
 		Where(userbalancepackage.PaymentOrderIDEQ(orderID), userbalancepackage.StatusNEQ("refunded")).
 		SetStatus("refunded").
+		SetRemainingUsd(0).
 		ClearNextCreditAt().
 		Save(ctx)
 	return err

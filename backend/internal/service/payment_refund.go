@@ -394,6 +394,7 @@ func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.
 		})
 		return nil, err
 	}
+	p.GatewayAmount = resolveGatewayRefundAmount(p, prov)
 	finishProviderCall := servertiming.ObserveDependency(ctx, "payment")
 	resp, err := prov.Refund(ctx, payment.RefundRequest{
 		TradeNo: p.Order.PaymentTradeNo,
@@ -412,6 +413,13 @@ func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.
 		return nil, err
 	}
 	return resp, nil
+}
+
+func resolveGatewayRefundAmount(p *RefundPlan, prov payment.Provider) float64 {
+	if policy, ok := prov.(payment.RefundQuoteAmountProvider); ok && policy.UsesRefundQuoteAmount() {
+		return p.RefundAmount
+	}
+	return p.GatewayAmount
 }
 
 func formatGatewayRefundAmount(amount float64, order *dbent.PaymentOrder) string {
@@ -634,7 +642,7 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 	if err != nil {
 		return nil, fmt.Errorf("mark refund: %w", err)
 	}
-	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), map[string]any{"refundAmount": p.RefundAmount, "reason": p.Reason, "balanceDeducted": p.BalanceToDeduct, "force": p.Force})
+	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), map[string]any{"refundAmount": p.RefundAmount, "gatewayRefundAmount": p.GatewayAmount, "reason": p.Reason, "balanceDeducted": p.BalanceToDeduct, "force": p.Force})
 	return &RefundResult{Success: true, BalanceDeducted: p.BalanceToDeduct, SubDaysDeducted: p.SubDaysToDeduct}, nil
 }
 

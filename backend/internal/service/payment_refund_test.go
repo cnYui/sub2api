@@ -193,6 +193,14 @@ func TestCalculateGatewayRefundAmountUsesCurrencyPrecision(t *testing.T) {
 	require.InDelta(t, 52, calculateGatewayRefundAmount(100, 103, 50, "JPY"), 1e-12)
 }
 
+func TestResolveGatewayRefundAmountUsesQuoteForZPay(t *testing.T) {
+	order := &dbent.PaymentOrder{Amount: 49, PayAmount: 49.49}
+	plan := &RefundPlan{Order: order, RefundAmount: 1.99, GatewayAmount: 2.01}
+
+	require.Equal(t, 1.99, resolveGatewayRefundAmount(plan, zpayRefundProviderTestDouble{}))
+	require.Equal(t, 2.01, resolveGatewayRefundAmount(plan, refundProviderTestDouble{}))
+}
+
 func TestFormatGatewayRefundAmountUsesOrderCurrency(t *testing.T) {
 	order := &dbent.PaymentOrder{
 		ProviderSnapshot: map[string]any{
@@ -360,6 +368,84 @@ func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
 	}
 }
 
+func TestMarkRefundOKRevokesBalancePackageRemainingCredit(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	user, err := client.User.Create().
+		SetEmail("balance-package-refund@example.com").
+		SetPasswordHash("hash").
+		SetUsername("balance-package-refund-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(49).
+		SetPayAmount(49.49).
+		SetFeeRate(0.01).
+		SetRechargeCode("BALANCE-PACKAGE-REFUND").
+		SetOutTradeNo("sub2_balance_package_refund").
+		SetPaymentType(payment.TypeAlipay).
+		SetPaymentTradeNo("trade-balance-package-refund").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		SetStatus(OrderStatusRefunding).
+		SetExpiresAt(now.Add(time.Hour)).
+		SetPaidAt(now).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	packageRecord, err := client.UserBalancePackage.Create().
+		SetUserID(user.ID).
+		SetPlanID(1).
+		SetPaymentOrderID(order.ID).
+		SetWeeklyCreditUsd(128).
+		SetRemainingUsd(6.87332064).
+		SetCreditedCount(4).
+		SetRefreshCount(4).
+		SetRefreshIntervalDays(7).
+		SetStartsAt(now.Add(-21 * 24 * time.Hour)).
+		SetNextCreditAt(now.Add(7 * 24 * time.Hour)).
+		SetExpiresAt(now.Add(7 * 24 * time.Hour)).
+		SetStatus("completed").
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentService{entClient: client}
+	result, err := svc.markRefundOk(ctx, &RefundPlan{
+		OrderID: order.ID, Order: order, RefundAmount: 1.99, GatewayAmount: 1.99, Reason: "partial refund",
+	})
+	require.NoError(t, err)
+	require.True(t, result.Success)
+
+	updatedPackage, err := client.UserBalancePackage.Get(ctx, packageRecord.ID)
+	require.NoError(t, err)
+	require.Equal(t, "refunded", updatedPackage.Status)
+	require.Zero(t, updatedPackage.RemainingUsd)
+	require.Nil(t, updatedPackage.NextCreditAt)
+}
+
+func TestWriteAuditLogUpdatesDuplicateAction(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	svc := &PaymentService{entClient: client}
+
+	svc.writeAuditLog(ctx, 42, "REFUND_FAILED", "user", map[string]any{"detail": "first"})
+	svc.writeAuditLog(ctx, 42, "REFUND_FAILED", "user", map[string]any{"detail": "last"})
+
+	logs, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ("42"), paymentauditlog.ActionEQ("REFUND_FAILED")).
+		All(ctx)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+	require.Contains(t, logs[0].Detail, "last")
+}
+
 func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -500,6 +586,12 @@ func (refundProviderTestDouble) VerifyNotification(context.Context, string, map[
 func (refundProviderTestDouble) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
 	return nil, nil
 }
+
+type zpayRefundProviderTestDouble struct {
+	refundProviderTestDouble
+}
+
+func (zpayRefundProviderTestDouble) UsesRefundQuoteAmount() bool { return true }
 
 type refundQueryProviderTestDouble struct {
 	refundProviderTestDouble

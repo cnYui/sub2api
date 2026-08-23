@@ -238,6 +238,13 @@ type RefundQueryProvider interface {
 	QueryRefund(ctx context.Context, req RefundQueryRequest) (*RefundResponse, error)
 }
 
+// RefundQuoteAmountProvider 表示网关退款直接使用站内计算出的退款报价。
+// 这避免将页面已排除手续费的报价再次按原订单比例放大。
+type RefundQuoteAmountProvider interface {
+	Provider
+	UsesRefundQuoteAmount() bool
+}
+
 // CancelableProvider extends Provider with the ability to cancel pending payments.
 type CancelableProvider interface {
 	Provider

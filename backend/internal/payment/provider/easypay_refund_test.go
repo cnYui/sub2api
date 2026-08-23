@@ -36,6 +36,35 @@ func TestNormalizeEasyPayAPIBase(t *testing.T) {
 	}
 }
 
+func TestEasyPayUsesRefundQuoteAmountOnlyForZPay(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		apiBase string
+		want    bool
+	}{
+		{name: "zpay", apiBase: "https://zpayz.cn", want: true},
+		{name: "other easypay", apiBase: "https://pay.example.com", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			provider, err := NewEasyPay("test-instance", map[string]string{
+				"pid": "pid-1", "pkey": "pkey-1", "apiBase": tt.apiBase,
+				"notifyUrl": "https://example.com/notify", "returnUrl": "https://example.com/return",
+			})
+			if err != nil {
+				t.Fatalf("NewEasyPay: %v", err)
+			}
+			if got := provider.UsesRefundQuoteAmount(); got != tt.want {
+				t.Fatalf("UsesRefundQuoteAmount() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestEasyPayRefundNormalizesAPIBaseAndSendsOutTradeNoOnly(t *testing.T) {
 	t.Parallel()
 

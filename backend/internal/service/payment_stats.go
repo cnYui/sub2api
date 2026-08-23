@@ -179,9 +179,27 @@ func roundAmount(amount float64) float64 {
 
 func (s *PaymentService) writeAuditLog(ctx context.Context, oid int64, action, op string, detail map[string]any) {
 	dj, _ := json.Marshal(detail)
-	_, err := s.entClient.PaymentAuditLog.Create().SetOrderID(strconv.FormatInt(oid, 10)).SetAction(action).SetDetail(string(dj)).SetOperator(op).Save(ctx)
+	orderID := strconv.FormatInt(oid, 10)
+	updated, err := s.entClient.PaymentAuditLog.Update().
+		Where(paymentauditlog.OrderIDEQ(orderID), paymentauditlog.ActionEQ(action)).
+		SetDetail(string(dj)).
+		SetOperator(op).
+		Save(ctx)
+	if err == nil && updated > 0 {
+		return
+	}
+	if err == nil {
+		_, err = s.entClient.PaymentAuditLog.Create().SetOrderID(orderID).SetAction(action).SetDetail(string(dj)).SetOperator(op).Save(ctx)
+	}
 	if err != nil {
-		slog.Error("audit log failed", "orderID", oid, "action", action, "error", err)
+		_, retryErr := s.entClient.PaymentAuditLog.Update().
+			Where(paymentauditlog.OrderIDEQ(orderID), paymentauditlog.ActionEQ(action)).
+			SetDetail(string(dj)).
+			SetOperator(op).
+			Save(ctx)
+		if retryErr != nil {
+			slog.Error("audit log failed", "orderID", oid, "action", action, "error", err, "retry_error", retryErr)
+		}
 	}
 }
 

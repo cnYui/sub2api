@@ -124,6 +124,13 @@ func (e *EasyPay) SupportedTypes() []payment.PaymentType {
 	return types
 }
 
+// UsesRefundQuoteAmount 仅对 ZPay 直接使用页面计算出的退款报价。
+// 页面报价已明确排除手续费，按原订单比例加回会造成实际退款金额偏高。
+func (e *EasyPay) UsesRefundQuoteAmount() bool {
+	apiURL, err := url.Parse(e.apiBase())
+	return err == nil && strings.EqualFold(apiURL.Hostname(), "zpayz.cn")
+}
+
 func (e *EasyPay) MerchantIdentityMetadata() map[string]string {
 	if e == nil {
 		return nil
