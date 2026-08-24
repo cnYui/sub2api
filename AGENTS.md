@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-24：提交 `0df1bd25f` 已同步到私有 GitHub `fork/main`；基于该提交构建镜像 `sha256:a56e65317eedbc8ab95da7f59c545952309a2b6c68bd7f8d3e5d035f6085aa17`，仅替换公网应用容器 `sub2api-official-18082`。应用、PostgreSQL、Redis 均 healthy，本地、Nginx、三个公网健康端点及 `/usage-guide` 均返回 200，详见 `docs/ai/context/20260824-213203-refund-real-payment-main-sync-docker-redeploy_CN.md`。
+
 - 2026-08-24：按管理员要求恢复并实测 DeepSeek 账号 ID `6`：第一次请求因 `schedulable=false` 返回 `503 no available accounts`；管理员“恢复状态”后仍未自动开启调度，随后手动开启调度再请求 `deepseek-v4-flash`，实际命中账号 `6` 并返回 HTTP `200`、`DS_LIVE_OK`。账号当前 `active + schedulable=true`，用量记录 `362700`，详见 `docs/ai/context/20260824-181513-deepseek-account-live-request-verification_CN.md`。
 
 - 2026-08-24：退款准入已收紧为仅真实支付的余额套餐订单；管理员发放、兑换码、零金额、流量卡和旧普通余额订单均不可退款。后端要求实付金额、支付完成时间和支付平台交易号同时存在，前端四处退款入口同步隐藏不符合条件的订单。详见 `docs/ai/context/20260824-180521-refund-real-payment-only_CN.md`。
