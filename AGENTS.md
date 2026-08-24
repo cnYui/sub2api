@@ -1,5 +1,7 @@
 # 项目协作约定
 
+- 2026-08-24：提交 `f153d0f1a` 已同步到私有 GitHub `fork/main`；基于该提交构建镜像 `sha256:6bcbeea8b70b742b3cec742c8aaf9b8c6d3227f9f33fd8b653d89746c6637a98`，仅替换公网应用容器 `sub2api-official-18082`。应用、PostgreSQL、Redis 均 healthy，本地、Nginx、三个公网健康端点及 `/usage-guide` 均返回 200，详见 `docs/ai/context/20260824-170415-main-sync-docker-redeploy_CN.md`。
+
 - 2026-08-24：已修复前端全量测试中 4 个既有断言失败及 10 个缺少 `getLiveCapability` mock 的未处理错误。修正回滚 API 超时断言、首页品牌文案、支付方式边框 class，并补齐两个 GroupsView 测试 mock；`pnpm typecheck` 通过，Vitest 全量 200 个测试文件/1392 个测试全部通过。本次未提交、推送或部署，详见 `docs/ai/context/20260824-164407-frontend-test-failure-fix-verification_CN.md`。
 
 - 2026-08-23：按管理员要求为 `3298234675@qq.com`（用户 ID `540`）发放 29 元余额套餐；新增零金额管理员赠送订单 `710`、套餐记录 `169` 和支付审计 `2069`/`2070`，首期 `76 USD` 已到账，后续三期按 7 天间隔自动到账。详见 `docs/ai/context/20260823-224625-user-3298234675-balance-29-grant_CN.md`。
