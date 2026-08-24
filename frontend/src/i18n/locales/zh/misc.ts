@@ -497,6 +497,8 @@ export default {
       FORBIDDEN: '无权限操作此订单',
       CONFLICT: '订单状态已变更，请刷新',
       INVALID_ORDER_TYPE: '仅余额订单可申请退款',
+      ADMIN_GRANTED_ORDER: '管理员发放的余额套餐不能退款',
+      REFUND_REQUIRES_REAL_PAYMENT: '只有用户真实支付的余额套餐才能退款',
       INVALID_STATUS: '当前订单状态不允许此操作',
       REFUND_MANUAL_REVIEW_REQUIRED: '当前退款需要人工审核',
       NO_REFUNDABLE_QUOTA: '套餐额度已全部使用，无法退款',

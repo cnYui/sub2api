@@ -147,7 +147,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { statusBadgeClass, canRefund, formatOrderDateTime, isRealPaidBalancePackageOrder } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
@@ -234,7 +234,7 @@ const orderTypeFilterOptions = computed(() => [
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {
-  return order.order_type === 'balance_subscription' && order.payment_type !== 'admin_grant' && canRefund(order.status)
+  return isRealPaidBalancePackageOrder(order) && canRefund(order.status)
 }
 
 function formatDateTime(dateStr: string): string {

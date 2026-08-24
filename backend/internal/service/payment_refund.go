@@ -24,9 +24,30 @@ import (
 
 var createPaymentProviderFromInstance = provider.CreateProvider
 
-// getOrderProviderInstance looks up the provider instance that processed this order.
-// For legacy orders without provider_instance_id, it resolves only when the
-// historical instance is uniquely identifiable from the stored order fields.
+// validateRealPaidBalancePackageOrder 确保退款订单有真实支付凭证，排除管理员发放、兑换码和零金额记账订单。
+func validateRealPaidBalancePackageOrder(o *dbent.PaymentOrder) error {
+	if o == nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.PaymentType == payment.PaymentTypeAdminGrant {
+		return infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
+	}
+	if o.OrderType != payment.OrderTypeBalanceSubscription {
+		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders can be refunded")
+	}
+	switch payment.GetBasePaymentType(strings.ToLower(strings.TrimSpace(o.PaymentType))) {
+	case payment.TypeAlipay, payment.TypeWxpay, payment.TypeStripe, payment.TypeEasyPay, payment.TypeAirwallex:
+		// 仅接受已接入支付网关的支付方式。
+	default:
+		return infraerrors.Forbidden("REFUND_REQUIRES_REAL_PAYMENT", "only balance packages paid by the user through a payment provider can be refunded")
+	}
+	if o.PayAmount <= 0 || o.PaidAt == nil || strings.TrimSpace(o.PaymentTradeNo) == "" {
+		return infraerrors.Forbidden("REFUND_REQUIRES_REAL_PAYMENT", "only balance packages paid by the user through a payment provider can be refunded")
+	}
+	return nil
+}
+
+// getOrderProviderInstance 查询创建订单时使用的支付实例；缺少绑定时仅在历史实例唯一可识别时解析。
 func (s *PaymentService) getOrderProviderInstance(ctx context.Context, o *dbent.PaymentOrder) (*dbent.PaymentProviderInstance, error) {
 	if s == nil || s.entClient == nil || o == nil {
 		return nil, nil
@@ -48,9 +69,7 @@ func (s *PaymentService) getOrderProviderInstance(ctx context.Context, o *dbent.
 	return s.entClient.PaymentProviderInstance.Get(ctx, instID)
 }
 
-// getRefundOrderProviderInstance resolves the provider instance for refund paths.
-// Refunds must be pinned to an explicit historical binding, so legacy
-// "best-effort" provider guessing is intentionally not allowed here.
+// getRefundOrderProviderInstance 解析退款使用的原支付实例，退款必须绑定明确的历史实例，不能猜测。
 func (s *PaymentService) getRefundOrderProviderInstance(ctx context.Context, o *dbent.PaymentOrder) (*dbent.PaymentProviderInstance, error) {
 	if s == nil || s.entClient == nil || o == nil {
 		return nil, nil
@@ -160,11 +179,8 @@ func (s *PaymentService) RequestRefund(ctx context.Context, oid, uid int64, reas
 	if order.UserID != uid {
 		return infraerrors.Forbidden("FORBIDDEN", "no permission")
 	}
-	if order.PaymentType == payment.PaymentTypeAdminGrant {
-		return infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
-	}
-	if order.OrderType != payment.OrderTypeBalanceSubscription {
-		return infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders can be refunded")
+	if err := validateRealPaidBalancePackageOrder(order); err != nil {
+		return err
 	}
 	if err := s.validateRefundProviderForUser(ctx, order); err != nil {
 		return err
@@ -192,24 +208,21 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, reason st
 	if err != nil {
 		return nil, infraerrors.NotFound("NOT_FOUND", "order not found")
 	}
-	if o.PaymentType == payment.PaymentTypeAdminGrant {
-		return nil, infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
-	}
-	if o.OrderType != payment.OrderTypeBalanceSubscription {
-		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders can be refunded")
+	if err := validateRealPaidBalancePackageOrder(o); err != nil {
+		return nil, err
 	}
 	ok := []string{OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundFailed}
 	if !psSliceContains(ok, o.Status) {
 		return nil, infraerrors.BadRequest("INVALID_STATUS", "order status does not allow refund")
 	}
-	// Check provider instance allows admin refund
+	// 管理员退款同样必须使用创建订单时绑定的支付实例。
 	inst, instErr := s.getRefundOrderProviderInstance(ctx, o)
 	if instErr != nil {
 		slog.Warn("refund: provider instance lookup failed", "orderID", oid, "error", instErr)
 		return nil, infraerrors.InternalServer("PROVIDER_LOOKUP_FAILED", "failed to look up payment provider for this order")
 	}
 	if inst == nil {
-		// Legacy order without provider_instance_id — block refund
+		// 历史订单没有支付实例绑定时禁止退款。
 		return nil, infraerrors.Forbidden("REFUND_DISABLED", "refund is not available for this order")
 	}
 	if !inst.RefundEnabled {
@@ -248,6 +261,12 @@ func (s *PaymentService) balancePackageRefundAmount(ctx context.Context, o *dben
 }
 
 func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
+	if p == nil {
+		return nil, infraerrors.BadRequest("INVALID_REFUND", "refund plan is required")
+	}
+	if err := validateRealPaidBalancePackageOrder(p.Order); err != nil {
+		return nil, err
+	}
 	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(p.OrderID), paymentorder.StatusIn(OrderStatusCompleted, OrderStatusRefundRequested, OrderStatusRefundPending, OrderStatusRefundFailed)).SetStatus(OrderStatusRefunding).Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("lock: %w", err)
@@ -263,13 +282,11 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 }
 
 func (s *PaymentService) gwRefund(ctx context.Context, p *RefundPlan) (*payment.RefundResponse, error) {
-	if strings.TrimSpace(p.Order.PaymentTradeNo) == "" && strings.TrimSpace(p.Order.OutTradeNo) == "" {
-		s.writeAuditLog(ctx, p.Order.ID, "REFUND_NO_TRADE_NO", "admin", map[string]any{"detail": "skipped"})
-		return &payment.RefundResponse{Status: payment.ProviderStatusSuccess}, nil
+	if err := validateRealPaidBalancePackageOrder(p.Order); err != nil {
+		return nil, err
 	}
 
-	// Use the exact provider instance that created this order, not a random one
-	// from the registry. Each instance has its own merchant credentials.
+	// 使用创建订单的支付实例；每个实例都有独立的商户凭证。
 	prov, err := s.getRefundProvider(ctx, p.Order)
 	if err != nil {
 		return nil, fmt.Errorf("get refund provider: %w", err)
@@ -349,8 +366,8 @@ func (s *PaymentService) QueryAndFinalizeRefund(ctx context.Context, oid int64) 
 	if o.Status != OrderStatusRefundPending {
 		return nil, infraerrors.BadRequest("INVALID_STATUS", "only refund pending orders can be finalized")
 	}
-	if o.OrderType != payment.OrderTypeBalanceSubscription {
-		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders can be refunded")
+	if err := validateRealPaidBalancePackageOrder(o); err != nil {
+		return nil, err
 	}
 
 	prov, err := s.getRefundProvider(ctx, o)

@@ -473,6 +473,8 @@ export default {
       FORBIDDEN: 'No permission for this order.',
       CONFLICT: 'Order status has changed. Please refresh.',
       INVALID_ORDER_TYPE: 'Only balance orders can request a refund.',
+      ADMIN_GRANTED_ORDER: 'Administrator-granted balance packages cannot be refunded.',
+      REFUND_REQUIRES_REAL_PAYMENT: 'Only balance packages paid by the user can be refunded.',
       INVALID_STATUS: 'The current order status does not allow this operation.',
       REFUND_MANUAL_REVIEW_REQUIRED: 'This refund requires manual review.',
       NO_REFUNDABLE_QUOTA: 'The package quota has been fully consumed and is not refundable.',

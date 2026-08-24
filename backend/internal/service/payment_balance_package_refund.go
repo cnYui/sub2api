@@ -43,15 +43,15 @@ func (s *PaymentService) GetBalancePackageRefundQuote(ctx context.Context, order
 	if o.UserID != userID {
 		return nil, infraerrors.Forbidden("FORBIDDEN", "no permission")
 	}
-	if o.PaymentType == payment.PaymentTypeAdminGrant {
-		return nil, infraerrors.Forbidden("ADMIN_GRANTED_ORDER", "admin granted packages cannot be refunded")
+	if err := validateRealPaidBalancePackageOrder(o); err != nil {
+		return nil, err
 	}
 	return s.calculateBalancePackageRefundQuote(ctx, o)
 }
 
 func (s *PaymentService) calculateBalancePackageRefundQuote(ctx context.Context, o *dbent.PaymentOrder) (*BalancePackageRefundQuote, error) {
-	if o == nil || o.OrderType != payment.OrderTypeBalanceSubscription {
-		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders have a refund quote")
+	if err := validateRealPaidBalancePackageOrder(o); err != nil {
+		return nil, err
 	}
 	quote := &BalancePackageRefundQuote{
 		PurchaseBaseAmount: o.Amount,

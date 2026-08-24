@@ -1,7 +1,6 @@
-/**
- * Shared utility functions for payment order display.
- * Used by AdminOrderDetail, AdminOrderTable, AdminRefundDialog, AdminOrdersView, etc.
- */
+/** 支付订单展示和退款入口共用判断。 */
+
+import type { PaymentOrder } from '@/types/payment'
 
 const STATUS_BADGE_MAP: Record<string, string> = {
   PENDING: 'badge-warning',
@@ -20,6 +19,7 @@ const STATUS_BADGE_MAP: Record<string, string> = {
 }
 
 const REFUNDABLE_STATUSES = ['REFUND_REQUESTED', 'REFUND_FAILED']
+const REAL_PAYMENT_TYPES = new Set(['alipay', 'alipay_direct', 'wxpay', 'wxpay_direct', 'stripe', 'card', 'link', 'easypay', 'airwallex'])
 
 export function statusBadgeClass(status: string): string {
   return STATUS_BADGE_MAP[status] || 'badge-secondary'
@@ -27,6 +27,15 @@ export function statusBadgeClass(status: string): string {
 
 export function canRefund(status: string): boolean {
   return REFUNDABLE_STATUSES.includes(status)
+}
+
+/** 只有真实支付产生的余额套餐才允许进入退款流程。 */
+export function isRealPaidBalancePackageOrder(order: PaymentOrder | null | undefined): boolean {
+  if (!order) return false
+  return order.order_type === 'balance_subscription'
+    && REAL_PAYMENT_TYPES.has(String(order.payment_type).trim().toLowerCase())
+    && Number(order.pay_amount) > 0
+    && Boolean(order.paid_at)
 }
 
 export function formatOrderDateTime(dateStr: string): string {

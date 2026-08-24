@@ -108,6 +108,7 @@ import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
 import { currencySymbol } from '@/components/payment/currency'
+import { isRealPaidBalancePackageOrder } from '@/components/payment/orderUtils'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -204,7 +205,7 @@ async function confirmRefund() {
 }
 
 function canRequestRefund(order: PaymentOrder): boolean {
-  if (order.order_type !== 'balance_subscription') return false
+  if (!isRealPaidBalancePackageOrder(order)) return false
   if (order.status !== 'COMPLETED' && order.status !== 'REFUND_FAILED') return false
   if (!order.provider_instance_id) return false
   return refundEligibleProviders.value.has(order.provider_instance_id)

@@ -1,5 +1,11 @@
 # 项目协作约定
 
+- 2026-08-24：按管理员要求恢复并实测 DeepSeek 账号 ID `6`：第一次请求因 `schedulable=false` 返回 `503 no available accounts`；管理员“恢复状态”后仍未自动开启调度，随后手动开启调度再请求 `deepseek-v4-flash`，实际命中账号 `6` 并返回 HTTP `200`、`DS_LIVE_OK`。账号当前 `active + schedulable=true`，用量记录 `362700`，详见 `docs/ai/context/20260824-181513-deepseek-account-live-request-verification_CN.md`。
+
+- 2026-08-24：退款准入已收紧为仅真实支付的余额套餐订单；管理员发放、兑换码、零金额、流量卡和旧普通余额订单均不可退款。后端要求实付金额、支付完成时间和支付平台交易号同时存在，前端四处退款入口同步隐藏不符合条件的订单。详见 `docs/ai/context/20260824-180521-refund-real-payment-only_CN.md`。
+
+- 2026-08-24：只读核查页面“14 启用、1 错误”的唯一异常账号为 ID `6`（DeepSeek API Key）；上游 `https://api.ai-genesis.app` 连续 3 次返回 `403 GROUP_DELETED`（“API Key 所属分组已删除”），系统按 OpenAI 403 三次阈值将其置为 `error` 且停止调度。更换上游分组/凭证后再恢复，不要直接重置状态；详见 `docs/ai/context/20260824-180252-upstream-account-error-diagnosis_CN.md`。
+
 - 2026-08-24：提交 `f153d0f1a` 已同步到私有 GitHub `fork/main`；基于该提交构建镜像 `sha256:6bcbeea8b70b742b3cec742c8aaf9b8c6d3227f9f33fd8b653d89746c6637a98`，仅替换公网应用容器 `sub2api-official-18082`。应用、PostgreSQL、Redis 均 healthy，本地、Nginx、三个公网健康端点及 `/usage-guide` 均返回 200，详见 `docs/ai/context/20260824-170415-main-sync-docker-redeploy_CN.md`。
 
 - 2026-08-24：已修复前端全量测试中 4 个既有断言失败及 10 个缺少 `getLiveCapability` mock 的未处理错误。修正回滚 API 超时断言、首页品牌文案、支付方式边框 class，并补齐两个 GroupsView 测试 mock；`pnpm typecheck` 通过，Vitest 全量 200 个测试文件/1392 个测试全部通过。本次未提交、推送或部署，详见 `docs/ai/context/20260824-164407-frontend-test-failure-fix-verification_CN.md`。

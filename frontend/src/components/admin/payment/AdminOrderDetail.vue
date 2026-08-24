@@ -118,7 +118,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
-import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime, isRealPaidBalancePackageOrder } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
 const { t } = useI18n()
@@ -156,7 +156,7 @@ const emit = defineEmits<{
 }>()
 
 function canRefund(order: PaymentOrder): boolean {
-  return order.order_type === 'balance_subscription' && order.payment_type !== 'admin_grant' && canRefundStatus(order.status)
+  return isRealPaidBalancePackageOrder(order) && canRefundStatus(order.status)
 }
 
 function formatDateTime(dateStr: string): string {

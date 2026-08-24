@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidateRefundRequestRejectsLegacyGuessedProviderInstance(t *testing.T) {
+func TestRequestRefundRejectsLegacyOrderType(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 
@@ -61,9 +61,94 @@ func TestValidateRefundRequestRejectsLegacyGuessedProviderInstance(t *testing.T)
 		entClient: client,
 	}
 
-	_, err = svc.validateRefundRequest(ctx, order.ID, user.ID)
+	err = svc.RequestRefund(ctx, order.ID, user.ID, "legacy order")
 	require.Error(t, err)
-	require.Equal(t, "USER_REFUND_DISABLED", infraerrors.Reason(err))
+	require.Equal(t, "INVALID_ORDER_TYPE", infraerrors.Reason(err))
+}
+
+func TestValidateRealPaidBalancePackageOrderRequiresUserPayment(t *testing.T) {
+	now := time.Now().UTC()
+	base := func() *dbent.PaymentOrder {
+		return &dbent.PaymentOrder{
+			PaymentType:    payment.TypeAlipay,
+			PaymentTradeNo: "trade-real-payment",
+			OrderType:      payment.OrderTypeBalanceSubscription,
+			PayAmount:      29,
+			PaidAt:         &now,
+		}
+	}
+
+	tests := []struct {
+		name       string
+		order      func() *dbent.PaymentOrder
+		wantReason string
+	}{
+		{
+			name: "administrator grant",
+			order: func() *dbent.PaymentOrder {
+				o := base()
+				o.PaymentType = payment.PaymentTypeAdminGrant
+				return o
+			},
+			wantReason: "ADMIN_GRANTED_ORDER",
+		},
+		{
+			name: "zero payment amount",
+			order: func() *dbent.PaymentOrder {
+				o := base()
+				o.PayAmount = 0
+				return o
+			},
+			wantReason: "REFUND_REQUIRES_REAL_PAYMENT",
+		},
+		{
+			name: "missing paid timestamp",
+			order: func() *dbent.PaymentOrder {
+				o := base()
+				o.PaidAt = nil
+				return o
+			},
+			wantReason: "REFUND_REQUIRES_REAL_PAYMENT",
+		},
+		{
+			name: "missing provider trade number",
+			order: func() *dbent.PaymentOrder {
+				o := base()
+				o.PaymentTradeNo = ""
+				return o
+			},
+			wantReason: "REFUND_REQUIRES_REAL_PAYMENT",
+		},
+		{
+			name: "redeem code payment type",
+			order: func() *dbent.PaymentOrder {
+				o := base()
+				o.PaymentType = "redeem_code"
+				return o
+			},
+			wantReason: "REFUND_REQUIRES_REAL_PAYMENT",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRealPaidBalancePackageOrder(tt.order())
+			require.Error(t, err)
+			require.Equal(t, tt.wantReason, infraerrors.Reason(err))
+		})
+	}
+}
+
+func TestValidateRealPaidBalancePackageOrderAcceptsUserPayment(t *testing.T) {
+	paidAt := time.Now().UTC()
+	err := validateRealPaidBalancePackageOrder(&dbent.PaymentOrder{
+		PaymentType:    payment.TypeAlipay,
+		PaymentTradeNo: "trade-real-payment",
+		OrderType:      payment.OrderTypeBalanceSubscription,
+		PayAmount:      29,
+		PaidAt:         &paidAt,
+	})
+	require.NoError(t, err)
 }
 
 func TestPrepareRefundRejectsLegacyGuessedProviderInstance(t *testing.T) {
