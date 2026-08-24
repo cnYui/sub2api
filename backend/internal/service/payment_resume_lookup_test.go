@@ -64,7 +64,7 @@ func TestGetPublicOrderByResumeTokenReturnsMatchingOrder(t *testing.T) {
 		SetOutTradeNo("sub2_resume_lookup").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-1").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -116,7 +116,7 @@ func TestGetPublicOrderByResumeTokenRejectsSnapshotMismatch(t *testing.T) {
 		SetOutTradeNo("sub2_resume_lookup_mismatch").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-2").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -168,7 +168,7 @@ func TestGetPublicOrderByResumeTokenUsesSnapshotAuthorityWhenColumnsDiffer(t *te
 		SetOutTradeNo("sub2_resume_snapshot_authority").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-snapshot-authority").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -225,7 +225,7 @@ func TestGetPublicOrderByResumeTokenChecksUpstreamForPendingOrder(t *testing.T) 
 		SetOutTradeNo("sub2_resume_lookup_pending").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-pending").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -280,7 +280,7 @@ func TestVerifyOrderPublicDoesNotCheckUpstreamForPendingOrder(t *testing.T) {
 		SetOutTradeNo("sub2_public_verify_pending").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-public-verify").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").

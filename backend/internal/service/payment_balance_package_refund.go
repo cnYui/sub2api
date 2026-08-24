@@ -169,7 +169,6 @@ func (s *PaymentService) requestBalancePackageRefund(ctx context.Context, o *dbe
 		RefundAmount:  quote.EstimatedRefundAmount,
 		GatewayAmount: calculateGatewayRefundAmount(locked.Amount, locked.PayAmount, quote.EstimatedRefundAmount, PaymentOrderCurrency(&locked)),
 		Reason:        trimmedReason,
-		DeductionType: payment.DeductionTypeNone,
 		Operator:      "user",
 	}
 	_, err = s.ExecuteRefund(ctx, plan)

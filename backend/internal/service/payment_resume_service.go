@@ -58,9 +58,7 @@ type WeChatPaymentResumeClaims struct {
 	TokenType            string `json:"tk,omitempty"`
 	OpenID               string `json:"openid"`
 	PaymentType          string `json:"pt,omitempty"`
-	Amount               string `json:"amt,omitempty"`
 	OrderType            string `json:"ot,omitempty"`
-	PlanID               int64  `json:"pid,omitempty"`
 	BalancePackagePlanID int64  `json:"bpid,omitempty"`
 	TrafficPackID        int64  `json:"tpid,omitempty"`
 	RedirectTo           string `json:"rd,omitempty"`
@@ -384,8 +382,8 @@ func (s *PaymentResumeService) CreateWeChatPaymentResumeToken(claims WeChatPayme
 	if claims.PaymentType == "" {
 		claims.PaymentType = payment.TypeWxpay
 	}
-	if claims.OrderType == "" {
-		claims.OrderType = payment.OrderTypeBalance
+	if !isSupportedPurchaseOrderType(claims.OrderType) {
+		return "", fmt.Errorf("wechat payment resume token requires a supported order type")
 	}
 	claims.TokenType = wechatPaymentResumeTokenType
 	return s.createSignedToken(claims)
@@ -415,8 +413,8 @@ func (s *PaymentResumeService) ParseWeChatPaymentResumeToken(token string) (*WeC
 	if claims.PaymentType == "" {
 		claims.PaymentType = payment.TypeWxpay
 	}
-	if claims.OrderType == "" {
-		claims.OrderType = payment.OrderTypeBalance
+	if !isSupportedPurchaseOrderType(claims.OrderType) {
+		return nil, infraerrors.BadRequest("INVALID_WECHAT_PAYMENT_RESUME_TOKEN", "wechat payment resume token order type is unsupported")
 	}
 	return &claims, nil
 }

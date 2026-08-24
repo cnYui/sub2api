@@ -21,20 +21,15 @@ export type OrderStatus =
 
 export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex' | 'admin_grant'
 
-export type OrderType = 'balance' | 'subscription' | 'balance_subscription' | 'traffic_pack'
+export type OrderType = 'balance_subscription' | 'traffic_pack'
 
 // ==================== Configuration ====================
 
 export interface PaymentConfig {
   payment_enabled: boolean
-  min_amount: number
-  max_amount: number
   daily_limit: number
   max_pending_orders: number
   order_timeout_minutes: number
-  balance_disabled: boolean
-  balance_recharge_multiplier: number
-  subscription_usd_to_cny_rate: number
   enabled_payment_types: PaymentType[]
   help_image_url: string
   help_text: string
@@ -65,14 +60,9 @@ export interface CheckoutInfoResponse {
   methods: Record<string, MethodLimit>
   global_min: number
   global_max: number
-  plans: SubscriptionPlan[]
   balance_packages?: BalancePackagePlan[]
   traffic_packs?: TrafficPack[]
   traffic_credit_summary?: TrafficCreditSummary | null
-  balance_disabled: boolean
-  balance_recharge_multiplier: number
-  /** Subscription CNY conversion rate (1 USD = X CNY); 0 = disabled, plan price is charged as-is */
-  subscription_usd_to_cny_rate: number
   recharge_fee_rate: number
   help_text: string
   help_image_url: string
@@ -105,7 +95,6 @@ export interface PaymentOrder {
   refund_requested_at?: string
   refund_requested_by?: number
   refund_request_reason?: string
-  plan_id?: number
   balance_package_plan_id?: number
   can_cancel_balance_package?: boolean
   traffic_pack_id?: number
@@ -151,35 +140,7 @@ export interface TrafficCreditSummary {
   next_expires_at?: string
 }
 
-// ==================== Plans & Channels ====================
-
-export interface SubscriptionPlan {
-  id: number
-  group_id: number
-  group_platform?: string
-  group_name?: string
-  rate_multiplier?: number
-  peak_rate_enabled?: boolean
-  peak_start?: string
-  peak_end?: string
-  peak_rate_multiplier?: number
-  daily_limit_usd?: number | null
-  weekly_limit_usd?: number | null
-  monthly_limit_usd?: number | null
-  supported_model_scopes?: string[]
-  name: string
-  description: string
-  price: number
-  original_price?: number
-  /** Display-only ISO 4217 currency label (e.g. "NZD"); empty means no label */
-  currency?: string
-  validity_days: number
-  validity_unit: string
-  /** Stored as JSON string in backend; API layer should parse before use */
-  features: string[]
-  for_sale: boolean
-  sort_order: number
-}
+// ==================== 商品与渠道 ====================
 
 export interface BalancePackagePlan {
   id: number
@@ -249,7 +210,6 @@ export interface CreateOrderRequest {
   amount: number
   payment_type: string
   order_type: string
-  plan_id?: number
   balance_package_plan_id?: number
   traffic_pack_id?: number
   return_url?: string

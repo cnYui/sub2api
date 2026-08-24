@@ -1,12 +1,12 @@
 /**
  * Payment Store
- * Manages payment configuration, current order state, and subscription plans
+ * Manages payment configuration and current order state.
  */
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { paymentAPI } from '@/api/payment'
-import type { PaymentConfig, PaymentOrder, SubscriptionPlan, CreateOrderRequest } from '@/types/payment'
+import type { PaymentConfig, PaymentOrder, CreateOrderRequest } from '@/types/payment'
 
 export const usePaymentStore = defineStore('payment', () => {
   // ==================== State ====================
@@ -15,9 +15,6 @@ export const usePaymentStore = defineStore('payment', () => {
   const config = ref<PaymentConfig | null>(null)
   /** Currently active order (for payment flow) */
   const currentOrder = ref<PaymentOrder | null>(null)
-  /** Available subscription plans */
-  const plans = ref<SubscriptionPlan[]>([])
-
   const configLoading = ref(false)
   const configLoaded = ref(false)
 
@@ -39,24 +36,6 @@ export const usePaymentStore = defineStore('payment', () => {
       return null
     } finally {
       configLoading.value = false
-    }
-  }
-
-  /** Fetch available subscription plans */
-  async function fetchPlans(): Promise<SubscriptionPlan[]> {
-    try {
-      const response = await paymentAPI.getPlans()
-      // Backend returns features as newline-separated string; parse to array
-      plans.value = (response.data || []).map((p: Omit<SubscriptionPlan, 'features'> & { features: string | string[] }) => ({
-        ...p,
-        features: typeof p.features === 'string'
-          ? p.features.split('\n').map((f: string) => f.trim()).filter(Boolean)
-          : (p.features || []),
-      }))
-      return plans.value
-    } catch (error: unknown) {
-      console.error('[payment] Failed to fetch plans:', error)
-      return []
     }
   }
 
@@ -89,11 +68,9 @@ export const usePaymentStore = defineStore('payment', () => {
   return {
     config,
     currentOrder,
-    plans,
     configLoading,
     configLoaded,
     fetchConfig,
-    fetchPlans,
     createOrder,
     pollOrderStatus,
     clearCurrentOrder

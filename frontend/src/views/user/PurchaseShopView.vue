@@ -173,8 +173,7 @@ const selectedTrafficPack = ref<TrafficPack | null>(null)
 const selectedMethod = ref('')
 const paymentState = ref<PaymentRecoverySnapshot>(emptyPaymentState())
 const checkout = ref<CheckoutInfoResponse>({
-  methods: {}, global_min: 0, global_max: 0, plans: [], balance_packages: [], traffic_packs: [], traffic_credit_summary: null, balance_disabled: false,
-  balance_recharge_multiplier: 1, subscription_usd_to_cny_rate: 0, recharge_fee_rate: 0,
+  methods: {}, global_min: 0, global_max: 0, balance_packages: [], traffic_packs: [], traffic_credit_summary: null, recharge_fee_rate: 0,
   help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 

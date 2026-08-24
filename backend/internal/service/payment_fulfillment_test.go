@@ -675,7 +675,7 @@ func TestExecuteBalanceFulfillmentRecoversAfterRedeemWithoutCreditingAgain(t *te
 	staleAt := time.Now().Add(-paymentFulfillmentLeaseDuration - time.Minute)
 	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusRecharging, staleAt)
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		ClearPlanID().
 		ClearSubscriptionGroupID().
 		ClearSubscriptionDays().
@@ -709,7 +709,7 @@ func TestDuplicatePaymentNotificationDoesNotReprocessCompletedBalanceOrder(t *te
 	client := newPaymentConfigServiceTestClient(t)
 	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusCompleted, time.Now())
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		ClearPlanID().
 		ClearSubscriptionGroupID().
 		ClearSubscriptionDays().
@@ -749,7 +749,7 @@ func TestPaymentNotificationRejectsAmountMismatchBeforeFulfillment(t *testing.T)
 	client := newPaymentConfigServiceTestClient(t)
 	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusPending, time.Now())
 	order, err := client.PaymentOrder.UpdateOneID(order.ID).
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		ClearPlanID().
 		ClearSubscriptionGroupID().
 		ClearSubscriptionDays().
@@ -863,7 +863,7 @@ func createPaymentFulfillmentSubscriptionOrder(
 		SetOutTradeNo("sub2_fulfillment_" + strconv.FormatInt(time.Now().UnixNano(), 10)).
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-fulfillment").
-		SetOrderType(payment.OrderTypeSubscription).
+		SetOrderType("legacy_subscription").
 		SetPlanID(100).
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
@@ -908,7 +908,7 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		SetOutTradeNo("sub2_subscription_affiliate").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-sub-affiliate").
-		SetOrderType(payment.OrderTypeSubscription).
+		SetOrderType("legacy_subscription").
 		SetPlanID(99).
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).
@@ -994,7 +994,7 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 		SetOutTradeNo("sub2_subscription_affiliate_idempotent").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-sub-affiliate-idempotent").
-		SetOrderType(payment.OrderTypeSubscription).
+		SetOrderType("legacy_subscription").
 		SetPlanID(100).
 		SetSubscriptionGroupID(7).
 		SetSubscriptionDays(30).

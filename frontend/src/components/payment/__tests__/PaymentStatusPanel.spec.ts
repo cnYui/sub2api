@@ -53,7 +53,7 @@ const orderFactory = (status: string) => ({
   payment_type: 'alipay',
   out_trade_no: 'sub2_20260420abcd1234',
   status,
-  order_type: 'balance',
+  order_type: 'balance_subscription',
   created_at: '2026-04-20T12:00:00Z',
   expires_at: '2099-01-01T12:30:00Z',
   refund_amount: 0,
@@ -82,7 +82,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://pay.example.com/qr/42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
       },
       global: {
         stubs: {
@@ -110,7 +110,7 @@ describe('PaymentStatusPanel', () => {
         payUrl: 'https://pay.example.com/session/42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
       },
       global: {
         stubs: {
@@ -140,7 +140,7 @@ describe('PaymentStatusPanel', () => {
         qrImageUrl: 'https://zpayz.cn/qrcode/42.jpg',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
       },
       global: {
         stubs: {
@@ -163,7 +163,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://pay.example.com/qr/42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'card_alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
       },
       global: {
         stubs: {
@@ -190,7 +190,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://pay.example.com/qr/42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'wxpay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
       },
       global: {
         stubs: {
@@ -231,7 +231,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://qr.alipay.com/dynamic-order-42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
         outTradeNo: 'sub2_20260420abcd1234',
         mobileAlipayDeepLink: true,
       },
@@ -271,7 +271,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://qr.alipay.com/dynamic-order-42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
         outTradeNo: 'sub2_20260420abcd1234',
         mobileAlipayDeepLink: true,
       },
@@ -316,7 +316,7 @@ describe('PaymentStatusPanel', () => {
         qrCode: 'https://qr.alipay.com/dynamic-order-42',
         expiresAt: '2099-01-01T12:30:00Z',
         paymentType: 'alipay',
-        orderType: 'balance',
+        orderType: 'balance_subscription',
         outTradeNo: 'sub2_20260420abcd1234',
         mobileAlipayDeepLink: true,
       },

@@ -23,10 +23,8 @@ const (
 	NotificationEmailEventAuthVerifyCode              = "auth.verify_code"
 	NotificationEmailEventAuthPasswordReset           = "auth.password_reset"
 	NotificationEmailEventNotificationEmailVerifyCode = "notification_email.verify_code"
-	NotificationEmailEventSubscriptionPurchaseSuccess = "subscription.purchase_success"
 	NotificationEmailEventSubscriptionExpiryReminder  = "subscription.expiry_reminder"
 	NotificationEmailEventBalanceLow                  = "balance.low"
-	NotificationEmailEventBalanceRechargeSuccess      = "balance.recharge_success"
 	NotificationEmailEventAccountQuotaAlert           = "account.quota_alert"
 	NotificationEmailEventContentModerationViolation  = "content_moderation.violation_notice"
 	NotificationEmailEventContentModerationDisabled   = "content_moderation.account_disabled"
@@ -1024,10 +1022,8 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventAuthVerifyCode,
 	NotificationEmailEventAuthPasswordReset,
 	NotificationEmailEventNotificationEmailVerifyCode,
-	NotificationEmailEventSubscriptionPurchaseSuccess,
 	NotificationEmailEventSubscriptionExpiryReminder,
 	NotificationEmailEventBalanceLow,
-	NotificationEmailEventBalanceRechargeSuccess,
 	NotificationEmailEventAccountQuotaAlert,
 	NotificationEmailEventContentModerationViolation,
 	NotificationEmailEventContentModerationDisabled,
@@ -1061,14 +1057,6 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Optional:     false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "verification_code", "expires_in_minutes"),
 	},
-	NotificationEmailEventSubscriptionPurchaseSuccess: {
-		Event:        NotificationEmailEventSubscriptionPurchaseSuccess,
-		Label:        "Subscription purchase success",
-		Description:  "Sent after a subscription purchase is fulfilled.",
-		Category:     "subscription",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "subscription_group", "subscription_days", "expiry_time", "order_id"),
-	},
 	NotificationEmailEventSubscriptionExpiryReminder: {
 		Event:        NotificationEmailEventSubscriptionExpiryReminder,
 		Label:        "Subscription expiry reminder",
@@ -1084,14 +1072,6 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Category:     "billing",
 		Optional:     true,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "current_balance", "threshold", "recharge_url", "unsubscribe_url"),
-	},
-	NotificationEmailEventBalanceRechargeSuccess: {
-		Event:        NotificationEmailEventBalanceRechargeSuccess,
-		Label:        "Balance recharge success",
-		Description:  "Sent after a balance recharge order is fulfilled.",
-		Category:     "billing",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "recharge_amount", "current_balance", "order_id"),
 	},
 	NotificationEmailEventAccountQuotaAlert: {
 		Event:       NotificationEmailEventAccountQuotaAlert,
@@ -1218,24 +1198,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>如果不是您本人操作，请忽略此邮件。</p>`),
 		},
 	},
-	NotificationEmailEventSubscriptionPurchaseSuccess: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Subscription purchase successful",
-			HTML: notificationEmailCard("#2563eb", "Subscription activated", `
-<p>Hello {{recipient_name}},</p>
-<p>Your subscription for <strong>{{subscription_group}}</strong> has been activated for <strong>{{subscription_days}}</strong> days.</p>
-<p>Expiry time: <strong>{{expiry_time}}</strong></p>
-<p>Order ID: {{order_id}}</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 订阅购买成功",
-			HTML: notificationEmailCard("#2563eb", "订阅已开通", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的 <strong>{{subscription_group}}</strong> 订阅已成功开通，有效期 <strong>{{subscription_days}}</strong> 天。</p>
-<p>到期时间：<strong>{{expiry_time}}</strong></p>
-<p>订单号：{{order_id}}</p>`),
-		},
-	},
 	NotificationEmailEventSubscriptionExpiryReminder: {
 		notificationEmailDefaultLocale: {
 			Subject: "[{{site_name}}] Subscription expires in {{days_remaining}} day(s)",
@@ -1272,24 +1234,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>请及时充值以免服务中断。</p>
 <p><a class="button" href="{{recharge_url}}">立即充值</a></p>
 <p class="muted"><a href="{{unsubscribe_url}}">退订此类余额提醒</a></p>`),
-		},
-	},
-	NotificationEmailEventBalanceRechargeSuccess: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Balance recharge successful",
-			HTML: notificationEmailCard("#16a34a", "Recharge successful", `
-<p>Hello {{recipient_name}},</p>
-<p>Your balance recharge of <strong>${{recharge_amount}}</strong> has been completed.</p>
-<p>Current balance: <strong>${{current_balance}}</strong></p>
-<p>Order ID: {{order_id}}</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 余额充值成功",
-			HTML: notificationEmailCard("#16a34a", "余额充值成功", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的余额充值 <strong>${{recharge_amount}}</strong> 已完成。</p>
-<p>当前余额：<strong>${{current_balance}}</strong></p>
-			<p>订单号：{{order_id}}</p>`),
 		},
 	},
 	NotificationEmailEventAccountQuotaAlert: {

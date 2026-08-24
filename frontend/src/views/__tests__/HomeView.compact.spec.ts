@@ -89,7 +89,7 @@ describe('HomeView compact mode', () => {
   it('treats whitespace-only custom content as empty and selects compact mode', () => {
     const wrapper = mountHome({ compact_home_enabled: true, home_content: ' \n\t ' })
 
-    expect(wrapper.get('[data-testid="compact-home"]').text()).toContain('Test site')
+    expect(wrapper.get('[data-testid="compact-home"]').text()).toContain('Genius Programmer Hub')
   })
 
   it.each([undefined, false])('selects the default home when compact mode is %s', (enabled) => {

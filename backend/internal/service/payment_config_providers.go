@@ -169,14 +169,6 @@ func (s *PaymentConfigService) countPendingOrders(ctx context.Context, providerI
 		).Count(ctx)
 }
 
-func (s *PaymentConfigService) countPendingOrdersByPlan(ctx context.Context, planID int64) (int, error) {
-	return s.entClient.PaymentOrder.Query().
-		Where(
-			paymentorder.PlanIDEQ(planID),
-			paymentorder.StatusIn(pendingOrderStatuses...),
-		).Count(ctx)
-}
-
 var validProviderKeys = map[string]bool{
 	payment.TypeEasyPay: true, payment.TypeAlipay: true, payment.TypeWxpay: true, payment.TypeStripe: true, payment.TypeAirwallex: true,
 }

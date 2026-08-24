@@ -66,7 +66,7 @@ func TestServerTimingScopesAndRoleGate(t *testing.T) {
 		{name: "invalid admin marker on non-scoped path", enabled: true, path: "/api/v1/settings/public", adminMarker: "true", role: "admin"},
 		{name: "admin prefix boundary", enabled: true, path: "/api/v1/administrator", role: "admin"},
 		{name: "auth me path", enabled: true, path: "/api/v1/auth/me", role: "user", wantHeader: true},
-		{name: "payment user path", enabled: true, path: "/api/v1/payment/plans", role: "user", wantHeader: true},
+		{name: "payment user path", enabled: true, path: "/api/v1/payment/checkout-info", role: "user", wantHeader: true},
 		{name: "payment public excluded", enabled: true, path: "/api/v1/payment/public/orders/verify", userMarker: "1", role: "user"},
 		{name: "payment webhook excluded", enabled: true, path: "/api/v1/payment/webhook/stripe", userMarker: "1", role: "user"},
 		{name: "channel monitors path", enabled: true, path: "/api/v1/channel-monitors/1/status", role: "user", wantHeader: true},

@@ -70,7 +70,7 @@ func TestCreateOrderInTx_WritesProviderSnapshot(t *testing.T) {
 		CreateOrderRequest{
 			UserID:      user.ID,
 			PaymentType: payment.TypeAlipay,
-			OrderType:   payment.OrderTypeBalance,
+			OrderType:   "legacy_balance",
 			ClientIP:    "127.0.0.1",
 			SrcHost:     "app.example.com",
 		},

@@ -98,12 +98,6 @@ func TestParsePaymentConfig(t *testing.T) {
 		if cfg.Enabled {
 			t.Fatal("expected Enabled=false by default")
 		}
-		if cfg.MinAmount != 1 {
-			t.Fatalf("expected MinAmount=1, got %v", cfg.MinAmount)
-		}
-		if cfg.MaxAmount != 0 {
-			t.Fatalf("expected MaxAmount=0 (no limit), got %v", cfg.MaxAmount)
-		}
 		if cfg.OrderTimeoutMin != 30 {
 			t.Fatalf("expected OrderTimeoutMin=30, got %v", cfg.OrderTimeoutMin)
 		}
@@ -125,13 +119,10 @@ func TestParsePaymentConfig(t *testing.T) {
 		t.Parallel()
 		vals := map[string]string{
 			SettingPaymentEnabled:                "true",
-			SettingMinRechargeAmount:             "5.00",
-			SettingMaxRechargeAmount:             "1000.00",
 			SettingDailyRechargeLimit:            "5000.00",
 			SettingOrderTimeoutMinutes:           "15",
 			SettingMaxPendingOrders:              "5",
 			SettingEnabledPaymentTypes:           "alipay,wxpay,stripe",
-			SettingBalancePayDisabled:            "true",
 			SettingLoadBalanceStrategy:           "least_amount",
 			SettingProductNamePrefix:             "PRE",
 			SettingProductNameSuffix:             "SUF",
@@ -141,12 +132,6 @@ func TestParsePaymentConfig(t *testing.T) {
 
 		if !cfg.Enabled {
 			t.Fatal("expected Enabled=true")
-		}
-		if cfg.MinAmount != 5 {
-			t.Fatalf("MinAmount = %v, want 5", cfg.MinAmount)
-		}
-		if cfg.MaxAmount != 1000 {
-			t.Fatalf("MaxAmount = %v, want 1000", cfg.MaxAmount)
 		}
 		if cfg.DailyLimit != 5000 {
 			t.Fatalf("DailyLimit = %v, want 5000", cfg.DailyLimit)
@@ -162,9 +147,6 @@ func TestParsePaymentConfig(t *testing.T) {
 		}
 		if cfg.EnabledTypes[0] != "alipay" || cfg.EnabledTypes[1] != "wxpay" || cfg.EnabledTypes[2] != "stripe" {
 			t.Fatalf("EnabledTypes = %v, want [alipay wxpay stripe]", cfg.EnabledTypes)
-		}
-		if !cfg.BalanceDisabled {
-			t.Fatal("expected BalanceDisabled=true")
 		}
 		if cfg.LoadBalanceStrategy != "least_amount" {
 			t.Fatalf("LoadBalanceStrategy = %q, want %q", cfg.LoadBalanceStrategy, "least_amount")
@@ -517,16 +499,13 @@ func TestUpdatePaymentConfig_OmittedVisibleMethodRoutingIsPreserved(t *testing.T
 func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
 	repo := &paymentConfigSettingRepoStub{values: map[string]string{
 		SettingEnabledPaymentTypes: "alipay,wxpay",
-		SettingBalancePayDisabled:  "true",
 		SettingProductNamePrefix:   "existing",
 	}}
 	svc := &PaymentConfigService{settingRepo: repo}
 
-	falseValue := false
 	emptyString := ""
 	err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{
 		EnabledTypes:      []string{},
-		BalanceDisabled:   &falseValue,
 		ProductNamePrefix: &emptyString,
 	})
 	if err != nil {
@@ -535,7 +514,6 @@ func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
 
 	want := map[string]string{
 		SettingEnabledPaymentTypes: "",
-		SettingBalancePayDisabled:  "false",
 		SettingProductNamePrefix:   "",
 	}
 	if len(repo.updates) != len(want) {

@@ -43,7 +43,7 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
     payment_type: 'stripe',
     out_trade_no: 'sub2_202606250001',
     status: 'COMPLETED',
-    order_type: 'subscription',
+    order_type: 'balance_subscription',
     created_at: '2026-06-25T10:00:00Z',
     expires_at: '2026-06-25T10:30:00Z',
     refund_amount: 25,
@@ -73,16 +73,15 @@ describe('admin order currency display', () => {
     expect(text).toContain('$25.00')
   })
 
-  it('uses order currency for pay_amount and USD for refundable balance amounts', () => {
+  it('uses order currency for pay_amount and USD for the server-calculated refund amount', () => {
     const wrapper = mount(AdminRefundDialog, {
       props: {
         show: true,
         order: orderFactory({
           currency: 'USD',
-          status: 'PARTIALLY_REFUNDED',
-          refund_amount: 20,
+          status: 'REFUND_REQUESTED',
+          refund_amount: 80,
         }),
-        userBalance: 200,
       },
       global: {
         stubs: {
@@ -94,9 +93,7 @@ describe('admin order currency display', () => {
     const text = wrapper.text()
     expect(text).toContain('$108.00')
     expect(text).toContain('$100.00')
-    expect(text).toContain('$20.00')
-    expect(text).toContain('$80.00')
-    expect(text).toContain('$200.00')
+	    expect(text).toContain('$80.00')
   })
 
   it('renders payment currency consistently in the shared order table', () => {

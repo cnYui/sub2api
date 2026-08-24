@@ -88,9 +88,7 @@ type wechatOAuthUserInfoResponse struct {
 
 type wechatPaymentOAuthContext struct {
 	PaymentType          string `json:"payment_type"`
-	Amount               string `json:"amount,omitempty"`
 	OrderType            string `json:"order_type,omitempty"`
-	PlanID               int64  `json:"plan_id,omitempty"`
 	BalancePackagePlanID int64  `json:"balance_package_plan_id,omitempty"`
 	TrafficPackID        int64  `json:"traffic_pack_id,omitempty"`
 }
@@ -343,6 +341,18 @@ func (h *AuthHandler) WeChatPaymentOAuthStart(c *gin.Context) {
 		response.BadRequest(c, "Invalid payment type")
 		return
 	}
+	orderType := strings.TrimSpace(c.Query("order_type"))
+	balancePackagePlanID := parseWeChatPaymentPlanID(c.Query("balance_package_plan_id"))
+	trafficPackID := parseWeChatPaymentPlanID(c.Query("traffic_pack_id"))
+	if orderType != payment.OrderTypeBalanceSubscription && orderType != payment.OrderTypeTrafficPack {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package and traffic pack orders are supported"))
+		return
+	}
+	if (orderType == payment.OrderTypeBalanceSubscription && balancePackagePlanID <= 0) ||
+		(orderType == payment.OrderTypeTrafficPack && trafficPackID <= 0) {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_INPUT", "payment product is required"))
+		return
+	}
 
 	state, err := oauth.GenerateState()
 	if err != nil {
@@ -356,11 +366,9 @@ func (h *AuthHandler) WeChatPaymentOAuthStart(c *gin.Context) {
 	}
 	rawContext, err := encodeWeChatPaymentOAuthContext(wechatPaymentOAuthContext{
 		PaymentType:          paymentType,
-		Amount:               strings.TrimSpace(c.Query("amount")),
-		OrderType:            strings.TrimSpace(c.Query("order_type")),
-		PlanID:               parseWeChatPaymentPlanID(c.Query("plan_id")),
-		BalancePackagePlanID: parseWeChatPaymentPlanID(c.Query("balance_package_plan_id")),
-		TrafficPackID:        parseWeChatPaymentPlanID(c.Query("traffic_pack_id")),
+		OrderType:            orderType,
+		BalancePackagePlanID: balancePackagePlanID,
+		TrafficPackID:        trafficPackID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, infraerrors.InternalServer("OAUTH_CONTEXT_ENCODE_FAILED", "failed to encode oauth context").WithCause(err))
@@ -459,9 +467,7 @@ func (h *AuthHandler) WeChatPaymentOAuthCallback(c *gin.Context) {
 	resumeToken, err := h.wechatPaymentResumeService().CreateWeChatPaymentResumeToken(service.WeChatPaymentResumeClaims{
 		OpenID:               openid,
 		PaymentType:          paymentContext.PaymentType,
-		Amount:               paymentContext.Amount,
 		OrderType:            paymentContext.OrderType,
-		PlanID:               paymentContext.PlanID,
 		BalancePackagePlanID: paymentContext.BalancePackagePlanID,
 		TrafficPackID:        paymentContext.TrafficPackID,
 		RedirectTo:           redirectTo,

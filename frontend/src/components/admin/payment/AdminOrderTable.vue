@@ -229,15 +229,12 @@ const paymentTypeFilterOptions = computed(() => [
 
 const orderTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allOrderTypes') },
-  { value: 'balance', label: t('payment.admin.balanceOrder') },
-  { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
   { value: 'balance_subscription', label: t('payment.admin.balancePackageOrder') },
   { value: 'traffic_pack', label: t('payment.admin.trafficPackOrder') },
 ])
 
 function canRefundRow(order: PaymentOrder): boolean {
-  if (order.payment_type === 'admin_grant') return false
-  return canRefund(order.status)
+  return order.order_type === 'balance_subscription' && order.payment_type !== 'admin_grant' && canRefund(order.status)
 }
 
 function formatDateTime(dateStr: string): string {

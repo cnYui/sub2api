@@ -73,7 +73,7 @@ describe('User UI request marker', () => {
     '/channel-monitors',
     '/channel-monitors/9/status',
     '/payment/config',
-    '/payment/plans',
+    '/payment/checkout-info',
     '/payment/orders',
     '/payment/orders/my',
     '/api/v1/auth/me',

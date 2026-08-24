@@ -198,7 +198,7 @@ describe('API Client', () => {
       })
       apiClient.defaults.adapter = adapter
 
-      await apiClient.get('/payment/plans')
+      await apiClient.get('/payment/checkout-info')
       expect(adapter.mock.calls[0][0].headers.get('X-User-UI-Request')).toBe('1')
 
       await apiClient.post('/payment/public/orders/verify', {})

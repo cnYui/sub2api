@@ -80,7 +80,7 @@ describe('decidePaymentLaunch', () => {
       resume_token: 'resume-1',
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -96,7 +96,7 @@ describe('decidePaymentLaunch', () => {
       client_secret: 'cs_test',
     }), {
       visibleMethod: 'stripe',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -109,13 +109,13 @@ describe('decidePaymentLaunch', () => {
       client_secret: 'cs_test',
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'subscription',
+      orderType: 'balance_subscription',
       isMobile: true,
     })
 
     expect(decision.kind).toBe('stripe_route')
     expect(decision.stripeMethod).toBe('wechat_pay')
-    expect(decision.paymentState.orderType).toBe('subscription')
+    expect(decision.paymentState.orderType).toBe('balance_subscription')
   })
 
   it('routes Airwallex client secrets through the hosted Airwallex page', () => {
@@ -128,7 +128,7 @@ describe('decidePaymentLaunch', () => {
       out_trade_no: 'sub2_awx',
     }), {
       visibleMethod: 'airwallex',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
       airwallexRouteUrl: '/payment/airwallex?order_id=101',
     })
@@ -149,7 +149,7 @@ describe('decidePaymentLaunch', () => {
       out_trade_no: 'sub2_abc',
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -166,7 +166,7 @@ describe('decidePaymentLaunch', () => {
       qr_code: 'https://pay.example.com/qr/session',
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: true,
     })
 
@@ -181,7 +181,7 @@ describe('decidePaymentLaunch', () => {
       qr_code: 'https://pay.example.com/qr/session',
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -194,7 +194,7 @@ describe('decidePaymentLaunch', () => {
       qr_image_url: 'https://zpayz.cn/qrcode/order-101.jpg',
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -215,7 +215,7 @@ describe('decidePaymentLaunch', () => {
       },
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: true,
     })
 
@@ -238,13 +238,13 @@ describe('decidePaymentLaunch', () => {
       },
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'subscription',
+      orderType: 'balance_subscription',
       isMobile: true,
     })
 
     expect(decision.kind).toBe('wechat_jsapi')
     expect(decision.jsapi?.appId).toBe('wx123')
-    expect(decision.paymentState.orderType).toBe('subscription')
+    expect(decision.paymentState.orderType).toBe('balance_subscription')
   })
 
   it('forces qr_waiting for mobile alipay when forceQRCode is enabled', () => {
@@ -253,7 +253,7 @@ describe('decidePaymentLaunch', () => {
       qr_code: 'https://pay.example.com/qr/session',
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: true,
       forceQRCode: true,
     })
@@ -268,7 +268,7 @@ describe('decidePaymentLaunch', () => {
       alipay_mobile_precreate_deep_link: true,
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: true,
     })
 
@@ -283,7 +283,7 @@ describe('decidePaymentLaunch', () => {
       alipay_mobile_precreate_deep_link: true,
     }), {
       visibleMethod: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: false,
     })
 
@@ -296,7 +296,7 @@ describe('decidePaymentLaunch', () => {
       qr_code: 'https://pay.example.com/qr/session',
     }), {
       visibleMethod: 'wxpay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       isMobile: true,
       forceQRCode: true,
     })
@@ -311,14 +311,14 @@ describe('buildCreateOrderPayload', () => {
     expect(buildCreateOrderPayload({
       amount: 88,
       paymentType: 'alipay_direct',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       origin: 'https://app.example.com/',
       isMobile: true,
       isWechatBrowser: false,
     })).toEqual({
       amount: 88,
       payment_type: 'alipay',
-      order_type: 'balance',
+      order_type: 'balance_subscription',
       return_url: 'https://app.example.com/payment/result',
       is_mobile: true,
       payment_source: 'hosted_redirect',
@@ -329,16 +329,16 @@ describe('buildCreateOrderPayload', () => {
     expect(buildCreateOrderPayload({
       amount: 128,
       paymentType: 'wxpay',
-      orderType: 'subscription',
-      planId: 7,
+      orderType: 'balance_subscription',
+      balancePackagePlanId: 7,
       origin: 'https://app.example.com',
       isMobile: false,
       isWechatBrowser: true,
     })).toEqual({
       amount: 128,
       payment_type: 'wxpay',
-      order_type: 'subscription',
-      plan_id: 7,
+      order_type: 'balance_subscription',
+      balance_package_plan_id: 7,
       return_url: 'https://app.example.com/payment/result',
       is_mobile: false,
       payment_source: 'wechat_in_app_resume',
@@ -349,7 +349,7 @@ describe('buildCreateOrderPayload', () => {
     expect(buildCreateOrderPayload({
       amount: 50,
       paymentType: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       origin: 'https://app.example.com',
       isMobile: true,
       isWechatBrowser: false,
@@ -363,7 +363,7 @@ describe('buildCreateOrderPayload', () => {
     expect(buildCreateOrderPayload({
       amount: 50,
       paymentType: 'alipay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       origin: 'https://app.example.com',
       isMobile: true,
       isWechatBrowser: false,
@@ -378,7 +378,7 @@ describe('buildCreateOrderPayload', () => {
     expect(buildCreateOrderPayload({
       amount: 50,
       paymentType: 'wxpay',
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       origin: 'https://app.example.com',
       isMobile: true,
       isWechatBrowser: false,
@@ -406,7 +406,7 @@ describe('readPaymentRecoverySnapshot', () => {
       countryCode: '',
       paymentEnv: '',
       payAmount: 18,
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       paymentMode: 'popup',
       resumeToken: 'resume-33',
       createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
@@ -436,7 +436,7 @@ describe('readPaymentRecoverySnapshot', () => {
       countryCode: '',
       paymentEnv: '',
       payAmount: 18,
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       paymentMode: 'popup',
       resumeToken: 'resume-55',
       createdAt: Date.UTC(2024, 0, 1, 0, 0, 0),
@@ -467,7 +467,7 @@ describe('readPaymentRecoverySnapshot', () => {
       payUrl: 'https://pay.example.com/session/44',
       clientSecret: '',
       payAmount: 18,
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       paymentMode: 'popup',
       resumeToken: 'resume-44',
       createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
@@ -491,7 +491,7 @@ describe('readPaymentRecoverySnapshot', () => {
       outTradeNo: 'sub2_45',
       clientSecret: 'awx_cs',
       payAmount: 28,
-      orderType: 'balance',
+      orderType: 'balance_subscription',
       paymentMode: '',
       resumeToken: 'resume-45',
       createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),

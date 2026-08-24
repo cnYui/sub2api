@@ -78,11 +78,10 @@ export interface PaymentLaunchDecision {
 }
 
 export interface BuildCreateOrderPayloadInput {
-  amount: number
-  paymentType: string
-  orderType: OrderType
-  planId?: number
-  balancePackagePlanId?: number
+	amount: number
+	paymentType: string
+	orderType: OrderType
+	balancePackagePlanId?: number
   trafficPackId?: number
   origin?: string
   isMobile: boolean
@@ -139,10 +138,7 @@ export function buildCreateOrderPayload(input: BuildCreateOrderPayloadInput): Cr
       : 'hosted_redirect',
   }
 
-  if (input.planId) {
-    payload.plan_id = input.planId
-  }
-  if (input.balancePackagePlanId) {
+	if (input.balancePackagePlanId) {
     payload.balance_package_plan_id = input.balancePackagePlanId
   }
   if (input.trafficPackId) {
@@ -321,6 +317,10 @@ export function readPaymentRecoverySnapshot(
       return null
     }
 
+    if (parsed.orderType !== 'balance_subscription' && parsed.orderType !== 'traffic_pack') {
+      return null
+    }
+
     return {
       orderId: parsed.orderId,
       amount: parsed.amount,
@@ -336,11 +336,7 @@ export function readPaymentRecoverySnapshot(
       countryCode: parsed.countryCode || '',
       paymentEnv: parsed.paymentEnv || '',
       payAmount: parsed.payAmount,
-      orderType: parsed.orderType === 'subscription'
-        ? 'subscription'
-        : parsed.orderType === 'balance_subscription'
-          ? 'balance_subscription'
-          : parsed.orderType === 'traffic_pack' ? 'traffic_pack' : 'balance',
+		orderType: parsed.orderType,
       paymentMode: parsed.paymentMode,
       resumeToken: parsed.resumeToken,
       alipayMobilePrecreateDeepLink: parsed.alipayMobilePrecreateDeepLink === true,

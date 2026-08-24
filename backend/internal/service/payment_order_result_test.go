@@ -225,34 +225,10 @@ func TestCalculateCreateOrderPayAmountUsesCurrencyPrecision(t *testing.T) {
 	}
 }
 
-func TestCalculateCreateOrderPayAmountForSubscriptionConvertsCNYPriceWhenRateConfigured(t *testing.T) {
-	t.Parallel()
-
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "CNY", payment.OrderTypeSubscription, 7.15)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if amountStr != "71.43" || amount != 71.43 {
-		t.Fatalf("subscription CNY pay amount = (%q, %v), want (71.43, 71.43)", amountStr, amount)
-	}
-}
-
-func TestCalculateCreateOrderPayAmountForSubscriptionAppliesFeeAfterCNYConversion(t *testing.T) {
-	t.Parallel()
-
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 2.5, "CNY", payment.OrderTypeSubscription, 7.15)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if amountStr != "73.22" || amount != 73.22 {
-		t.Fatalf("subscription CNY pay amount with fee = (%q, %v), want (73.22, 73.22)", amountStr, amount)
-	}
-}
-
 func TestCalculateCreateOrderPayAmountForBalancePackageAppliesFee(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(29, 1, "CNY", payment.OrderTypeBalanceSubscription, 0)
+	amountStr, amount, err := calculateCreateOrderPayAmount(29, 1, "CNY")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -264,65 +240,12 @@ func TestCalculateCreateOrderPayAmountForBalancePackageAppliesFee(t *testing.T) 
 func TestCalculateCreateOrderPayAmountForTrafficPackAppliesFee(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(2, 1, "CNY", payment.OrderTypeTrafficPack, 0)
+	amountStr, amount, err := calculateCreateOrderPayAmount(2, 1, "CNY")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if amountStr != "2.02" || amount != 2.02 {
 		t.Fatalf("traffic pack pay amount = (%q, %v), want (2.02, 2.02)", amountStr, amount)
-	}
-}
-
-func TestCalculateCreateOrderPayAmountForSubscriptionKeepsNonCNYPrice(t *testing.T) {
-	t.Parallel()
-
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "USD", payment.OrderTypeSubscription, 7.15)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if amountStr != "9.99" || amount != 9.99 {
-		t.Fatalf("subscription USD pay amount = (%q, %v), want (9.99, 9.99)", amountStr, amount)
-	}
-}
-
-// 换算是 opt-in：未配置汇率（rate=0）时，CNY 订阅保持 price 直付的存量行为。
-// 该测试锁住存量部署升级后行为不变的兼容承诺。
-func TestCalculateCreateOrderPayAmountForSubscriptionKeepsDirectPriceWhenRateDisabled(t *testing.T) {
-	t.Parallel()
-
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "CNY", payment.OrderTypeSubscription, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if amountStr != "9.99" || amount != 9.99 {
-		t.Fatalf("subscription CNY pay amount without rate = (%q, %v), want (9.99, 9.99)", amountStr, amount)
-	}
-}
-
-// 汇率只作用于订阅订单，余额充值订单不受影响。
-func TestCalculateCreateOrderPayAmountForBalanceIgnoresSubscriptionRate(t *testing.T) {
-	t.Parallel()
-
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(50, 0, "CNY", payment.OrderTypeBalance, 7.15)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if amountStr != "50.00" || amount != 50 {
-		t.Fatalf("balance CNY pay amount = (%q, %v), want (50.00, 50)", amountStr, amount)
-	}
-}
-
-func TestCalculateCreditedBalanceStillUsesRechargeMultiplier(t *testing.T) {
-	t.Parallel()
-
-	got := calculateCreditedBalance(10, 0.14)
-	if got != 1.4 {
-		t.Fatalf("credited balance = %v, want 1.4", got)
-	}
-
-	got = calculateCreditedBalance(5, 10)
-	if got != 50 {
-		t.Fatalf("credited balance = %v, want 50", got)
 	}
 }
 
@@ -366,41 +289,6 @@ func TestComputeValidityDaysSupportsSingularAndPluralUnits(t *testing.T) {
 	}
 }
 
-func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanProductName(t *testing.T) {
-	t.Parallel()
-
-	svc := &PaymentService{}
-	cfg := &PaymentConfig{
-		ProductNamePrefix: "PRE",
-		ProductNameSuffix: "SUF",
-	}
-	plan := &dbent.SubscriptionPlan{
-		Name:        "Pro Monthly",
-		ProductName: "Claude Pro",
-	}
-
-	got := svc.buildPaymentSubject(plan, 0, cfg, nil)
-	if got != "PRE Claude Pro SUF" {
-		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE Claude Pro SUF")
-	}
-}
-
-func TestBuildPaymentSubjectAppliesAffixToSubscriptionPlanDefaultName(t *testing.T) {
-	t.Parallel()
-
-	svc := &PaymentService{}
-	cfg := &PaymentConfig{
-		ProductNamePrefix: "PRE",
-		ProductNameSuffix: "SUF",
-	}
-	plan := &dbent.SubscriptionPlan{Name: "Team Monthly"}
-
-	got := svc.buildPaymentSubject(plan, 0, cfg, nil)
-	if got != "PRE Sub2API Subscription Team Monthly SUF" {
-		t.Fatalf("buildPaymentSubject() = %q, want %q", got, "PRE Sub2API Subscription Team Monthly SUF")
-	}
-}
-
 func TestMaybeBuildWeChatOAuthRequiredResponse(t *testing.T) {
 	t.Setenv("PAYMENT_RESUME_SIGNING_KEY", "0123456789abcdef0123456789abcdef")
 
@@ -415,11 +303,12 @@ func TestMaybeBuildWeChatOAuthRequiredResponse(t *testing.T) {
 	})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
-		Amount:          12.5,
-		PaymentType:     payment.TypeWxpay,
-		IsWeChatBrowser: true,
-		SrcURL:          "https://merchant.example/payment?from=wechat",
-		OrderType:       payment.OrderTypeBalance,
+		Amount:               12.5,
+		PaymentType:          payment.TypeWxpay,
+		IsWeChatBrowser:      true,
+		SrcURL:               "https://merchant.example/payment?from=wechat",
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	}, 12.5, 12.88, 0.03)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -442,7 +331,7 @@ func TestMaybeBuildWeChatOAuthRequiredResponse(t *testing.T) {
 	if resp.OAuth.RedirectURL != "/auth/wechat/payment/callback" {
 		t.Fatalf("redirect_url = %q, want %q", resp.OAuth.RedirectURL, "/auth/wechat/payment/callback")
 	}
-	if resp.OAuth.AuthorizeURL != "/api/v1/auth/oauth/wechat/payment/start?amount=12.5&order_type=balance&payment_type=wxpay&redirect=%2Fpurchase%3Ffrom%3Dwechat&scope=snsapi_base" {
+	if resp.OAuth.AuthorizeURL != "/api/v1/auth/oauth/wechat/payment/start?balance_package_plan_id=7&order_type=balance_subscription&payment_type=wxpay&redirect=%2Fpurchase%3Ffrom%3Dwechat&scope=snsapi_base" {
 		t.Fatalf("authorize_url = %q", resp.OAuth.AuthorizeURL)
 	}
 }
@@ -453,11 +342,12 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresMPConfigInWeChat(t *testin
 	svc := newWeChatPaymentOAuthTestService(nil)
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
-		Amount:          12.5,
-		PaymentType:     payment.TypeWxpay,
-		IsWeChatBrowser: true,
-		SrcURL:          "https://merchant.example/payment?from=wechat",
-		OrderType:       payment.OrderTypeBalance,
+		Amount:               12.5,
+		PaymentType:          payment.TypeWxpay,
+		IsWeChatBrowser:      true,
+		SrcURL:               "https://merchant.example/payment?from=wechat",
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	}, 12.5, 12.88, 0.03)
 	if resp != nil {
 		t.Fatalf("expected nil response, got %+v", resp)
@@ -492,11 +382,12 @@ func TestMaybeBuildWeChatOAuthRequiredResponseRequiresResumeSigningKey(t *testin
 	}
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
-		Amount:          12.5,
-		PaymentType:     payment.TypeWxpay,
-		IsWeChatBrowser: true,
-		SrcURL:          "https://merchant.example/payment?from=wechat",
-		OrderType:       payment.OrderTypeBalance,
+		Amount:               12.5,
+		PaymentType:          payment.TypeWxpay,
+		IsWeChatBrowser:      true,
+		SrcURL:               "https://merchant.example/payment?from=wechat",
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	}, 12.5, 12.88, 0.03)
 	if resp != nil {
 		t.Fatalf("expected nil response, got %+v", resp)
@@ -529,11 +420,12 @@ func TestMaybeBuildWeChatOAuthRequiredResponseFallsBackToConfiguredLegacySigning
 	}
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponse(context.Background(), CreateOrderRequest{
-		Amount:          12.5,
-		PaymentType:     payment.TypeWxpay,
-		IsWeChatBrowser: true,
-		SrcURL:          "https://merchant.example/payment?from=wechat",
-		OrderType:       payment.OrderTypeBalance,
+		Amount:               12.5,
+		PaymentType:          payment.TypeWxpay,
+		IsWeChatBrowser:      true,
+		SrcURL:               "https://merchant.example/payment?from=wechat",
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	}, 12.5, 12.88, 0.03)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
@@ -561,10 +453,11 @@ func TestMaybeBuildWeChatOAuthRequiredResponseForSelectionSkipsEasyPayProvider(t
 	})
 
 	resp, err := svc.maybeBuildWeChatOAuthRequiredResponseForSelection(context.Background(), CreateOrderRequest{
-		Amount:          12.5,
-		PaymentType:     payment.TypeWxpay,
-		IsWeChatBrowser: true,
-		OrderType:       payment.OrderTypeBalance,
+		Amount:               12.5,
+		PaymentType:          payment.TypeWxpay,
+		IsWeChatBrowser:      true,
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	}, 12.5, 12.88, 0.03, &payment.InstanceSelection{
 		ProviderKey: payment.TypeEasyPay,
 	})

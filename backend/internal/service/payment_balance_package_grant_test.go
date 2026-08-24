@@ -84,7 +84,7 @@ func TestGrantBalancePackageCreatesAuditablePackageLifecycle(t *testing.T) {
 		t.Fatalf("grant audit count = %d, want 1", grantAuditCount)
 	}
 
-	if _, _, err := svc.PrepareRefund(ctx, order.ID, 0, "test", false, false); infraerrors.Reason(err) != "ADMIN_GRANTED_ORDER" {
+	if _, err := svc.PrepareRefund(ctx, order.ID, "test"); infraerrors.Reason(err) != "ADMIN_GRANTED_ORDER" {
 		t.Fatalf("admin grant refund error reason = %q, want ADMIN_GRANTED_ORDER (err=%v)", infraerrors.Reason(err), err)
 	}
 }

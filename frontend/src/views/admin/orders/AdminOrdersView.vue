@@ -38,24 +38,20 @@
               <Icon name="refresh" size="sm" />
               {{ t('payment.admin.retry') }}
             </button>
-            <template v-if="row.status === 'REFUND_REQUESTED'">
+            <template v-if="row.order_type === 'balance_subscription' && row.status === 'REFUND_REQUESTED'">
               <span v-if="row.refund_amount" class="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">{{ creditedAmountSymbol }}{{ row.refund_amount.toFixed(2) }}</span>
               <button @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
                 <Icon name="check" size="sm" />
                 {{ t('payment.admin.approveRefund') }}
               </button>
             </template>
-            <button v-else-if="row.status === 'REFUND_FAILED'" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
+            <button v-else-if="row.order_type === 'balance_subscription' && row.status === 'REFUND_FAILED'" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
               <Icon name="refresh" size="sm" />
               {{ t('payment.admin.retryRefund') }}
             </button>
-            <button v-else-if="row.status === 'REFUND_PENDING'" :disabled="refundQueryingIds.has(row.id)" @click="handleQueryRefund(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-60 dark:text-orange-400 dark:hover:bg-orange-900/20">
+            <button v-else-if="row.order_type === 'balance_subscription' && row.status === 'REFUND_PENDING'" :disabled="refundQueryingIds.has(row.id)" @click="handleQueryRefund(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-60 dark:text-orange-400 dark:hover:bg-orange-900/20">
               <Icon name="refresh" size="sm" :class="refundQueryingIds.has(row.id) ? 'animate-spin' : ''" />
               {{ t('payment.admin.queryRefundStatus') }}
-            </button>
-            <button v-else-if="row.status === 'COMPLETED' || row.status === 'PARTIALLY_REFUNDED'" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
-              <Icon name="dollar" size="sm" />
-              {{ t('payment.admin.refund') }}
             </button>
           </div>
         </template>
@@ -227,8 +223,8 @@ const paymentTypeFilterOptions = computed(() => [
 
 const orderTypeFilterOptions = computed(() => [
   { value: '', label: t('payment.admin.allOrderTypes') },
-  { value: 'balance', label: t('payment.admin.balanceOrder') },
-  { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
+  { value: 'balance_subscription', label: t('payment.admin.balancePackageOrder') },
+  { value: 'traffic_pack', label: t('payment.admin.trafficPackOrder') },
 ])
 
 async function showOrderDetail(order: PaymentOrder) {
@@ -281,11 +277,11 @@ function isRefundPendingWarning(warning: string | undefined): boolean {
   return /pending|处理中|待/.test(String(warning || '').toLowerCase())
 }
 
-async function handleRefund(data: { amount: number; reason: string; deduct_balance: boolean; force: boolean }) {
+async function handleRefund(data: { reason: string }) {
   if (!selectedOrder.value) return
   refundSubmitting.value = true
   try {
-    const res = await adminPaymentAPI.refundOrder(selectedOrder.value.id, { amount: data.amount, reason: data.reason, deduct_balance: data.deduct_balance, force: data.force })
+    const res = await adminPaymentAPI.refundOrder(selectedOrder.value.id, data)
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
       showRefundDialog.value = false

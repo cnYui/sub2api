@@ -17,14 +17,13 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
-	"github.com/shopspring/decimal"
 )
 
 // --- Order Creation ---
 
 func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
-	if req.OrderType == "" {
-		req.OrderType = payment.OrderTypeBalance
+	if !isSupportedPurchaseOrderType(req.OrderType) {
+		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package and traffic pack orders are supported")
 	}
 	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
 		req.PaymentType = normalized
@@ -36,7 +35,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if !cfg.Enabled {
 		return nil, infraerrors.Forbidden("PAYMENT_DISABLED", "payment system is disabled")
 	}
-	plan, balancePackagePlan, err := s.validateOrderInput(ctx, req, cfg)
+	balancePackagePlan, err := s.validateOrderInput(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -62,17 +61,12 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	}
 	orderAmount := req.Amount
 	limitAmount := req.Amount
-	if plan != nil {
-		orderAmount = plan.Price
-		limitAmount = plan.Price
-	} else if balancePackagePlan != nil {
+	if balancePackagePlan != nil {
 		orderAmount = balancePackagePlan.PriceCny
 		limitAmount = balancePackagePlan.PriceCny
 	} else if trafficPack != nil {
 		orderAmount = trafficPack.Price
 		limitAmount = trafficPack.Price
-	} else if req.OrderType == payment.OrderTypeBalance {
-		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
 	feeRate := cfg.RechargeFeeRate
 	methodCurrency := payment.DefaultPaymentCurrency
@@ -82,7 +76,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 			return nil, err
 		}
 	}
-	payAmountStr, payAmount, err := calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, methodCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+	payAmountStr, payAmount, err := calculateCreateOrderPayAmount(limitAmount, feeRate, methodCurrency)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +92,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
-		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+		payAmountStr, payAmount, err = calculateCreateOrderPayAmount(limitAmount, feeRate, selectedCurrency)
 		if err != nil {
 			return nil, err
 		}
@@ -113,11 +107,11 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if oauthResp != nil {
 		return oauthResp, nil
 	}
-	order, err := s.createOrderInTx(ctx, req, user, plan, balancePackagePlan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, trafficPack)
+	order, err := s.createOrderInTx(ctx, req, user, balancePackagePlan, cfg, orderAmount, limitAmount, feeRate, payAmount, sel, trafficPack)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, plan, balancePackagePlan, sel, trafficPack)
+	resp, err := s.invokeProvider(ctx, order, req, cfg, limitAmount, payAmountStr, payAmount, balancePackagePlan, sel, trafficPack)
 	if err != nil {
 		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
 			SetStatus(OrderStatusFailed).
@@ -127,41 +121,28 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	return resp, nil
 }
 
-func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, *dbent.BalancePackagePlan, error) {
-	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
-		return nil, nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
-	}
-	if req.OrderType == payment.OrderTypeSubscription {
-		plan, err := s.validateSubOrder(ctx, req)
-		return plan, nil, err
-	}
+func isSupportedPurchaseOrderType(orderType string) bool {
+	return orderType == payment.OrderTypeBalanceSubscription || orderType == payment.OrderTypeTrafficPack
+}
+
+func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest) (*dbent.BalancePackagePlan, error) {
 	if req.OrderType == payment.OrderTypeBalanceSubscription {
 		if s.balancePackageService == nil {
-			return nil, nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+			return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
 		}
 		plan, err := s.balancePackageService.GetPlanForSale(ctx, req.BalancePackagePlanID)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if err := s.balancePackageService.ValidateUserPurchase(ctx, req.UserID, plan.ID); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		return nil, plan, err
+		return plan, nil
 	}
 	if req.OrderType == payment.OrderTypeTrafficPack {
-		return nil, nil, nil
+		return nil, nil
 	}
-	if req.OrderType != payment.OrderTypeBalance {
-		return nil, nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "unsupported payment order type")
-	}
-	if math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) || req.Amount <= 0 {
-		return nil, nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount must be a positive number")
-	}
-	if (cfg.MinAmount > 0 && req.Amount < cfg.MinAmount) || (cfg.MaxAmount > 0 && req.Amount > cfg.MaxAmount) {
-		return nil, nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount out of range").
-			WithMetadata(map[string]string{"min": fmt.Sprintf("%.2f", cfg.MinAmount), "max": fmt.Sprintf("%.2f", cfg.MaxAmount)})
-	}
-	return nil, nil, nil
+	return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package and traffic pack orders are supported")
 }
 
 func (s *PaymentService) validateTrafficPackOrder(ctx context.Context, req CreateOrderRequest) (*TrafficPack, error) {
@@ -178,25 +159,7 @@ func (s *PaymentService) validateTrafficPackOrder(ctx context.Context, req Creat
 	return pack, nil
 }
 
-func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRequest) (*dbent.SubscriptionPlan, error) {
-	if req.PlanID == 0 {
-		return nil, infraerrors.BadRequest("INVALID_INPUT", "subscription order requires a plan")
-	}
-	plan, err := s.configService.GetPlan(ctx, req.PlanID)
-	if err != nil || !plan.ForSale {
-		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
-	}
-	group, err := s.groupRepo.GetByID(ctx, plan.GroupID)
-	if err != nil || group.Status != payment.EntityStatusActive {
-		return nil, infraerrors.NotFound("GROUP_NOT_FOUND", "subscription group is no longer available")
-	}
-	if !group.IsSubscriptionType() {
-		return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
-	}
-	return plan, nil
-}
-
-func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*dbent.PaymentOrder, error) {
+func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderRequest, user *User, balancePackagePlan *dbent.BalancePackagePlan, cfg *PaymentConfig, orderAmount, limitAmount, feeRate, payAmount float64, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*dbent.PaymentOrder, error) {
 	tx, err := s.entClient.Tx(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -280,9 +243,6 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	if providerSnapshot != nil {
 		b.SetProviderSnapshot(providerSnapshot)
-	}
-	if plan != nil {
-		b.SetPlanID(plan.ID).SetSubscriptionGroupID(plan.GroupID).SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
 	}
 	if balancePackagePlan != nil {
 		b.SetBalancePackagePlanID(balancePackagePlan.ID).
@@ -431,10 +391,6 @@ func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, user
 	}
 	var used float64
 	for _, o := range orders {
-		if o.OrderType == payment.OrderTypeBalance {
-			used += o.PayAmount
-			continue
-		}
 		used += o.Amount
 	}
 	if used+amount > limit {
@@ -495,7 +451,7 @@ func (s *PaymentService) usesOfficialWxpayVisibleMethod(ctx context.Context) boo
 	return inst.ProviderKey == payment.TypeWxpay
 }
 
-func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, plan *dbent.SubscriptionPlan, balancePackagePlan *dbent.BalancePackagePlan, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*CreateOrderResponse, error) {
+func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.PaymentOrder, req CreateOrderRequest, cfg *PaymentConfig, limitAmount float64, payAmountStr string, payAmount float64, balancePackagePlan *dbent.BalancePackagePlan, sel *payment.InstanceSelection, trafficPacks ...*TrafficPack) (*CreateOrderResponse, error) {
 	prov, err := provider.CreateProvider(sel.ProviderKey, sel.InstanceID, sel.Config)
 	if err != nil {
 		slog.Error("[PaymentService] CreateProvider failed", "provider", sel.ProviderKey, "instance", sel.InstanceID, "error", err)
@@ -511,12 +467,14 @@ func (s *PaymentService) invokeProvider(ctx context.Context, order *dbent.Paymen
 		return nil, infraerrors.ServiceUnavailable("PAYMENT_PROVIDER_MISCONFIGURED", "provider_misconfigured").
 			WithMetadata(map[string]string{"provider": sel.ProviderKey, "instance_id": sel.InstanceID})
 	}
-	subject := s.buildPaymentSubject(plan, limitAmount, cfg, sel)
-	if balancePackagePlan != nil {
+	var subject string
+	switch {
+	case balancePackagePlan != nil:
 		subject = s.buildBalancePackagePaymentSubject(balancePackagePlan, cfg)
-	}
-	if len(trafficPacks) > 0 && trafficPacks[0] != nil {
+	case len(trafficPacks) > 0 && trafficPacks[0] != nil:
 		subject = s.buildTrafficPackPaymentSubject(trafficPacks[0], cfg)
+	default:
+		return nil, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package and traffic pack orders are supported")
 	}
 	outTradeNo := order.OutTradeNo
 	canonicalReturnURL, err := CanonicalizeReturnURL(req.ReturnURL, req.SrcHost, req.SrcURL)
@@ -636,35 +594,16 @@ func selectedInstanceSupportedTypes(sel *payment.InstanceSelection) string {
 	return sel.SupportedTypes
 }
 
-func (s *PaymentService) buildPaymentSubject(plan *dbent.SubscriptionPlan, limitAmount float64, cfg *PaymentConfig, sel *payment.InstanceSelection) string {
-	if plan != nil {
-		productName := plan.ProductName
-		if productName == "" {
-			productName = "Sub2API Subscription " + plan.Name
-		}
-		return applyPaymentProductNameAffix(productName, cfg)
-	}
-	currency := payment.DefaultPaymentCurrency
-	if sel != nil {
-		currency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
-	}
-	amountStr := payment.FormatAmountForCurrency(limitAmount, currency)
-	if hasPaymentProductNameAffix(cfg) {
-		return applyPaymentProductNameAffix(amountStr, cfg)
-	}
-	return "Sub2API " + amountStr + " " + currency
-}
-
 func (s *PaymentService) buildBalancePackagePaymentSubject(plan *dbent.BalancePackagePlan, cfg *PaymentConfig) string {
 	if plan == nil {
-		return s.buildPaymentSubject(nil, 0, cfg, nil)
+		return applyPaymentProductNameAffix("Sub2API Balance Package", cfg)
 	}
 	return applyPaymentProductNameAffix("Sub2API "+plan.Name, cfg)
 }
 
 func (s *PaymentService) buildTrafficPackPaymentSubject(pack *TrafficPack, cfg *PaymentConfig) string {
 	if pack == nil {
-		return s.buildPaymentSubject(nil, 0, cfg, nil)
+		return applyPaymentProductNameAffix("Sub2API Traffic Pack", cfg)
 	}
 	return applyPaymentProductNameAffix("Sub2API "+pack.Name, cfg)
 }
@@ -760,28 +699,6 @@ func calculateCreateOrderPayAmount(limitAmount, feeRate float64, currency string
 			WithMetadata(map[string]string{"currency": currency})
 	}
 	return payAmountStr, payAmount, nil
-}
-
-func calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate float64, currency, orderType string, usdToCnyRate float64) (string, float64, error) {
-	paymentAmount := limitAmount
-	if orderType == payment.OrderTypeSubscription {
-		paymentAmount = calculateSubscriptionGatewayBaseAmount(limitAmount, usdToCnyRate, currency)
-	}
-	return calculateCreateOrderPayAmount(paymentAmount, feeRate, currency)
-}
-
-// calculateSubscriptionGatewayBaseAmount 计算订阅订单的网关扣款基数。
-// 换算是显式 opt-in：仅当管理员配置了订阅汇率（rate > 0，1 USD = rate CNY）
-// 且网关币种为 CNY 时，按 price × rate 换算；未配置时保持 price 直付的存量行为。
-func calculateSubscriptionGatewayBaseAmount(amount, usdToCnyRate float64, currency string) float64 {
-	rate := normalizeSubscriptionUSDToCNYRate(usdToCnyRate)
-	if rate <= 0 || currency != payment.DefaultPaymentCurrency {
-		return amount
-	}
-	return decimal.NewFromFloat(amount).
-		Mul(decimal.NewFromFloat(rate)).
-		Round(int32(payment.CurrencyMaxFractionDigits(currency))).
-		InexactFloat64()
 }
 
 func validateCreateOrderAmountCurrency(amount float64, currency string) error {
@@ -881,14 +798,11 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	q := u.Query()
 	q.Set("payment_type", strings.TrimSpace(req.PaymentType))
-	if req.Amount > 0 {
-		q.Set("amount", strconv.FormatFloat(req.Amount, 'f', -1, 64))
-	}
 	if orderType := strings.TrimSpace(req.OrderType); orderType != "" {
 		q.Set("order_type", orderType)
 	}
-	if req.PlanID > 0 {
-		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	if req.BalancePackagePlanID > 0 {
+		q.Set("balance_package_plan_id", strconv.FormatInt(req.BalancePackagePlanID, 10))
 	}
 	if req.TrafficPackID > 0 {
 		q.Set("traffic_pack_id", strconv.FormatInt(req.TrafficPackID, 10))

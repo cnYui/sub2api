@@ -416,7 +416,7 @@ func TestGetWebhookProviderRejectsRegistryFallbackForPinnedOrder(t *testing.T) {
 		SetOutTradeNo("sub2_test_pinned_order").
 		SetPaymentType(payment.TypeWxpay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -482,7 +482,7 @@ func TestGetWebhookProviderUsesProviderSnapshotBeforeWxpayFallback(t *testing.T)
 		SetOutTradeNo("sub2_test_snapshot_webhook_order").
 		SetPaymentType(payment.TypeWxpay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").

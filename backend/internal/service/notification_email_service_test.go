@@ -44,28 +44,28 @@ func TestNotificationEmailTemplateOverrideAndRestore(t *testing.T) {
 	repo := newNotificationEmailMemorySettingRepo()
 	svc := NewNotificationEmailService(repo, nil)
 
-	official, err := svc.GetTemplate(ctx, NotificationEmailEventBalanceRechargeSuccess, "en")
+	official, err := svc.GetTemplate(ctx, NotificationEmailEventAuthVerifyCode, "en")
 	require.NoError(t, err)
 	require.False(t, official.IsCustom)
 
 	updated, err := svc.UpdateTemplate(
 		ctx,
-		NotificationEmailEventBalanceRechargeSuccess,
+		NotificationEmailEventAuthVerifyCode,
 		"zh-Hans",
-		"充值完成：{{recharge_amount}}",
-		"<p>{{recipient_name}} 已充值 {{recharge_amount}}</p>",
+		"验证码：{{verification_code}}",
+		"<p>{{recipient_name}} 的验证码是 {{verification_code}}</p>",
 	)
 	require.NoError(t, err)
 	require.True(t, updated.IsCustom)
 	require.Equal(t, "zh", updated.Locale)
-	require.Equal(t, "充值完成：{{recharge_amount}}", updated.Subject)
+	require.Equal(t, "验证码：{{verification_code}}", updated.Subject)
 	require.NotNil(t, updated.UpdatedAt)
 
-	restored, err := svc.RestoreOfficialTemplate(ctx, NotificationEmailEventBalanceRechargeSuccess, "zh")
+	restored, err := svc.RestoreOfficialTemplate(ctx, NotificationEmailEventAuthVerifyCode, "zh")
 	require.NoError(t, err)
 	require.False(t, restored.IsCustom)
 	require.NotEqual(t, updated.Subject, restored.Subject)
-	_, err = repo.GetValue(ctx, notificationEmailTemplateKey(NotificationEmailEventBalanceRechargeSuccess, "zh"))
+	_, err = repo.GetValue(ctx, notificationEmailTemplateKey(NotificationEmailEventAuthVerifyCode, "zh"))
 	require.ErrorIs(t, err, ErrSettingNotFound)
 }
 
@@ -75,7 +75,7 @@ func TestNotificationEmailTemplateRejectsUnsupportedPlaceholder(t *testing.T) {
 
 	_, err := svc.UpdateTemplate(
 		ctx,
-		NotificationEmailEventSubscriptionPurchaseSuccess,
+		NotificationEmailEventAuthVerifyCode,
 		"en",
 		"Purchased {{not_allowed}}",
 		"<p>{{subscription_group}}</p>",
@@ -345,7 +345,7 @@ func TestNotificationEmailUnsubscribeOnlyAllowsOptionalEvents(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, unsubscribed)
 
-	transactionalToken, err := svc.createUnsubscribeToken(ctx, "user@example.com", NotificationEmailEventBalanceRechargeSuccess)
+	transactionalToken, err := svc.createUnsubscribeToken(ctx, "user@example.com", NotificationEmailEventAuthVerifyCode)
 	require.NoError(t, err)
 	_, err = svc.Unsubscribe(ctx, transactionalToken)
 	require.Error(t, err)

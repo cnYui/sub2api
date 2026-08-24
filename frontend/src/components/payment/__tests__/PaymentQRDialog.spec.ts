@@ -53,7 +53,7 @@ const paidOrder = {
   payment_type: 'alipay',
   out_trade_no: 'sub2_202606250001',
   status: 'COMPLETED',
-  order_type: 'subscription',
+  order_type: 'balance_subscription',
   created_at: '2026-06-25T10:00:00Z',
   expires_at: '2099-01-01T10:30:00Z',
   refund_amount: 0,

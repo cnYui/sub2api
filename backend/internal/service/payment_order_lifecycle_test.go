@@ -184,7 +184,7 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_trade_no_missing").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -285,7 +285,7 @@ func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_retry_zero_amount").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -383,7 +383,7 @@ func TestVerifyOrderByOutTradeNoRejectsPaidQueryWithZeroAmount(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_zero_amount").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -475,7 +475,7 @@ func TestVerifyOrderByOutTradeNoDoesNotCancelUnpaidUpstreamOrder(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_pending").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -532,7 +532,7 @@ func TestCancelOrderStillClosesUnpaidUpstreamOrder(t *testing.T) {
 		SetOutTradeNo("sub2_cancel_pending").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -589,7 +589,7 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 		SetOutTradeNo("sub2_wxpay_reconcile").
 		SetPaymentType(payment.TypeWxpay).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -691,7 +691,7 @@ func TestVerifyOrderByOutTradeNoUsesOutTradeNoWhenPaymentTradeNoAlreadyExistsFor
 		SetOutTradeNo("sub2_checkpaid_use_out_trade_no").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("upstream-trade-existing").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").

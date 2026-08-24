@@ -83,7 +83,6 @@ type CreateOrderRequest struct {
 	ReturnURL            string
 	PaymentSource        string
 	OrderType            string
-	PlanID               int64
 	BalancePackagePlanID int64
 	TrafficPackID        int64
 	Locale               string
@@ -125,26 +124,17 @@ type OrderListParams struct {
 }
 
 type RefundPlan struct {
-	OrderID         int64
-	Order           *dbent.PaymentOrder
-	RefundAmount    float64
-	GatewayAmount   float64
-	Reason          string
-	Force           bool
-	DeductBalance   bool
-	DeductionType   string
-	BalanceToDeduct float64
-	SubDaysToDeduct int
-	SubscriptionID  int64
-	Operator        string
+	OrderID       int64
+	Order         *dbent.PaymentOrder
+	RefundAmount  float64
+	GatewayAmount float64
+	Reason        string
+	Operator      string
 }
 
 type RefundResult struct {
-	Success         bool    `json:"success"`
-	Warning         string  `json:"warning,omitempty"`
-	RequireForce    bool    `json:"require_force,omitempty"`
-	BalanceDeducted float64 `json:"balance_deducted,omitempty"`
-	SubDaysDeducted int     `json:"subscription_days_deducted,omitempty"`
+	Success bool   `json:"success"`
+	Warning string `json:"warning,omitempty"`
 }
 
 type DashboardStats struct {

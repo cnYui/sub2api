@@ -945,3 +945,17 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	require.Equal(t, "RESOURCE_EXHAUSTED", resp.Error.Status)
 	require.Contains(t, resp.Error.Message, "daily usage limit exceeded")
 }
+
+type stubTrafficPackCreditChecker struct {
+	available bool
+	calls     int64
+	userID    int64
+	platform  string
+}
+
+func (s *stubTrafficPackCreditChecker) CanUseTrafficPackCredit(_ context.Context, userID int64, platform string) bool {
+	atomic.AddInt64(&s.calls, 1)
+	s.userID = userID
+	s.platform = platform
+	return s.available
+}

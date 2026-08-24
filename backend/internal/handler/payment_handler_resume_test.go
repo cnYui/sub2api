@@ -28,17 +28,15 @@ func TestApplyWeChatPaymentResumeClaims(t *testing.T) {
 	t.Parallel()
 
 	req := CreateOrderRequest{
-		Amount:      0,
 		PaymentType: payment.TypeWxpay,
-		OrderType:   payment.OrderTypeBalance,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 	}
 
 	err := applyWeChatPaymentResumeClaims(&req, &service.WeChatPaymentResumeClaims{
-		OpenID:      "openid-123",
-		PaymentType: payment.TypeWxpay,
-		Amount:      "12.50",
-		OrderType:   payment.OrderTypeSubscription,
-		PlanID:      7,
+		OpenID:               "openid-123",
+		PaymentType:          payment.TypeWxpay,
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	})
 	if err != nil {
 		t.Fatalf("applyWeChatPaymentResumeClaims returned error: %v", err)
@@ -46,14 +44,11 @@ func TestApplyWeChatPaymentResumeClaims(t *testing.T) {
 	if req.OpenID != "openid-123" {
 		t.Fatalf("openid = %q, want %q", req.OpenID, "openid-123")
 	}
-	if req.Amount != 12.5 {
-		t.Fatalf("amount = %v, want 12.5", req.Amount)
+	if req.OrderType != payment.OrderTypeBalanceSubscription {
+		t.Fatalf("order_type = %q, want %q", req.OrderType, payment.OrderTypeBalanceSubscription)
 	}
-	if req.OrderType != payment.OrderTypeSubscription {
-		t.Fatalf("order_type = %q, want %q", req.OrderType, payment.OrderTypeSubscription)
-	}
-	if req.PlanID != 7 {
-		t.Fatalf("plan_id = %d, want 7", req.PlanID)
+	if req.BalancePackagePlanID != 7 {
+		t.Fatalf("balance_package_plan_id = %d, want 7", req.BalancePackagePlanID)
 	}
 }
 
@@ -65,10 +60,10 @@ func TestApplyWeChatPaymentResumeClaimsRejectsPaymentTypeMismatch(t *testing.T) 
 	}
 
 	err := applyWeChatPaymentResumeClaims(&req, &service.WeChatPaymentResumeClaims{
-		OpenID:      "openid-123",
-		PaymentType: payment.TypeWxpay,
-		Amount:      "12.50",
-		OrderType:   payment.OrderTypeBalance,
+		OpenID:               "openid-123",
+		PaymentType:          payment.TypeWxpay,
+		OrderType:            payment.OrderTypeBalanceSubscription,
+		BalancePackagePlanID: 7,
 	})
 	if err == nil {
 		t.Fatal("applyWeChatPaymentResumeClaims should reject mismatched payment types")
@@ -109,7 +104,7 @@ func TestVerifyOrderPublicReturnsLegacyOrderState(t *testing.T) {
 		SetOutTradeNo("legacy-order-no").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-public-verify").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(service.OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -198,7 +193,7 @@ func TestResolveOrderPublicByResumeTokenReturnsFrontendContractFields(t *testing
 		SetOutTradeNo("resolve-order-no").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-public-resolve").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(service.OrderStatusPaid).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetPaidAt(time.Now()).
@@ -247,7 +242,7 @@ func TestResolveOrderPublicByResumeTokenReturnsFrontendContractFields(t *testing
 	require.Equal(t, 0.03, resp.Data["fee_rate"])
 	require.Equal(t, "USD", resp.Data["currency"])
 	require.Equal(t, payment.TypeAlipay, resp.Data["payment_type"])
-	require.Equal(t, payment.OrderTypeBalance, resp.Data["order_type"])
+	require.Equal(t, "legacy_balance", resp.Data["order_type"])
 	require.Equal(t, service.OrderStatusPaid, resp.Data["status"])
 	require.Contains(t, resp.Data, "created_at")
 	require.Contains(t, resp.Data, "expires_at")
@@ -287,7 +282,7 @@ func TestResolveOrderPublicByResumeTokenReturnsBadRequestForMismatchedToken(t *t
 		SetOutTradeNo("resolve-order-mismatch-no").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-public-resolve-mismatch").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(service.OrderStatusPaid).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetPaidAt(time.Now()).

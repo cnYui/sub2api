@@ -699,7 +699,7 @@ func createPendingProviderConfigOrder(t *testing.T, ctx context.Context, client 
 		SetOutTradeNo("sub2_pending_provider_config_" + instanceID).
 		SetPaymentType(providerPendingOrderPaymentType(instance.ProviderKey)).
 		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalance).
+		SetOrderType("legacy_balance").
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").

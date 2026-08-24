@@ -37,10 +37,8 @@ const (
 	OrderStatusRefundFailed      = "REFUND_FAILED"
 )
 
-// Order types distinguish balance recharges from subscription purchases.
+// Order types identify purchasable payment products.
 const (
-	OrderTypeBalance             = "balance"
-	OrderTypeSubscription        = "subscription"
 	OrderTypeBalanceSubscription = "balance_subscription"
 	OrderTypeTrafficPack         = "traffic_pack"
 	PaymentTypeAdminGrant        = "admin_grant"
@@ -49,13 +47,6 @@ const (
 // Entity statuses shared across users, groups, etc.
 const (
 	EntityStatusActive = "active"
-)
-
-// Deduction types for refund flow.
-const (
-	DeductionTypeBalance      = "balance"
-	DeductionTypeSubscription = "subscription"
-	DeductionTypeNone         = "none"
 )
 
 // Payment notification status values.

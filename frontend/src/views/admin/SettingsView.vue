@@ -7099,46 +7099,8 @@
                     </div>
                   </div>
                 </div>
-                <!-- Row 2: Balance toggle + amounts -->
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.minAmount")
-                    }}</label
-                    ><input
-                      :value="form.payment_min_amount || ''"
-                      @input="
-                        form.payment_min_amount =
-                          parseFloat(
-                            ($event.target as HTMLInputElement).value,
-                          ) || 0
-                      "
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      class="input"
-                      :placeholder="t('admin.settings.payment.noLimit')"
-                    />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.maxAmount")
-                    }}</label
-                    ><input
-                      :value="form.payment_max_amount || ''"
-                      @input="
-                        form.payment_max_amount =
-                          parseFloat(
-                            ($event.target as HTMLInputElement).value,
-                          ) || 0
-                      "
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      class="input"
-                      :placeholder="t('admin.settings.payment.noLimit')"
-                    />
-                  </div>
+                <!-- Row 2: Payment limits and fees -->
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <label class="input-label">{{
                       t("admin.settings.payment.dailyLimit")
@@ -7157,71 +7119,6 @@
                       class="input"
                       :placeholder="t('admin.settings.payment.noLimit')"
                     />
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.balanceRechargeMultiplier")
-                    }}</label>
-                    <input
-                      :value="form.payment_balance_recharge_multiplier || ''"
-                      @input="
-                        form.payment_balance_recharge_multiplier =
-                          parseFloat(
-                            ($event.target as HTMLInputElement).value,
-                          ) || 1
-                      "
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      class="input"
-                    />
-                    <p class="mt-0.5 text-xs text-gray-400">
-                      {{
-                        t(
-                          "admin.settings.payment.balanceRechargeMultiplierHint",
-                        )
-                      }}
-                    </p>
-                    <p
-                      class="mt-1 text-xs font-medium text-primary-600 dark:text-primary-400"
-                    >
-                      {{
-                        t("admin.settings.payment.balanceRechargePreview", {
-                          usd: (
-                            Number(form.payment_balance_recharge_multiplier) ||
-                            1
-                          ).toFixed(2),
-                        })
-                      }}
-                    </p>
-                  </div>
-                  <div>
-                    <label class="input-label">{{
-                      t("admin.settings.payment.subscriptionUsdToCnyRate")
-                    }}</label>
-                    <input
-                      :value="form.payment_subscription_usd_to_cny_rate || ''"
-                      @input="
-                        form.payment_subscription_usd_to_cny_rate =
-                          parseFloat(
-                            ($event.target as HTMLInputElement).value,
-                          ) || 0
-                      "
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      class="input"
-                      :placeholder="
-                        t(
-                          'admin.settings.payment.subscriptionUsdToCnyRateDisabled',
-                        )
-                      "
-                    />
-                    <p class="mt-0.5 text-xs text-gray-400">
-                      {{
-                        t("admin.settings.payment.subscriptionUsdToCnyRateHint")
-                      }}
-                    </p>
                   </div>
                   <div>
                     <label class="input-label">{{
@@ -8857,14 +8754,9 @@ const form = reactive<SettingsForm>({
   risk_control_enabled: false,
   cyber_session_block_enabled: false,
   cyber_session_block_ttl_seconds: 3600,
-  payment_min_amount: 1,
-  payment_max_amount: 10000,
   payment_daily_limit: 50000,
   payment_max_pending_orders: 3,
   payment_order_timeout_minutes: 30,
-  payment_balance_disabled: false,
-  payment_balance_recharge_multiplier: 1,
-  payment_subscription_usd_to_cny_rate: 0,
   payment_recharge_fee_rate: 0,
   payment_enabled_types: [],
   payment_help_image_url: "",
@@ -10529,17 +10421,10 @@ async function saveSettings() {
       cyber_session_block_enabled: form.cyber_session_block_enabled,
       cyber_session_block_ttl_seconds:
         Number(form.cyber_session_block_ttl_seconds) || 3600,
-      payment_min_amount: Number(form.payment_min_amount) || 0,
-      payment_max_amount: Number(form.payment_max_amount) || 0,
       payment_daily_limit: Number(form.payment_daily_limit) || 0,
       payment_max_pending_orders: Number(form.payment_max_pending_orders) || 0,
       payment_order_timeout_minutes:
         Number(form.payment_order_timeout_minutes) || 0,
-      payment_balance_disabled: form.payment_balance_disabled,
-      payment_balance_recharge_multiplier:
-        Number(form.payment_balance_recharge_multiplier) || 1,
-      payment_subscription_usd_to_cny_rate:
-        Number(form.payment_subscription_usd_to_cny_rate) || 0,
       payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
       payment_enabled_types: form.payment_enabled_types,
       payment_load_balance_strategy: form.payment_load_balance_strategy,

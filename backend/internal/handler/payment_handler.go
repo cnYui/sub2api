@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -41,57 +40,7 @@ func (h *PaymentHandler) GetPaymentConfig(c *gin.Context) {
 	response.Success(c, cfg)
 }
 
-// GetPlans returns subscription plans available for sale.
-// GET /api/v1/payment/plans
-func (h *PaymentHandler) GetPlans(c *gin.Context) {
-	plans, err := h.configService.ListPlansForSale(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	// Enrich plans with group platform for frontend color coding
-	type planWithPlatform struct {
-		ID                 int64    `json:"id"`
-		GroupID            int64    `json:"group_id"`
-		GroupPlatform      string   `json:"group_platform"`
-		GroupName          string   `json:"group_name"`
-		RateMultiplier     float64  `json:"rate_multiplier"`
-		PeakRateEnabled    bool     `json:"peak_rate_enabled"`
-		PeakStart          string   `json:"peak_start"`
-		PeakEnd            string   `json:"peak_end"`
-		PeakRateMultiplier float64  `json:"peak_rate_multiplier"`
-		Name               string   `json:"name"`
-		Description        string   `json:"description"`
-		Price              float64  `json:"price"`
-		OriginalPrice      *float64 `json:"original_price,omitempty"`
-		Currency           string   `json:"currency,omitempty"`
-		ValidityDays       int      `json:"validity_days"`
-		ValidityUnit       string   `json:"validity_unit"`
-		Features           string   `json:"features"`
-		ProductName        string   `json:"product_name"`
-		ForSale            bool     `json:"for_sale"`
-		SortOrder          int      `json:"sort_order"`
-	}
-	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
-	result := make([]planWithPlatform, 0, len(plans))
-	for _, p := range plans {
-		gi := groupInfo[p.GroupID]
-		result = append(result, planWithPlatform{
-			ID: int64(p.ID), GroupID: p.GroupID,
-			GroupPlatform: gi.Platform, GroupName: gi.Name,
-			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
-			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
-			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			Currency:     p.Currency,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
-			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
-		})
-	}
-	response.Success(c, result)
-}
-
-// GetCheckoutInfo returns all data the payment page needs in a single call:
-// payment methods with limits, subscription plans, and configuration.
+// GetCheckoutInfo returns all data the payment page needs in a single call.
 // GET /api/v1/payment/checkout-info
 func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -118,27 +67,6 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		}
 	}
 
-	// Fetch plans with group info
-	plans, _ := h.configService.ListPlansForSale(ctx)
-	groupInfo := h.configService.GetGroupInfoMap(ctx, plans)
-	planList := make([]checkoutPlan, 0, len(plans))
-	for _, p := range plans {
-		gi := groupInfo[p.GroupID]
-		planList = append(planList, checkoutPlan{
-			ID: int64(p.ID), GroupID: p.GroupID,
-			GroupPlatform: gi.Platform, GroupName: gi.Name,
-			RateMultiplier:  gi.RateMultiplier,
-			PeakRateEnabled: gi.PeakRateEnabled, PeakStart: gi.PeakStart,
-			PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
-			DailyLimitUSD:  gi.DailyLimitUSD,
-			WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
-			ModelScopes: gi.ModelScopes,
-			Name:        p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			Currency:     p.Currency,
-			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
-			ProductName: p.ProductName,
-		})
-	}
 	balancePackages, err := h.paymentService.ListBalancePackagePlansForSale(ctx)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -158,13 +86,9 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		Methods:                       limitsResp.Methods,
 		GlobalMin:                     limitsResp.GlobalMin,
 		GlobalMax:                     limitsResp.GlobalMax,
-		Plans:                         planList,
 		BalancePackages:               balancePackages,
 		TrafficPacks:                  trafficPacks,
 		TrafficCreditSummary:          trafficCreditSummary,
-		BalanceDisabled:               cfg.BalanceDisabled,
-		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
-		SubscriptionUSDToCNYRate:      cfg.SubscriptionUSDToCNYRate,
 		RechargeFeeRate:               cfg.RechargeFeeRate,
 		HelpText:                      cfg.HelpText,
 		HelpImageURL:                  cfg.HelpImageURL,
@@ -195,61 +119,15 @@ type checkoutInfoResponse struct {
 	Methods                       map[string]service.MethodLimits `json:"methods"`
 	GlobalMin                     float64                         `json:"global_min"`
 	GlobalMax                     float64                         `json:"global_max"`
-	Plans                         []checkoutPlan                  `json:"plans"`
 	BalancePackages               []*dbent.BalancePackagePlan     `json:"balance_packages"`
 	TrafficPacks                  []service.TrafficPack           `json:"traffic_packs"`
 	TrafficCreditSummary          *service.TrafficCreditSummary   `json:"traffic_credit_summary,omitempty"`
-	BalanceDisabled               bool                            `json:"balance_disabled"`
-	BalanceRechargeMultiplier     float64                         `json:"balance_recharge_multiplier"`
-	SubscriptionUSDToCNYRate      float64                         `json:"subscription_usd_to_cny_rate"`
 	RechargeFeeRate               float64                         `json:"recharge_fee_rate"`
 	HelpText                      string                          `json:"help_text"`
 	HelpImageURL                  string                          `json:"help_image_url"`
 	StripePublishableKey          string                          `json:"stripe_publishable_key"`
 	AlipayForceQRCode             bool                            `json:"alipay_force_qrcode"`
 	AlipayMobilePrecreateDeepLink bool                            `json:"alipay_mobile_precreate_deep_link"`
-}
-
-type checkoutPlan struct {
-	ID                 int64    `json:"id"`
-	GroupID            int64    `json:"group_id"`
-	GroupPlatform      string   `json:"group_platform"`
-	GroupName          string   `json:"group_name"`
-	RateMultiplier     float64  `json:"rate_multiplier"`
-	PeakRateEnabled    bool     `json:"peak_rate_enabled"`
-	PeakStart          string   `json:"peak_start"`
-	PeakEnd            string   `json:"peak_end"`
-	PeakRateMultiplier float64  `json:"peak_rate_multiplier"`
-	DailyLimitUSD      *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
-	ModelScopes        []string `json:"supported_model_scopes"`
-	Name               string   `json:"name"`
-	Description        string   `json:"description"`
-	Price              float64  `json:"price"`
-	OriginalPrice      *float64 `json:"original_price,omitempty"`
-	Currency           string   `json:"currency,omitempty"`
-	ValidityDays       int      `json:"validity_days"`
-	ValidityUnit       string   `json:"validity_unit"`
-	Features           []string `json:"features"`
-	ProductName        string   `json:"product_name"`
-}
-
-// parseFeatures splits a newline-separated features string into a string slice.
-func parseFeatures(raw string) []string {
-	if raw == "" {
-		return []string{}
-	}
-	var out []string
-	for _, line := range strings.Split(raw, "\n") {
-		if s := strings.TrimSpace(line); s != "" {
-			out = append(out, s)
-		}
-	}
-	if out == nil {
-		return []string{}
-	}
-	return out
 }
 
 // GetLimits returns per-payment-type limits derived from enabled provider instances.
@@ -272,7 +150,6 @@ type CreateOrderRequest struct {
 	ReturnURL            string  `json:"return_url"`
 	PaymentSource        string  `json:"payment_source"`
 	OrderType            string  `json:"order_type"`
-	PlanID               int64   `json:"plan_id"`
 	BalancePackagePlanID int64   `json:"balance_package_plan_id"`
 	TrafficPackID        int64   `json:"traffic_pack_id"`
 	// IsMobile lets the frontend declare its mobile status directly. When
@@ -323,7 +200,6 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		ReturnURL:            req.ReturnURL,
 		PaymentSource:        req.PaymentSource,
 		OrderType:            req.OrderType,
-		PlanID:               req.PlanID,
 		BalancePackagePlanID: req.BalancePackagePlanID,
 		TrafficPackID:        req.TrafficPackID,
 		Locale:               c.GetHeader("Accept-Language"),
@@ -357,18 +233,8 @@ func applyWeChatPaymentResumeClaims(req *CreateOrderRequest, claims *service.WeC
 	req.PaymentType = paymentType
 	req.OpenID = openid
 
-	if strings.TrimSpace(claims.Amount) != "" {
-		amount, err := strconv.ParseFloat(strings.TrimSpace(claims.Amount), 64)
-		if err != nil || amount <= 0 {
-			return infraerrors.BadRequest("INVALID_WECHAT_PAYMENT_RESUME_TOKEN", fmt.Sprintf("invalid resume amount: %s", claims.Amount))
-		}
-		req.Amount = amount
-	}
 	if claims.OrderType != "" {
 		req.OrderType = claims.OrderType
-	}
-	if claims.PlanID > 0 {
-		req.PlanID = claims.PlanID
 	}
 	if claims.BalancePackagePlanID > 0 {
 		req.BalancePackagePlanID = claims.BalancePackagePlanID
@@ -468,12 +334,11 @@ func (h *PaymentHandler) GetRefundQuote(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	var quote *service.BalancePackageRefundQuote
-	if order.OrderType == payment.OrderTypeTrafficPack {
-		quote, err = h.paymentService.GetTrafficPackRefundQuote(c.Request.Context(), orderID, subject.UserID)
-	} else {
-		quote, err = h.paymentService.GetBalancePackageRefundQuote(c.Request.Context(), orderID, subject.UserID)
+	if order.OrderType != payment.OrderTypeBalanceSubscription {
+		response.ErrorFrom(c, infraerrors.BadRequest("INVALID_ORDER_TYPE", "only balance package orders can be refunded"))
+		return
 	}
+	quote, err := h.paymentService.GetBalancePackageRefundQuote(c.Request.Context(), orderID, subject.UserID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -572,7 +437,6 @@ type PublicOrderResult struct {
 	RefundRequestedAt    *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestedBy    *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason  *string    `json:"refund_request_reason,omitempty"`
-	PlanID               *int64     `json:"plan_id,omitempty"`
 	BalancePackagePlanID *int64     `json:"balance_package_plan_id,omitempty"`
 	TrafficPackID        *int64     `json:"traffic_pack_id,omitempty"`
 	TrafficPackName      string     `json:"traffic_pack_name,omitempty"`
@@ -614,7 +478,6 @@ func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 		RefundRequestedAt:    order.RefundRequestedAt,
 		RefundRequestedBy:    order.RefundRequestedBy,
 		RefundRequestReason:  order.RefundRequestReason,
-		PlanID:               order.PlanID,
 		BalancePackagePlanID: order.BalancePackagePlanID,
 		TrafficPackID:        trafficPack.ID,
 		TrafficPackName:      trafficPack.Name,
@@ -729,7 +592,6 @@ type PaymentOrderResult struct {
 	RefundRequestedAt    *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestedBy    *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason  *string    `json:"refund_request_reason,omitempty"`
-	PlanID               *int64     `json:"plan_id,omitempty"`
 	BalancePackagePlanID *int64     `json:"balance_package_plan_id,omitempty"`
 	TrafficPackID        *int64     `json:"traffic_pack_id,omitempty"`
 	TrafficPackName      string     `json:"traffic_pack_name,omitempty"`
@@ -796,7 +658,6 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		RefundRequestedAt:    order.RefundRequestedAt,
 		RefundRequestedBy:    order.RefundRequestedBy,
 		RefundRequestReason:  order.RefundRequestReason,
-		PlanID:               order.PlanID,
 		BalancePackagePlanID: order.BalancePackagePlanID,
 		TrafficPackID:        trafficPack.ID,
 		TrafficPackName:      trafficPack.Name,

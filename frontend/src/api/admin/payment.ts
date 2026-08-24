@@ -8,7 +8,6 @@ import type {
   DashboardStats,
   PaymentOrder,
   PaymentChannel,
-  SubscriptionPlan,
   BalancePackagePlan,
   ProviderInstance
 } from '@/types/payment'
@@ -17,15 +16,10 @@ import type { BasePaginationResponse } from '@/types'
 /** Admin-facing payment config returned by GET /admin/payment/config */
 export interface AdminPaymentConfig {
   enabled: boolean
-  min_amount: number
-  max_amount: number
   daily_limit: number
   order_timeout_minutes: number
   max_pending_orders: number
   enabled_payment_types: string[]
-  balance_disabled: boolean
-  balance_recharge_multiplier: number
-  subscription_usd_to_cny_rate: number
   recharge_fee_rate: number
   load_balance_strategy: string
   product_name_prefix: string
@@ -37,15 +31,10 @@ export interface AdminPaymentConfig {
 /** Fields accepted by PUT /admin/payment/config (all optional via pointer semantics) */
 export interface UpdatePaymentConfigRequest {
   enabled?: boolean
-  min_amount?: number
-  max_amount?: number
   daily_limit?: number
   order_timeout_minutes?: number
   max_pending_orders?: number
   enabled_payment_types?: string[]
-  balance_disabled?: boolean
-  balance_recharge_multiplier?: number
-  subscription_usd_to_cny_rate?: number
   recharge_fee_rate?: number
   load_balance_strategy?: string
   product_name_prefix?: string
@@ -57,9 +46,6 @@ export interface UpdatePaymentConfigRequest {
 export interface RefundResult {
   success: boolean
   warning?: string
-  require_force?: boolean
-  balance_deducted?: number
-  subscription_days_deducted?: number
 }
 
 export const adminPaymentAPI = {
@@ -126,7 +112,7 @@ export const adminPaymentAPI = {
   },
 
   /** Process a refund */
-  refundOrder(id: number, data: { amount: number; reason: string; deduct_balance?: boolean; force?: boolean }) {
+  refundOrder(id: number, data: { reason: string }) {
     return apiClient.post<RefundResult>(`/admin/payment/orders/${id}/refund`, data)
   },
 
@@ -155,28 +141,6 @@ export const adminPaymentAPI = {
   /** Delete a payment channel */
   deleteChannel(id: number) {
     return apiClient.delete(`/admin/payment/channels/${id}`)
-  },
-
-  // ==================== Subscription Plans ====================
-
-  /** Get all subscription plans */
-  getPlans() {
-    return apiClient.get<SubscriptionPlan[]>('/admin/payment/plans')
-  },
-
-  /** Create a subscription plan */
-  createPlan(data: Record<string, unknown>) {
-    return apiClient.post<SubscriptionPlan>('/admin/payment/plans', data)
-  },
-
-  /** Update a subscription plan */
-  updatePlan(id: number, data: Record<string, unknown>) {
-    return apiClient.put<SubscriptionPlan>(`/admin/payment/plans/${id}`, data)
-  },
-
-  /** Delete a subscription plan */
-  deletePlan(id: number) {
-    return apiClient.delete(`/admin/payment/plans/${id}`)
   },
 
   // ==================== Balance Packages ====================

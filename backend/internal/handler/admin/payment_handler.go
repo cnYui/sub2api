@@ -210,7 +210,6 @@ type AdminPaymentOrderResult struct {
 	QRCode                  *string    `json:"qr_code,omitempty"`
 	QRCodeImg               *string    `json:"qr_code_img,omitempty"`
 	OrderType               string     `json:"order_type"`
-	PlanID                  *int64     `json:"plan_id,omitempty"`
 	BalancePackagePlanID    *int64     `json:"balance_package_plan_id,omitempty"`
 	CanCancelBalancePackage bool       `json:"can_cancel_balance_package"`
 	TrafficPackID           *int64     `json:"traffic_pack_id,omitempty"`
@@ -218,15 +217,12 @@ type AdminPaymentOrderResult struct {
 	TrafficPackCreditUSD    *float64   `json:"traffic_pack_credit_usd,omitempty"`
 	TrafficPackValidity     *int       `json:"traffic_pack_validity_days,omitempty"`
 	TrafficPackPlatform     string     `json:"traffic_pack_platform,omitempty"`
-	SubscriptionGroupID     *int64     `json:"subscription_group_id,omitempty"`
-	SubscriptionDays        *int       `json:"subscription_days,omitempty"`
 	ProviderInstanceID      *string    `json:"provider_instance_id,omitempty"`
 	ProviderKey             *string    `json:"provider_key,omitempty"`
 	Status                  string     `json:"status"`
 	RefundAmount            float64    `json:"refund_amount"`
 	RefundReason            *string    `json:"refund_reason,omitempty"`
 	RefundAt                *time.Time `json:"refund_at,omitempty"`
-	ForceRefund             bool       `json:"force_refund,omitempty"`
 	RefundRequestedAt       *time.Time `json:"refund_requested_at,omitempty"`
 	RefundRequestReason     *string    `json:"refund_request_reason,omitempty"`
 	RefundRequestedBy       *string    `json:"refund_requested_by,omitempty"`
@@ -286,22 +282,18 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		QRCode:               order.QrCode,
 		QRCodeImg:            order.QrCodeImg,
 		OrderType:            order.OrderType,
-		PlanID:               order.PlanID,
 		BalancePackagePlanID: order.BalancePackagePlanID,
 		TrafficPackID:        trafficPackID,
 		TrafficPackName:      trafficPackName,
 		TrafficPackCreditUSD: trafficPackCreditUSD,
 		TrafficPackValidity:  trafficPackValidity,
 		TrafficPackPlatform:  trafficPackPlatform,
-		SubscriptionGroupID:  order.SubscriptionGroupID,
-		SubscriptionDays:     order.SubscriptionDays,
 		ProviderInstanceID:   order.ProviderInstanceID,
 		ProviderKey:          order.ProviderKey,
 		Status:               order.Status,
 		RefundAmount:         order.RefundAmount,
 		RefundReason:         order.RefundReason,
 		RefundAt:             order.RefundAt,
-		ForceRefund:          order.ForceRefund,
 		RefundRequestedAt:    order.RefundRequestedAt,
 		RefundRequestReason:  order.RefundRequestReason,
 		RefundRequestedBy:    order.RefundRequestedBy,
@@ -343,10 +335,7 @@ func (h *PaymentHandler) setCancellableBalancePackageOrders(ctx context.Context,
 
 // AdminProcessRefundRequest is the request body for admin refund processing.
 type AdminProcessRefundRequest struct {
-	Amount        float64 `json:"amount"`
-	Reason        string  `json:"reason"`
-	Force         bool    `json:"force"`
-	DeductBalance bool    `json:"deduct_balance"`
+	Reason string `json:"reason"`
 }
 
 // ProcessRefund processes a refund for an order (admin).
@@ -363,13 +352,9 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 		return
 	}
 
-	plan, earlyResult, err := h.paymentService.PrepareRefund(c.Request.Context(), orderID, req.Amount, req.Reason, req.Force, req.DeductBalance)
+	plan, err := h.paymentService.PrepareRefund(c.Request.Context(), orderID, req.Reason)
 	if err != nil {
 		response.ErrorFrom(c, err)
-		return
-	}
-	if earlyResult != nil {
-		response.Success(c, earlyResult)
 		return
 	}
 
@@ -395,130 +380,6 @@ func (h *PaymentHandler) QueryAndFinalizeRefund(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
-}
-
-// --- Subscription Plans ---
-
-// ListPlans returns all subscription plans.
-// GET /api/v1/admin/payment/plans
-func (h *PaymentHandler) ListPlans(c *gin.Context) {
-	plans, err := h.configService.ListPlans(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
-	response.Success(c, adminSubscriptionPlansForResponse(plans, groupInfo))
-}
-
-type AdminSubscriptionPlanResult struct {
-	ID              int64     `json:"id"`
-	GroupID         int64     `json:"group_id"`
-	GroupPlatform   string    `json:"group_platform,omitempty"`
-	GroupName       string    `json:"group_name,omitempty"`
-	RateMultiplier  float64   `json:"rate_multiplier,omitempty"`
-	DailyLimitUSD   *float64  `json:"daily_limit_usd,omitempty"`
-	WeeklyLimitUSD  *float64  `json:"weekly_limit_usd,omitempty"`
-	MonthlyLimitUSD *float64  `json:"monthly_limit_usd,omitempty"`
-	ModelScopes     []string  `json:"supported_model_scopes,omitempty"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	Price           float64   `json:"price"`
-	OriginalPrice   *float64  `json:"original_price,omitempty"`
-	Currency        string    `json:"currency,omitempty"`
-	ValidityDays    int       `json:"validity_days"`
-	ValidityUnit    string    `json:"validity_unit"`
-	Features        string    `json:"features"`
-	ProductName     string    `json:"product_name"`
-	ForSale         bool      `json:"for_sale"`
-	SortOrder       int       `json:"sort_order"`
-	CreatedAt       time.Time `json:"created_at,omitempty"`
-	UpdatedAt       time.Time `json:"updated_at,omitempty"`
-}
-
-func adminSubscriptionPlansForResponse(plans []*dbent.SubscriptionPlan, groupInfo map[int64]service.PlanGroupInfo) []AdminSubscriptionPlanResult {
-	result := make([]AdminSubscriptionPlanResult, 0, len(plans))
-	for _, p := range plans {
-		if p == nil {
-			continue
-		}
-		gi := groupInfo[p.GroupID]
-		result = append(result, AdminSubscriptionPlanResult{
-			ID:              int64(p.ID),
-			GroupID:         p.GroupID,
-			GroupPlatform:   gi.Platform,
-			GroupName:       gi.Name,
-			RateMultiplier:  gi.RateMultiplier,
-			DailyLimitUSD:   gi.DailyLimitUSD,
-			WeeklyLimitUSD:  gi.WeeklyLimitUSD,
-			MonthlyLimitUSD: gi.MonthlyLimitUSD,
-			ModelScopes:     gi.ModelScopes,
-			Name:            p.Name,
-			Description:     p.Description,
-			Price:           p.Price,
-			OriginalPrice:   p.OriginalPrice,
-			Currency:        p.Currency,
-			ValidityDays:    p.ValidityDays,
-			ValidityUnit:    p.ValidityUnit,
-			Features:        p.Features,
-			ProductName:     p.ProductName,
-			ForSale:         p.ForSale,
-			SortOrder:       p.SortOrder,
-			CreatedAt:       p.CreatedAt,
-			UpdatedAt:       p.UpdatedAt,
-		})
-	}
-	return result
-}
-
-// CreatePlan creates a new subscription plan.
-// POST /api/v1/admin/payment/plans
-func (h *PaymentHandler) CreatePlan(c *gin.Context) {
-	var req service.CreatePlanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	plan, err := h.configService.CreatePlan(c.Request.Context(), req)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Created(c, plan)
-}
-
-// UpdatePlan updates an existing subscription plan.
-// PUT /api/v1/admin/payment/plans/:id
-func (h *PaymentHandler) UpdatePlan(c *gin.Context) {
-	id, ok := parseIDParam(c, "id")
-	if !ok {
-		return
-	}
-	var req service.UpdatePlanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	plan, err := h.configService.UpdatePlan(c.Request.Context(), id, req)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, plan)
-}
-
-// DeletePlan deletes a subscription plan.
-// DELETE /api/v1/admin/payment/plans/:id
-func (h *PaymentHandler) DeletePlan(c *gin.Context) {
-	id, ok := parseIDParam(c, "id")
-	if !ok {
-		return
-	}
-	if err := h.configService.DeletePlan(c.Request.Context(), id); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, gin.H{"message": "deleted"})
 }
 
 // --- Provider Instances ---

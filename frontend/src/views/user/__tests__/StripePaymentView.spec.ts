@@ -75,7 +75,7 @@ function orderFactory(overrides: Partial<PaymentOrder> = {}): PaymentOrder {
     payment_type: 'stripe',
     out_trade_no: 'sub2_stripe_42',
     status: 'PENDING',
-    order_type: 'balance',
+    order_type: 'balance_subscription',
     created_at: '2026-04-20T12:00:00Z',
     expires_at: '2026-04-20T12:30:00Z',
     refund_amount: 0,

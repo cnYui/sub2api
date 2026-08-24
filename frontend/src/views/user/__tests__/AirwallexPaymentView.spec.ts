@@ -53,7 +53,7 @@ function airwallexSnapshot(overrides: Partial<PaymentRecoverySnapshot> = {}): Pa
     countryCode: 'CN',
     paymentEnv: 'demo',
     payAmount: 88,
-    orderType: 'balance',
+    orderType: 'balance_subscription',
     paymentMode: '',
     resumeToken: 'resume-awx',
     createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
