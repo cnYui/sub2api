@@ -87,33 +87,39 @@ func TestValidateUserPurchaseRejectsDifferentPlan(t *testing.T) {
 	}
 }
 
-func TestCreditInitialBalanceRenewsSamePlanWithoutChangingRefreshProgress(t *testing.T) {
-	ctx := context.Background()
-	client := newPaymentConfigServiceTestClient(t)
-	account, err := client.User.Create().SetEmail("package-renew@example.com").SetPasswordHash("hash").Save(ctx)
-	if err != nil {
-		t.Fatalf("create user: %v", err)
-	}
-	plan := createLifecyclePlan(t, client, "package-renew-plan", 29)
-	now := time.Now().UTC()
-	current, err := client.UserBalancePackage.Create().SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(21).
-		SetWeeklyCreditUsd(plan.WeeklyCreditUsd).SetCreditedCount(2).SetRefreshCount(4).SetRefreshIntervalDays(7).
-		SetStartsAt(now.Add(-7 * 24 * time.Hour)).SetNextCreditAt(now.Add(24 * time.Hour)).
-		SetExpiresAt(now.Add(21 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
-	if err != nil {
-		t.Fatalf("create current package: %v", err)
-	}
-	planID, weeklyCredit, refreshCount, refreshInterval, validity := plan.ID, plan.WeeklyCreditUsd, plan.RefreshCount, plan.RefreshIntervalDays, plan.ValidityDays
-	order := &dbent.PaymentOrder{
-		ID:                                22,
-		UserID:                            account.ID,
+func balancePackageRenewOrder(id, userID, planID int64, plan *dbent.BalancePackagePlan) *dbent.PaymentOrder {
+	weeklyCredit, refreshCount, refreshInterval, validity := plan.WeeklyCreditUsd, plan.RefreshCount, plan.RefreshIntervalDays, plan.ValidityDays
+	pid := planID
+	return &dbent.PaymentOrder{
+		ID:                                id,
+		UserID:                            userID,
 		PaymentType:                       string(payment.TypeAlipay),
-		BalancePackagePlanID:              &planID,
+		BalancePackagePlanID:              &pid,
 		BalancePackageWeeklyCreditUsd:     &weeklyCredit,
 		BalancePackageRefreshCount:        &refreshCount,
 		BalancePackageRefreshIntervalDays: &refreshInterval,
 		BalancePackageValidityDays:        &validity,
 	}
+}
+
+// 续费"已完成"套餐：重置为新一轮 4 期，立即发放第 1 期，进度回到 1/4，重新计时刷新，有效期顺延。
+func TestRenewBalancePackageResetsCycleAfterCompletion(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-renew-done@example.com").SetPasswordHash("hash").Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-renew-done-plan", 29)
+	now := time.Now().UTC()
+	current, err := client.UserBalancePackage.Create().SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(21).
+		SetWeeklyCreditUsd(plan.WeeklyCreditUsd).SetRemainingUsd(0).SetCreditedCount(4).SetRefreshCount(4).SetRefreshIntervalDays(7).
+		SetStartsAt(now.Add(-25 * 24 * time.Hour)).
+		SetExpiresAt(now.Add(3 * 24 * time.Hour)).SetStatus(balancePackageStatusCompleted).Save(ctx)
+	if err != nil {
+		t.Fatalf("create completed package: %v", err)
+	}
+	order := balancePackageRenewOrder(22, account.ID, plan.ID, plan)
 
 	if err := NewBalancePackageService(client).CreditInitialBalance(ctx, order); err != nil {
 		t.Fatalf("renew package: %v", err)
@@ -122,15 +128,81 @@ func TestCreditInitialBalanceRenewsSamePlanWithoutChangingRefreshProgress(t *tes
 	if err != nil {
 		t.Fatalf("get renewed package: %v", err)
 	}
-	if updated.PaymentOrderID != order.ID || updated.CreditedCount != current.CreditedCount || updated.RefreshCount != current.RefreshCount || !updated.ExpiresAt.Equal(current.ExpiresAt.Add(28*24*time.Hour)) {
-		t.Fatalf("unexpected renewed package: %#v", updated)
+	if updated.PaymentOrderID != order.ID {
+		t.Fatalf("payment_order_id = %d, want %d", updated.PaymentOrderID, order.ID)
 	}
-	count, err := client.UserBalancePackage.Query().Where().Count(ctx)
+	if updated.CreditedCount != 1 || updated.RefreshCount != 4 || updated.Status != balancePackageStatusActive {
+		t.Fatalf("cycle not reset: credited=%d refresh=%d status=%s", updated.CreditedCount, updated.RefreshCount, updated.Status)
+	}
+	if updated.RenewalCount != 1 {
+		t.Fatalf("renewal_count = %d, want 1", updated.RenewalCount)
+	}
+	if !updated.ExpiresAt.Equal(current.ExpiresAt.AddDate(0, 0, 28)) {
+		t.Fatalf("expires_at = %s, want +28d from %s", updated.ExpiresAt, current.ExpiresAt)
+	}
+	if updated.NextCreditAt == nil || updated.NextCreditAt.Sub(updated.StartsAt) < 6*24*time.Hour {
+		t.Fatalf("next_credit_at not re-armed: %#v", updated.NextCreditAt)
+	}
+	if diff := time.Since(updated.StartsAt); diff < 0 || diff > time.Minute {
+		t.Fatalf("starts_at not re-anchored to now: %s", updated.StartsAt)
+	}
+	updatedUser, _ := client.User.Get(ctx, account.ID)
+	if updatedUser.Balance != plan.WeeklyCreditUsd || updatedUser.TotalRecharged != plan.WeeklyCreditUsd {
+		t.Fatalf("balance=%f total_recharged=%f, want %f", updatedUser.Balance, updatedUser.TotalRecharged, plan.WeeklyCreditUsd)
+	}
+	if updated.RemainingUsd != plan.WeeklyCreditUsd {
+		t.Fatalf("remaining=%f, want %f", updated.RemainingUsd, plan.WeeklyCreditUsd)
+	}
+	count, err := client.UserBalancePackage.Query().Count(ctx)
 	if err != nil {
 		t.Fatalf("count packages: %v", err)
 	}
 	if count != 1 {
 		t.Fatalf("renewal created %d package rows, want 1", count)
+	}
+	renewAudits, err := client.PaymentAuditLog.Query().Where(paymentauditlog.ActionEQ(balancePackageRenewalAudit)).Count(ctx)
+	if err != nil {
+		t.Fatalf("count renewal audits: %v", err)
+	}
+	if renewAudits != 1 {
+		t.Fatalf("renewal audits = %d, want 1", renewAudits)
+	}
+}
+
+// 中途续费（尚未走完的 2/4 套餐）：未发放的 2 期顺延进新周期，总期数变为 6，已付费额度不丢。
+func TestRenewBalancePackageCarriesUndeliveredPeriodsMidCycle(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-renew-mid@example.com").SetPasswordHash("hash").Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-renew-mid-plan", 29)
+	now := time.Now().UTC()
+	current, err := client.UserBalancePackage.Create().SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(31).
+		SetWeeklyCreditUsd(plan.WeeklyCreditUsd).SetRemainingUsd(0).SetCreditedCount(2).SetRefreshCount(4).SetRefreshIntervalDays(7).
+		SetStartsAt(now.Add(-7 * 24 * time.Hour)).SetNextCreditAt(now.Add(24 * time.Hour)).
+		SetExpiresAt(now.Add(21 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create mid-cycle package: %v", err)
+	}
+	order := balancePackageRenewOrder(32, account.ID, plan.ID, plan)
+
+	if err := NewBalancePackageService(client).CreditInitialBalance(ctx, order); err != nil {
+		t.Fatalf("renew package: %v", err)
+	}
+	updated, err := client.UserBalancePackage.Get(ctx, current.ID)
+	if err != nil {
+		t.Fatalf("get renewed package: %v", err)
+	}
+	if updated.CreditedCount != 1 || updated.RefreshCount != 6 || updated.Status != balancePackageStatusActive {
+		t.Fatalf("mid-cycle carry-forward wrong: credited=%d refresh=%d status=%s (want 1/6/active)", updated.CreditedCount, updated.RefreshCount, updated.Status)
+	}
+	if updated.RenewalCount != 1 {
+		t.Fatalf("renewal_count = %d, want 1", updated.RenewalCount)
+	}
+	if !updated.ExpiresAt.Equal(current.ExpiresAt.AddDate(0, 0, 28)) {
+		t.Fatalf("expires_at = %s, want +28d from %s", updated.ExpiresAt, current.ExpiresAt)
 	}
 }
 

@@ -54465,6 +54465,8 @@ type UserBalancePackageMutation struct {
 	addrefresh_count         *int
 	refresh_interval_days    *int
 	addrefresh_interval_days *int
+	renewal_count            *int
+	addrenewal_count         *int
 	starts_at                *time.Time
 	next_credit_at           *time.Time
 	expires_at               *time.Time
@@ -55005,6 +55007,62 @@ func (m *UserBalancePackageMutation) ResetRefreshIntervalDays() {
 	m.addrefresh_interval_days = nil
 }
 
+// SetRenewalCount sets the "renewal_count" field.
+func (m *UserBalancePackageMutation) SetRenewalCount(i int) {
+	m.renewal_count = &i
+	m.addrenewal_count = nil
+}
+
+// RenewalCount returns the value of the "renewal_count" field in the mutation.
+func (m *UserBalancePackageMutation) RenewalCount() (r int, exists bool) {
+	v := m.renewal_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRenewalCount returns the old "renewal_count" field's value of the UserBalancePackage entity.
+// If the UserBalancePackage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserBalancePackageMutation) OldRenewalCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRenewalCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRenewalCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRenewalCount: %w", err)
+	}
+	return oldValue.RenewalCount, nil
+}
+
+// AddRenewalCount adds i to the "renewal_count" field.
+func (m *UserBalancePackageMutation) AddRenewalCount(i int) {
+	if m.addrenewal_count != nil {
+		*m.addrenewal_count += i
+	} else {
+		m.addrenewal_count = &i
+	}
+}
+
+// AddedRenewalCount returns the value that was added to the "renewal_count" field in this mutation.
+func (m *UserBalancePackageMutation) AddedRenewalCount() (r int, exists bool) {
+	v := m.addrenewal_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRenewalCount resets all changes to the "renewal_count" field.
+func (m *UserBalancePackageMutation) ResetRenewalCount() {
+	m.renewal_count = nil
+	m.addrenewal_count = nil
+}
+
 // SetStartsAt sets the "starts_at" field.
 func (m *UserBalancePackageMutation) SetStartsAt(t time.Time) {
 	m.starts_at = &t
@@ -55295,7 +55353,7 @@ func (m *UserBalancePackageMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserBalancePackageMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.user != nil {
 		fields = append(fields, userbalancepackage.FieldUserID)
 	}
@@ -55319,6 +55377,9 @@ func (m *UserBalancePackageMutation) Fields() []string {
 	}
 	if m.refresh_interval_days != nil {
 		fields = append(fields, userbalancepackage.FieldRefreshIntervalDays)
+	}
+	if m.renewal_count != nil {
+		fields = append(fields, userbalancepackage.FieldRenewalCount)
 	}
 	if m.starts_at != nil {
 		fields = append(fields, userbalancepackage.FieldStartsAt)
@@ -55362,6 +55423,8 @@ func (m *UserBalancePackageMutation) Field(name string) (ent.Value, bool) {
 		return m.RefreshCount()
 	case userbalancepackage.FieldRefreshIntervalDays:
 		return m.RefreshIntervalDays()
+	case userbalancepackage.FieldRenewalCount:
+		return m.RenewalCount()
 	case userbalancepackage.FieldStartsAt:
 		return m.StartsAt()
 	case userbalancepackage.FieldNextCreditAt:
@@ -55399,6 +55462,8 @@ func (m *UserBalancePackageMutation) OldField(ctx context.Context, name string) 
 		return m.OldRefreshCount(ctx)
 	case userbalancepackage.FieldRefreshIntervalDays:
 		return m.OldRefreshIntervalDays(ctx)
+	case userbalancepackage.FieldRenewalCount:
+		return m.OldRenewalCount(ctx)
 	case userbalancepackage.FieldStartsAt:
 		return m.OldStartsAt(ctx)
 	case userbalancepackage.FieldNextCreditAt:
@@ -55476,6 +55541,13 @@ func (m *UserBalancePackageMutation) SetField(name string, value ent.Value) erro
 		}
 		m.SetRefreshIntervalDays(v)
 		return nil
+	case userbalancepackage.FieldRenewalCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRenewalCount(v)
+		return nil
 	case userbalancepackage.FieldStartsAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -55547,6 +55619,9 @@ func (m *UserBalancePackageMutation) AddedFields() []string {
 	if m.addrefresh_interval_days != nil {
 		fields = append(fields, userbalancepackage.FieldRefreshIntervalDays)
 	}
+	if m.addrenewal_count != nil {
+		fields = append(fields, userbalancepackage.FieldRenewalCount)
+	}
 	return fields
 }
 
@@ -55569,6 +55644,8 @@ func (m *UserBalancePackageMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedRefreshCount()
 	case userbalancepackage.FieldRefreshIntervalDays:
 		return m.AddedRefreshIntervalDays()
+	case userbalancepackage.FieldRenewalCount:
+		return m.AddedRenewalCount()
 	}
 	return nil, false
 }
@@ -55626,6 +55703,13 @@ func (m *UserBalancePackageMutation) AddField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddRefreshIntervalDays(v)
+		return nil
+	case userbalancepackage.FieldRenewalCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRenewalCount(v)
 		return nil
 	}
 	return fmt.Errorf("unknown UserBalancePackage numeric field %s", name)
@@ -55686,6 +55770,9 @@ func (m *UserBalancePackageMutation) ResetField(name string) error {
 		return nil
 	case userbalancepackage.FieldRefreshIntervalDays:
 		m.ResetRefreshIntervalDays()
+		return nil
+	case userbalancepackage.FieldRenewalCount:
+		m.ResetRenewalCount()
 		return nil
 	case userbalancepackage.FieldStartsAt:
 		m.ResetStartsAt()

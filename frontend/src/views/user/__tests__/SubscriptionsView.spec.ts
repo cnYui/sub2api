@@ -48,6 +48,8 @@ vi.mock('vue-i18n', async () => {
     'userSubscriptions.status.debt_paused': '欠费暂停',
     'userSubscriptions.buyAgain': '再次购买',
     'userSubscriptions.daysRemaining': '剩余 {days} 天',
+    'userSubscriptions.renewedBadge': '已续费 ×{count}',
+    'userSubscriptions.renewalExtended': '续费已重置周期，有效期延长至 {date}',
   }
   return {
     ...actual,
@@ -82,6 +84,7 @@ function balancePackage(overrides: Record<string, unknown> = {}) {
     refresh_count: 4,
     refresh_interval_days: 7,
     credited_count: 2,
+    renewal_count: 0,
     starts_at: '2030-01-01T00:00:00.000Z',
     next_credit_at: '2030-01-08T12:30:00.000Z',
     expires_at: futureDate,
@@ -134,6 +137,27 @@ describe('SubscriptionsView', () => {
 
     expect(wrapper.text()).toContain('本周期已完成，不再刷新')
     expect(wrapper.text()).not.toContain('下次刷新')
+  })
+
+  it('续费后展示续费标识与有效期延长提示', async () => {
+    getMyBalancePackages.mockResolvedValue({
+      data: [balancePackage({ renewal_count: 2, credited_count: 1 })]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('已续费 ×2')
+    expect(wrapper.text()).toContain('续费已重置周期，有效期延长至')
+  })
+
+  it('未续费套餐不展示续费标识', async () => {
+    getMyBalancePackages.mockResolvedValue({ data: [balancePackage()] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('已续费')
   })
 
   it('历史欠费暂停状态不再显示过时提示并展示下次刷新', async () => {

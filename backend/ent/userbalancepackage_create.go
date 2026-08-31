@@ -87,6 +87,20 @@ func (_c *UserBalancePackageCreate) SetRefreshIntervalDays(v int) *UserBalancePa
 	return _c
 }
 
+// SetRenewalCount sets the "renewal_count" field.
+func (_c *UserBalancePackageCreate) SetRenewalCount(v int) *UserBalancePackageCreate {
+	_c.mutation.SetRenewalCount(v)
+	return _c
+}
+
+// SetNillableRenewalCount sets the "renewal_count" field if the given value is not nil.
+func (_c *UserBalancePackageCreate) SetNillableRenewalCount(v *int) *UserBalancePackageCreate {
+	if v != nil {
+		_c.SetRenewalCount(*v)
+	}
+	return _c
+}
+
 // SetStartsAt sets the "starts_at" field.
 func (_c *UserBalancePackageCreate) SetStartsAt(v time.Time) *UserBalancePackageCreate {
 	_c.mutation.SetStartsAt(v)
@@ -203,6 +217,10 @@ func (_c *UserBalancePackageCreate) defaults() {
 		v := userbalancepackage.DefaultCreditedCount
 		_c.mutation.SetCreditedCount(v)
 	}
+	if _, ok := _c.mutation.RenewalCount(); !ok {
+		v := userbalancepackage.DefaultRenewalCount
+		_c.mutation.SetRenewalCount(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := userbalancepackage.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -242,6 +260,9 @@ func (_c *UserBalancePackageCreate) check() error {
 	}
 	if _, ok := _c.mutation.RefreshIntervalDays(); !ok {
 		return &ValidationError{Name: "refresh_interval_days", err: errors.New(`ent: missing required field "UserBalancePackage.refresh_interval_days"`)}
+	}
+	if _, ok := _c.mutation.RenewalCount(); !ok {
+		return &ValidationError{Name: "renewal_count", err: errors.New(`ent: missing required field "UserBalancePackage.renewal_count"`)}
 	}
 	if _, ok := _c.mutation.StartsAt(); !ok {
 		return &ValidationError{Name: "starts_at", err: errors.New(`ent: missing required field "UserBalancePackage.starts_at"`)}
@@ -320,6 +341,10 @@ func (_c *UserBalancePackageCreate) createSpec() (*UserBalancePackage, *sqlgraph
 	if value, ok := _c.mutation.RefreshIntervalDays(); ok {
 		_spec.SetField(userbalancepackage.FieldRefreshIntervalDays, field.TypeInt, value)
 		_node.RefreshIntervalDays = value
+	}
+	if value, ok := _c.mutation.RenewalCount(); ok {
+		_spec.SetField(userbalancepackage.FieldRenewalCount, field.TypeInt, value)
+		_node.RenewalCount = value
 	}
 	if value, ok := _c.mutation.StartsAt(); ok {
 		_spec.SetField(userbalancepackage.FieldStartsAt, field.TypeTime, value)
@@ -549,6 +574,24 @@ func (u *UserBalancePackageUpsert) UpdateRefreshIntervalDays() *UserBalancePacka
 // AddRefreshIntervalDays adds v to the "refresh_interval_days" field.
 func (u *UserBalancePackageUpsert) AddRefreshIntervalDays(v int) *UserBalancePackageUpsert {
 	u.Add(userbalancepackage.FieldRefreshIntervalDays, v)
+	return u
+}
+
+// SetRenewalCount sets the "renewal_count" field.
+func (u *UserBalancePackageUpsert) SetRenewalCount(v int) *UserBalancePackageUpsert {
+	u.Set(userbalancepackage.FieldRenewalCount, v)
+	return u
+}
+
+// UpdateRenewalCount sets the "renewal_count" field to the value that was provided on create.
+func (u *UserBalancePackageUpsert) UpdateRenewalCount() *UserBalancePackageUpsert {
+	u.SetExcluded(userbalancepackage.FieldRenewalCount)
+	return u
+}
+
+// AddRenewalCount adds v to the "renewal_count" field.
+func (u *UserBalancePackageUpsert) AddRenewalCount(v int) *UserBalancePackageUpsert {
+	u.Add(userbalancepackage.FieldRenewalCount, v)
 	return u
 }
 
@@ -821,6 +864,27 @@ func (u *UserBalancePackageUpsertOne) AddRefreshIntervalDays(v int) *UserBalance
 func (u *UserBalancePackageUpsertOne) UpdateRefreshIntervalDays() *UserBalancePackageUpsertOne {
 	return u.Update(func(s *UserBalancePackageUpsert) {
 		s.UpdateRefreshIntervalDays()
+	})
+}
+
+// SetRenewalCount sets the "renewal_count" field.
+func (u *UserBalancePackageUpsertOne) SetRenewalCount(v int) *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.SetRenewalCount(v)
+	})
+}
+
+// AddRenewalCount adds v to the "renewal_count" field.
+func (u *UserBalancePackageUpsertOne) AddRenewalCount(v int) *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.AddRenewalCount(v)
+	})
+}
+
+// UpdateRenewalCount sets the "renewal_count" field to the value that was provided on create.
+func (u *UserBalancePackageUpsertOne) UpdateRenewalCount() *UserBalancePackageUpsertOne {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.UpdateRenewalCount()
 	})
 }
 
@@ -1270,6 +1334,27 @@ func (u *UserBalancePackageUpsertBulk) AddRefreshIntervalDays(v int) *UserBalanc
 func (u *UserBalancePackageUpsertBulk) UpdateRefreshIntervalDays() *UserBalancePackageUpsertBulk {
 	return u.Update(func(s *UserBalancePackageUpsert) {
 		s.UpdateRefreshIntervalDays()
+	})
+}
+
+// SetRenewalCount sets the "renewal_count" field.
+func (u *UserBalancePackageUpsertBulk) SetRenewalCount(v int) *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.SetRenewalCount(v)
+	})
+}
+
+// AddRenewalCount adds v to the "renewal_count" field.
+func (u *UserBalancePackageUpsertBulk) AddRenewalCount(v int) *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.AddRenewalCount(v)
+	})
+}
+
+// UpdateRenewalCount sets the "renewal_count" field to the value that was provided on create.
+func (u *UserBalancePackageUpsertBulk) UpdateRenewalCount() *UserBalancePackageUpsertBulk {
+	return u.Update(func(s *UserBalancePackageUpsert) {
+		s.UpdateRenewalCount()
 	})
 }
 

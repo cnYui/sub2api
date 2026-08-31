@@ -1,5 +1,33 @@
 # 项目协作约定
 
+- 2026-08-31：按要求继续恢复公网服务。检查确认应用、PostgreSQL、Redis、Nginx 均正常，只有 `cloudflared` 进程缺失导致三个公网域名返回 `530`；使用既有凭证和配置恢复 Tunnel `7f5fafd9-8a59-4013-ba42-3116dfc29463`，进程 ID `37684`，成功注册 4 条连接。本地 `18082`、Nginx `8080` 及 `aaccx.pw`、`www.aaccx.pw`、`api.aaccx.pw` 的 `/health` 均返回 200；未重启应用栈，未修改 DNS、代码、业务数据或数据卷，详见 `docs/ai/context/20260831-130507-public-service-recovery_CN.md`。
+
+- 2026-08-31：从根本上修复"续费后套餐周期未重置"。`renewBalancePackage` 由"仅延长有效期"改为**周期重置**：立即发放新周期第 1 期、`credited_count` 回到 `1`、`next_credit_at` 重新计时、`status` 恢复 `active`、有效期在原到期基础上 +28 天；旧周期未发放的期数顺延进新周期总期数（正常"完成后续费"仍是 `1/4`）。新增迁移 `212_balance_package_renewal_count.sql` 与 `user_balance_packages.renewal_count`，退款报价账本用量按 `created_at >= starts_at` 限定到当前周期避免跨周期少退。前端订阅页自动显示新周期并新增 `续费×N` 标识与"有效期已延长至"提示。`go test ./internal/service ./internal/repository`、前端 `typecheck` 与订阅页单测均通过；未改动生产数据。详见 `docs/ai/context/20260831-122200-balance-package-renewal-cycle-reset_CN.md`。
+
+- 2026-08-31：按管理员要求手动修正 `859591608@qq.com`（用户 ID `492`）续费后的余额套餐 `114`（订单 `750`）周期：以原到期点 `2026-08-31 07:45:11 +08` 开始第 `1/4` 期，发放 `520 USD`，余额与套餐剩余均为 `520.00000000 USD`，套餐恢复 `active`，下次刷新为 `2026-09-07 07:45:11 +08`，有效期保持至 `2026-09-28 07:45:11 +08`。新增支付审计 `2297`，认证缓存失效 outbox 已消费，应用、PostgreSQL、Redis 均 healthy；详见 `docs/ai/context/20260831-092705-859591608-renewal-refresh-execution_CN.md`。
+
+- 2026-08-31：只读核查 `859591608@qq.com`（用户 ID `492`）续费订单 `750`：支付已完成，余额套餐 `114` 有效期延长至 `2026-09-28 07:45:11 +08`，但套餐仍为 `completed`、到账 `4/4`，`next_credit_at=NULL`，当前没有下一次自动刷新时间；续费后周期未重置，详见 `docs/ai/context/20260831-091454-859591608-renewal-refresh-audit_CN.md`。
+
+- 2026-08-30：排查 Cloudflare Tunnel 异常退出：公网 `530` 的直接原因是本机 `cloudflared.exe` 进程消失，Cloudflare 边缘及本地应用均非故障。8 月 30 日 `20:11:56`（+09）Tunnel 日志戛然而止且无 cloudflared 崩溃/优雅退出记录；同一时间 Windows 正在卸载并更新 `OpenAI.Codex` AppX（`20:11:32` 开始，`20:12:23` 执行 `ForceTargetApplicationShutdownOption`/`TerminateApplications`，`20:12:24` 完成），高度怀疑 Codex 更新终止了其启动链路中的子进程。现有启动脚本仅用 `Start-Process -WindowStyle Hidden` 拉起进程，没有 Windows 服务、计划任务或自动重启守护；WLAN DNS `192.168.1.1` 还持续出现 `Failed to refresh DNS local resolver ... server misbehaving`，历史日志曾出现全部 Tunnel 连接丢失后自行退出。建议后续将 Tunnel 改为独立服务或带重启策略的计划任务，并为宿主机配置稳定 DNS；本次只读诊断未修改运行配置，详见 `docs/ai/context/20260830-203309-cloudflare-tunnel-exit-diagnosis_CN.md`。
+
+- 2026-08-30：按要求重新启动公网应用容器 `sub2api-official-18082`。重启前发现 Cloudflare Tunnel 进程已退出，先使用既有凭证恢复 Tunnel `7f5fafd9-8a59-4013-ba42-3116dfc29463`，再执行 `docker restart`；应用恢复为 `running/healthy`，PostgreSQL、Redis、Nginx 未重启且数据卷未修改。重启后本地 `18082`、Nginx `8080` 及 `aaccx.pw`、`www.aaccx.pw`、`api.aaccx.pw` 的 `/health` 均返回 200，`/usage-guide` 返回 200；Tunnel 成功注册 4 条连接，详见 `docs/ai/context/20260830-202216-public-service-restart_CN.md`。
+
+- 2026-08-30：按要求恢复当前项目公网服务。Docker Desktop Linux 引擎此前未运行，启动后既有 `sub2api-official-18082`、PostgreSQL、Redis 和 `sub2api-public-nginx-local` 容器自动恢复；应用、PostgreSQL、Redis 均 healthy，应用绑定 `127.0.0.1:18082`，Nginx 监听 `127.0.0.1:8080`。使用既有 Cloudflare Tunnel `7f5fafd9-8a59-4013-ba42-3116dfc29463` 凭证和配置启动 `cloudflared`，4 条 Tunnel 连接注册成功；本地 `18082`、Nginx `8080` 及 `aaccx.pw`、`www.aaccx.pw`、`api.aaccx.pw` 的 `/health` 均返回 200，`/usage-guide` 返回 200。未重建镜像、数据库、Redis、Nginx，未修改数据卷、业务数据或运行配置，详见 `docs/ai/context/20260830-083933-public-service-recovery_CN.md`。
+
+- 2026-08-29：按管理员要求提前刷新 `kangzhao6618@gmail.com`（用户 ID `484`）余额套餐 `175`（订单 `724`）第 `2/4` 期 `128 USD`；普通余额由 `2.80356880 USD` 增至 `128.00000000 USD`，套餐剩余为 `128 USD`，下次刷新由 `2026-09-02 09:29:47 +08` 顺延至 `2026-09-09 09:29:47 +08`。新增支付审计 `2268`，无欠费还款流水；订单、退款金额、套餐有效期和历史用量未修改，认证缓存失效 outbox 已消费，详见 `docs/ai/context/20260829-202155-kangzhao6618-early-weekly-credit-execution_CN.md`。
+
+- 2026-08-28：退款比例修复已实现：仅汇总余额套餐实际扣款账本，流量卡、普通余额和流量卡欠费不参与退款；批量图片 capture 同样记录余额套餐实际承担金额。历史套餐因缺少不可变资金来源归因，由迁移 `211_balance_package_usage_ledger.sql` 标记为 `legacy_unattributed` 并转人工审核，不伪造历史归因。实现与验证见 `docs/ai/context/20260828-163500-balance-package-refund-attribution-fix_CN.md`。
+
+- 2026-08-28：按管理员要求提前刷新 `dingsong212@gmail.com`（用户 ID `563`）余额套餐 `166`（订单 `705`）第 `2/4` 期 `781 USD`；普通余额由 `218.71168793 USD` 增至 `999.71168793 USD`，套餐剩余为 `781 USD`，下次刷新由 `2026-08-30 08:02:57 +08` 顺延至 `2026-09-06 08:02:57 +08`。新增支付审计 `2238`，无欠费还款流水；订单、退款金额、套餐有效期和历史用量未修改，认证缓存失效 outbox 已消费，详见 `docs/ai/context/20260828-145457-dingsong212-early-weekly-credit-execution_CN.md`。
+
+- 2026-08-28：只读核查最新用户退款订单 `680`（`jinzhiduo2850@gmail.com`，ID `459`）：ZPay 网关返回成功，订单已正确落库为 `REFUNDED`，套餐已撤销；但退款报价按周期内全量 `usage_logs.actual_cost=317.80790730 USD` 计算，混入了流量卡及普通余额/欠费承担的 `31.08885634 USD`，导致实际退款 `48.53 CNY` 少于按套餐实际承担用量计算的 `51.51 CNY`，少退约 `2.98 CNY`。根因是 `usage_logs` 没有套餐/资金来源归属字段；本次未修改生产数据，详见 `docs/ai/context/20260828-131029-latest-user-refund-order-680-audit_CN.md`。
+
+- 2026-08-26：按用户要求将生产 `groups.id=6` 的 GLM 分组从 `3.5x` 调整为 `0.6x`（中文“6折”）；名称同步为 `GLM0.6倍率`。仅修改当前分组倍率和名称，官方基础价、账号统计倍率、用户专属倍率、历史用量、余额、订单和最终计费倍率未改；认证缓存失效与调度 outbox 已消费，应用、PostgreSQL、Redis 保持 healthy，详见 `docs/ai/context/20260826-195510-glm-rate-multiplier-06-execution_CN.md`。
+
+- 2026-08-26：按管理员要求提前刷新 `1032726009@qq.com`（用户 ID `505`）余额套餐 `123`（订单 `600`）第 `4/4` 期 `781 USD`；事务内抵扣普通余额欠费 `3.84820178 USD`，最终普通余额与套餐剩余均为 `777.15179822 USD`，套餐完成且清除后续刷新时间。新增支付审计 `2159`、欠费还款账本 `47`，认证缓存失效 outbox 新增 `5` 条；订单、退款金额、套餐有效期和历史用量未修改，详见 `docs/ai/context/20260826-185244-1032726009-early-weekly-credit-execution_CN.md`。
+
+- 2026-08-26：只读核查当前生产欠费用户：普通余额为负共 21 人、合计 `62.61501676 USD`；其中 6 人仍有有效余额套餐和后续 `next_credit_at`，刷新时会先用当周额度抵消负余额，剩余才进入本周套餐额度。截图首行 `961109198@qq.com`（ID `506`）余额 `-34.26361296 USD`，其套餐均为 `expired/cancelled` 且 `next_credit_at=NULL`，不会再自动刷新抵扣；详见 `docs/ai/context/20260826-100821-negative-balance-weekly-credit-check_CN.md`。
+
 - 2026-08-24：提交 `0df1bd25f` 已同步到私有 GitHub `fork/main`；基于该提交构建镜像 `sha256:a56e65317eedbc8ab95da7f59c545952309a2b6c68bd7f8d3e5d035f6085aa17`，仅替换公网应用容器 `sub2api-official-18082`。应用、PostgreSQL、Redis 均 healthy，本地、Nginx、三个公网健康端点及 `/usage-guide` 均返回 200，详见 `docs/ai/context/20260824-213203-refund-real-payment-main-sync-docker-redeploy_CN.md`。
 
 - 2026-08-24：按管理员要求恢复并实测 DeepSeek 账号 ID `6`：第一次请求因 `schedulable=false` 返回 `503 no available accounts`；管理员“恢复状态”后仍未自动开启调度，随后手动开启调度再请求 `deepseek-v4-flash`，实际命中账号 `6` 并返回 HTTP `200`、`DS_LIVE_OK`。账号当前 `active + schedulable=true`，用量记录 `362700`，详见 `docs/ai/context/20260824-181513-deepseek-account-live-request-verification_CN.md`。

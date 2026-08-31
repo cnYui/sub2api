@@ -95,6 +95,11 @@ func RefreshIntervalDays(v int) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldEQ(FieldRefreshIntervalDays, v))
 }
 
+// RenewalCount applies equality check predicate on the "renewal_count" field. It's identical to RenewalCountEQ.
+func RenewalCount(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldEQ(FieldRenewalCount, v))
+}
+
 // StartsAt applies equality check predicate on the "starts_at" field. It's identical to StartsAtEQ.
 func StartsAt(v time.Time) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldEQ(FieldStartsAt, v))
@@ -423,6 +428,46 @@ func RefreshIntervalDaysLT(v int) predicate.UserBalancePackage {
 // RefreshIntervalDaysLTE applies the LTE predicate on the "refresh_interval_days" field.
 func RefreshIntervalDaysLTE(v int) predicate.UserBalancePackage {
 	return predicate.UserBalancePackage(sql.FieldLTE(FieldRefreshIntervalDays, v))
+}
+
+// RenewalCountEQ applies the EQ predicate on the "renewal_count" field.
+func RenewalCountEQ(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldEQ(FieldRenewalCount, v))
+}
+
+// RenewalCountNEQ applies the NEQ predicate on the "renewal_count" field.
+func RenewalCountNEQ(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldNEQ(FieldRenewalCount, v))
+}
+
+// RenewalCountIn applies the In predicate on the "renewal_count" field.
+func RenewalCountIn(vs ...int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldIn(FieldRenewalCount, vs...))
+}
+
+// RenewalCountNotIn applies the NotIn predicate on the "renewal_count" field.
+func RenewalCountNotIn(vs ...int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldNotIn(FieldRenewalCount, vs...))
+}
+
+// RenewalCountGT applies the GT predicate on the "renewal_count" field.
+func RenewalCountGT(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldGT(FieldRenewalCount, v))
+}
+
+// RenewalCountGTE applies the GTE predicate on the "renewal_count" field.
+func RenewalCountGTE(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldGTE(FieldRenewalCount, v))
+}
+
+// RenewalCountLT applies the LT predicate on the "renewal_count" field.
+func RenewalCountLT(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldLT(FieldRenewalCount, v))
+}
+
+// RenewalCountLTE applies the LTE predicate on the "renewal_count" field.
+func RenewalCountLTE(v int) predicate.UserBalancePackage {
+	return predicate.UserBalancePackage(sql.FieldLTE(FieldRenewalCount, v))
 }
 
 // StartsAtEQ applies the EQ predicate on the "starts_at" field.

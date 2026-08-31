@@ -2433,18 +2433,22 @@ func init() {
 	userbalancepackageDescCreditedCount := userbalancepackageFields[5].Descriptor()
 	// userbalancepackage.DefaultCreditedCount holds the default value on creation for the credited_count field.
 	userbalancepackage.DefaultCreditedCount = userbalancepackageDescCreditedCount.Default.(int)
+	// userbalancepackageDescRenewalCount is the schema descriptor for renewal_count field.
+	userbalancepackageDescRenewalCount := userbalancepackageFields[8].Descriptor()
+	// userbalancepackage.DefaultRenewalCount holds the default value on creation for the renewal_count field.
+	userbalancepackage.DefaultRenewalCount = userbalancepackageDescRenewalCount.Default.(int)
 	// userbalancepackageDescStatus is the schema descriptor for status field.
-	userbalancepackageDescStatus := userbalancepackageFields[11].Descriptor()
+	userbalancepackageDescStatus := userbalancepackageFields[12].Descriptor()
 	// userbalancepackage.DefaultStatus holds the default value on creation for the status field.
 	userbalancepackage.DefaultStatus = userbalancepackageDescStatus.Default.(string)
 	// userbalancepackage.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	userbalancepackage.StatusValidator = userbalancepackageDescStatus.Validators[0].(func(string) error)
 	// userbalancepackageDescCreatedAt is the schema descriptor for created_at field.
-	userbalancepackageDescCreatedAt := userbalancepackageFields[12].Descriptor()
+	userbalancepackageDescCreatedAt := userbalancepackageFields[13].Descriptor()
 	// userbalancepackage.DefaultCreatedAt holds the default value on creation for the created_at field.
 	userbalancepackage.DefaultCreatedAt = userbalancepackageDescCreatedAt.Default.(func() time.Time)
 	// userbalancepackageDescUpdatedAt is the schema descriptor for updated_at field.
-	userbalancepackageDescUpdatedAt := userbalancepackageFields[13].Descriptor()
+	userbalancepackageDescUpdatedAt := userbalancepackageFields[14].Descriptor()
 	// userbalancepackage.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	userbalancepackage.DefaultUpdatedAt = userbalancepackageDescUpdatedAt.Default.(func() time.Time)
 	// userbalancepackage.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

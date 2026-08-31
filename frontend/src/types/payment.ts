@@ -168,6 +168,7 @@ export interface UserBalancePackage {
   refresh_count: number
   refresh_interval_days: number
   credited_count: number
+  renewal_count: number
   starts_at: string
   next_credit_at?: string
   expires_at: string

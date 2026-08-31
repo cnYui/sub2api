@@ -136,6 +136,8 @@ export default {
     nextRefresh: 'Next refresh',
     refreshCompleted: 'This billing period is complete. No further refreshes.',
     buyAgain: 'Buy again',
+    renewedBadge: 'Renewed ×{count}',
+    renewalExtended: 'Renewal reset the cycle; valid through {date}',
     modelSubscriptionsTitle: 'Model Subscriptions',
     usage: 'Usage',
     expires: 'Expires',

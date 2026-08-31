@@ -190,6 +190,27 @@ func (_u *UserBalancePackageUpdate) AddRefreshIntervalDays(v int) *UserBalancePa
 	return _u
 }
 
+// SetRenewalCount sets the "renewal_count" field.
+func (_u *UserBalancePackageUpdate) SetRenewalCount(v int) *UserBalancePackageUpdate {
+	_u.mutation.ResetRenewalCount()
+	_u.mutation.SetRenewalCount(v)
+	return _u
+}
+
+// SetNillableRenewalCount sets the "renewal_count" field if the given value is not nil.
+func (_u *UserBalancePackageUpdate) SetNillableRenewalCount(v *int) *UserBalancePackageUpdate {
+	if v != nil {
+		_u.SetRenewalCount(*v)
+	}
+	return _u
+}
+
+// AddRenewalCount adds value to the "renewal_count" field.
+func (_u *UserBalancePackageUpdate) AddRenewalCount(v int) *UserBalancePackageUpdate {
+	_u.mutation.AddRenewalCount(v)
+	return _u
+}
+
 // SetStartsAt sets the "starts_at" field.
 func (_u *UserBalancePackageUpdate) SetStartsAt(v time.Time) *UserBalancePackageUpdate {
 	_u.mutation.SetStartsAt(v)
@@ -376,6 +397,12 @@ func (_u *UserBalancePackageUpdate) sqlSave(ctx context.Context) (_node int, err
 	}
 	if value, ok := _u.mutation.AddedRefreshIntervalDays(); ok {
 		_spec.AddField(userbalancepackage.FieldRefreshIntervalDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RenewalCount(); ok {
+		_spec.SetField(userbalancepackage.FieldRenewalCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRenewalCount(); ok {
+		_spec.AddField(userbalancepackage.FieldRenewalCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.StartsAt(); ok {
 		_spec.SetField(userbalancepackage.FieldStartsAt, field.TypeTime, value)
@@ -605,6 +632,27 @@ func (_u *UserBalancePackageUpdateOne) AddRefreshIntervalDays(v int) *UserBalanc
 	return _u
 }
 
+// SetRenewalCount sets the "renewal_count" field.
+func (_u *UserBalancePackageUpdateOne) SetRenewalCount(v int) *UserBalancePackageUpdateOne {
+	_u.mutation.ResetRenewalCount()
+	_u.mutation.SetRenewalCount(v)
+	return _u
+}
+
+// SetNillableRenewalCount sets the "renewal_count" field if the given value is not nil.
+func (_u *UserBalancePackageUpdateOne) SetNillableRenewalCount(v *int) *UserBalancePackageUpdateOne {
+	if v != nil {
+		_u.SetRenewalCount(*v)
+	}
+	return _u
+}
+
+// AddRenewalCount adds value to the "renewal_count" field.
+func (_u *UserBalancePackageUpdateOne) AddRenewalCount(v int) *UserBalancePackageUpdateOne {
+	_u.mutation.AddRenewalCount(v)
+	return _u
+}
+
 // SetStartsAt sets the "starts_at" field.
 func (_u *UserBalancePackageUpdateOne) SetStartsAt(v time.Time) *UserBalancePackageUpdateOne {
 	_u.mutation.SetStartsAt(v)
@@ -821,6 +869,12 @@ func (_u *UserBalancePackageUpdateOne) sqlSave(ctx context.Context) (_node *User
 	}
 	if value, ok := _u.mutation.AddedRefreshIntervalDays(); ok {
 		_spec.AddField(userbalancepackage.FieldRefreshIntervalDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RenewalCount(); ok {
+		_spec.SetField(userbalancepackage.FieldRenewalCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedRenewalCount(); ok {
+		_spec.AddField(userbalancepackage.FieldRenewalCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.StartsAt(); ok {
 		_spec.SetField(userbalancepackage.FieldStartsAt, field.TypeTime, value)

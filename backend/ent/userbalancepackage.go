@@ -34,6 +34,8 @@ type UserBalancePackage struct {
 	RefreshCount int `json:"refresh_count,omitempty"`
 	// RefreshIntervalDays holds the value of the "refresh_interval_days" field.
 	RefreshIntervalDays int `json:"refresh_interval_days,omitempty"`
+	// RenewalCount holds the value of the "renewal_count" field.
+	RenewalCount int `json:"renewal_count,omitempty"`
 	// StartsAt holds the value of the "starts_at" field.
 	StartsAt time.Time `json:"starts_at,omitempty"`
 	// NextCreditAt holds the value of the "next_credit_at" field.
@@ -79,7 +81,7 @@ func (*UserBalancePackage) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case userbalancepackage.FieldWeeklyCreditUsd, userbalancepackage.FieldRemainingUsd:
 			values[i] = new(sql.NullFloat64)
-		case userbalancepackage.FieldID, userbalancepackage.FieldUserID, userbalancepackage.FieldPlanID, userbalancepackage.FieldPaymentOrderID, userbalancepackage.FieldCreditedCount, userbalancepackage.FieldRefreshCount, userbalancepackage.FieldRefreshIntervalDays:
+		case userbalancepackage.FieldID, userbalancepackage.FieldUserID, userbalancepackage.FieldPlanID, userbalancepackage.FieldPaymentOrderID, userbalancepackage.FieldCreditedCount, userbalancepackage.FieldRefreshCount, userbalancepackage.FieldRefreshIntervalDays, userbalancepackage.FieldRenewalCount:
 			values[i] = new(sql.NullInt64)
 		case userbalancepackage.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -153,6 +155,12 @@ func (_m *UserBalancePackage) assignValues(columns []string, values []any) error
 				return fmt.Errorf("unexpected type %T for field refresh_interval_days", values[i])
 			} else if value.Valid {
 				_m.RefreshIntervalDays = int(value.Int64)
+			}
+		case userbalancepackage.FieldRenewalCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field renewal_count", values[i])
+			} else if value.Valid {
+				_m.RenewalCount = int(value.Int64)
 			}
 		case userbalancepackage.FieldStartsAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -255,6 +263,9 @@ func (_m *UserBalancePackage) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("refresh_interval_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RefreshIntervalDays))
+	builder.WriteString(", ")
+	builder.WriteString("renewal_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.RenewalCount))
 	builder.WriteString(", ")
 	builder.WriteString("starts_at=")
 	builder.WriteString(_m.StartsAt.Format(time.ANSIC))

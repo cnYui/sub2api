@@ -133,6 +133,8 @@ export default {
     nextRefresh: '下次刷新',
     refreshCompleted: '本周期已完成，不再刷新',
     buyAgain: '再次购买',
+    renewedBadge: '已续费 ×{count}',
+    renewalExtended: '续费已重置周期，有效期延长至 {date}',
     modelSubscriptionsTitle: '模型订阅',
     usage: '用量',
     expires: '到期时间',
