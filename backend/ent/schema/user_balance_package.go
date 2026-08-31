@@ -33,6 +33,8 @@ func (UserBalancePackage) Fields() []ent.Field {
 		field.Int("credited_count").Default(0),
 		field.Int("refresh_count"),
 		field.Int("refresh_interval_days"),
+		// renewal_count 记录同档续费次数；续费会重置到账周期，此字段仅用于展示与统计。
+		field.Int("renewal_count").Default(0),
 		field.Time("starts_at").SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("next_credit_at").Optional().Nillable().SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
 		field.Time("expires_at").SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),

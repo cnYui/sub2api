@@ -51,6 +51,12 @@
                       <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', balancePackageStatusClass(balancePackage.status)]">
                         {{ balancePackageStatusLabel(balancePackage.status) }}
                       </span>
+                      <span
+                        v-if="balancePackage.renewal_count > 0"
+                        class="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-950/40 dark:text-teal-300"
+                      >
+                        {{ t('userSubscriptions.renewedBadge', { count: balancePackage.renewal_count }) }}
+                      </span>
                     </div>
                     <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
                       ¥{{ formatCNY(balancePackage.price_cny) }} · {{ t('userSubscriptions.balancePackageValidity', { days: balancePackage.validity_days }) }}
@@ -106,6 +112,9 @@
                   </div>
                   <div v-else-if="balancePackage.status === 'completed'" class="text-gray-500 dark:text-dark-400">
                     {{ t('userSubscriptions.refreshCompleted') }}
+                  </div>
+                  <div v-if="balancePackage.renewal_count > 0" class="text-xs text-teal-700 dark:text-teal-300/80">
+                    {{ t('userSubscriptions.renewalExtended', { date: formatDateTimeToMinute(new Date(balancePackage.expires_at)) }) }}
                   </div>
                 </div>
               </div>

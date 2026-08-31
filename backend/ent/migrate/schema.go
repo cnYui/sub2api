@@ -1978,6 +1978,7 @@ var (
 		{Name: "credited_count", Type: field.TypeInt, Default: 0},
 		{Name: "refresh_count", Type: field.TypeInt},
 		{Name: "refresh_interval_days", Type: field.TypeInt},
+		{Name: "renewal_count", Type: field.TypeInt, Default: 0},
 		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "next_credit_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -1994,7 +1995,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "user_balance_packages_users_balance_packages",
-				Columns:    []*schema.Column{UserBalancePackagesColumns[14]},
+				Columns:    []*schema.Column{UserBalancePackagesColumns[15]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -2003,12 +2004,12 @@ var (
 			{
 				Name:    "userbalancepackage_user_id_status",
 				Unique:  false,
-				Columns: []*schema.Column{UserBalancePackagesColumns[14], UserBalancePackagesColumns[11]},
+				Columns: []*schema.Column{UserBalancePackagesColumns[15], UserBalancePackagesColumns[12]},
 			},
 			{
 				Name:    "userbalancepackage_status_next_credit_at",
 				Unique:  false,
-				Columns: []*schema.Column{UserBalancePackagesColumns[11], UserBalancePackagesColumns[9]},
+				Columns: []*schema.Column{UserBalancePackagesColumns[12], UserBalancePackagesColumns[10]},
 			},
 		},
 	}

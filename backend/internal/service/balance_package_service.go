@@ -54,6 +54,7 @@ type UserBalancePackageView struct {
 	RefreshCount        int        `json:"refresh_count"`
 	RefreshIntervalDays int        `json:"refresh_interval_days"`
 	CreditedCount       int        `json:"credited_count"`
+	RenewalCount        int        `json:"renewal_count"`
 	StartsAt            time.Time  `json:"starts_at"`
 	NextCreditAt        *time.Time `json:"next_credit_at,omitempty"`
 	ExpiresAt           time.Time  `json:"expires_at"`
@@ -173,6 +174,7 @@ func (s *BalancePackageService) ListUserPackages(ctx context.Context, userID int
 			RefreshCount:        item.RefreshCount,
 			RefreshIntervalDays: item.RefreshIntervalDays,
 			CreditedCount:       item.CreditedCount,
+			RenewalCount:        item.RenewalCount,
 			StartsAt:            item.StartsAt,
 			NextCreditAt:        item.NextCreditAt,
 			ExpiresAt:           item.ExpiresAt,
@@ -367,7 +369,7 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 		if order.PaymentType == payment.PaymentTypeAdminGrant {
 			return nil, infraerrors.Conflict("BALANCE_PACKAGE_ACTIVE", "用户已有有效余额套餐，不能重复发放")
 		}
-		return s.renewBalancePackage(ctx, client, order, current)
+		return s.renewBalancePackage(ctx, client, order, current, lockedUser)
 	}
 
 	startsAt := time.Now().UTC()
@@ -424,21 +426,84 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 	return pkg, nil
 }
 
-func (s *BalancePackageService) renewBalancePackage(ctx context.Context, client *dbent.Client, order *dbent.PaymentOrder, current *dbent.UserBalancePackage) (*dbent.UserBalancePackage, error) {
+// renewBalancePackage 处理同档续费：把现有套餐重置为新一轮到账周期，而不是仅延长有效期。
+// 续费即立即发放新周期第 1 期额度、进度回到 1/4、重新计时下一次刷新，并在原到期基础上顺延有效期。
+// 若旧周期尚未走完，未发放的期数会顺延进新周期的总期数，保证已付费的额度不丢失。
+func (s *BalancePackageService) renewBalancePackage(ctx context.Context, client *dbent.Client, order *dbent.PaymentOrder, current *dbent.UserBalancePackage, lockedUser *dbent.User) (*dbent.UserBalancePackage, error) {
+	weeklyCredit := *order.BalancePackageWeeklyCreditUsd
+	refreshCount := *order.BalancePackageRefreshCount
+	refreshIntervalDays := *order.BalancePackageRefreshIntervalDays
 	validityDays := *order.BalancePackageValidityDays
-	if validityDays <= 0 {
+	if weeklyCredit <= 0 || refreshCount <= 0 || refreshIntervalDays <= 0 || validityDays <= 0 {
 		return nil, infraerrors.BadRequest("BALANCE_PACKAGE_SNAPSHOT_INVALID", "balance package order snapshot is invalid")
 	}
-	updated, err := client.UserBalancePackage.UpdateOneID(current.ID).
-		SetPaymentOrderID(order.ID).
-		SetExpiresAt(current.ExpiresAt.AddDate(0, 0, validityDays)).
-		SetUpdatedAt(time.Now().UTC()).
+
+	now := time.Now().UTC()
+
+	// 顺延旧周期尚未发放的期数，避免中途续费时丢失已付费的到账。正常"完成后续费"时为 0。
+	carriedPeriods := current.RefreshCount - current.CreditedCount
+	if carriedPeriods < 0 {
+		carriedPeriods = 0
+	}
+	newRefreshCount := refreshCount + carriedPeriods
+
+	// 与周额度刷新一致的余额口径：先移除旧窗口剩余，再用本周额度抵扣负余额，剩余进入新窗口。
+	baseBalance := lockedUser.Balance - current.RemainingUsd
+	newRemaining := balancePackageRemainingAfterDebt(baseBalance, weeklyCredit)
+	debtRepaid := minFloat(maxFloat(-baseBalance, 0), weeklyCredit)
+	balanceDelta := weeklyCredit - current.RemainingUsd
+	newBalance := baseBalance + weeklyCredit
+
+	status := balancePackageStatusActive
+	if newRefreshCount <= 1 {
+		status = balancePackageStatusCompleted
+	}
+
+	updatedUsers, err := client.User.Update().
+		Where(user.IDEQ(order.UserID)).
+		AddBalance(balanceDelta).
+		AddTotalRecharged(weeklyCredit).
 		Save(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("credit renewed balance package balance: %w", err)
+	}
+	if updatedUsers == 0 {
+		return nil, ErrUserNotFound
+	}
+
+	builder := client.UserBalancePackage.UpdateOneID(current.ID).
+		SetPaymentOrderID(order.ID).
+		SetWeeklyCreditUsd(weeklyCredit).
+		SetRemainingUsd(newRemaining).
+		SetCreditedCount(1).
+		SetRefreshCount(newRefreshCount).
+		SetRefreshIntervalDays(refreshIntervalDays).
+		SetStartsAt(now).
+		SetExpiresAt(current.ExpiresAt.AddDate(0, 0, validityDays)).
+		SetStatus(status).
+		SetRenewalCount(current.RenewalCount + 1).
+		SetUpdatedAt(now)
+	if status == balancePackageStatusActive {
+		builder.SetNextCreditAt(now.AddDate(0, 0, refreshIntervalDays))
+	} else {
+		builder.ClearNextCreditAt()
+	}
+	updated, err := builder.Save(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("renew user balance package: %w", err)
 	}
-	if err := createBalancePackageRenewalAudit(ctx, client, order.ID, current.ID, current.ExpiresAt, updated.ExpiresAt); err != nil {
+
+	if err := createBalancePackageRenewalAudit(ctx, client, order.ID, current.ID, current.ExpiresAt, updated.ExpiresAt, weeklyCredit, newRefreshCount, current.RenewalCount+1, carriedPeriods); err != nil {
 		return nil, err
+	}
+	// 续费订单是新订单 ID，首期到账沿用 INITIAL_CREDIT 审计动作（按订单唯一）。
+	if err := createBalancePackageCreditAudit(ctx, client, order.ID, "BALANCE_PACKAGE_INITIAL_CREDIT", weeklyCredit, 1); err != nil {
+		return nil, err
+	}
+	if debtRepaid > 0 {
+		if err := recordBalanceDebtLedger(ctx, client, order.UserID, "repayment", debtRepaid, lockedUser.Balance, newBalance, "balance_package_renewal_credit", fmt.Sprintf("order:%d", order.ID)); err != nil {
+			return nil, err
+		}
 	}
 	return updated, nil
 }
@@ -1008,12 +1073,17 @@ func createBalancePackageDebtAudit(ctx context.Context, client *dbent.Client, or
 	return nil
 }
 
-func createBalancePackageRenewalAudit(ctx context.Context, client *dbent.Client, orderID, packageID int64, previousExpiresAt, expiresAt time.Time) error {
+func createBalancePackageRenewalAudit(ctx context.Context, client *dbent.Client, orderID, packageID int64, previousExpiresAt, expiresAt time.Time, weeklyCreditUsd float64, refreshCount, renewalCount, carriedPeriods int) error {
 	detail, _ := json.Marshal(map[string]any{
 		"package_id":          packageID,
 		"previous_expires_at": previousExpiresAt.UTC().Format(time.RFC3339),
 		"expires_at":          expiresAt.UTC().Format(time.RFC3339),
 		"validity_days_added": int(expiresAt.Sub(previousExpiresAt) / (24 * time.Hour)),
+		"weekly_credit_usd":   weeklyCreditUsd,
+		"refresh_count":       refreshCount,
+		"renewal_count":       renewalCount,
+		"carried_periods":     carriedPeriods,
+		"cycle_reset":         true,
 	})
 	if _, err := client.PaymentAuditLog.Create().
 		SetOrderID(fmt.Sprintf("%d", orderID)).

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
-	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -78,12 +78,40 @@ func (s *PaymentService) calculateBalancePackageRefundQuote(ctx context.Context,
 		return quote, nil
 	}
 	quote.TimeRatio = refundTimeRatio(pkg.StartsAt, pkg.ExpiresAt, quote.CalculatedAt)
-	used, err := s.entClient.UsageLog.Query().
-		Where(usagelog.UserIDEQ(pkg.UserID), usagelog.CreatedAtGTE(pkg.StartsAt), usagelog.CreatedAtLT(pkg.ExpiresAt)).
-		Aggregate(dbent.Sum(usagelog.FieldActualCost)).
-		Float64(ctx)
+	var used float64
+	var legacyUnattributed int64
+	// 续费会复用同一套餐行并重置 starts_at；账本按套餐 ID 累计跨周期用量，
+	// 因此退款报价必须限定在当前周期窗口（created_at >= starts_at），
+	// 避免把上一周期（属于已被覆盖的旧订单）的用量算进本次续费订单。
+	rows, err := s.entClient.QueryContext(ctx, `
+		SELECT
+			COALESCE(SUM(amount_usd) FILTER (WHERE source_type <> 'legacy_unattributed'), 0),
+			COUNT(*) FILTER (WHERE source_type = 'legacy_unattributed')
+		FROM balance_package_usage_ledger
+		WHERE balance_package_id = $1
+		  AND created_at >= $2
+	`, pkg.ID, pkg.StartsAt)
 	if err != nil {
-		return nil, fmt.Errorf("sum balance package usage: %w", err)
+		return nil, fmt.Errorf("sum balance package usage ledger: %w", err)
+	}
+	if !rows.Next() {
+		_ = rows.Close()
+		return nil, fmt.Errorf("sum balance package usage ledger: %w", sql.ErrNoRows)
+	}
+	if err := rows.Scan(&used, &legacyUnattributed); err != nil {
+		_ = rows.Close()
+		return nil, fmt.Errorf("scan balance package usage ledger: %w", err)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, fmt.Errorf("read balance package usage ledger: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close balance package usage ledger: %w", err)
+	}
+	if legacyUnattributed > 0 {
+		quote.ManualReviewRequired = true
+		return quote, nil
 	}
 	quote.UsedQuotaUSD = math.Max(used, 0)
 	quote.UsageRatio, quote.ConsumptionRatio, quote.EstimatedRefundAmount = calculateBalancePackageRefundAmounts(

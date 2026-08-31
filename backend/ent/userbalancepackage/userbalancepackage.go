@@ -30,6 +30,8 @@ const (
 	FieldRefreshCount = "refresh_count"
 	// FieldRefreshIntervalDays holds the string denoting the refresh_interval_days field in the database.
 	FieldRefreshIntervalDays = "refresh_interval_days"
+	// FieldRenewalCount holds the string denoting the renewal_count field in the database.
+	FieldRenewalCount = "renewal_count"
 	// FieldStartsAt holds the string denoting the starts_at field in the database.
 	FieldStartsAt = "starts_at"
 	// FieldNextCreditAt holds the string denoting the next_credit_at field in the database.
@@ -66,6 +68,7 @@ var Columns = []string{
 	FieldCreditedCount,
 	FieldRefreshCount,
 	FieldRefreshIntervalDays,
+	FieldRenewalCount,
 	FieldStartsAt,
 	FieldNextCreditAt,
 	FieldExpiresAt,
@@ -89,6 +92,8 @@ var (
 	DefaultRemainingUsd float64
 	// DefaultCreditedCount holds the default value on creation for the "credited_count" field.
 	DefaultCreditedCount int
+	// DefaultRenewalCount holds the default value on creation for the "renewal_count" field.
+	DefaultRenewalCount int
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
@@ -147,6 +152,11 @@ func ByRefreshCount(opts ...sql.OrderTermOption) OrderOption {
 // ByRefreshIntervalDays orders the results by the refresh_interval_days field.
 func ByRefreshIntervalDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRefreshIntervalDays, opts...).ToFunc()
+}
+
+// ByRenewalCount orders the results by the renewal_count field.
+func ByRenewalCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRenewalCount, opts...).ToFunc()
 }
 
 // ByStartsAt orders the results by the starts_at field.
