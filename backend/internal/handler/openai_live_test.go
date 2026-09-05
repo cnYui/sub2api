@@ -84,7 +84,9 @@ func TestLiveEnabledForAPIKey(t *testing.T) {
 	require.False(t, liveEnabledForAPIKey(&service.APIKey{
 		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
 	}))
-	require.True(t, liveEnabledForAPIKey(&service.APIKey{
+	// 计费未接入期间 liveBillingImplemented 为 false，本该放行的组合也一律拒绝。
+	// 接通计费删掉那个早退分支后，这条断言要翻回 require.True。
+	require.False(t, liveEnabledForAPIKey(&service.APIKey{
 		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
 	}))
 }

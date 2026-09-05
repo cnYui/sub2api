@@ -144,8 +144,12 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 	}
 
 	excluded := make(map[int64]struct{})
-	// Live 按通话时长计费，不属于 token 利润门的语义范围：显式豁免，避免
-	// 防御性装门按文本 D 过滤 Live 账号池且门与计费时刻不同源。
+	// 豁免 token 利润门：该门按文本 D 过滤账号池，与 Live 的计量口径不同源。
+	//
+	// 注意：本行原注释写的是「Live 按通话时长计费」，这个前提**并不成立**——
+	// 见下方 finalizeLiveCall 的 TODO(billing)，Live 目前根本不计费。豁免本身
+	// 仍然合理（利润门是按 token 语义设计的），但不要再把它当作「已按时长计费」
+	// 的证据。接入时长计费时需重新确认这里该不该继续豁免。
 	ctx = WithOpenAIProfitControlSuppressed(ctx)
 	var lastErr error
 	for attempt := 0; attempt <= 3; attempt++ {

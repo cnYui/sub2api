@@ -240,7 +240,25 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 	_ = downstream.Close(coderws.StatusNormalClosure, "")
 }
 
+// liveBillingImplemented 标记 Live 会话的计费是否已接入。
+//
+// 当前为 false：service/openai_live.go 的 finalizeLiveCall 写死
+// TotalCost=0 / ActualCost=0 / RateMultiplier=1，完全绕过 applyUsageBilling，
+// 而准入只校验 balance >= 0。二者构成闭环——余额正好为 0 的用户可以无限次
+// 开启最长 liveMaxSessionDuration（默认 1 小时）的会话，平台单向净亏，
+// 且因为落库的 actual_cost 就是 0，事后无法从 usage_logs 追回。
+//
+// 之所以把闸设在请求路径而不是管理端：groups.allow_live 有创建/编辑/复制
+// 三条写入路径，且本项目有直连数据库改数据的既有作业习惯，管理端拦不住
+// 「库里已经是 true」的情况。这里一处早退即覆盖全部 Live 路由。
+//
+// 计费接通后，连同下方的早退分支一并删除。
+const liveBillingImplemented = false
+
 func liveEnabledForAPIKey(apiKey *service.APIKey) bool {
+	if !liveBillingImplemented {
+		return false
+	}
 	return apiKey != nil &&
 		apiKey.Group != nil &&
 		apiKey.Group.Platform == service.PlatformOpenAI &&
