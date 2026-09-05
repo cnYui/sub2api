@@ -23,6 +23,7 @@
 - 设计与实现上下文写入 `docs/ai/context/`，**历史文档只新增不覆盖**。
 - 生产数据变更必须写 `payment_audit_logs` 审计，并处理认证/余额缓存失效。
 - **SSH 私钥不叫 `id_*`**，部署密钥按机器命名（文件名见 `deploy/ops.env` 的 `OPS_SSH_KEY_FILE`）。用 `ls ~/.ssh/*.pem ~/.ssh/id_*` 过滤会漏掉它、误判为「无 SSH 访问」——**要 `ls ~/.ssh/` 全量看**。默认 `id_ed25519` 确实被服务器拒绝，容易据此得出确定的错误结论。
+- **生产 VPS 远程操作手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`。连接方式、psql 用法、写操作的事务模板、已知表结构坑、缓存失效、核验清单。**动生产数据库前先读它。**
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
 - 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `212`。
 
