@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# VPS 端部署脚本模板。
+#
+# 由 .github/workflows/build.yml 的 deploy job 通过 SSH 调用，也可以手动执行。
+# 拷到部署目录（与 compose 文件同级）并重命名为 deploy.sh，然后 chmod +x：
+#
+#   cp vps-deploy.sh.example ${OPS_DEPLOY_DIR}/deploy.sh
+#   chmod +x ${OPS_DEPLOY_DIR}/deploy.sh
+#
+# 为什么这个脚本要放在 VPS 而不是写进 workflow：
+# 生产的 compose 由基础文件 + docker-compose.vps.yml 叠加而成，而后者只存在于本机、
+# 不在仓库（它承载 BILLING_FINAL_MULTIPLIER、端口绑定到 127.0.0.1、凭证加密密钥的
+# secrets 挂载）。哪些 compose 文件要叠加是本机的事实，只有本机知道；
+# 写进 workflow 就等于让 CI 猜生产拓扑，漏一个文件轻则应用起不来，重则暴露端口。
+#
+# 用法：
+#   ./deploy.sh                      # 部署 :main
+#   ./deploy.sh sha-<40位commit>     # 部署指定版本（回滚用这个）
+
+set -euo pipefail
+
+# ── 按你的实际情况修改这两行 ────────────────────────────────────────────
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.vps.yml)
+IMAGE_REPO="ghcr.io/cnyui/sub2api"
+# ────────────────────────────────────────────────────────────────────
+
+TAG="${1:-main}"
+IMAGE="${IMAGE_REPO}:${TAG}"
+
+echo "==> 部署 ${IMAGE}"
+
+# compose 里应写成 image: ghcr.io/cnyui/sub2api:${IMAGE_TAG:-main}
+export IMAGE_TAG="$TAG"
+
+# 记下当前版本，失败时用于回滚提示
+PREV="$(docker compose "${COMPOSE_FILES[@]}" ps -q sub2api 2>/dev/null | head -1 | xargs -r docker inspect --format '{{.Config.Image}}' 2>/dev/null || true)"
+[ -n "$PREV" ] && echo "==> 当前运行版本：${PREV}"
+
+echo "==> 拉取镜像"
+docker compose "${COMPOSE_FILES[@]}" pull
+
+echo "==> 重建容器"
+docker compose "${COMPOSE_FILES[@]}" up -d
+
+# 只清理悬空层。带 tag 的历史镜像必须保留，回滚要用。
+docker image prune -f >/dev/null 2>&1 || true
+
+echo "==> 等待健康检查"
+ok=0
+for i in $(seq 1 30); do
+  if curl -fsS --max-time 5 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    ok=1
+    echo "==> 健康检查通过（第 ${i} 次尝试）"
+    break
+  fi
+  sleep 2
+done
+
+if [ "$ok" -ne 1 ]; then
+  echo "!! 健康检查失败，最近 50 行日志：" >&2
+  docker compose "${COMPOSE_FILES[@]}" logs --tail=50 sub2api >&2 || true
+  echo "" >&2
+  echo "!! 回滚：./deploy.sh <上一个正常的 tag>" >&2
+  [ -n "$PREV" ] && echo "!! 上一个版本是：${PREV}" >&2
+  exit 1
+fi
+
+# 这两项在 2026-09-05 的 VPS 切换中都翻过车，每次部署都确认一次。
+echo "==> 关键配置自检"
+CID="$(docker compose "${COMPOSE_FILES[@]}" ps -q sub2api | head -1)"
+MULT="$(docker exec "$CID" sh -c 'echo "${BILLING_FINAL_MULTIPLIER:-<未设置>}"' 2>/dev/null || echo '<读取失败>')"
+echo "    BILLING_FINAL_MULTIPLIER = ${MULT}"
+if [ "$MULT" = "<未设置>" ]; then
+  echo "!! 警告：最终计费倍率未进入容器，会按应收的 1/N 收费。检查是否漏了 -f docker-compose.vps.yml" >&2
+fi
+
+docker compose "${COMPOSE_FILES[@]}" ps
+echo "==> 部署完成：${IMAGE}"
