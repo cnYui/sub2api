@@ -125,7 +125,6 @@ scripts/*
 !scripts/migrate-18080-users.sql
 !scripts/migrate-18080-users.ps1
 !scripts/prune-ai-context.ps1
-!scripts/prune-ai-context.sh
 !backend/scripts/
 !backend/scripts/resolve-version.sh
 .code-review-state
