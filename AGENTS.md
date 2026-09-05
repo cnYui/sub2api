@@ -78,7 +78,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 - 汇率展示：国外模型按 `1 USD = 1 CNY`，国产模型按 `1 USD = 7 CNY`，模型广场标题下有固定说明。`BALANCE_RECHARGE_MULTIPLIER` 是"每支付 1 CNY 获得多少 USD"，**不要把汇率写进模型扣费倍率**。
 - **登记一个新 OpenAI 模型的价格，必须同时改两处**（见坑 10、11）：`pricing_service.go` 的 `matchOpenAIModel`（加显式前缀分支 + 静态价，**这是生产实际走的路径**）和 `billing_service.go` 的 `fallbackPrices`（目录失效时的兜底）。只改后者等于没改。
-- `gpt-6-astra` 两处均已登记：$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出（复用 `openAIGPT54LongContext*` 常量）。别名 `gpt-6`、`gpt6`、带 effort/日期后缀的写法都解析到同一份价格，回归测试见 `billing_service_gpt6_test.go`。**但 2026-09-05 实测两个上游对 `gpt-6` 均返回 404，该模型尚未可用、白名单中也未加入**——这是预防性登记，不是在修复正在发生的漏计费。
+- `gpt-6-astra` 两处均已登记：$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出（复用 `openAIGPT54LongContext*` 常量）。别名 `gpt-6`、`gpt6`、带 effort/日期后缀的写法都解析到同一份价格，回归测试见 `billing_service_gpt6_test.go`。
+- **`gpt-6-astra` 已于 2026-09-05 开放并实测计费正确**：三个 上游B 上游账号（`#1132`/`#1164`/`#1168`）的 `model_mapping` 已加入该键。实测 `usage_logs` id `404425`——`input 864×$10/M + cache_read 7488×$1/M + output 22×$50/M = total_cost 0.017228`，`actual_cost = 0.017228 × 0.16 × 18 = 0.04961664`，余额差额一致。**上游只认精确串 `gpt-6-astra`，别名一律 404**，所以坑 11 的少收风险在这条链路上触发不了。`api.ai-genesis.app` 的账号未加入该模型。详见 `docs/ai/context/20260905-134951-gpt6-astra-enablement-and-billing-verification_CN.md`。
 
 ## 四、业务规则
 
@@ -136,8 +137,11 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 12. **缺定价不会拒绝请求，会记零成本放行**。`openai_gateway_usage.go` 在取不到价时打 `pricing_missing_record_zero_cost` 日志后按 0 计费；通用网关 `gateway_usage_billing.go` 同样吞错返回 `ActualCost: 0`。计费发生在响应转发**之后**，认证层不看模型名——**所以「开放模型」必须在「定价确认生效」之后**，顺序反了中间窗口的少收无法追回（`usage_logs.actual_cost` 记下的就是错值）。
 13. **远端目录的长上下文字段解析不到**。目录用 `*_above_272k_tokens` 表达，而解析器只认 `long_context_*`，命中数为 0。`>272K` 档位只能靠静态 fallback 价或 `applyModelSpecificPricingPolicy` 补，且后者还要求账号 `extra.openai_long_context_billing_enabled=true`（默认 false）。
 14. **`newTestBillingService()` 传的 `pricingService` 是 `nil`**，只覆盖第 ③ 级。用它写的定价测试**测不到生产实际走的路径**，会给出假阳性。测生产行为要用 `&PricingService{pricingData: ...}` 构造非 nil 的，参见 `billing_service_gpt6_test.go`。
-15. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
-16. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
+15. **改 `accounts.credentials` 必须先 GET 再整体 PUT**。`MergePreservingSensitiveCreds` 以 incoming 为基底，**非敏感键没传就是删除**——只传 `model_mapping` 会把 `base_url` 一起删掉、直接废掉账号。敏感键（`api_key` 等 14 个）在 GET 时被**整个移除**而非返回掩码，所以 PUT 回去不带它们会自动保留原加密值。`Name`/`Status` 有判空、`GroupIDs`/`Concurrency`/`Extra` 判 nil，只传 `credentials` 不影响其它字段。
+16. **测模型可用性要用精确 ID，别用族名**。2026-09-05 用裸 `gpt-6` 测出 404，据此误判"上游没有 GPT-6"；实际上游只认 `gpt-6-astra`，一直是通的。**测错字符串比没测更误导**——它给出一个看起来有依据的错误结论。
+17. **判断生产是否加载了远端价格目录，不需要 SSH**：模型广场 `/api/v1/model-plaza` 是公开端点且暴露价格。挑一个「只在远端目录（231 键）、不在内嵌目录（198 键）、且源码无硬编码兜底」的模型（如 `claude-fable-5`、`claude-sonnet-5`、`gemini-3.5-flash-lite`），生产能报出精确价格就说明目录已同步。
+18. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
+19. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
 
 ## 六、负面教训（结论已撤回，不要重复）
 
