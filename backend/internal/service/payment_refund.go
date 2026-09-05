@@ -469,15 +469,35 @@ func (s *PaymentService) handleGwFail(ctx context.Context, p *RefundPlan, gErr e
 
 func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
 	now := time.Now()
+
+	// 网关退款此时已成功，本地必须原子地完成两件事：撤销余额套餐、把订单置为 REFUNDED。
+	// 若拆成两次独立 autocommit 写入，中途崩溃/取消会留下「钱已退、套餐已撤销、订单仍 REFUNDING」
+	// 的不一致，且该状态既无法重试也无法自动兜底。放进同一个事务保证要么都成、要么都回滚。
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mark refund begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txClient := tx.Client()
+
 	if p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
-		if err := s.revokeBalancePackage(ctx, p.OrderID); err != nil {
+		if err := s.revokeBalancePackage(ctx, txClient, p.OrderID); err != nil {
 			return nil, fmt.Errorf("revoke balance package: %w", err)
 		}
 	}
-	_, err := s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(OrderStatusRefunded).SetRefundAmount(p.RefundAmount).SetRefundReason(p.Reason).SetRefundAt(now).Save(ctx)
-	if err != nil {
+	if _, err := txClient.PaymentOrder.UpdateOneID(p.OrderID).
+		SetStatus(OrderStatusRefunded).
+		SetRefundAmount(p.RefundAmount).
+		SetRefundReason(p.Reason).
+		SetRefundAt(now).
+		Save(ctx); err != nil {
 		return nil, fmt.Errorf("mark refund: %w", err)
 	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("mark refund commit: %w", err)
+	}
+
+	// 审计日志是 best-effort 副作用，放在事务外，避免一条非关键写入失败把整笔退款回滚。
 	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), map[string]any{"refundAmount": p.RefundAmount, "gatewayRefundAmount": p.GatewayAmount, "reason": p.Reason})
 	return &RefundResult{Success: true}, nil
 }
