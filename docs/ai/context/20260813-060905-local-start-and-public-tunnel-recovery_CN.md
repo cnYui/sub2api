@@ -10,7 +10,7 @@
 - 复用既有 `sub2api-official-18082` Docker Compose 栈及其数据卷；Docker 自动恢复应用、PostgreSQL、Redis 和 `sub2api-public-nginx-local` 容器。
 - 确认应用、PostgreSQL、Redis 均健康，应用继续绑定 `127.0.0.1:18082`。
 - 执行 `docker exec sub2api-public-nginx-local nginx -t`，确认 Nginx 配置有效；Nginx 继续监听 `127.0.0.1:8080` 并反向代理到 `host.docker.internal:18082`。
-- 使用既有 `D:\CodeWorkSpace\sub2api\deploy\start-cloudflared-windows-aaccx.ps1` 启动 Tunnel `7f5fafd9-8a59-4013-ba42-3116dfc29463`。
+- 使用既有 `D:\CodeWorkSpace\sub2api\deploy\start-cloudflared-windows-aaccx.ps1` 启动 Tunnel `${OPS_TUNNEL_ID}`。
 
 ## 核验
 

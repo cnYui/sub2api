@@ -29,6 +29,11 @@ func canonicalizeOpenAIModelAliasSpelling(model string) string {
 	if strings.HasPrefix(normalized, "gpt5") {
 		normalized = "gpt-5" + strings.TrimPrefix(normalized, "gpt5")
 	}
+	// 与 gpt5 同理：缺连字符的写法（gpt6、gpt6-astra）补回连字符，
+	// 否则下面的 "gpt-" 前缀校验会直接判定为未知模型并丢弃，导致不计费。
+	if strings.HasPrefix(normalized, "gpt6") {
+		normalized = "gpt-6" + strings.TrimPrefix(normalized, "gpt6")
+	}
 	if !strings.HasPrefix(normalized, "gpt-") && !strings.Contains(normalized, "codex") {
 		return ""
 	}
@@ -65,6 +70,15 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 
 	switch {
+	case strings.Contains(normalized, "gpt-6-astra"):
+		return "gpt-6-astra"
+	case normalized == "gpt-6":
+		// 裸族名归到当家型号，与 gpt-5.6 → gpt-5.6-sol 的既有处理一致。
+		return "gpt-6-astra"
+	case strings.HasPrefix(normalized, "gpt-6-"):
+		// 未知的 GPT-6 变体（将来可能的 mini/nano）不套用 Astra 的 $10/$50，
+		// 否则更便宜的型号会被超收——比漏计费更糟。维持白名单语义，返回空。
+		return ""
 	case strings.Contains(normalized, "gpt-5.6-sol"):
 		return "gpt-5.6-sol"
 	case strings.Contains(normalized, "gpt-5.6-terra"):
@@ -104,6 +118,17 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	default:
 		return ""
 	}
+}
+
+// isOpenAIGPT6Model 判断是否 GPT-6 系列模型；入参可为原始模型名（含大小写/路径/
+// 后缀变体）或已归一化的基名。仅认已知的 Astra 型号与裸族名，未知的 GPT-6 变体
+// 一律不认，避免将来更便宜的型号套用 Astra 价格造成超收。
+func isOpenAIGPT6Model(model string) bool {
+	normalized := canonicalizeOpenAIModelAliasSpelling(model)
+	if normalized == "gpt-6" {
+		return true
+	}
+	return normalized == "gpt-6-astra" || strings.HasPrefix(normalized, "gpt-6-astra-")
 }
 
 // isOpenAIGPT56Model 判断是否 GPT-5.6 系列模型；入参可为原始模型名
