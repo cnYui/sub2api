@@ -24,6 +24,7 @@
 - 生产数据变更必须写 `payment_audit_logs` 审计，并处理认证/余额缓存失效。
 - **SSH 私钥不叫 `id_*`**，部署密钥按机器命名（文件名见 `deploy/ops.env` 的 `OPS_SSH_KEY_FILE`）。用 `ls ~/.ssh/*.pem ~/.ssh/id_*` 过滤会漏掉它、误判为「无 SSH 访问」——**要 `ls ~/.ssh/` 全量看**。默认 `id_ed25519` 确实被服务器拒绝，容易据此得出确定的错误结论。
 - **生产 VPS 远程操作手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`。连接方式、psql 用法、写操作的事务模板、已知表结构坑、缓存失效、核验清单。**动生产数据库前先读它。**
+- **部署生产镜像**：`docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`。生产已切到 GHCR 镜像，换版本只需改 `${OPS_DEPLOY_DIR}/.env` 的 `IMAGE_TAG` 再 `docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
 - 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `212`。
 
@@ -147,6 +148,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 20. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。
 21. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
 22. **「提前刷新周额度」没有 API 也没有 UI，只能直连数据库**。管理侧 `balance-packages` 只有 `list`/`grant`/`resume-debt-paused`；`grant` 是新建套餐、`POST /admin/users/:id/balance` 只改余额数字。**用后者变通会导致 `next_credit_at` 不推进，定时任务到原日期重复发放**，且不写审计。正确做法是单个 SERIALIZABLE 事务：锁「用户→套餐→订单」、校验幂等（`payment_audit_logs` 对 `(order_id, action)` 唯一）、按锁内实时值算 `creditDueBalance`、`next_credit_at` 取「原值 + interval」保持节奏、`starts_at` 不动、`balance_debt_ledger` 有 `amount_usd > 0` 约束故无欠费时不可写入。模板见 `docs/ai/context/20260905-172724-user565-early-weekly-credit-execution_CN.md`。
+
+23. **`schema_migrations` 行数多于迁移文件数是正常的**，不能据此判断代码来源。生产已应用 284 条而仓库只有 258 个文件，多出的 26 条是数据库从旧实例 pg_restore 带来的历史痕迹（旧实例跑过更新的上游构建）。迁移运行器只执行「文件存在但未应用」的，多余的行不影响启动。**据此误判过两次**：先认为「生产跑的不是本仓库代码」，再认为「部署本仓库是降级、须先合并落后 1095 提交的上游」，甚至已 merge 出 47 个冲突才发现搞错。判断代码来源要去看 `${OPS_DEPLOY_DIR}/src` 的实际文件，不看迁移行数。
 
 ## 五点五、待处理的计费偏差（已确认，未修复）
 
