@@ -78,6 +78,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 - 汇率展示：国外模型按 `1 USD = 1 CNY`，国产模型按 `1 USD = 7 CNY`，模型广场标题下有固定说明。`BALANCE_RECHARGE_MULTIPLIER` 是"每支付 1 CNY 获得多少 USD"，**不要把汇率写进模型扣费倍率**。
 - 模型基础价登记在 `billing_service.go` 的 `fallbackPrices`。`gpt-6-astra` 已登记（$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出，复用 `openAIGPT54LongContext*` 常量）。见坑 10。
+  **但 2026-09-05 实测两个上游对 `gpt-6` 均返回 404，该模型尚未真正可用**——这份定价是预防性登记，不是在修复正在发生的漏计费。上游真正上线后需重新确认实际模型 ID。
 
 ## 四、业务规则
 
@@ -133,6 +134,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 10. **OpenAI 族计价是白名单**：`getFallbackPricing` 只认已登记型号，未登记的返回 `nil`——**用户能调用但平台不扣款**。上游每上一个新 OpenAI 模型，必须同时登记 `fallbackPrices` 与 `normalizeKnownOpenAICodexModel`，否则静默漏计费。这是刻意设计（避免未知型号误计价），不是 bug；但要配套「上新模型即登记」的动作。GPT-6 时踩过一次。
 11. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
 12. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
+13. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。
+14. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
 
 ## 六、负面教训（结论已撤回，不要重复）
 
@@ -142,6 +145,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 ## 七、未完成
 
+- **`api.ai-genesis.app` 上游 8 个白名单模型里只有 `gpt-5.5`、`gpt-5.6-sol`、`gpt-5.6-terra` 实际可用**，`gpt-5.4`、`gpt-5.4-2026-03-05`、`gpt-5.4-mini`、`gpt-5.6`、`gpt-5.6-luna` 稳定 502/503。是否进一步收紧账号 `#1128/#1129` 的白名单未定。
+- **`build.yml` 从未实际触发过**——需手动跑一次确认能出镜像且前端不 OOM。
 - **外部拨测未配置**——机器宕机时无人知晓。
 - **单点故障无冗余**——全部服务跑在一台 VPS 上。
 - `api_base_url` 仍为空（`/keys` 页面已硬编码 `https://api.aaccx.pw/v1` 兜底，不依赖该设置）。
