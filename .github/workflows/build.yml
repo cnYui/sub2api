@@ -128,8 +128,19 @@ jobs:
           script: |
             set -euo pipefail
             cd "${{ secrets.VPS_DEPLOY_DIR }}"
-            docker compose pull
-            docker compose up -d
-            # 只清理悬空层；带 tag 的历史镜像保留，回滚要用。
-            docker image prune -f
-            docker compose ps
+
+            # 绝不执行裸 `docker compose`。生产的 compose 由基础文件 + docker-compose.vps.yml
+            # 叠加而成，后者只存在于本机、不在仓库，承载 BILLING_FINAL_MULTIPLIER、
+            # 端口绑定到 127.0.0.1 和凭证加密密钥的 secrets 挂载。漏掉它至少会让应用
+            # 因缺加密密钥而 log.Fatalf 起不来，是一次无谓的停机。
+            #
+            # 因此这里要求部署目录自带 deploy.sh（由机器owner维护，决定叠加哪些 compose 文件）。
+            # 没有就直接失败退出，不做任何猜测性的兜底。
+            if [ ! -x ./deploy.sh ]; then
+              echo "错误：${{ secrets.VPS_DEPLOY_DIR }}/deploy.sh 不存在或不可执行。" >&2
+              echo "该脚本必须由部署机维护，并在其中显式列出所有 compose 文件，例如：" >&2
+              echo "  docker compose -f docker-compose.yml -f docker-compose.vps.yml pull" >&2
+              echo "  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d" >&2
+              exit 1
+            fi
+            ./deploy.sh
