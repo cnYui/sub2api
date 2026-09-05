@@ -22,6 +22,7 @@
 - 退款必须绑定创建订单时的支付服务商实例，并保留可审计的订单状态变化。
 - 设计与实现上下文写入 `docs/ai/context/`，**历史文档只新增不覆盖**。
 - 生产数据变更必须写 `payment_audit_logs` 审计，并处理认证/余额缓存失效。
+- **SSH 私钥不叫 `id_*`**，部署密钥按机器命名（文件名见 `deploy/ops.env` 的 `OPS_SSH_KEY_FILE`）。用 `ls ~/.ssh/*.pem ~/.ssh/id_*` 过滤会漏掉它、误判为「无 SSH 访问」——**要 `ls ~/.ssh/` 全量看**。默认 `id_ed25519` 确实被服务器拒绝，容易据此得出确定的错误结论。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
 - 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `212`。
 
@@ -142,6 +143,9 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 17. **判断生产是否加载了远端价格目录，不需要 SSH**：模型广场 `/api/v1/model-plaza` 是公开端点且暴露价格。挑一个「只在远端目录（231 键）、不在内嵌目录（198 键）、且源码无硬编码兜底」的模型（如 `claude-fable-5`、`claude-sonnet-5`、`gemini-3.5-flash-lite`），生产能报出精确价格就说明目录已同步。
 18. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
 19. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
+20. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。
+21. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
+22. **「提前刷新周额度」没有 API 也没有 UI，只能直连数据库**。管理侧 `balance-packages` 只有 `list`/`grant`/`resume-debt-paused`；`grant` 是新建套餐、`POST /admin/users/:id/balance` 只改余额数字。**用后者变通会导致 `next_credit_at` 不推进，定时任务到原日期重复发放**，且不写审计。正确做法是单个 SERIALIZABLE 事务：锁「用户→套餐→订单」、校验幂等（`payment_audit_logs` 对 `(order_id, action)` 唯一）、按锁内实时值算 `creditDueBalance`、`next_credit_at` 取「原值 + interval」保持节奏、`starts_at` 不动、`balance_debt_ledger` 有 `amount_usd > 0` 约束故无欠费时不可写入。模板见 `docs/ai/context/20260905-172724-user565-early-weekly-credit-execution_CN.md`。
 
 ## 五点五、待处理的计费偏差（已确认，未修复）
 
