@@ -21,9 +21,9 @@
 - 支付订单的金额、退款金额和订单状态**以服务端为准**，前端金额只用于展示。
 - 退款必须绑定创建订单时的支付服务商实例，并保留可审计的订单状态变化。
 - 设计与实现上下文写入 `docs/ai/context/`，**历史文档只新增不覆盖**。
-- **`docs/ai/context/` 不是永久存储：有 routine 每天 06:00（东京）自动删除超过 15 天的文档**（[清理 docs/ai/context 过期文档](https://claude.ai/code/routines/trig_013Fuy9EyicwkWD2saj8k5zy)，跑 `scripts/prune-ai-context.sh` 后开 PR 并 squash 合并进 main）。
+- **`docs/ai/context/` 不是永久存储：本机 Windows 计划任务 `Prune AI Context Docs` 每天 06:00 自动删除超过 15 天的文档**（跑 `scripts/prune-ai-context.ps1`）。它**只删本地文件，不 commit 也不 push**，删完留在工作区。
   所以**长期生效的结论必须写进本文件**，只写 context 文档等于 15 天后丢失。
-  两条护栏：被 AGENTS.md 或 `docs/` 下其它 Markdown **引用到的文档不会被删**（上面那些手册链接因此安全）；正文带 `<!-- prune:keep -->` 的也不会被删。本地未提交的文档 routine 碰不到，需本地跑 `pwsh -File scripts/prune-ai-context.ps1`。
+  两条护栏：被 AGENTS.md 或 `docs/` 下其它 Markdown **引用到的文档不会被删**（上面那些手册链接因此安全）；正文带 `<!-- prune:keep -->` 的也不会被删。预演用 `-DryRun`，日志在 `logs/prune-ai-context.log`。
 - 生产数据变更必须写 `payment_audit_logs` 审计，并处理认证/余额缓存失效。
 - **SSH 私钥不叫 `id_*`**，部署密钥按机器命名（文件名见 `deploy/ops.env` 的 `OPS_SSH_KEY_FILE`）。用 `ls ~/.ssh/*.pem ~/.ssh/id_*` 过滤会漏掉它、误判为「无 SSH 访问」——**要 `ls ~/.ssh/` 全量看**。默认 `id_ed25519` 确实被服务器拒绝，容易据此得出确定的错误结论。
 - **生产 VPS 远程操作手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`。连接方式、psql 用法、写操作的事务模板、已知表结构坑、缓存失效、核验清单。**动生产数据库前先读它。**
