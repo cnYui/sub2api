@@ -203,8 +203,10 @@ func (s *PaymentService) requestBalancePackageRefund(ctx context.Context, o *dbe
 	return err
 }
 
-func (s *PaymentService) revokeBalancePackage(ctx context.Context, orderID int64) error {
-	_, err := s.entClient.UserBalancePackage.Update().
+// revokeBalancePackage 撤销订单对应的余额套餐。client 必须由调用方传入，
+// 以便和订单状态更新共用同一个事务，保证「撤销套餐」和「订单置为 REFUNDED」原子提交。
+func (s *PaymentService) revokeBalancePackage(ctx context.Context, client *dbent.Client, orderID int64) error {
+	_, err := client.UserBalancePackage.Update().
 		Where(userbalancepackage.PaymentOrderIDEQ(orderID), userbalancepackage.StatusNEQ("refunded")).
 		SetStatus("refunded").
 		SetRemainingUsd(0).
