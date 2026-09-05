@@ -154,3 +154,7 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+
+# 运维敏感值（VPS 地址、备份桶、Tunnel ID 等）。仓库为公开，实际值只留本地。
+# 模板见 deploy/ops.env.example
+deploy/ops.env
