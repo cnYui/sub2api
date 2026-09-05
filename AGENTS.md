@@ -77,8 +77,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   **分组名称不能作为倍率依据**，只查数据库。
 
 - 汇率展示：国外模型按 `1 USD = 1 CNY`，国产模型按 `1 USD = 7 CNY`，模型广场标题下有固定说明。`BALANCE_RECHARGE_MULTIPLIER` 是"每支付 1 CNY 获得多少 USD"，**不要把汇率写进模型扣费倍率**。
-- 模型基础价登记在 `billing_service.go` 的 `fallbackPrices`。`gpt-6-astra` 已登记（$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出，复用 `openAIGPT54LongContext*` 常量）。见坑 10。
-  **但 2026-09-05 实测两个上游对 `gpt-6` 均返回 404，该模型尚未真正可用**——这份定价是预防性登记，不是在修复正在发生的漏计费。上游真正上线后需重新确认实际模型 ID。
+- **登记一个新 OpenAI 模型的价格，必须同时改两处**（见坑 10、11）：`pricing_service.go` 的 `matchOpenAIModel`（加显式前缀分支 + 静态价，**这是生产实际走的路径**）和 `billing_service.go` 的 `fallbackPrices`（目录失效时的兜底）。只改后者等于没改。
+- `gpt-6-astra` 两处均已登记：$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出（复用 `openAIGPT54LongContext*` 常量）。别名 `gpt-6`、`gpt6`、带 effort/日期后缀的写法都解析到同一份价格，回归测试见 `billing_service_gpt6_test.go`。**但 2026-09-05 实测两个上游对 `gpt-6` 均返回 404，该模型尚未可用、白名单中也未加入**——这是预防性登记，不是在修复正在发生的漏计费。
 
 ## 四、业务规则
 
@@ -131,11 +131,13 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 7. **Vite 公共依赖分包不能叫 `vendor-*`**：Cloudflare 对该路径静态资源返回 403，导致 `/login` 白屏。现用 `lib-*`。
 8. **迁移 checksum 保护**：已应用的迁移改内容会导致启动失败，只能新增迁移号（207 曾踩，用新增 208 解决）。
 9. **Redis `sched:acc:*` 保存调度快照**：轮换上游凭证必须同时同步数据库和缓存，否则旧凭证继续被调度。凭证在 `accounts.credentials` 以 AES-256-GCM 服务端加密存储。
-10. **OpenAI 族计价是白名单**：`getFallbackPricing` 只认已登记型号，未登记的返回 `nil`——**用户能调用但平台不扣款**。上游每上一个新 OpenAI 模型，必须同时登记 `fallbackPrices` 与 `normalizeKnownOpenAICodexModel`，否则静默漏计费。这是刻意设计（避免未知型号误计价），不是 bug；但要配套「上新模型即登记」的动作。GPT-6 时踩过一次。
-11. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
-12. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
-13. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。
-14. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
+10. **取价有三级，`fallbackPrices` 是最后一级，登记它往往不解决问题**。顺序是 **① 渠道/分组定价（`model_pricing_resolver.go`）→ ② `PricingService` 远端价格目录 → ③ 硬编码 `fallbackPrices`**。远端目录由 `pricing.remote_url` 拉取，收录了大量模型，所以第 ② 级几乎总会命中，第 ③ 级只在目录失效时才走到。**只改 `fallbackPrices` 而没改 `PricingService`，等于什么都没改。**
+11. **`matchOpenAIModel` 末尾有个 `DefaultTestModel`(= `gpt-5.4`) 兜底，会静默少收费**。任何以 `gpt-` 开头、又没被前面分支拦住的模型都掉进去，按 `$2.5/$15` 计价。新 OpenAI 模型必须在该函数里加显式前缀分支（照抄 `gpt-5.6-sol/terra/luna` 的写法），**否则别名写法（裸族名、缺连字符、effort/日期后缀）会按 gpt-5.4 价结算**。GPT-6 Astra 实际 `$10/$50`，掉兜底就是输入少收 4 倍、输出少收 3.33 倍。
+12. **缺定价不会拒绝请求，会记零成本放行**。`openai_gateway_usage.go` 在取不到价时打 `pricing_missing_record_zero_cost` 日志后按 0 计费；通用网关 `gateway_usage_billing.go` 同样吞错返回 `ActualCost: 0`。计费发生在响应转发**之后**，认证层不看模型名——**所以「开放模型」必须在「定价确认生效」之后**，顺序反了中间窗口的少收无法追回（`usage_logs.actual_cost` 记下的就是错值）。
+13. **远端目录的长上下文字段解析不到**。目录用 `*_above_272k_tokens` 表达，而解析器只认 `long_context_*`，命中数为 0。`>272K` 档位只能靠静态 fallback 价或 `applyModelSpecificPricingPolicy` 补，且后者还要求账号 `extra.openai_long_context_billing_enabled=true`（默认 false）。
+14. **`newTestBillingService()` 传的 `pricingService` 是 `nil`**，只覆盖第 ③ 级。用它写的定价测试**测不到生产实际走的路径**，会给出假阳性。测生产行为要用 `&PricingService{pricingData: ...}` 构造非 nil 的，参见 `billing_service_gpt6_test.go`。
+15. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
+16. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
 
 ## 六、负面教训（结论已撤回，不要重复）
 

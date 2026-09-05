@@ -35,6 +35,27 @@ var (
 		Mode:                            "chat",
 		SupportsPromptCaching:           true,
 	}
+	// GPT-6 Astra 官方价：输入 $10 / 缓存读取 $1 / 缓存写入 $12.50 / 输出 $50 每百万 token，
+	// >272K 输入的整次请求按 2x 输入与缓存、1.5x 输出。
+	// 远端价格目录虽已收录 gpt-6-astra 的基础价，但它用 *_above_272k_tokens 表达长上下文，
+	// 而解析器只认 long_context_*，所以那三个字段只能由这份静态价提供。
+	openAIGPT6AstraFallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:                   1e-05,
+		InputCostPerTokenPriority:           2e-05,
+		OutputCostPerToken:                  5e-05,
+		OutputCostPerTokenPriority:          1e-04,
+		CacheCreationInputTokenCost:         1.25e-05,
+		CacheCreationInputTokenCostPriority: 2.5e-05,
+		CacheReadInputTokenCost:             1e-06,
+		CacheReadInputTokenCostPriority:     2e-06,
+		LongContextInputTokenThreshold:      openAIGPT54LongContextInputThreshold,
+		LongContextInputCostMultiplier:      openAIGPT54LongContextInputMultiplier,
+		LongContextOutputCostMultiplier:     openAIGPT54LongContextOutputMultiplier,
+		SupportsServiceTier:                 true,
+		LiteLLMProvider:                     "openai",
+		Mode:                                "chat",
+		SupportsPromptCaching:               true,
+	}
 	openAIGPT56SolFallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:                   5e-06,
 		InputCostPerTokenPriority:           1e-05,
@@ -950,6 +971,18 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 				Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.2-codex"))
 			return pricing
 		}
+	}
+
+	// GPT-6：必须在末尾的 DefaultTestModel 兜底之前拦住。
+	// 远端目录只有精确串 gpt-6-astra，别名（gpt-6、gpt6、带 effort 或日期后缀）在上面的
+	// variants 循环里匹配不到，会一路掉到 DefaultTestModel(gpt-5.4)，按 $2.5/$15 计价——
+	// 相对 Astra 实际的 $10/$50，输入少收 4 倍、输出少收 3.33 倍。
+	// 少收的金额一旦写进 usage_logs.actual_cost 就没有正确的重算依据，事后无法追回，
+	// 因此这里显式拦截，与下面 gpt-5.6 三个型号同样的处理方式。
+	if isOpenAIGPT6Model(model) {
+		logger.With(zap.String("component", "service.pricing")).
+			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-6-astra(static)"))
+		return openAIGPT6AstraFallbackPricing
 	}
 
 	if strings.HasPrefix(model, "gpt-5.6-sol") {
