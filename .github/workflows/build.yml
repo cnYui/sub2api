@@ -100,31 +100,70 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # 手动触发且显式勾选 deploy 时才执行；push 到 main 不会自动部署。
+  # 部署到生产 VPS。
+  #
+  # 触发条件：push 到 main 自动执行，或手动触发并勾选 deploy。
+  # 但**只有配置了 VPS_* secrets 才会真正执行**——没配就优雅跳过，
+  # 不让缺配置把整条构建判为失败（镜像已经推好了，部署是独立的事）。
   #
   # 需要的 repository secrets（Settings → Secrets and variables → Actions）：
   #   VPS_HOST        生产机地址
   #   VPS_USER        部署账号
   #   VPS_PORT        SSH 端口（与 UFW 放行端口一致）
-  #   VPS_SSH_KEY     部署专用私钥
-  #   VPS_DEPLOY_DIR  compose 所在目录
+  #   VPS_SSH_KEY     部署专用私钥（OpenSSH 格式，含 BEGIN/END 行）
+  #   VPS_DEPLOY_DIR  compose 与 deploy.sh 所在目录
   #
   # 安全要求：VPS_SSH_KEY 必须是单独为部署生成的密钥，不要复用管理密钥；
   # 并在服务器 ~/.ssh/authorized_keys 中用 command="<部署脚本>" 限制其只能执行部署，
-  # 不开放完整 shell。不接受这个风险就不要用本 job，手动两条命令即可。
+  # 不开放完整 shell。VPS 端脚本模板见 deploy/vps-deploy.sh.example。
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
     environment: production
     steps:
+      # secrets 不能直接写进 job 级 if，所以先在步骤里判断一次。
+      # 缺配置时输出提示并跳过后续步骤，而不是失败——镜像已经推送成功，
+      # 部署未配置不应该把整条流水线标红。
+      - name: 检查部署配置
+        id: check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_DEPLOY_DIR: ${{ secrets.VPS_DEPLOY_DIR }}
+        run: |
+          missing=""
+          [ -z "$VPS_HOST" ]       && missing="$missing VPS_HOST"
+          [ -z "$VPS_USER" ]       && missing="$missing VPS_USER"
+          [ -z "$VPS_SSH_KEY" ]    && missing="$missing VPS_SSH_KEY"
+          [ -z "$VPS_DEPLOY_DIR" ] && missing="$missing VPS_DEPLOY_DIR"
+          if [ -n "$missing" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '### 部署已跳过'
+              echo
+              echo "缺少 secrets：\`${missing# }\`"
+              echo
+              echo '镜像已推送成功，只是没有自动部署。配置方法见 `deploy/vps-deploy.sh.example`。'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy over SSH
+        if: steps.check.outputs.ready == 'true'
         uses: appleboy/ssh-action@v1
+        env:
+          IMAGE_TAG: sha-${{ github.sha }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: IMAGE_TAG
           script: |
             set -euo pipefail
             cd "${{ secrets.VPS_DEPLOY_DIR }}"
@@ -134,13 +173,12 @@ jobs:
             # 端口绑定到 127.0.0.1 和凭证加密密钥的 secrets 挂载。漏掉它至少会让应用
             # 因缺加密密钥而 log.Fatalf 起不来，是一次无谓的停机。
             #
-            # 因此这里要求部署目录自带 deploy.sh（由机器owner维护，决定叠加哪些 compose 文件）。
+            # 因此这里要求部署目录自带 deploy.sh（由机器 owner 维护，决定叠加哪些 compose 文件）。
             # 没有就直接失败退出，不做任何猜测性的兜底。
             if [ ! -x ./deploy.sh ]; then
-              echo "错误：${{ secrets.VPS_DEPLOY_DIR }}/deploy.sh 不存在或不可执行。" >&2
-              echo "该脚本必须由部署机维护，并在其中显式列出所有 compose 文件，例如：" >&2
-              echo "  docker compose -f docker-compose.yml -f docker-compose.vps.yml pull" >&2
-              echo "  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d" >&2
+              echo "错误：deploy.sh 不存在或不可执行。" >&2
+              echo "模板见仓库 deploy/vps-deploy.sh.example，拷到部署目录并 chmod +x。" >&2
               exit 1
             fi
-            ./deploy.sh
+            # 传具体 sha tag 而非 :main，让这次部署的版本可精确追溯与回滚。
+            ./deploy.sh "$IMAGE_TAG"
