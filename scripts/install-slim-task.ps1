@@ -4,10 +4,10 @@
     在本机注册（或重建）每天 06:00 瘦身 AGENTS.md 的 Windows 计划任务。
 
 .DESCRIPTION
-    这是「本地 routine」的权威定义——瘦身只在本机发生，不 commit、不 push、不碰云端。
-    任务每天 06:00 以隐藏窗口运行 scripts/slim-agents-md.ps1：唤起 Claude Code（headless
-    `claude -p`）按既定判据瘦身 AGENTS.md，并把被移除内容逐字归档到 docs/ai/context。
-    改动只落工作区，由你审阅后手动提交。
+    这是「本地 routine」的权威定义——整条闭环都在本机跑：任务每天 06:00 以隐藏窗口运行
+    scripts/slim-agents-md.ps1，在独立 git worktree 里唤起 Claude Code（headless `claude -p`）
+    按判据瘦身 AGENTS.md、归档到 docs/ai/context，然后由脚本提交 → 推分支 → gh 开 PR →
+    squash 合并到 main → best-effort 把远端 main 快进同步回本地。全程不碰主工作区。
 
     与 prune-ai-context 的本地任务并列，同为 06:00 触发；二者互不冲突——prune 删旧归档、
     slim 改 AGENTS.md 并新建当天归档（<15 天不会被 prune 删）。
@@ -71,7 +71,7 @@ $principal = New-ScheduledTaskPrincipal `
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Settings $settings -Principal $principal -Force `
-    -Description 'sub2api: 每天 06:00 唤起 Claude Code 瘦身 AGENTS.md 并归档到 docs/ai/context（只改工作区，不提交）。前置：CLI 需先 claude /login。' | Out-Null
+    -Description 'sub2api: 每天 06:00 瘦身 AGENTS.md 并走完 提PR→合并main→同步本地 的闭环。前置：CLI 需 claude /login、gh 需 gh auth login。' | Out-Null
 
 $info = Get-ScheduledTask -TaskName $TaskName | Get-ScheduledTaskInfo
 Write-Host "已注册计划任务: $TaskName"
@@ -80,6 +80,6 @@ Write-Host "  模型    : $Model"
 Write-Host "  每天    : $At"
 Write-Host "  下次运行: $($info.NextRunTime)"
 Write-Host ""
-Write-Host "前置    : 命令行 claude 需已登录（claude /login），否则任务会 Not logged in 空跑。"
+Write-Host "前置    : claude 需已登录（claude /login）且 gh 需已登录（gh auth login），否则任务空跑。"
 Write-Host "手动跑一次: Start-ScheduledTask -TaskName '$TaskName'"
-Write-Host "预演不改  : pwsh -File scripts/slim-agents-md.ps1 -DryRun"
+Write-Host "预演不推  : pwsh -File scripts/slim-agents-md.ps1 -DryRun   （建 worktree 跑瘦身看 diff，不提交/不 PR）"
