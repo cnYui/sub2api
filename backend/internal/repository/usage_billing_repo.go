@@ -240,11 +240,6 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 	return nil
 }
 
-func deductUsageBillingBalanceIfSufficient(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
-	balance, sufficient, _, err := deductUsageBillingBalanceIfSufficientWithLedger(ctx, tx, userID, amount, "", 0)
-	return balance, sufficient, err
-}
-
 func deductUsageBillingBalanceIfSufficientWithLedger(ctx context.Context, tx *sql.Tx, userID int64, amount float64, requestID string, apiKeyID int64) (float64, bool, float64, error) {
 	if err := lockUsageBillingUser(ctx, tx, userID); err != nil {
 		return 0, false, 0, err
@@ -446,11 +441,6 @@ func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscrip
 		return nil
 	}
 	return service.ErrSubscriptionNotFound
-}
-
-func deductUsageBillingBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, bool, error) {
-	balance, sufficient, _, err := deductUsageBillingBalanceWithLedger(ctx, tx, userID, amount, "", 0)
-	return balance, sufficient, err
 }
 
 func deductUsageBillingBalanceWithLedger(ctx context.Context, tx *sql.Tx, userID int64, amount float64, requestID string, apiKeyID int64) (float64, bool, float64, error) {

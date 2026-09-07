@@ -84,6 +84,9 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+        # Cleanup calls in defer where the error is not actionable.
+        - (*database/sql.Rows).Close
+        - (*database/sql.Tx).Rollback
       # Display function signature instead of selector.
       # Default: false
       verbose: true

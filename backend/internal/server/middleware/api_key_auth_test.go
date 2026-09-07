@@ -1651,20 +1651,6 @@ func newAuthTestRouterWithTrafficPackChecker(
 	return router
 }
 
-type stubTrafficPackCreditChecker struct {
-	available bool
-	calls     int64
-	userID    int64
-	platform  string
-}
-
-func (s *stubTrafficPackCreditChecker) CanUseTrafficPackCredit(_ context.Context, userID int64, platform string) bool {
-	s.calls++
-	s.userID = userID
-	s.platform = platform
-	return s.available
-}
-
 func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, message string) {
 	t.Helper()
 

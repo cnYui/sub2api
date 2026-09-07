@@ -82,8 +82,8 @@ func TestAdminService_GetGroupRateMultipliers(t *testing.T) {
 		repo := &userGroupRateRepoStubForGroupRate{
 			getByGroupIDData: map[int64][]UserGroupRateEntry{
 				10: {
-					{UserID: 1, UserName: "alice", UserEmail: "alice@test.com", RateMultiplier: ptrFloat(1.5)},
-					{UserID: 2, UserName: "bob", UserEmail: "bob@test.com", RateMultiplier: ptrFloat(0.8)},
+					{UserID: 1, UserName: "alice", UserEmail: "alice@test.com", RateMultiplier: ptrFloat64(1.5)},
+					{UserID: 2, UserName: "bob", UserEmail: "bob@test.com", RateMultiplier: ptrFloat64(0.8)},
 				},
 			},
 		}

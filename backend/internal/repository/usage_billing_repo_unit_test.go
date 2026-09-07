@@ -62,7 +62,7 @@ func TestDeductUsageBillingBalance_UsesSufficientBalanceGuard(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(7.5))
 	mock.ExpectCommit()
 
-	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, 42, 2.5)
+	newBalance, sufficient, _, err := deductUsageBillingBalanceWithLedger(ctx, tx, 42, 2.5, "", 0)
 	require.NoError(t, err)
 	require.True(t, sufficient)
 	require.InDelta(t, 7.5, newBalance, 0.000001)
@@ -88,7 +88,7 @@ func TestDeductUsageBillingBalance_RecordsOverdraftWhenGuardMisses(t *testing.T)
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-5.0))
 	mock.ExpectCommit()
 
-	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, 42, 10)
+	newBalance, sufficient, _, err := deductUsageBillingBalanceWithLedger(ctx, tx, 42, 10, "", 0)
 	require.NoError(t, err)
 	require.False(t, sufficient)
 	require.InDelta(t, -5.0, newBalance, 0.000001)
@@ -241,7 +241,7 @@ func TestDeductUsageBillingBalance_ReturnsUserNotFoundWhenNoUserUpdated(t *testi
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectRollback()
 
-	_, _, err = deductUsageBillingBalance(ctx, tx, 42, 10)
+	_, _, _, err = deductUsageBillingBalanceWithLedger(ctx, tx, 42, 10, "", 0)
 	require.ErrorIs(t, err, service.ErrUserNotFound)
 	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())

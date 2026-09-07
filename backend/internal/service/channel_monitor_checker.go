@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -46,24 +45,6 @@ type CheckOptions struct {
 	// BodyOverride 在 merge 模式下做浅合并（key 命中黑名单时静默丢弃），
 	// 在 replace 模式下直接当作完整 body。
 	BodyOverride map[string]any
-}
-
-// runCheckForModel 对单个 (provider, model) 做一次目录检测。
-// 不返回 error：所有失败都包装进 CheckResult.Status=error/failed。
-//
-// opts 承载模板 / 监控快照带来的自定义配置。nil 等同于 "off + 无 extra headers"。
-func runCheckForModel(ctx context.Context, provider, endpoint, apiKey, model string, opts *CheckOptions) *CheckResult {
-	results := runChecksForModels(ctx, provider, endpoint, apiKey, []string{model}, opts)
-	if len(results) > 0 {
-		return results[0]
-	}
-	res := &CheckResult{
-		Model:     model,
-		Status:    MonitorStatusError,
-		CheckedAt: time.Now(),
-	}
-	res.Message = "models probe returned no result"
-	return res
 }
 
 // runChecksForModels 对一个监控的所有模型共享一次 GET /v1/models 请求。
@@ -166,26 +147,6 @@ func parseModelsCatalog(body []byte) (map[string]struct{}, error) {
 	return catalog, nil
 }
 
-// finalizeOperationalOrDegraded 负责走到最后一步的 operational/degraded 判定。
-// 拆出来是为了让 runCheckForModel 不超过 30 行。
-func finalizeOperationalOrDegraded(res *CheckResult, latency time.Duration, latencyMs int) *CheckResult {
-	if latency >= monitorDegradedThreshold {
-		res.Status = MonitorStatusDegraded
-		res.Message = truncateMessage(fmt.Sprintf("slow response: %dms", latencyMs))
-		return res
-	}
-	res.Status = MonitorStatusOperational
-	return res
-}
-
-// bodyOverrideMode 归一取 opts.BodyOverrideMode，nil opts / 空串都视为 off。
-func bodyOverrideMode(opts *CheckOptions) string {
-	if opts == nil || opts.BodyOverrideMode == "" {
-		return MonitorBodyOverrideModeOff
-	}
-	return opts.BodyOverrideMode
-}
-
 // providerAdapter 描述某个 provider 在 challenge 检测中需要的几件事：
 //   - 拼出请求路径（含 model 占位）
 //   - 序列化请求体
@@ -267,78 +228,11 @@ func newOpenAICompatibleChatAdapter(path string) providerAdapter {
 	}
 }
 
-//nolint:gochecknoglobals // 适配器表是只读静态数据，初始化后不变更。
-var providerOpenAIResponsesAdapter = providerAdapter{
-	buildPath: func(string) string { return providerOpenAIResponsesPath },
-	buildBody: func(model, prompt string) ([]byte, error) {
-		return json.Marshal(map[string]any{
-			"model":             model,
-			"instructions":      "You are a channel health-check endpoint. Answer the arithmetic challenge exactly and briefly.",
-			"input":             prompt,
-			"max_output_tokens": monitorChallengeMaxTokens,
-			"stream":            false,
-		})
-	},
-	buildHeaders: func(apiKey string) map[string]string {
-		return map[string]string{"Authorization": "Bearer " + apiKey}
-	},
-	textPath: "output.0.content.0.text",
-}
-
-// providerAdapterFor 按 provider + api_mode 选择具体 adapter。
-func providerAdapterFor(provider, apiMode string) (providerAdapter, string, bool) {
-	if provider == MonitorProviderOpenAI && defaultAPIMode(apiMode) == MonitorAPIModeResponses {
-		return providerOpenAIResponsesAdapter, MonitorAPIModeResponses, true
-	}
-	adapter, ok := providerAdapters[provider]
-	return adapter, MonitorAPIModeChatCompletions, ok
-}
-
 // isSupportedProvider 校验 provider 字符串是否在 adapter 表中。
 // 供 validate.go 的 validateProvider 复用，避免两份 switch 漂移。
 func isSupportedProvider(p string) bool {
 	_, ok := providerAdapters[p]
 	return ok
-}
-
-// callProvider 通过 providerAdapters 分发到具体实现。
-// opts 承载用户的自定义 headers / body 覆盖（可为 nil）。
-//
-// 返回值：
-//   - extractedText: 按 textPath 抽出的成功文本，仅在 status 2xx 时有意义；非 2xx 时通常为空串
-//   - rawBody: 完整响应体的字符串形式（已被 monitorResponseMaxBytes 截断），用于错误路径保留上游真实回包
-//   - status: HTTP 状态码
-//   - err: 网络 / 序列化错误
-func callProvider(ctx context.Context, provider, endpoint, apiKey, model, prompt string, opts *CheckOptions) (extractedText, rawBody string, status int, err error) {
-	requestedAPIMode := checkAPIMode(opts)
-	if err := validateAPIMode(provider, requestedAPIMode); err != nil {
-		return "", "", 0, err
-	}
-	adapter, apiMode, ok := providerAdapterFor(provider, requestedAPIMode)
-	if !ok {
-		return "", "", 0, fmt.Errorf("unsupported provider %q", provider)
-	}
-	body, err := buildRequestBody(adapter, provider, apiMode, model, prompt, opts)
-	if err != nil {
-		return "", "", 0, err
-	}
-	headers := mergeHeaders(adapter.buildHeaders(apiKey), opts)
-	full := joinURL(endpoint, adapter.buildPath(model))
-	respBytes, status, err := postRawJSON(ctx, full, body, headers)
-	if err != nil {
-		return "", "", status, err
-	}
-	if provider == MonitorProviderOpenAI && apiMode == MonitorAPIModeResponses {
-		return extractOpenAIResponsesText(respBytes), string(respBytes), status, nil
-	}
-	return extractMonitorResponseText(adapter, respBytes), string(respBytes), status, nil
-}
-
-func extractMonitorResponseText(adapter providerAdapter, respBytes []byte) string {
-	if adapter.extractText != nil {
-		return adapter.extractText(respBytes)
-	}
-	return gjson.GetBytes(respBytes, adapter.textPath).String()
 }
 
 func extractAnthropicMonitorText(respBytes []byte) string {
@@ -361,48 +255,6 @@ func extractAnthropicMonitorText(respBytes []byte) string {
 	return strings.Join(parts, "\n")
 }
 
-// extractOpenAIResponsesText 聚合 Responses API 的最终 assistant 文本。
-// Responses 的 output 数组顺序由模型决定：reasoning / tool-call item 可能排在 message 前面，
-// 因此不能假设文本永远在 output.0.content.0.text。
-func extractOpenAIResponsesText(respBytes []byte) string {
-	if text := gjson.GetBytes(respBytes, "output_text").String(); strings.TrimSpace(text) != "" {
-		return text
-	}
-
-	var texts []string
-	outputs := gjson.GetBytes(respBytes, "output")
-	if outputs.IsArray() {
-		outputs.ForEach(func(_, output gjson.Result) bool {
-			outputType := output.Get("type").String()
-			if outputType != "" && outputType != "message" {
-				return true
-			}
-
-			content := output.Get("content")
-			if !content.IsArray() {
-				return true
-			}
-
-			content.ForEach(func(_, block gjson.Result) bool {
-				blockType := block.Get("type").String()
-				if blockType != "" && blockType != "output_text" {
-					return true
-				}
-				if text := block.Get("text").String(); strings.TrimSpace(text) != "" {
-					texts = append(texts, text)
-				}
-				return true
-			})
-			return true
-		})
-	}
-
-	if len(texts) > 0 {
-		return strings.Join(texts, "")
-	}
-	return gjson.GetBytes(respBytes, providerOpenAIResponsesAdapter.textPath).String()
-}
-
 // mergeHeaders 把用户自定义 headers 合并到 adapter 默认 headers 上。
 // 用户值覆盖默认；命中黑名单（hop-by-hop / 由 http.Client 自管的）的 key 静默丢弃。
 func mergeHeaders(base map[string]string, opts *CheckOptions) map[string]string {
@@ -422,82 +274,11 @@ func mergeHeaders(base map[string]string, opts *CheckOptions) map[string]string 
 	return out
 }
 
-// buildRequestBody 根据 body_override_mode 构造请求 body。
-//
-//   - off:     adapter 默认 body
-//   - merge:   adapter 默认 body 与 BodyOverride 浅合并；BodyOverride 中命中
-//     bodyMergeKeyDenyList[provider] 的 key 会被静默丢弃，避免破坏 challenge / model 路由
-//   - replace: 直接 marshal BodyOverride 作为完整 body
-//
-// 任何 mode 返回的 []byte 都已经是合法 JSON，可直接送入 postRawJSON。
-func buildRequestBody(adapter providerAdapter, provider, apiMode, model, prompt string, opts *CheckOptions) ([]byte, error) {
-	mode := bodyOverrideMode(opts)
-
-	if mode == MonitorBodyOverrideModeReplace {
-		if opts == nil || len(opts.BodyOverride) == 0 {
-			return nil, fmt.Errorf("replace mode: body_override is empty")
-		}
-		if err := validateReplaceRequestBody(provider, apiMode, opts.BodyOverride); err != nil {
-			return nil, err
-		}
-		body, err := json.Marshal(opts.BodyOverride)
-		if err != nil {
-			return nil, fmt.Errorf("marshal body_override (replace): %w", err)
-		}
-		return body, nil
-	}
-
-	defaultBody, err := adapter.buildBody(model, prompt)
-	if err != nil {
-		return nil, fmt.Errorf("marshal default body: %w", err)
-	}
-	if mode != MonitorBodyOverrideModeMerge || opts == nil || len(opts.BodyOverride) == 0 {
-		return defaultBody, nil
-	}
-
-	var defaultMap map[string]any
-	if err := json.Unmarshal(defaultBody, &defaultMap); err != nil {
-		return nil, fmt.Errorf("unmarshal default body for merge: %w", err)
-	}
-	deny := bodyMergeKeyDenyList[bodyMergeDenyKey(provider, apiMode)]
-	for k, v := range opts.BodyOverride {
-		if deny[k] {
-			continue
-		}
-		defaultMap[k] = v
-	}
-	merged, err := json.Marshal(defaultMap)
-	if err != nil {
-		return nil, fmt.Errorf("marshal merged body: %w", err)
-	}
-	return merged, nil
-}
-
-// bodyMergeKeyDenyList 在 merge 模式下，禁止用户覆盖这些 provider-specific 的关键字段。
-// 思路抄 check-cx 的 EXCLUDED_METADATA_KEYS：保护 challenge / model 路由不被用户误伤。
-// 用户想动这些字段就用 replace 模式（已知会跳 challenge 校验）。
-//
-//nolint:gochecknoglobals // 静态查表，初始化后不变。
-var bodyMergeKeyDenyList = map[string]map[string]bool{
-	MonitorProviderOpenAI + ":" + MonitorAPIModeChatCompletions: {"model": true, "messages": true, "stream": true},
-	MonitorProviderOpenAI + ":" + MonitorAPIModeResponses:       {"model": true, "instructions": true, "input": true, "stream": true},
-	MonitorProviderGrok:      {"model": true, "messages": true, "stream": true},
-	MonitorProviderAnthropic: {"model": true, "messages": true},
-	MonitorProviderGemini:    {"contents": true},
-}
-
 func checkAPIMode(opts *CheckOptions) string {
 	if opts == nil {
 		return MonitorAPIModeModels
 	}
 	return defaultAPIMode(opts.APIMode)
-}
-
-func bodyMergeDenyKey(provider, apiMode string) string {
-	if provider == MonitorProviderOpenAI {
-		return provider + ":" + defaultAPIMode(apiMode)
-	}
-	return provider
 }
 
 func validateReplaceRequestBody(provider, apiMode string, body map[string]any) error {
@@ -537,32 +318,6 @@ func hasNonEmptyBodyValue(v any) bool {
 	default:
 		return true
 	}
-}
-
-// postRawJSON 发送 POST + 已序列化好的 JSON 字节，限制响应体大小，返回响应字节、HTTP status、错误。
-// adapter 自行 marshal 是为了精确控制字段顺序与类型，所以这里直接收 []byte 而不是 any。
-func postRawJSON(ctx context.Context, fullURL string, payload []byte, headers map[string]string) ([]byte, int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fullURL, bytes.NewReader(payload))
-	if err != nil {
-		return nil, 0, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-
-	resp, err := monitorHTTPClient.Do(req)
-	if err != nil {
-		return nil, 0, fmt.Errorf("do request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, monitorResponseMaxBytes))
-	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("read body: %w", err)
-	}
-	return respBody, resp.StatusCode, nil
 }
 
 // getRawJSON 发送 GET 请求并限制响应体大小，供无 token 的目录探测使用。

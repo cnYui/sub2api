@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func ptrInt64(v int64) *int64 { return &v }
+
 type fullRebuildLifecycleCache struct {
 	*groupLifecycleTestCache
 

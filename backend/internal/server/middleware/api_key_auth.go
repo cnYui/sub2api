@@ -32,19 +32,6 @@ func NewAPIKeyAuthMiddlewareWithBillingCache(
 	return APIKeyAuthMiddleware(apiKeyAuthWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, billingCacheService))
 }
 
-// apiKeyAuthWithSubscription API Key认证中间件（支持订阅验证）
-//
-// 中间件职责分为两层：
-//   - 鉴权（Authentication）：验证 Key 有效性、用户状态、IP 限制 —— 始终执行
-//   - 计费执行（Billing Enforcement）：过期/配额/订阅/余额检查 —— skipBilling 时整块跳过
-//
-// /v1/usage、/v1/sub2api/billing 端点与异步生图任务查询只需鉴权，不需要计费执行。
-// usage 允许过期/配额耗尽的 Key 查询自身用量，billing 用于读取当前 Key 的倍率配置，
-// 异步生图查询允许已耗尽额度的 Key 拉取自身任务结果。
-func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) gin.HandlerFunc {
-	return apiKeyAuthWithTrafficPackChecker(apiKeyService, subscriptionService, cfg, nil)
-}
-
 type trafficPackCreditChecker interface {
 	CanUseTrafficPackCredit(context.Context, int64, string) bool
 }
@@ -290,9 +277,8 @@ func apiKeyAuthWithTrafficPackChecker(
 					AbortWithError(c, status, code, validateErr.Error())
 					return
 				}
-			} else {
-				// 非订阅模式允许非负余额继续请求；余额变负后的下一次请求已在前置分支切到流量卡。
 			}
+			// 非订阅模式无需在此二次校验：允许非负余额继续请求，余额变负后的下一次请求已在前置分支切到流量卡。
 		}
 
 		// ── 7. 设置上下文 → Next ─────────────────────────────────────
