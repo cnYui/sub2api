@@ -116,8 +116,6 @@ const (
 	openAIGPT54LongContextInputThreshold   = 272000
 	openAIGPT54LongContextInputMultiplier  = 2.0
 	openAIGPT54LongContextOutputMultiplier = 1.5
-	glm51LongContextInputThreshold         = 31999
-	domesticModelCNYToUSD                  = 1.0 / 7.0
 )
 
 func normalizeBillingServiceTier(serviceTier string) string {
@@ -402,7 +400,7 @@ func (s *BillingService) initFallbackPricing() {
 
 	// ============================================================
 	// 国产 LLM 兜底定价（数据源：各家官方定价页/USD 口径）
-	// 顺序：DeepSeek → 智谱 GLM → 月之暗面 Kimi → MiniMax
+	// 顺序：DeepSeek → 月之暗面 Kimi → MiniMax
 	// 覆盖逻辑见同文件 getFallbackPricing()
 	// ============================================================
 
@@ -419,100 +417,6 @@ func (s *BillingService) initFallbackPricing() {
 		InputPricePerToken:     2.2e-7, // $0.22 per MTok (cache miss)
 		OutputPricePerToken:    6.6e-7, // $0.66 per MTok
 		CacheReadPricePerToken: 7e-9,   // $0.007 per MTok (cache hit)
-		SupportsCacheBreakdown: false,
-	}
-
-	// ---- 智谱 GLM（国内官方 API）----
-	// Source: https://open.bigmodel.cn/pricing （人民币 / 1M tokens）。
-	// 本项目国产模型口径固定为 1 USD = 7 CNY，因此先除以 7 取得美元基础价；
-	// 用户折扣由分组倍率单独承担，不能混入此处。官网缓存存储限时免费，不等同于
-	// 请求中的 cache_creation token，故仅设置缓存命中价。
-	s.fallbackPrices["glm-5.2"] = &ModelPricing{
-		InputPricePerToken:     8 * domesticModelCNYToUSD * 1e-6,
-		OutputPricePerToken:    28 * domesticModelCNYToUSD * 1e-6,
-		CacheReadPricePerToken: 2 * domesticModelCNYToUSD * 1e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-5.1"] = &ModelPricing{
-		// 官网短上下文（输入 <32K）：¥6 / ¥24 / ¥1.3。
-		InputPricePerToken:     6 * domesticModelCNYToUSD * 1e-6,
-		OutputPricePerToken:    24 * domesticModelCNYToUSD * 1e-6,
-		CacheReadPricePerToken: 1.3 * domesticModelCNYToUSD * 1e-6,
-		SupportsCacheBreakdown: false,
-		// 官网输入 >=32K：¥8 / ¥28 / ¥2；三项涨幅不同，缓存读取不能沿用输入倍率。
-		LongContextInputThreshold:      glm51LongContextInputThreshold,
-		LongContextInputMultiplier:     8.0 / 6.0,
-		LongContextOutputMultiplier:    28.0 / 24.0,
-		LongContextCacheReadMultiplier: 2.0 / 1.3,
-	}
-	s.fallbackPrices["glm-5"] = &ModelPricing{
-		InputPricePerToken:     1e-6, // $1.00 per MTok
-		OutputPricePerToken:    3.2e-6,
-		CacheReadPricePerToken: 0.2e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-5-turbo"] = &ModelPricing{
-		InputPricePerToken:     1.2e-6,
-		OutputPricePerToken:    4e-6,
-		CacheReadPricePerToken: 0.24e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.7"] = &ModelPricing{
-		InputPricePerToken:     0.6e-6, // $0.60 per MTok
-		OutputPricePerToken:    2.2e-6,
-		CacheReadPricePerToken: 0.11e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.7-flashx"] = &ModelPricing{
-		InputPricePerToken:     0.07e-6, // $0.07 per MTok
-		OutputPricePerToken:    0.4e-6,
-		CacheReadPricePerToken: 0.01e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.6"] = &ModelPricing{
-		InputPricePerToken:     0.6e-6, // $0.60 per MTok
-		OutputPricePerToken:    2.2e-6,
-		CacheReadPricePerToken: 0.11e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.5"] = &ModelPricing{
-		InputPricePerToken:     0.6e-6, // $0.60 per MTok
-		OutputPricePerToken:    2.2e-6,
-		CacheReadPricePerToken: 0.11e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.5-x"] = &ModelPricing{
-		InputPricePerToken:     2.2e-6, // $2.20 per MTok
-		OutputPricePerToken:    8.9e-6,
-		CacheReadPricePerToken: 0.45e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.5-air"] = &ModelPricing{
-		InputPricePerToken:     0.2e-6, // $0.20 per MTok
-		OutputPricePerToken:    1.1e-6,
-		CacheReadPricePerToken: 0.03e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.5-airx"] = &ModelPricing{
-		InputPricePerToken:     1.1e-6,
-		OutputPricePerToken:    4.5e-6,
-		CacheReadPricePerToken: 0.22e-6,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4-32b-0414-128k"] = &ModelPricing{
-		InputPricePerToken:     0.1e-6, // $0.10 per MTok
-		OutputPricePerToken:    0.1e-6,
-		SupportsCacheBreakdown: false,
-	}
-	// GLM-4.5-Flash / GLM-4.7-Flash 在 z.ai 上为 Free，保留 zero-cost entry 防止未知 alias 误计费。
-	s.fallbackPrices["glm-4.5-flash"] = &ModelPricing{
-		InputPricePerToken:     0,
-		OutputPricePerToken:    0,
-		SupportsCacheBreakdown: false,
-	}
-	s.fallbackPrices["glm-4.7-flash"] = &ModelPricing{
-		InputPricePerToken:     0,
-		OutputPricePerToken:    0,
 		SupportsCacheBreakdown: false,
 	}
 
@@ -613,34 +517,6 @@ func (s *BillingService) initFallbackPricing() {
 		OutputPricePerToken:     0,
 		SupportsCacheBreakdown:  false,
 	}
-
-	// xAI Grok 4.5 (official docs: $2 input / $0.50 cached input / $6 output per MTok)
-	s.fallbackPrices["grok-4.5"] = &ModelPricing{
-		InputPricePerToken:     2e-6,
-		OutputPricePerToken:    6e-6,
-		CacheReadPricePerToken: 0.5e-6,
-		SupportsCacheBreakdown: false,
-	}
-
-	// xAI Grok 4.3 (official docs: $1.25 input / $2.50 output per MTok)
-	s.fallbackPrices["grok-4.3"] = &ModelPricing{
-		InputPricePerToken:         1.25e-6,
-		OutputPricePerToken:        2.5e-6,
-		CacheReadPricePerToken:     0.2e-6,
-		SupportsCacheBreakdown:     false,
-		LongContextInputThreshold:  1000000,
-		LongContextInputMultiplier: 1,
-	}
-	// xAI Grok Build 0.1 (official docs: $1 input / $0.20 cached input /
-	// $2 output per MTok). Composer is available only through Grok Build and
-	// has no standalone public API rate card, so its aliases use this coding
-	// model rate instead of silently billing at zero.
-	s.fallbackPrices["grok-build-0.1"] = &ModelPricing{
-		InputPricePerToken:     1e-6,
-		OutputPricePerToken:    2e-6,
-		CacheReadPricePerToken: 0.2e-6,
-		SupportsCacheBreakdown: false,
-	}
 }
 
 // getFallbackPricing 根据模型系列获取回退价格
@@ -705,52 +581,6 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	// ---- 国产 LLM 兜底匹配 ----
 	// 匹配策略：长 key 优先（具体模型 → 系列 / 厂商），未知型号不回退以避免误计价。
 	// 与 DeepSeek 一样采用"白名单"语义：未在本表命中的国产模型 alias 一律不返回兜底价。
-
-	// 智谱 GLM（z.ai 公开 SKU：glm-5.2 / glm-5.1 / glm-5 / glm-5-turbo / glm-4.7 / glm-4.6 / glm-4.5 等）
-	// 匹配顺序：先判别最高 tier，再依次降级。
-	// 注意：带小数点的型号必须排在裸 "glm-5" 之前，否则会被 strings.Contains 抢走。
-	if strings.Contains(modelLower, "glm-5.2") {
-		return s.fallbackPrices["glm-5.2"]
-	}
-	if strings.Contains(modelLower, "glm-5.1") {
-		return s.fallbackPrices["glm-5.1"]
-	}
-	if strings.Contains(modelLower, "glm-5-turbo") || strings.Contains(modelLower, "glm-5turbo") {
-		return s.fallbackPrices["glm-5-turbo"]
-	}
-	if strings.Contains(modelLower, "glm-5") {
-		return s.fallbackPrices["glm-5"]
-	}
-	if strings.Contains(modelLower, "glm-4.7-flashx") {
-		return s.fallbackPrices["glm-4.7-flashx"]
-	}
-	if strings.Contains(modelLower, "glm-4.7-flash") {
-		return s.fallbackPrices["glm-4.7-flash"]
-	}
-	if strings.Contains(modelLower, "glm-4.7") {
-		return s.fallbackPrices["glm-4.7"]
-	}
-	if strings.Contains(modelLower, "glm-4.6") {
-		return s.fallbackPrices["glm-4.6"]
-	}
-	if strings.Contains(modelLower, "glm-4.5-flash") {
-		return s.fallbackPrices["glm-4.5-flash"]
-	}
-	if strings.Contains(modelLower, "glm-4.5-x") || strings.Contains(modelLower, "glm-4.5x") {
-		return s.fallbackPrices["glm-4.5-x"]
-	}
-	if strings.Contains(modelLower, "glm-4.5-airx") || strings.Contains(modelLower, "glm-4.5airx") {
-		return s.fallbackPrices["glm-4.5-airx"]
-	}
-	if strings.Contains(modelLower, "glm-4.5-air") || strings.Contains(modelLower, "glm-4.5air") {
-		return s.fallbackPrices["glm-4.5-air"]
-	}
-	if strings.Contains(modelLower, "glm-4.5") {
-		return s.fallbackPrices["glm-4.5"]
-	}
-	if strings.Contains(modelLower, "glm-4-32b") {
-		return s.fallbackPrices["glm-4-32b-0414-128k"]
-	}
 
 	// 月之暗面 Kimi（kimi-k3 / k3 / k3-256k / kimi-k2.6 / kimi-for-coding / kimi-k2.5 / kimi-k2-thinking / kimi-k2）
 	// K2-0905 / K2-0711 官方未保留定价，不进入 fallback。
@@ -829,20 +659,6 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		case "gpt-5.3-codex", "gpt-5.3-codex-spark":
 			return s.fallbackPrices["gpt-5.3-codex"]
 		}
-	}
-
-	switch modelLower {
-	case "grok", "grok-latest", "grok-4.5", "grok-4.5-latest", "grok-build-latest":
-		return s.fallbackPrices["grok-4.5"]
-	case "grok-4.3",
-		"grok-4.20-0309-reasoning",
-		"grok-4.20-0309-non-reasoning",
-		"grok-4.20-multi-agent-0309",
-		"grok-4.20-reasoning",
-		"grok-4.20-non-reasoning":
-		return s.fallbackPrices["grok-4.3"]
-	case "grok-build", "grok-build-0.1", "grok-composer", "grok-composer-2.5-fast", "composer-2.5":
-		return s.fallbackPrices["grok-build-0.1"]
 	}
 
 	return nil
@@ -932,8 +748,6 @@ func usesCalibratedFallbackPricing(model string) bool {
 		strings.Contains(modelLower, "kimi-k2-6") ||
 		strings.Contains(modelLower, "kimi-for-coding") ||
 		isKimiK25Model(modelLower) ||
-		strings.Contains(modelLower, "glm-5.1") ||
-		strings.Contains(modelLower, "glm-5.2") ||
 		strings.Contains(modelLower, "deepseek-v4-flash") ||
 		strings.Contains(modelLower, "deepseek-v4-pro")
 }
