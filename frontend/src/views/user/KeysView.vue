@@ -1884,7 +1884,10 @@ const importToCcswitch = (row: ApiKey) => {
 }
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
-  const baseUrl = publicSettings.value?.api_base_url || window.location.origin
+  // 兜底用固定的 API 域名，而不是 window.location.origin：用户可能从 www.aaccx.pw 访问，
+  // 那样会把导入端点写成 www.aaccx.pw，正确的对外 API 域名是 api.aaccx.pw。
+  // API_ENDPOINT 已带 /v1，这里的 baseUrl 约定是不含 /v1 的根（各平台在 util 里各自补 /v1）。
+  const baseUrl = publicSettings.value?.api_base_url || API_ENDPOINT.replace(/\/v1$/, '')
   const platform = row.group?.platform || 'anthropic'
 
   const usageScript = `({
