@@ -63,11 +63,9 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
   | 分组 | id | 倍率 | 备注 |
   | --- | --- | --- | --- |
-  | Grok | 3 | 0.6 | |
   | Claude Max | 4 | 1.5 | |
   | Claude Kiro | 5 | 0.45 | |
   | Claude 日常1 | — | 0.5 | 名称 `Claude0.5倍率(日常1)`，2026-09-05 由 `0.4` 调至 `0.5` |
-  | GLM | 6 | 0.6 | 名称已同步为 `GLM0.6倍率` |
   | Kimi | 7 | 4.9 | **名称仍是 `Kimi0.7倍率`，与数值不一致** |
   | DeepSeek | 8 | 4.9 | 名称已同步为 `【国产】DeepSeek（7折）` |
   | GPT 0.15 | 9 | 0.15 | |
@@ -75,13 +73,15 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   | GPT 0.28 | 74 | 0.28 | 上游为独立中转站，非 GPT 其余分组的上游 |
   | Gemini | 70 | 1.0 | 原生 |
   | Claude | 71 | 0.78 | 原生 |
-  | Grok 0.9 / GPT 0.1 | — | 0.9 / 0.1 | **已停用下架**；存量绑定该分组的 API Key 会不可用，改回「正常」即可回滚 |
 
   **分组名称不能作为倍率依据**，只查数据库。
+- **Grok（分组 3 / 账号 1）、GLM（分组 6 / 账号 4）、GPT 0.1（分组 11 / 账号 1130）已于 2026-09-05 硬删除（软删 `deleted_at`）**，模型广场与 `/groups/available` 均已无。删除是软删，`usage_logs` 历史完整保留，回滚需直连数据库置回 `deleted_at=NULL` 并重插 `account_groups`（硬删的关联）。详见 `docs/ai/context/20260905-224500-delete-grok-glm-gpt01-groups-channels_CN.md`。**同日已把 `billing_service.go` 里 glm-5.x / grok 聊天模型的 `fallbackPrices` 与 match 分支一并清理**（grok-imagine 媒体价、Grok 平台代码、kimi/deepseek/gpt 共享价均保留）。**该代码改动仅在工作区，需出镜像部署才生效；生产当前无这些组/账号，删不删都是死代码。若日后重新上架 glm/grok，必须先补回定价再开放（坑 12：缺价按零成本放行）。**
 
 - 汇率展示：国外模型按 `1 USD = 1 CNY`，国产模型按 `1 USD = 7 CNY`，模型广场标题下有固定说明。`BALANCE_RECHARGE_MULTIPLIER` 是"每支付 1 CNY 获得多少 USD"，**不要把汇率写进模型扣费倍率**。
 - **登记一个新 OpenAI 模型的价格，必须同时改两处**（见坑 10、11）：`pricing_service.go` 的 `matchOpenAIModel`（加显式前缀分支 + 静态价，**这是生产实际走的路径**）和 `billing_service.go` 的 `fallbackPrices`（目录失效时的兜底）。只改后者等于没改。
-- `gpt-6-astra` 两处均已登记：$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出（复用 `openAIGPT54LongContext*` 常量）。别名 `gpt-6`、`gpt6`、带 effort/日期后缀的写法都解析到同一份价格，回归测试见 `billing_service_gpt6_test.go`。**上游只认精确串 `gpt-6-astra`，别名一律 404**，故坑 11 的少收风险在这条链路触发不了。已在多个 GPT 分组（含 `Gpt0.35倍率(优质)`）开放并实测计费正确；**但同上游不同 Key 的模型清单不一样——`#1128`(0.15) 与 `#1130`(0.1，已下架) 上游没有该模型，不要照搬着加（见坑 24）**。
+- `gpt-6-astra` 两处均已登记：$10/$1/$12.50/$50 每百万 token，>272K 输入转 2x 输入与缓存、1.5x 输出（复用 `openAIGPT54LongContext*` 常量）。别名 `gpt-6`、`gpt6`、带 effort/日期后缀的写法都解析到同一份价格，回归测试见 `billing_service_gpt6_test.go`。
+- **`gpt-6-astra` 已于 2026-09-05 开放并实测计费正确**：三个 上游B 上游账号（`#1132`/`#1164`/`#1168`）的 `model_mapping` 已加入该键。实测 `usage_logs` id `404425`——`input 864×$10/M + cache_read 7488×$1/M + output 22×$50/M = total_cost 0.017228`，`actual_cost = 0.017228 × 0.16 × 18 = 0.04961664`，余额差额一致。**上游只认精确串 `gpt-6-astra`，别名一律 404**，所以坑 11 的少收风险在这条链路上触发不了。详见 `docs/ai/context/20260905-134951-gpt6-astra-enablement-and-billing-verification_CN.md`。
+- **2026-09-05 又给 `Gpt0.35倍率(优质)`（分组 `10`、账号 `#1129`、上游 `api.ai-genesis.app`）加了该模型**，上游实测 `200`。当前 4 个分组可用：`GPT0.16(日常2)`、`GPT0.16(日常3)`、`GPT0.28`、`Gpt0.35`。**`#1128`（0.15）和 `#1130`（0.1，已下架）没加，也不要照搬着加**——见坑 24。详见 `docs/ai/context/20260905-203005-gpt6-astra-enable-on-035-group_CN.md`。
 
 ## 四、业务规则
 
