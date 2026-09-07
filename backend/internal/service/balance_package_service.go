@@ -74,6 +74,14 @@ var defaultBalancePackagePlans = []defaultBalancePackagePlan{
 	{code: "balance-199", name: "余额套餐 ¥199", priceCNY: 199, weeklyCreditUSD: 520, sortOrder: 80},
 	{code: "balance-249", name: "余额套餐 ¥249", priceCNY: 249, weeklyCreditUSD: 651, sortOrder: 90},
 	{code: "balance-299", name: "余额套餐 ¥299", priceCNY: 299, weeklyCreditUSD: 781, sortOrder: 100},
+	{code: "balance-349", name: "余额套餐 ¥349", priceCNY: 349, weeklyCreditUSD: 911, sortOrder: 110},
+	{code: "balance-399", name: "余额套餐 ¥399", priceCNY: 399, weeklyCreditUSD: 1041, sortOrder: 120},
+	{code: "balance-449", name: "余额套餐 ¥449", priceCNY: 449, weeklyCreditUSD: 1171, sortOrder: 130},
+	{code: "balance-499", name: "余额套餐 ¥499", priceCNY: 499, weeklyCreditUSD: 1301, sortOrder: 140},
+	{code: "balance-549", name: "余额套餐 ¥549", priceCNY: 549, weeklyCreditUSD: 1431, sortOrder: 150},
+	{code: "balance-599", name: "余额套餐 ¥599", priceCNY: 599, weeklyCreditUSD: 1561, sortOrder: 160},
+	{code: "balance-649", name: "余额套餐 ¥649", priceCNY: 649, weeklyCreditUSD: 1691, sortOrder: 170},
+	{code: "balance-699", name: "余额套餐 ¥699", priceCNY: 699, weeklyCreditUSD: 1821, sortOrder: 180},
 }
 
 // BalancePackageService 维护余额套餐及其到账生命周期。
