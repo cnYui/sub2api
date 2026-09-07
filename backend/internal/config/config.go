@@ -2437,6 +2437,14 @@ func setEnvReachableDefaults() {
 	viper.SetDefault("gateway.user_message_queue.mode", "")
 	viper.SetDefault("update.proxy_url", "")
 
+	// account_credentials.encryption_key(_file) are injected purely via env
+	// (ACCOUNT_CREDENTIALS_ENCRYPTION_KEY / _KEY_FILE). Register zero-value
+	// defaults so the keys are env-reachable via AllKeys() and not silently
+	// dropped on unmarshal. Nothing depends on IsSet("account_credentials.*"),
+	// so a zero default preserves prior behavior; an explicit value still wins.
+	viper.SetDefault("account_credentials.encryption_key", "")
+	viper.SetDefault("account_credentials.encryption_key_file", "")
+
 	// sticky_escape_enabled is the one exception to the zero-value rule: its
 	// effective default is true, applied post-unmarshal via a viper.IsSet guard.
 	// Registering false would make IsSet always report true and permanently

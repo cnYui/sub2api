@@ -325,7 +325,9 @@ func TestGatewayProfitControlTerminalRefreshUsesReplacementObject(t *testing.T) 
 	snapshot := NewSchedulerSnapshotService(
 		&gatewayProfitSnapshotCache{account: &replacement},
 		nil,
-		gatewayProfitAccountRepo{},
+		// accountRepo 为 nil 时快照服务返回缓存对象（scheduler_snapshot_service.go:280）；
+		// 本用例验证「有缓存替身、无需回源」路径下终检使用替身对象、不原地改选号旧指针。
+		nil,
 		nil,
 		nil,
 	)

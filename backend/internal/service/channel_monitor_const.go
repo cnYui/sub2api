@@ -11,8 +11,6 @@ import (
 const (
 	// monitorRequestTimeout 单次模型请求总超时（含 Body 读取）。
 	monitorRequestTimeout = 45 * time.Second
-	// monitorDegradedThreshold 主请求成功但耗时超过该阈值视为 degraded。
-	monitorDegradedThreshold = 6 * time.Second
 	// monitorHistoryRetentionDays 明细历史保留天数。
 	// 60s 默认间隔 * 30 天 ≈ 43200 行/monitor/model，一般部署总量 <= 2M 行，
 	// PG 无压力；所以直接保留完整明细一个月，可用率查询可以全走原始行不依赖聚合。
@@ -39,10 +37,6 @@ const (
 	// 留 300 字节足够覆盖典型结构化错误（如 `{"error":{"message":"..."}}`），
 	// 又给 "upstream HTTP <status>: " 前缀留出余量，避免最终被 monitorMessageMaxBytes (500) 截得太狠。
 	monitorErrorBodySnippetMaxBytes = 300
-	// monitorChallengeMin / monitorChallengeMax challenge 操作数范围。
-	monitorChallengeMin = 1
-	monitorChallengeMax = 50
-
 	// providerModelsPath OpenAI-compatible 模型目录路径。
 	providerModelsPath = "/v1/models"
 	// 保留旧路径常量以避免历史测试/辅助代码失去编译能力；生产 checker 不再调用它们。

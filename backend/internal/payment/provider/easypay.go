@@ -62,7 +62,11 @@ func NewEasyPay(instanceID string, config map[string]string) (*EasyPay, error) {
 	if err != nil || strings.TrimSpace(apiURL.Hostname()) == "" {
 		return nil, fmt.Errorf("easypay config has invalid apiBase")
 	}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return nil, fmt.Errorf("easypay: unexpected default HTTP transport type")
+	}
+	transport := defaultTransport.Clone()
 	configuredHost := strings.ToLower(apiURL.Hostname())
 	transport.Proxy = func(req *http.Request) (*url.URL, error) {
 		// Payment callbacks and refunds must reach the configured merchant

@@ -556,57 +556,6 @@ func (s *BalancePackageService) PauseDebtPackages(ctx context.Context, now time.
 	return 0, nil
 }
 
-func (s *BalancePackageService) pauseDebtPackage(ctx context.Context, candidate *dbent.UserBalancePackage, now time.Time, operator string) (bool, error) {
-	if candidate == nil {
-		return false, nil
-	}
-	tx, err := s.entClient.Tx(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin debt package pause: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	txCtx := dbent.NewTxContext(ctx, tx)
-	client := tx.Client()
-	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("lock debt package user: %w", err)
-	}
-	query := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(candidate.ID))
-	if client.Driver().Dialect() == dialect.Postgres {
-		query = query.ForUpdate()
-	}
-	current, err := query.Only(txCtx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("lock debt package: %w", err)
-	}
-	if lockedUser.Balance >= 0 || current.Status != balancePackageStatusActive || current.CreditedCount >= current.RefreshCount || !current.ExpiresAt.After(now) {
-		return false, nil
-	}
-	if _, err := client.UserBalancePackage.UpdateOneID(current.ID).
-		Where(userbalancepackage.StatusEQ(balancePackageStatusActive)).
-		SetStatus(balancePackageStatusDebtPaused).
-		Save(txCtx); err != nil {
-		if dbent.IsNotFound(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("pause debt package: %w", err)
-	}
-	if err := createBalancePackageDebtAudit(txCtx, client, current.PaymentOrderID, balancePackageDebtPausedAudit, current.CreditedCount, lockedUser.Balance, lockedUser.Balance, current.WeeklyCreditUsd, timeOrZero(current.NextCreditAt), operator); err != nil {
-		return false, err
-	}
-	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit debt package pause: %w", err)
-	}
-	return true, nil
-}
-
 // ResumeDebtPausedPackage 兼容历史 debt_paused 数据的管理员恢复接口。
 func (s *BalancePackageService) ResumeDebtPausedPackage(ctx context.Context, packageID, adminUserID int64, now time.Time) error {
 	if s == nil || s.entClient == nil {
@@ -1006,13 +955,6 @@ func minFloat(left, right float64) float64 {
 		return left
 	}
 	return right
-}
-
-func timeOrZero(value *time.Time) time.Time {
-	if value == nil {
-		return time.Time{}
-	}
-	return *value
 }
 
 func (s *BalancePackageService) invalidateBalanceCache(ctx context.Context, userID int64) {

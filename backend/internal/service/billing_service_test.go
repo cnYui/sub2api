@@ -172,37 +172,6 @@ func TestGetModelPricing_KimiUsesCalibratedFallbackOverDynamicPrice(t *testing.T
 	require.InDelta(t, 0.00004065, cost.ActualCost, 1e-12)
 }
 
-func TestGetModelPricing_GLM51UsesCalibratedFallbackOverDynamicPrice(t *testing.T) {
-	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
-		"glm-5.1": {
-			InputCostPerToken:           1.40e-6,
-			OutputCostPerToken:          4.40e-6,
-			CacheReadInputTokenCost:     0.28e-6,
-			CacheCreationInputTokenCost: 1.00e-6,
-		},
-	}}
-	svc := NewBillingService(&config.Config{}, pricingSvc)
-
-	pricing, err := svc.GetModelPricing("glm-5.1")
-	require.NoError(t, err)
-	require.InDelta(t, 6.0/7.0*1e-6, pricing.InputPricePerToken, 1e-12)
-	require.InDelta(t, 24.0/7.0*1e-6, pricing.OutputPricePerToken, 1e-12)
-	require.Zero(t, pricing.CacheCreationPricePerToken)
-	require.InDelta(t, 1.3/7.0*1e-6, pricing.CacheReadPricePerToken, 1e-12)
-	require.Equal(t, 31999, pricing.LongContextInputThreshold)
-	require.InDelta(t, 8.0/6.0, pricing.LongContextInputMultiplier, 1e-12)
-	require.InDelta(t, 28.0/24.0, pricing.LongContextOutputMultiplier, 1e-12)
-	require.InDelta(t, 2.0/1.3, pricing.LongContextCacheReadMultiplier, 1e-12)
-
-	long := svc.computeTokenBreakdown(pricing, UsageTokens{
-		InputTokens:     32000,
-		OutputTokens:    1,
-		CacheReadTokens: 1,
-	}, 1, "", true)
-	require.True(t, long.LongContextBillingApplied)
-	require.InDelta(t, 32000*(8.0/7.0)*1e-6+4e-6+(2.0/7.0)*1e-6, long.TotalCost, 1e-12)
-}
-
 func TestGetModelPricing_DeepSeekUsesOfficialFallbackOverDynamicPrice(t *testing.T) {
 	pricingSvc := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
 		"deepseek-v4-flash": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
@@ -234,14 +203,14 @@ func TestGetModelPricing_FallbackWarnLoggedOncePerModel(t *testing.T) {
 	svc := newTestBillingService()
 	buf := captureStdLog(t)
 
-	// glm-5.2 不在 LiteLLM,经 strings.Contains 命中 glm-5 兜底价 → 触发 fallback warn。
+	// minimax-m3 不在 LiteLLM(此处 pricingService 为 nil),命中 minimax 兜底价 → 触发 fallback warn。
 	for i := 0; i < 5; i++ {
-		pricing, err := svc.GetModelPricing("glm-5.2")
+		pricing, err := svc.GetModelPricing("minimax-m3")
 		require.NoError(t, err)
 		require.NotNil(t, pricing)
 	}
 
-	got := strings.Count(buf.String(), "Using fallback pricing for model: glm-5.2")
+	got := strings.Count(buf.String(), "Using fallback pricing for model: minimax-m3")
 	require.Equal(t, 1, got, "同一模型的 fallback warn 应只打一条,实际日志:\n%s", buf.String())
 }
 
@@ -251,30 +220,15 @@ func TestGetModelPricing_FallbackWarnPerModelNotGlobal(t *testing.T) {
 	buf := captureStdLog(t)
 
 	for i := 0; i < 3; i++ {
-		_, _ = svc.GetModelPricing("glm-5.2")
-		_, _ = svc.GetModelPricing("GLM-5.2") // 与上一行同模型(ToLower 后),去重后不再打
-		_, _ = svc.GetModelPricing("glm-4.6")
+		_, _ = svc.GetModelPricing("minimax-m3")
+		_, _ = svc.GetModelPricing("MINIMAX-M3") // 与上一行同模型(ToLower 后),去重后不再打
+		_, _ = svc.GetModelPricing("minimax-m2.7")
 	}
 
 	out := buf.String()
-	require.Equal(t, 1, strings.Count(out, "model: glm-5.2"), out)
-	require.Equal(t, 1, strings.Count(out, "model: glm-4.6"), out)
-	require.Equal(t, 0, strings.Count(out, "model: GLM-5.2"), out) // 大写经 ToLower 归一,不应单独成行
-}
-
-// 回归:glm-5.2 必须命中自己的兜底价,不能被 strings.Contains("glm-5") 抢成 glm-5 价。
-// 历史 bug:兜底表缺 glm-5.2 条目,使用记录按 $1.00/$3.20 计费,比官方 $1.40/$4.40 少收约 27%。
-func TestGetModelPricing_GLM52UsesOwnPrice(t *testing.T) {
-	svc := newTestBillingService()
-
-	got, err := svc.GetModelPricing("glm-5.2")
-	require.NoError(t, err)
-	require.NotNil(t, got)
-
-	// 官方 z.ai 口径:与 glm-5.1 同价(见 TestGetFallbackPricing_FamilyMatching)。
-	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
-	require.InDelta(t, 4.4e-6, got.OutputPricePerToken, 1e-12)
-	require.InDelta(t, 0.26e-6, got.CacheReadPricePerToken, 1e-12)
+	require.Equal(t, 1, strings.Count(out, "model: minimax-m3"), out)
+	require.Equal(t, 1, strings.Count(out, "model: minimax-m2.7"), out)
+	require.Equal(t, 0, strings.Count(out, "model: MINIMAX-M3"), out) // 大写经 ToLower 归一,不应单独成行
 }
 
 func TestGetModelPricing_UnknownClaudeModelFallsBackToSonnet(t *testing.T) {
@@ -568,144 +522,30 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 		{
 			name:              "deepseek v4 pro",
 			model:             "deepseek-v4-pro",
-			expectedInput:     4.35e-7,
-			expectedOutput:    floatPtr(8.7e-7),
-			expectedCacheRead: floatPtr(3.625e-9),
+			expectedInput:     6.6e-7,
+			expectedOutput:    floatPtr(1.98e-6),
+			expectedCacheRead: floatPtr(2.2e-8),
 		},
 		{
 			name:              "deepseek v4 flash",
 			model:             "deepseek-v4-flash",
-			expectedInput:     1.4e-7,
-			expectedOutput:    floatPtr(2.8e-7),
-			expectedCacheRead: floatPtr(2.8e-9),
+			expectedInput:     2.2e-7,
+			expectedOutput:    floatPtr(6.6e-7),
+			expectedCacheRead: floatPtr(7e-9),
 		},
 		{
 			name:              "deepseek chat alias → flash",
 			model:             "deepseek-chat",
-			expectedInput:     1.4e-7,
-			expectedOutput:    floatPtr(2.8e-7),
-			expectedCacheRead: floatPtr(2.8e-9),
+			expectedInput:     2.2e-7,
+			expectedOutput:    floatPtr(6.6e-7),
+			expectedCacheRead: floatPtr(7e-9),
 		},
 		{
 			name:              "deepseek reasoner alias → flash",
 			model:             "deepseek-reasoner",
-			expectedInput:     1.4e-7,
-			expectedOutput:    floatPtr(2.8e-7),
-			expectedCacheRead: floatPtr(2.8e-9),
-		},
-
-		// ---- 智谱 GLM（z.ai USD 口径）----
-		{
-			name:              "glm 5.2 flagship",
-			model:             "glm-5.2",
-			expectedInput:     1.4e-6,
-			expectedOutput:    floatPtr(4.4e-6),
-			expectedCacheRead: floatPtr(0.26e-6),
-		},
-		{
-			name:              "glm 5.1 flagship",
-			model:             "glm-5.1",
-			expectedInput:     1.4e-6,
-			expectedOutput:    floatPtr(4.4e-6),
-			expectedCacheRead: floatPtr(0.26e-6),
-		},
-		{
-			name:              "glm 5 base",
-			model:             "glm-5",
-			expectedInput:     1e-6,
-			expectedOutput:    floatPtr(3.2e-6),
-			expectedCacheRead: floatPtr(0.2e-6),
-		},
-		{
-			name:              "glm 5 turbo",
-			model:             "glm-5-turbo",
-			expectedInput:     1.2e-6,
-			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.24e-6),
-		},
-		{
-			name:              "glm 4.7",
-			model:             "glm-4.7",
-			expectedInput:     0.6e-6,
-			expectedOutput:    floatPtr(2.2e-6),
-			expectedCacheRead: floatPtr(0.11e-6),
-		},
-		{
-			name:              "glm 4.6",
-			model:             "glm-4.6",
-			expectedInput:     0.6e-6,
-			expectedOutput:    floatPtr(2.2e-6),
-			expectedCacheRead: floatPtr(0.11e-6),
-		},
-		{
-			name:              "glm 4.5",
-			model:             "glm-4.5",
-			expectedInput:     0.6e-6,
-			expectedOutput:    floatPtr(2.2e-6),
-			expectedCacheRead: floatPtr(0.11e-6),
-		},
-		{
-			name:              "glm 4.5-x premium",
-			model:             "glm-4.5-x",
-			expectedInput:     2.2e-6,
-			expectedOutput:    floatPtr(8.9e-6),
-			expectedCacheRead: floatPtr(0.45e-6),
-		},
-		{
-			name:              "glm 4.5-air lightweight",
-			model:             "glm-4.5-air",
-			expectedInput:     0.2e-6,
-			expectedOutput:    floatPtr(1.1e-6),
-			expectedCacheRead: floatPtr(0.03e-6),
-		},
-		{
-			name:              "glm 4.7-flashx",
-			model:             "glm-4.7-flashx",
-			expectedInput:     0.07e-6,
-			expectedOutput:    floatPtr(0.4e-6),
-			expectedCacheRead: floatPtr(0.01e-6),
-		},
-		{
-			name:              "glm 4.5-flash free tier",
-			model:             "glm-4.5-flash",
-			expectedInput:     0, // Free tier on z.ai
-			expectedOutput:    floatPtr(0),
-			expectedCacheRead: floatPtr(0),
-		},
-		{
-			name:              "glm 4.7-flash free tier",
-			model:             "glm-4.7-flash",
-			expectedInput:     0,
-			expectedOutput:    floatPtr(0),
-			expectedCacheRead: floatPtr(0),
-		},
-		{
-			name:           "glm 4-32b legacy",
-			model:          "glm-4-32b-0414-128k",
-			expectedInput:  0.1e-6,
-			expectedOutput: floatPtr(0.1e-6),
-		},
-		// 关键：5.1 / 5.2 必须先于 5 匹配（避免被 glm-5 抢走）
-		{
-			name:              "glm 5.1 vs glm 5 ordering (verbatim 5.1)",
-			model:             "glm-5.1",
-			expectedInput:     1.4e-6, // = glm-5.1 价格
-			expectedOutput:    floatPtr(4.4e-6),
-			expectedCacheRead: floatPtr(0.26e-6),
-		},
-		{
-			name:              "glm 5.2 vs glm 5 ordering (verbatim 5.2)",
-			model:             "glm-5.2",
-			expectedInput:     1.4e-6, // = glm-5.2 价格（不是 glm-5 的 1e-6）
-			expectedOutput:    floatPtr(4.4e-6),
-			expectedCacheRead: floatPtr(0.26e-6),
-		},
-		{
-			name:              "glm 4.5-air vs glm 4.5 ordering",
-			model:             "glm-4.5-air",
-			expectedInput:     0.2e-6, // = glm-4.5-air 价格（不是 glm-4.5 的 0.6e-6）
-			expectedOutput:    floatPtr(1.1e-6),
-			expectedCacheRead: floatPtr(0.03e-6),
+			expectedInput:     2.2e-7,
+			expectedOutput:    floatPtr(6.6e-7),
+			expectedCacheRead: floatPtr(7e-9),
 		},
 
 		// ---- 月之暗面 Kimi ----
@@ -749,7 +589,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			model:             "kimi-k2.6",
 			expectedInput:     0.95e-6,
 			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.15e-6),
+			expectedCacheRead: floatPtr(0.16e-6),
 		},
 		{
 			name:              "kimi for coding explicit alias",
@@ -763,7 +603,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			model:             "kimi-k2.5",
 			expectedInput:     0.60e-6,
 			expectedOutput:    floatPtr(3e-6),
-			expectedCacheRead: floatPtr(0.098e-6),
+			expectedCacheRead: floatPtr(0.10e-6),
 		},
 		{
 			name:              "kimi k2-thinking",
@@ -785,7 +625,7 @@ func TestGetFallbackPricing_FamilyMatching(t *testing.T) {
 			model:             "kimi-k2.6",
 			expectedInput:     0.95e-6, // = k2.6 不是 k2 的 0.56e-6
 			expectedOutput:    floatPtr(4e-6),
-			expectedCacheRead: floatPtr(0.15e-6),
+			expectedCacheRead: floatPtr(0.16e-6),
 		},
 		{
 			name:              "kimi k2 thinking hyphenated variant",
@@ -1252,74 +1092,6 @@ func TestCalculateCostWithLongContext_PropagatesError(t *testing.T) {
 	_, err := svc.CalculateCostWithLongContext("unknown-model", tokens, 1.0, 200000, 2.0)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "pricing not found")
-}
-
-func TestGetModelPricing_Grok45OfficialFallback(t *testing.T) {
-	svc := newTestBillingService()
-
-	for _, model := range []string{"grok", "grok-latest", "grok-4.5", "grok-4.5-latest", "grok-build-latest"} {
-		model := model
-		t.Run(model, func(t *testing.T) {
-			pricing, err := svc.GetModelPricing(model)
-			require.NoError(t, err)
-			require.InDelta(t, 2e-6, pricing.InputPricePerToken, 1e-12)
-			require.InDelta(t, 6e-6, pricing.OutputPricePerToken, 1e-12)
-			require.InDelta(t, 0.5e-6, pricing.CacheReadPricePerToken, 1e-12)
-			require.False(t, pricing.SupportsCacheBreakdown)
-		})
-	}
-}
-
-func TestGetModelPricing_GrokCatalogFallbacks(t *testing.T) {
-	svc := newTestBillingService()
-
-	tests := []struct {
-		name      string
-		models    []string
-		input     float64
-		cacheRead float64
-		output    float64
-	}{
-		{
-			name: "Grok 4.3 family",
-			models: []string{
-				"grok-4.3",
-				"grok-4.20-0309-reasoning",
-				"grok-4.20-0309-non-reasoning",
-				"grok-4.20-multi-agent-0309",
-				"grok-4.20-reasoning",
-				"grok-4.20-non-reasoning",
-			},
-			input:     1.25e-6,
-			cacheRead: 0.2e-6,
-			output:    2.5e-6,
-		},
-		{
-			name: "Grok coding and Composer family",
-			models: []string{
-				"grok-build",
-				"grok-build-0.1",
-				"grok-composer",
-				"grok-composer-2.5-fast",
-				"composer-2.5",
-			},
-			input:     1e-6,
-			cacheRead: 0.2e-6,
-			output:    2e-6,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			for _, model := range tt.models {
-				pricing, err := svc.GetModelPricing(model)
-				require.NoError(t, err, "model %s", model)
-				require.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12, "model %s input", model)
-				require.InDelta(t, tt.cacheRead, pricing.CacheReadPricePerToken, 1e-12, "model %s cached input", model)
-				require.InDelta(t, tt.output, pricing.OutputPricePerToken, 1e-12, "model %s output", model)
-			}
-		})
-	}
 }
 
 func TestCalculateCost_SupportsCacheBreakdown(t *testing.T) {

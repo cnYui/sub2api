@@ -78,7 +78,11 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 
 	got := snapshot[0]
 	require.NotNil(t, got)
-	require.Equal(t, "gemini-api-key", got.GetCredential("api_key"))
+	// api_key/base_url are intentionally stripped from the scheduler cache's slim
+	// credential metadata (buildSchedulerCredentialMetadata keeps only
+	// model_mapping/compact_model_mapping/project_id/oauth_type/plan_type); the
+	// request path re-sources the full decrypted account from the repository.
+	require.Empty(t, got.GetCredential("api_key"))
 	require.Equal(t, "proj-1", got.GetCredential("project_id"))
 	require.Equal(t, "ai_studio", got.GetCredential("oauth_type"))
 	require.NotEmpty(t, got.GetModelMapping())
@@ -99,10 +103,15 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 	full, err := cache.GetAccount(ctx, account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, full)
-	require.Equal(t, "secret-access-token", full.GetCredential("access_token"))
-	require.Equal(t, strings.Repeat("x", 4096), full.GetCredential("huge_blob"))
+	// GetAccount reads the same slim per-account cache entry as the snapshot:
+	// buildSchedulerMetadataAccount strips credentials (buildSchedulerCredentialMetadata)
+	// and drops the nested Group (filterSchedulerAccountGroups). Secrets and bulky
+	// non-scheduling fields are never cached; the request path re-sources the full
+	// decrypted account from the repository.
+	require.Empty(t, full.GetCredential("access_token"))
+	require.Empty(t, full.GetCredential("huge_blob"))
 	require.Len(t, full.AccountGroups, 1)
-	require.NotNil(t, full.AccountGroups[0].Group)
+	require.Nil(t, full.AccountGroups[0].Group)
 }
 
 func TestSchedulerCacheRetireAndReopenFencesOldEpochIntegration(t *testing.T) {

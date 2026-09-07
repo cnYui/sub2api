@@ -336,6 +336,7 @@ func TestParseWeChatPaymentResumeTokenRejectsExpiredToken(t *testing.T) {
 	token, err := svc.CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
 		OpenID:      "openid-123",
 		PaymentType: payment.TypeWxpay,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 		IssuedAt:    time.Now().Add(-30 * time.Minute).Unix(),
 		ExpiresAt:   time.Now().Add(-1 * time.Minute).Unix(),
 	})
@@ -355,6 +356,7 @@ func TestPaymentServiceParseWeChatPaymentResumeTokenUsesExplicitSigningKey(t *te
 	token, err := NewPaymentResumeService([]byte("explicit-payment-resume-signing-key")).CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
 		OpenID:      "openid-explicit-key",
 		PaymentType: payment.TypeWxpay,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 	})
 	if err != nil {
 		t.Fatalf("CreateWeChatPaymentResumeToken returned error: %v", err)
@@ -382,6 +384,7 @@ func TestPaymentServiceParseWeChatPaymentResumeTokenAcceptsLegacyEncryptionKeyDu
 	token, err := NewPaymentResumeService(legacyKey).CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
 		OpenID:      "openid-legacy-key",
 		PaymentType: payment.TypeWxpay,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 	})
 	if err != nil {
 		t.Fatalf("CreateWeChatPaymentResumeToken returned error: %v", err)
@@ -411,6 +414,7 @@ func TestNewConfiguredPaymentResumeServicePrefersExplicitSigningKeyAndKeepsLegac
 	explicitToken, err := svc.CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
 		OpenID:      "openid-explicit-key",
 		PaymentType: payment.TypeWxpay,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 	})
 	if err != nil {
 		t.Fatalf("CreateWeChatPaymentResumeToken returned error: %v", err)
@@ -427,6 +431,7 @@ func TestNewConfiguredPaymentResumeServicePrefersExplicitSigningKeyAndKeepsLegac
 	legacyToken, err := NewPaymentResumeService(legacyKey).CreateWeChatPaymentResumeToken(WeChatPaymentResumeClaims{
 		OpenID:      "openid-legacy-key",
 		PaymentType: payment.TypeWxpay,
+		OrderType:   payment.OrderTypeBalanceSubscription,
 	})
 	if err != nil {
 		t.Fatalf("CreateWeChatPaymentResumeToken returned error: %v", err)

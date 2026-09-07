@@ -227,9 +227,8 @@ func apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(
 			}
 
 			c.Set(string(ContextKeySubscription), subscription)
-		} else {
-			// 非订阅模式允许非负余额继续请求；余额变负后的下一次请求已在前置分支切到流量卡。
 		}
+		// 非订阅模式无需在此二次校验：允许非负余额继续请求，余额变负后的下一次请求已在前置分支切到流量卡。
 
 		c.Set(string(ContextKeyAPIKey), apiKey)
 		c.Set(string(ContextKeyUser), AuthSubject{

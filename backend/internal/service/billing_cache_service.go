@@ -905,23 +905,6 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 	return nil
 }
 
-// checkBalanceEligibility 检查余额模式资格
-func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64, platform string) error {
-	balance, err := s.GetUserBalance(ctx, userID)
-	if err != nil {
-		if s.circuitBreaker != nil {
-			s.circuitBreaker.OnFailure(err)
-		}
-		logger.LegacyPrintf("service.billing_cache", "ALERT: billing balance check failed for user %d: %v", userID, err)
-		return ErrBillingServiceUnavailable.WithCause(err)
-	}
-	if s.circuitBreaker != nil {
-		s.circuitBreaker.OnSuccess()
-	}
-
-	return s.checkBalanceEligibilityWithBalance(ctx, userID, platform, balance)
-}
-
 func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64) error {
 	if balance < 0 {
 		if s.CanUseTrafficPackCredit(ctx, userID, platform) {

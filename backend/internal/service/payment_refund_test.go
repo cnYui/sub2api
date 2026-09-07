@@ -239,7 +239,7 @@ func TestGwRefundRejectsAlipayMerchantIdentitySnapshotMismatch(t *testing.T) {
 		SetOutTradeNo("sub2_refund_snapshot_mismatch_order").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("trade-refund-snapshot-mismatch").
-		SetOrderType("legacy_balance").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
 		SetStatus(OrderStatusCompleted).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetPaidAt(time.Now()).
@@ -382,12 +382,12 @@ func TestWriteAuditLogUpdatesDuplicateAction(t *testing.T) {
 
 func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
 	for _, tc := range []struct {
-		name       string
-		status     string
-		wantStatus string
-		wantDeduct float64
+		name        string
+		status      string
+		wantStatus  string
+		wantRevoked bool
 	}{
-		{name: "success", status: payment.ProviderStatusSuccess, wantStatus: OrderStatusRefunded, wantDeduct: 100},
+		{name: "success", status: payment.ProviderStatusSuccess, wantStatus: OrderStatusRefunded, wantRevoked: true},
 		{name: "failed", status: payment.ProviderStatusFailed, wantStatus: OrderStatusRefundFailed},
 		{name: "pending", status: payment.ProviderStatusPending, wantStatus: OrderStatusRefundPending},
 	} {
@@ -396,14 +396,28 @@ func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
 			client := newPaymentConfigServiceTestClient(t)
 			order := createPendingRefundOrderForTest(t, ctx, client, "query-finalize-"+tc.name)
 
-			var deducted float64
+			// balance_subscription 退款的本地效果是撤销该订单发放的余额套餐（不再走
+			// 旧普通余额的用户扣款路径），因此断言套餐状态而非 userRepo 扣款。
+			now := time.Now().UTC()
+			pkg, err := client.UserBalancePackage.Create().
+				SetUserID(order.UserID).
+				SetPlanID(1).
+				SetPaymentOrderID(order.ID).
+				SetWeeklyCreditUsd(128).
+				SetRemainingUsd(64).
+				SetCreditedCount(1).
+				SetRefreshCount(4).
+				SetRefreshIntervalDays(7).
+				SetStartsAt(now).
+				SetNextCreditAt(now.Add(7 * 24 * time.Hour)).
+				SetExpiresAt(now.Add(28 * 24 * time.Hour)).
+				SetStatus("active").
+				Save(ctx)
+			require.NoError(t, err)
+
 			svc := &PaymentService{
 				entClient:    client,
 				loadBalancer: &captureLoadBalancer{},
-				userRepo: &mockUserRepo{deductBalanceFn: func(ctx context.Context, id int64, amount float64) error {
-					deducted += amount
-					return nil
-				}},
 			}
 			restore := replacePaymentProviderFactoryForTest(t, &refundQueryProviderTestDouble{
 				refundResponse: &payment.RefundResponse{RefundID: "rf_test", Status: tc.status},
@@ -414,11 +428,20 @@ func TestQueryAndFinalizeRefundFinalizesProviderStatuses(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, tc.status == payment.ProviderStatusSuccess, result.Success)
-			require.Equal(t, tc.wantDeduct, deducted)
 
 			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
 			require.NoError(t, err)
 			require.Equal(t, tc.wantStatus, reloaded.Status)
+
+			reloadedPkg, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+			require.NoError(t, err)
+			if tc.wantRevoked {
+				require.Equal(t, "refunded", reloadedPkg.Status)
+				require.Zero(t, reloadedPkg.RemainingUsd)
+			} else {
+				require.Equal(t, "active", reloadedPkg.Status)
+				require.Equal(t, 64.0, reloadedPkg.RemainingUsd)
+			}
 		})
 	}
 }
@@ -468,7 +491,7 @@ func createPendingRefundOrderForTest(t *testing.T, ctx context.Context, client *
 		SetOutTradeNo("sub2_" + suffix).
 		SetPaymentType(payment.TypeStripe).
 		SetPaymentTradeNo("pi_" + suffix).
-		SetOrderType("legacy_balance").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
 		SetStatus(OrderStatusRefundPending).
 		SetRefundAmount(100).
 		SetRefundReason("pending refund").

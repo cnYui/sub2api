@@ -17,7 +17,6 @@ import (
 const (
 	conditionalBalanceDeductSQL  = `(?s)WITH charged AS \(.*UPDATE users.*balance = balance - \$1,.*balance >= \$1.*\), frozen_rebate_consumed AS \(.*UPDATE user_affiliates.*aff_frozen_quota.*\).*SELECT charged\.balance FROM charged`
 	overdraftBalanceDeductSQL    = `(?s)WITH charged AS \(.*UPDATE users.*balance = balance - \$1,.*deleted_at IS NULL.*\), frozen_rebate_consumed AS \(.*UPDATE user_affiliates.*aff_frozen_quota.*\).*SELECT charged\.balance FROM charged`
-	sufficientBalanceDeductSQL   = `(?s)UPDATE users\s+SET balance = balance - \$1, updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance`
 	reserveBatchImageHoldSQL     = `(?s)UPDATE users\s+SET balance = balance - \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) \+ \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND balance >= \$1\s+RETURNING balance, frozen_balance`
 	captureBatchImageHoldSQL     = `(?s)UPDATE users\s+SET balance = balance\s+\+ CASE WHEN \$1 > \$2 THEN \$1 - \$2 ELSE 0 END\s+- CASE WHEN \$2 > \$1 THEN \$2 - \$1 ELSE 0 END,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$3 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
 	releaseBatchImageHoldSQL     = `(?s)UPDATE users\s+SET balance = balance \+ \$1,\s+frozen_balance = COALESCE\(frozen_balance, 0\) - \$1,\s+updated_at = NOW\(\)\s+WHERE id = \$2 AND deleted_at IS NULL AND COALESCE\(frozen_balance, 0\) >= \$1\s+RETURNING balance, frozen_balance`
@@ -62,7 +61,7 @@ func TestDeductUsageBillingBalance_UsesSufficientBalanceGuard(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(7.5))
 	mock.ExpectCommit()
 
-	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, 42, 2.5)
+	newBalance, sufficient, _, err := deductUsageBillingBalanceWithLedger(ctx, tx, 42, 2.5, "", 0)
 	require.NoError(t, err)
 	require.True(t, sufficient)
 	require.InDelta(t, 7.5, newBalance, 0.000001)
@@ -88,7 +87,7 @@ func TestDeductUsageBillingBalance_RecordsOverdraftWhenGuardMisses(t *testing.T)
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-5.0))
 	mock.ExpectCommit()
 
-	newBalance, sufficient, err := deductUsageBillingBalance(ctx, tx, 42, 10)
+	newBalance, sufficient, _, err := deductUsageBillingBalanceWithLedger(ctx, tx, 42, 10, "", 0)
 	require.NoError(t, err)
 	require.False(t, sufficient)
 	require.InDelta(t, -5.0, newBalance, 0.000001)
@@ -106,7 +105,7 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	expectUsageBillingUserAndPackageLocks(mock, 42)
-	mock.ExpectQuery(sufficientBalanceDeductSQL).
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery(userExistsForBillingSQL).
@@ -144,7 +143,7 @@ func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForNonDebtBalance(t *testi
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	expectUsageBillingUserAndPackageLocks(mock, 42)
-	mock.ExpectQuery(sufficientBalanceDeductSQL).
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery(userExistsForBillingSQL).
@@ -183,7 +182,7 @@ func TestApplyUsageBillingEffectsUsesTrafficPackForDebtAcrossPlatforms(t *testin
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
 	expectUsageBillingUserAndPackageLocks(mock, 42)
-	mock.ExpectQuery(sufficientBalanceDeductSQL).
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectQuery(userExistsForBillingSQL).
@@ -241,7 +240,7 @@ func TestDeductUsageBillingBalance_ReturnsUserNotFoundWhenNoUserUpdated(t *testi
 		WillReturnError(sql.ErrNoRows)
 	mock.ExpectRollback()
 
-	_, _, err = deductUsageBillingBalance(ctx, tx, 42, 10)
+	_, _, _, err = deductUsageBillingBalanceWithLedger(ctx, tx, 42, 10, "", 0)
 	require.ErrorIs(t, err, service.ErrUserNotFound)
 	require.NoError(t, tx.Rollback())
 	require.NoError(t, mock.ExpectationsWereMet())
