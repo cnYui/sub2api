@@ -402,6 +402,7 @@ export default {
       consumptionRatio: 'Final consumption ratio',
       estimatedRefund: 'Estimated refund',
       manualReviewRequired: 'Current usage cannot be calculated automatically. Contact support for manual review.',
+      zeroRefundCancelsPackage: 'Quota is fully used up. This refund cancels the package without returning any money.',
       loading: 'Calculating refund amount...',
     },
     result: {

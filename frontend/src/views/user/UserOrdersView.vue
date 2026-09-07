@@ -75,6 +75,7 @@
             </template>
             <div class="mt-2 flex justify-between font-medium text-gray-900 dark:text-white"><span>{{ t('payment.refundQuote.estimatedRefund') }}</span><span>{{ formatPaymentAmount(refundQuote.estimated_refund_amount, refundTarget.currency) }}</span></div>
             <p v-if="refundQuote.manual_review_required" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.manualReviewRequired') }}</p>
+            <p v-else-if="refundQuote.estimated_refund_amount <= 0" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.zeroRefundCancelsPackage') }}</p>
           </div>
           <p v-else-if="quoteLoading" class="mt-2 text-xs text-gray-500">{{ t('payment.refundQuote.loading') }}</p>
         </div>
@@ -86,7 +87,7 @@
       <template #footer>
         <div class="flex justify-end gap-3">
           <button class="btn btn-secondary" @click="refundTarget = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundReason.trim() || !refundQuote?.eligible || refundQuote.manual_review_required" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
+          <button class="btn btn-primary" :disabled="actionLoading || quoteLoading || !refundReason.trim() || !refundQuote || refundQuote.manual_review_required" @click="confirmRefund">{{ actionLoading ? t('common.processing') : t(refundActionKey(refundTarget)) }}</button>
         </div>
       </template>
     </BaseDialog>

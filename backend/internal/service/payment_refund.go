@@ -274,6 +274,11 @@ func (s *PaymentService) ExecuteRefund(ctx context.Context, p *RefundPlan) (*Ref
 	if c == 0 {
 		return nil, infraerrors.Conflict("CONFLICT", "order status changed")
 	}
+	// 零额度退款（额度已用尽）：退款金额为 0，向支付网关发起退款既无意义、也通常会被网关拒绝。
+	// 直接撤销套餐并把订单置为 REFUNDED（订单已被上面锁进 REFUNDING）。不涉及任何真实退款出账。
+	if p.RefundAmount <= 0 {
+		return s.markRefundOk(ctx, p)
+	}
 	resp, err := s.gwRefund(ctx, p)
 	if err != nil {
 		return s.handleGwFail(ctx, p, err)

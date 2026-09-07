@@ -426,6 +426,7 @@ export default {
       consumptionRatio: '最终消费比例',
       estimatedRefund: '预计退款',
       manualReviewRequired: '当前用量无法自动核算，请联系客服人工处理。',
+      zeroRefundCancelsPackage: '额度已用尽，退款将取消当前套餐，但不退还任何金额。',
       loading: '正在计算退款金额…',
     },
     result: {
