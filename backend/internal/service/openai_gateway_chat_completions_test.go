@@ -189,7 +189,8 @@ func TestForwardAsChatCompletions_UnknownModelWithoutMessagesDispatchKeepsReques
 	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 	require.Error(t, err)
 	require.Nil(t, result)
-	require.Equal(t, "gpt6", gjson.GetBytes(upstream.lastBody, "model").String())
+	// gpt6 归一化到当家型号 gpt-6-astra（不是静默回退到 gpt-5.4）。
+	require.Equal(t, "gpt-6-astra", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.NotEqual(t, "gpt-5.4", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }

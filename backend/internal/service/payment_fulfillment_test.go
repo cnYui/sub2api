@@ -437,9 +437,15 @@ func TestRetryFulfillmentRejectsFreshRechargingLease(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	order := createPaymentFulfillmentSubscriptionOrder(t, ctx, client, OrderStatusRecharging, time.Now())
+	// 只有 balance_subscription / traffic_pack 会进入履约租约逻辑；legacy_subscription 已不再受支持，
+	// 会在履约分发处直接返回 INVALID_ORDER_TYPE，够不到新鲜租约冲突检查。
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		Save(ctx)
+	require.NoError(t, err)
 
 	svc := &PaymentService{entClient: client}
-	err := svc.RetryFulfillment(ctx, order.ID)
+	err = svc.RetryFulfillment(ctx, order.ID)
 	require.Error(t, err)
 	require.Equal(t, "CONFLICT", infraerrors.Reason(err))
 
@@ -452,28 +458,32 @@ func TestAlreadyProcessedRecoversStaleRechargingLease(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	ensurePaymentAuditOrderActionUniqueIndex(t, ctx, client)
+	staleAt := time.Now().Add(-paymentFulfillmentLeaseDuration - time.Minute)
 	order := createPaymentFulfillmentSubscriptionOrder(
 		t,
 		ctx,
 		client,
 		OrderStatusRecharging,
-		time.Now().Add(-paymentFulfillmentLeaseDuration-time.Minute),
+		staleAt,
 	)
-	_, err := client.PaymentAuditLog.Create().
-		SetOrderID(strconv.FormatInt(order.ID, 10)).
-		SetAction("SUBSCRIPTION_ASSIGNED").
-		SetDetail(`{"groupID":7,"validityDays":30}`).
-		SetOperator("system").
+	// 履约只支持 balance_subscription / traffic_pack；补齐余额套餐快照，驱动余额套餐履约走完到 completed。
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		ClearPlanID().
+		ClearSubscriptionGroupID().
+		ClearSubscriptionDays().
+		SetBalancePackagePlanID(100).
+		SetBalancePackageWeeklyCreditUsd(76).
+		SetBalancePackageRefreshCount(4).
+		SetBalancePackageRefreshIntervalDays(7).
+		SetBalancePackageValidityDays(28).
+		SetUpdatedAt(staleAt).
 		Save(ctx)
 	require.NoError(t, err)
 
-	groupRepo := &subscriptionGroupRepoStub{
-		group: &Group{ID: 7, Status: payment.EntityStatusActive, SubscriptionType: SubscriptionTypeSubscription},
-	}
 	svc := &PaymentService{
-		entClient:       client,
-		groupRepo:       groupRepo,
-		subscriptionSvc: NewSubscriptionService(groupRepo, userSubRepoNoop{}, nil, nil, nil),
+		entClient:             client,
+		balancePackageService: NewBalancePackageService(client),
 	}
 
 	require.NoError(t, svc.alreadyProcessed(ctx, order))

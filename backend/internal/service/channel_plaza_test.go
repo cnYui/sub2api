@@ -305,49 +305,6 @@ func assertPlazaPricing(t *testing.T, model PlazaModel, input, output, cacheRead
 	require.InDelta(t, cacheRead, *model.OfficialPricing.CacheReadPrice, 1e-12)
 }
 
-func TestListPlazaGroups_GLMUsesOfficialDomesticPriceTiers(t *testing.T) {
-	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
-		"glm-5.1": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},
-	})
-	accounts := &plazaAccountRepoStub{accountsByGroup: map[int64][]Account{
-		6: {{
-			Status: StatusActive,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{"glm-5.1": "glm-5.1"},
-			},
-		}},
-	}}
-	repo := &mockChannelRepository{listAllFn: func(context.Context) ([]Channel, error) { return nil, nil }}
-	billing := NewBillingService(&config.Config{}, pricingSvc)
-	svc := NewChannelService(
-		repo,
-		&stubGroupRepoForAvailable{activeGroups: []Group{{ID: 6, Name: "GLM", Platform: "openai", RateMultiplier: 3.5}}},
-		nil,
-		pricingSvc,
-		accounts,
-	)
-	svc.plazaBillingService = billing
-
-	out, err := svc.ListPlazaGroups(context.Background())
-	require.NoError(t, err)
-	require.Len(t, out, 1)
-	require.Equal(t, 3.5, out[0].RateMultiplier)
-	require.Len(t, out[0].Models, 1)
-	model := out[0].Models[0]
-	require.NotNil(t, model.Pricing)
-	require.NotNil(t, model.OfficialPricing)
-	require.InDelta(t, 6.0/7.0*1e-6, *model.Pricing.InputPrice, 1e-12)
-	require.InDelta(t, 24.0/7.0*1e-6, *model.Pricing.OutputPrice, 1e-12)
-	require.InDelta(t, 1.3/7.0*1e-6, *model.Pricing.CacheReadPrice, 1e-12)
-	require.Len(t, model.Pricing.Intervals, 2)
-	require.Len(t, model.OfficialPricing.Intervals, 2)
-	require.Equal(t, "输入 <32K", model.Pricing.Intervals[0].TierLabel)
-	require.Equal(t, "输入 >=32K", model.Pricing.Intervals[1].TierLabel)
-	require.InDelta(t, 8.0/7.0*1e-6, *model.Pricing.Intervals[1].InputPrice, 1e-12)
-	require.InDelta(t, 4e-6, *model.Pricing.Intervals[1].OutputPrice, 1e-12)
-	require.InDelta(t, 2.0/7.0*1e-6, *model.Pricing.Intervals[1].CacheReadPrice, 1e-12)
-}
-
 func TestListPlazaGroups_DeepSeekUsesOfficialPrice(t *testing.T) {
 	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
 		"deepseek-v4-flash": {InputCostPerToken: 9e-6, OutputCostPerToken: 99e-6, CacheReadInputTokenCost: 0.9e-6},

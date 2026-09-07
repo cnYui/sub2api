@@ -184,7 +184,12 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_trade_no_missing").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType("legacy_balance").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		SetBalancePackagePlanID(100).
+		SetBalancePackageWeeklyCreditUsd(76).
+		SetBalancePackageRefreshCount(4).
+		SetBalancePackageRefreshIntervalDays(7).
+		SetBalancePackageValidityDays(28).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -239,11 +244,12 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	registry.Register(provider)
 
 	svc := &PaymentService{
-		entClient:       client,
-		registry:        registry,
-		redeemService:   redeemService,
-		userRepo:        userRepo,
-		providersLoaded: true,
+		entClient:             client,
+		registry:              registry,
+		redeemService:         redeemService,
+		userRepo:              userRepo,
+		balancePackageService: NewBalancePackageService(client),
+		providersLoaded:       true,
 	}
 
 	got, err := svc.VerifyOrderByOutTradeNo(ctx, order.OutTradeNo, user.ID)
@@ -257,10 +263,10 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	require.Equal(t, OrderStatusCompleted, reloaded.Status)
 	require.Equal(t, "upstream-trade-123", reloaded.PaymentTradeNo)
 
-	require.Equal(t, 88.0, userRepo.getByIDUser.Balance)
-	require.Len(t, redeemRepo.useCalls, 1)
-	require.Equal(t, int64(1), redeemRepo.useCalls[0].id)
-	require.Equal(t, user.ID, redeemRepo.useCalls[0].userID)
+	// balance_subscription 履约把每周额度记入用户余额（不再走兑换码充值路径）。
+	creditedUser, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, 76.0, creditedUser.Balance)
 }
 
 func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
@@ -285,7 +291,12 @@ func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 		SetOutTradeNo("sub2_checkpaid_retry_zero_amount").
 		SetPaymentType(payment.TypeAlipay).
 		SetPaymentTradeNo("").
-		SetOrderType("legacy_balance").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		SetBalancePackagePlanID(100).
+		SetBalancePackageWeeklyCreditUsd(76).
+		SetBalancePackageRefreshCount(4).
+		SetBalancePackageRefreshIntervalDays(7).
+		SetBalancePackageValidityDays(28).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -347,11 +358,12 @@ func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 	registry.Register(provider)
 
 	svc := &PaymentService{
-		entClient:       client,
-		registry:        registry,
-		redeemService:   redeemService,
-		userRepo:        userRepo,
-		providersLoaded: true,
+		entClient:             client,
+		registry:              registry,
+		redeemService:         redeemService,
+		userRepo:              userRepo,
+		balancePackageService: NewBalancePackageService(client),
+		providersLoaded:       true,
 	}
 
 	got, err := svc.VerifyOrderByOutTradeNo(ctx, order.OutTradeNo, user.ID)
@@ -589,7 +601,12 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 		SetOutTradeNo("sub2_wxpay_reconcile").
 		SetPaymentType(payment.TypeWxpay).
 		SetPaymentTradeNo("").
-		SetOrderType("legacy_balance").
+		SetOrderType(payment.OrderTypeBalanceSubscription).
+		SetBalancePackagePlanID(100).
+		SetBalancePackageWeeklyCreditUsd(50).
+		SetBalancePackageRefreshCount(4).
+		SetBalancePackageRefreshIntervalDays(7).
+		SetBalancePackageValidityDays(28).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(time.Now().Add(time.Hour)).
 		SetClientIP("127.0.0.1").
@@ -648,11 +665,12 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 	registry.Register(provider)
 
 	svc := &PaymentService{
-		entClient:       client,
-		registry:        registry,
-		redeemService:   redeemService,
-		userRepo:        userRepo,
-		providersLoaded: true,
+		entClient:             client,
+		registry:              registry,
+		redeemService:         redeemService,
+		userRepo:              userRepo,
+		balancePackageService: NewBalancePackageService(client),
+		providersLoaded:       true,
 	}
 
 	recovered, err := svc.ReconcilePendingWxpayOrders(ctx)
@@ -665,8 +683,10 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, OrderStatusCompleted, reloaded.Status)
 	require.Equal(t, "wxpay-upstream-trade-123", reloaded.PaymentTradeNo)
-	require.Equal(t, 50.0, userRepo.getByIDUser.Balance)
-	require.Len(t, redeemRepo.useCalls, 1)
+	// balance_subscription 履约把每周额度记入用户余额（不再走兑换码充值路径）。
+	creditedUser, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, 50.0, creditedUser.Balance)
 }
 
 func TestVerifyOrderByOutTradeNoUsesOutTradeNoWhenPaymentTradeNoAlreadyExistsForAlipay(t *testing.T) {
