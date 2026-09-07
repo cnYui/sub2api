@@ -157,9 +157,10 @@ func (s *PaymentService) requireBalancePackageRefundQuote(ctx context.Context, o
 	if quote.ManualReviewRequired {
 		return nil, errBalancePackageRefundManualReview
 	}
-	if !quote.Eligible {
-		return nil, infraerrors.BadRequest("NO_REFUNDABLE_QUOTA", "balance package has been fully consumed")
-	}
+	// 额度已全部用尽时预计退款为 0：仍允许退款，只是走「零额度退款」——撤销套餐、
+	// 订单置为 REFUNDED，但不向支付网关退任何钱（见 ExecuteRefund 的零额度分支）。
+	// 这样用户在额度耗尽、余额为 0 后也能退掉当前套餐，从而购买其它档位。
+	// 仍受前面的准入校验约束：必须是真实支付的余额套餐订单，且未落入人工复核。
 	return quote, nil
 }
 
