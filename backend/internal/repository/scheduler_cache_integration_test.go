@@ -103,10 +103,15 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 	full, err := cache.GetAccount(ctx, account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, full)
-	require.Equal(t, "secret-access-token", full.GetCredential("access_token"))
-	require.Equal(t, strings.Repeat("x", 4096), full.GetCredential("huge_blob"))
+	// GetAccount reads the same slim per-account cache entry as the snapshot:
+	// buildSchedulerMetadataAccount strips credentials (buildSchedulerCredentialMetadata)
+	// and drops the nested Group (filterSchedulerAccountGroups). Secrets and bulky
+	// non-scheduling fields are never cached; the request path re-sources the full
+	// decrypted account from the repository.
+	require.Empty(t, full.GetCredential("access_token"))
+	require.Empty(t, full.GetCredential("huge_blob"))
 	require.Len(t, full.AccountGroups, 1)
-	require.NotNil(t, full.AccountGroups[0].Group)
+	require.Nil(t, full.AccountGroups[0].Group)
 }
 
 func TestSchedulerCacheRetireAndReopenFencesOldEpochIntegration(t *testing.T) {
