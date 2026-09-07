@@ -78,7 +78,11 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 
 	got := snapshot[0]
 	require.NotNil(t, got)
-	require.Equal(t, "gemini-api-key", got.GetCredential("api_key"))
+	// api_key/base_url are intentionally stripped from the scheduler cache's slim
+	// credential metadata (buildSchedulerCredentialMetadata keeps only
+	// model_mapping/compact_model_mapping/project_id/oauth_type/plan_type); the
+	// request path re-sources the full decrypted account from the repository.
+	require.Empty(t, got.GetCredential("api_key"))
 	require.Equal(t, "proj-1", got.GetCredential("project_id"))
 	require.Equal(t, "ai_studio", got.GetCredential("oauth_type"))
 	require.NotEmpty(t, got.GetModelMapping())
