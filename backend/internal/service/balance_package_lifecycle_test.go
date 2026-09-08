@@ -628,3 +628,116 @@ func createLifecyclePlan(t *testing.T, client *dbent.Client, code string, price 
 	}
 	return plan
 }
+
+func TestCreditNextEarlyCreditsBeforeDueAndRepaysDebt(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-early-credit@example.com").
+		SetPasswordHash("hash").SetBalance(-40).SetTotalRecharged(500).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-early-credit-plan", 100)
+	now := time.Now().UTC().Truncate(time.Second)
+	// next_credit_at 在未来：证明「提前」不要求到期。
+	originalNext := now.Add(7 * 24 * time.Hour)
+	pkg, err := client.UserBalancePackage.Create().
+		SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(9001).
+		SetWeeklyCreditUsd(100).SetRemainingUsd(0).SetCreditedCount(1).SetRefreshCount(4).
+		SetRefreshIntervalDays(7).SetStartsAt(now.Add(-7 * 24 * time.Hour)).SetNextCreditAt(originalNext).
+		SetExpiresAt(now.Add(21 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create package: %v", err)
+	}
+
+	res, err := NewBalancePackageService(client).CreditNextEarly(ctx, pkg.ID, 7, now)
+	if err != nil {
+		t.Fatalf("credit next early: %v", err)
+	}
+	if res.CreditedCount != 2 || res.Completed {
+		t.Fatalf("unexpected result count/completed: %#v", res)
+	}
+	if res.DebtRepaidUSD != 40 || res.RemainingUSD != 60 || res.BalanceAfter != 60 || res.BalanceBefore != -40 {
+		t.Fatalf("unexpected amounts: %#v", res)
+	}
+	wantNext := originalNext.AddDate(0, 0, 7)
+	if res.NextCreditAt == nil || !res.NextCreditAt.Equal(wantNext) {
+		t.Fatalf("next_credit_at not advanced by one interval: got %v want %v", res.NextCreditAt, wantNext)
+	}
+
+	updatedPackage, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+	if err != nil {
+		t.Fatalf("get package: %v", err)
+	}
+	if updatedPackage.Status != balancePackageStatusActive || updatedPackage.RemainingUsd != 60 || updatedPackage.CreditedCount != 2 {
+		t.Fatalf("unexpected package: %#v", updatedPackage)
+	}
+	if updatedPackage.NextCreditAt == nil || !updatedPackage.NextCreditAt.Equal(wantNext) {
+		t.Fatalf("package next_credit_at wrong: %v", updatedPackage.NextCreditAt)
+	}
+	updatedUser, err := client.User.Get(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updatedUser.Balance != 60 {
+		t.Fatalf("balance = %f, want 60", updatedUser.Balance)
+	}
+	if updatedUser.TotalRecharged != 600 {
+		t.Fatalf("total_recharged = %f, want 600", updatedUser.TotalRecharged)
+	}
+	exists, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderID("9001"), paymentauditlog.Action("BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT_2")).
+		Exist(ctx)
+	if err != nil || !exists {
+		t.Fatalf("early credit audit missing (exists=%v err=%v)", exists, err)
+	}
+
+	// 幂等：同一期已发放，audit 唯一约束外还应被前置检查拦下。手动补一条 credited_count=2
+	// 的场景已由上面的 audit 覆盖——再发一次会推进到第 3 期，不是重复，这里改为验证末期完成。
+}
+
+func TestCreditNextEarlyFinalPeriodCompletesAndRejectsFurther(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail("package-early-final@example.com").
+		SetPasswordHash("hash").SetBalance(10).SetTotalRecharged(300).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, "package-early-final-plan", 100)
+	now := time.Now().UTC().Truncate(time.Second)
+	originalNext := now.Add(3 * 24 * time.Hour)
+	// credited 3/4, remaining 10, balance 10 (base 0, 无欠费)。
+	pkg, err := client.UserBalancePackage.Create().
+		SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(9002).
+		SetWeeklyCreditUsd(100).SetRemainingUsd(10).SetCreditedCount(3).SetRefreshCount(4).
+		SetRefreshIntervalDays(7).SetStartsAt(now.Add(-21 * 24 * time.Hour)).SetNextCreditAt(originalNext).
+		SetExpiresAt(now.Add(7 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create package: %v", err)
+	}
+
+	svc := NewBalancePackageService(client)
+	res, err := svc.CreditNextEarly(ctx, pkg.ID, 7, now)
+	if err != nil {
+		t.Fatalf("credit final period: %v", err)
+	}
+	if !res.Completed || res.Status != balancePackageStatusCompleted || res.CreditedCount != 4 || res.NextCreditAt != nil {
+		t.Fatalf("unexpected final result: %#v", res)
+	}
+	if res.DebtRepaidUSD != 0 || res.RemainingUSD != 100 || res.BalanceAfter != 100 {
+		t.Fatalf("unexpected final amounts: %#v", res)
+	}
+	updatedPackage, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+	if err != nil {
+		t.Fatalf("get package: %v", err)
+	}
+	if updatedPackage.Status != balancePackageStatusCompleted || updatedPackage.NextCreditAt != nil || updatedPackage.CreditedCount != 4 || updatedPackage.RemainingUsd != 100 {
+		t.Fatalf("unexpected completed package: %#v", updatedPackage)
+	}
+
+	// 已完成套餐再发放应拒绝（无剩余期数 / 非 active）。
+	if _, err := svc.CreditNextEarly(ctx, pkg.ID, 7, now); err == nil {
+		t.Fatalf("expected error crediting a completed package, got nil")
+	}
+}

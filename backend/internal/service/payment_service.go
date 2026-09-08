@@ -224,6 +224,14 @@ func (s *PaymentService) ResumeDebtPausedBalancePackage(ctx context.Context, pac
 	return s.balancePackageService.ResumeDebtPausedPackage(ctx, packageID, adminUserID, time.Now().UTC())
 }
 
+// CreditNextEarlyBalancePackage 提前发放指定余额套餐的下一周额度（管理端手动触发）。
+func (s *PaymentService) CreditNextEarlyBalancePackage(ctx context.Context, packageID, adminUserID int64) (*EarlyWeeklyCreditResult, error) {
+	if s == nil || s.balancePackageService == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.CreditNextEarly(ctx, packageID, adminUserID, time.Now().UTC())
+}
+
 func (s *PaymentService) CancellableBalancePackageOrderIDs(ctx context.Context, orderIDs []int64) (map[int64]bool, error) {
 	if s == nil || s.balancePackageService == nil {
 		return nil, fmt.Errorf("balance package service is unavailable")
