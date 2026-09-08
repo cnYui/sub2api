@@ -31,7 +31,7 @@ const (
 	// balancePackageEarlyCreditAudit 记录管理员手动「提前发放下一周额度」。刻意与调度器的
 	// BALANCE_PACKAGE_WEEKLY_CREDIT 用不同前缀，避免与后续定时到账的审计（同一 count）在
 	// (order_id, action) 唯一索引上冲突。
-	balancePackageEarlyCreditAudit = "BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT"
+	balancePackageEarlyCreditAudit  = "BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT"
 	balancePackageDebtPausedAudit   = "BALANCE_PACKAGE_DEBT_PAUSED"
 	balancePackageDebtResumedAudit  = "BALANCE_PACKAGE_DEBT_RESUMED"
 	balancePackageManualCancelAudit = "BALANCE_PACKAGE_MANUAL_CANCELLATION"
