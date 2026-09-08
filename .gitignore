@@ -156,6 +156,9 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+# 本地一次性产物（价格表 xlsx/PNG 与其构建脚本），不进公开仓库
+outputs/
+work/
 
 # 运维敏感值（VPS 地址、备份桶、Tunnel ID 等）。仓库为公开，实际值只留本地。
 # 模板见 deploy/ops.env.example
