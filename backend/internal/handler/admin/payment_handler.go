@@ -67,6 +67,19 @@ func (h *PaymentHandler) ResumeDebtPausedBalancePackage(c *gin.Context) {
 	response.Success(c, gin.H{"message": "balance package resumed"})
 }
 
+// CreditNextEarlyBalancePackage 提前发放指定余额套餐的下一周额度（一次一期，保持定时节奏）。
+// POST /api/v1/admin/payment/balance-packages/:id/credit-next
+func (h *PaymentHandler) CreditNextEarlyBalancePackage(c *gin.Context) {
+	packageID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	adminID := getAdminIDFromContext(c)
+	executeAdminIdempotentJSON(c, "admin.balance_packages.credit_next", gin.H{"package_id": packageID}, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.paymentService.CreditNextEarlyBalancePackage(ctx, packageID, adminID)
+	})
+}
+
 // NewPaymentHandler creates a new admin PaymentHandler.
 func NewPaymentHandler(paymentService *service.PaymentService, configService *service.PaymentConfigService) *PaymentHandler {
 	return &PaymentHandler{

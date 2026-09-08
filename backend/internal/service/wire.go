@@ -825,9 +825,10 @@ func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, 
 	return svc
 }
 
-func ProvideBalancePackageService(entClient *dbent.Client, billingCache *BillingCacheService) *BalancePackageService {
+func ProvideBalancePackageService(entClient *dbent.Client, billingCache *BillingCacheService, authCacheInvalidator APIKeyAuthCacheInvalidator) *BalancePackageService {
 	svc := NewBalancePackageService(entClient)
 	svc.SetBillingCache(billingCache)
+	svc.SetAuthCacheInvalidator(authCacheInvalidator)
 	return svc
 }
 

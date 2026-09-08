@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
+	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userbalancepackage"
@@ -27,6 +28,10 @@ const (
 	balancePackageCreditBatchSize   = 100
 	balancePackageRenewalAudit      = "BALANCE_PACKAGE_RENEWAL"
 	balancePackageWeeklyCreditAudit = "BALANCE_PACKAGE_WEEKLY_CREDIT"
+	// balancePackageEarlyCreditAudit 记录管理员手动「提前发放下一周额度」。刻意与调度器的
+	// BALANCE_PACKAGE_WEEKLY_CREDIT 用不同前缀，避免与后续定时到账的审计（同一 count）在
+	// (order_id, action) 唯一索引上冲突。
+	balancePackageEarlyCreditAudit  = "BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT"
 	balancePackageDebtPausedAudit   = "BALANCE_PACKAGE_DEBT_PAUSED"
 	balancePackageDebtResumedAudit  = "BALANCE_PACKAGE_DEBT_RESUMED"
 	balancePackageManualCancelAudit = "BALANCE_PACKAGE_MANUAL_CANCELLATION"
@@ -86,8 +91,9 @@ var defaultBalancePackagePlans = []defaultBalancePackagePlan{
 
 // BalancePackageService 维护余额套餐及其到账生命周期。
 type BalancePackageService struct {
-	entClient    *dbent.Client
-	billingCache *BillingCacheService
+	entClient            *dbent.Client
+	billingCache         *BillingCacheService
+	authCacheInvalidator APIKeyAuthCacheInvalidator
 }
 
 func NewBalancePackageService(entClient *dbent.Client) *BalancePackageService {
@@ -97,6 +103,15 @@ func NewBalancePackageService(entClient *dbent.Client) *BalancePackageService {
 func (s *BalancePackageService) SetBillingCache(billingCache *BillingCacheService) {
 	if s != nil {
 		s.billingCache = billingCache
+	}
+}
+
+// SetAuthCacheInvalidator 注入 API Key 认证缓存失效能力。管理员手动改余额后必须同时失效
+// 认证快照，否则旧的负余额快照会在 TTL 到期前继续拦截刚被充值的用户（与 admin_user.
+// UpdateUserBalance 同口径）。调度器批量到账不接这个（走 TTL 最终一致），单用户管理操作接。
+func (s *BalancePackageService) SetAuthCacheInvalidator(invalidator APIKeyAuthCacheInvalidator) {
+	if s != nil {
+		s.authCacheInvalidator = invalidator
 	}
 }
 
@@ -835,6 +850,207 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	}
 	s.invalidateBalanceCache(ctx, current.UserID)
 	return true, nil
+}
+
+// EarlyWeeklyCreditResult 汇报一次手动提前到账的结果，供管理端回显与审计。
+type EarlyWeeklyCreditResult struct {
+	PackageID     int64      `json:"package_id"`
+	UserID        int64      `json:"user_id"`
+	OrderID       int64      `json:"order_id"`
+	CreditedCount int        `json:"credited_count"`
+	RefreshCount  int        `json:"refresh_count"`
+	CreditUSD     float64    `json:"credit_usd"`
+	RemainingUSD  float64    `json:"remaining_usd"`
+	BalanceBefore float64    `json:"balance_before_usd"`
+	BalanceAfter  float64    `json:"balance_after_usd"`
+	DebtRepaidUSD float64    `json:"debt_repaid_usd"`
+	Status        string     `json:"status"`
+	NextCreditAt  *time.Time `json:"next_credit_at,omitempty"`
+	ExpiresAt     time.Time  `json:"expires_at"`
+	Completed     bool       `json:"completed"`
+}
+
+// CreditNextEarly 手动把指定余额套餐的「下一周额度」提前发放一期，金额口径与调度器
+// creditDueBalance 完全一致（先移除旧窗口、本周额度先抵扣负余额、剩余进入套餐窗口），差别只在于：
+//   - 不检查 next_credit_at 是否到期（这正是「提前」的含义）；
+//   - 每次只发放一期；
+//   - next_credit_at 沿用「原值 + 一个刷新间隔」保持定时节奏（末期则清空并置为 completed）；
+//   - 审计用 BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT_<count>，操作者 admin:<id>。
+//
+// 幂等：同一订单同一期若已存在提前或定时到账审计则拒绝。金额一律用锁内实时余额计算，避免与并发计费打架。
+func (s *BalancePackageService) CreditNextEarly(ctx context.Context, packageID, adminUserID int64, now time.Time) (*EarlyWeeklyCreditResult, error) {
+	if s == nil || s.entClient == nil {
+		return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+	}
+	if packageID <= 0 || adminUserID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_EARLY_CREDIT_INPUT", "package and admin are required")
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin early balance package credit: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+
+	candidate, err := client.UserBalancePackage.Get(txCtx, packageID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
+		}
+		return nil, fmt.Errorf("load early balance package: %w", err)
+	}
+	// 固定加锁顺序：先用户后套餐，与 creditDueBalance 一致，避免与定时到账互相死锁。
+	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrUserNotFound
+		}
+		return nil, fmt.Errorf("lock early balance package user: %w", err)
+	}
+	currentBalance := lockedUser.Balance
+
+	query := client.UserBalancePackage.Query().Where(userbalancepackage.IDEQ(packageID))
+	if client.Driver().Dialect() == dialect.Postgres {
+		query = query.ForUpdate()
+	}
+	current, err := query.Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
+		}
+		return nil, fmt.Errorf("lock early balance package: %w", err)
+	}
+
+	if current.Status != balancePackageStatusActive {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_NOT_ACTIVE", "balance package is not active")
+	}
+	if current.CreditedCount >= current.RefreshCount {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_FULLY_CREDITED", "balance package has no remaining periods")
+	}
+	if !current.ExpiresAt.After(now) {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_EXPIRED", "balance package has expired")
+	}
+	if current.NextCreditAt == nil {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_NO_SCHEDULE", "balance package has no scheduled credit")
+	}
+
+	newCount := current.CreditedCount + 1
+
+	// 幂等：同一订单同一期若已有提前或定时到账审计，拒绝重复发放。
+	earlyAction := fmt.Sprintf("%s_%d", balancePackageEarlyCreditAudit, newCount)
+	scheduledAction := fmt.Sprintf("%s_%d", balancePackageWeeklyCreditAudit, newCount)
+	orderIDStr := fmt.Sprintf("%d", current.PaymentOrderID)
+	dup, err := client.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderID(orderIDStr),
+			paymentauditlog.ActionIn(earlyAction, scheduledAction),
+		).Exist(txCtx)
+	if err != nil {
+		return nil, fmt.Errorf("check early credit idempotency: %w", err)
+	}
+	if dup {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_CREDIT_EXISTS", "this weekly credit was already granted")
+	}
+
+	// 金额一律用锁内实时值计算（口径同 creditDueBalance）。
+	baseBalance := currentBalance - current.RemainingUsd
+	newBalance := baseBalance + current.WeeklyCreditUsd
+	newRemaining := balancePackageRemainingAfterDebt(baseBalance, current.WeeklyCreditUsd)
+	debtRepaid := minFloat(maxFloat(-baseBalance, 0), current.WeeklyCreditUsd)
+	balanceDelta := current.WeeklyCreditUsd - current.RemainingUsd
+
+	update := client.UserBalancePackage.UpdateOneID(current.ID).
+		Where(
+			userbalancepackage.StatusEQ(balancePackageStatusActive),
+			userbalancepackage.CreditedCountEQ(current.CreditedCount),
+			userbalancepackage.ExpiresAtGT(now),
+		).
+		SetCreditedCount(newCount).
+		SetRemainingUsd(newRemaining)
+	completed := newCount >= current.RefreshCount
+	statusAfter := balancePackageStatusActive
+	var newNextCreditAt *time.Time
+	if completed {
+		statusAfter = balancePackageStatusCompleted
+		update.SetStatus(balancePackageStatusCompleted).ClearNextCreditAt()
+	} else {
+		next := current.NextCreditAt.AddDate(0, 0, current.RefreshIntervalDays)
+		newNextCreditAt = &next
+		update.SetStatus(balancePackageStatusActive).SetNextCreditAt(next)
+	}
+	if _, err := update.Save(txCtx); err != nil {
+		// UpdateOneID 带 Where 谓词时，不匹配会返回 NotFound：说明加锁后 credited_count/status
+		// 仍被并发改动（例如定时到账刚好插进来）。
+		if dbent.IsNotFound(err) {
+			return nil, infraerrors.Conflict("BALANCE_PACKAGE_CREDIT_CONFLICT", "balance package changed concurrently, please retry")
+		}
+		return nil, fmt.Errorf("claim early balance package credit: %w", err)
+	}
+
+	updated, err := client.User.Update().
+		Where(user.IDEQ(current.UserID)).
+		AddBalance(balanceDelta).
+		AddTotalRecharged(current.WeeklyCreditUsd).
+		Save(txCtx)
+	if err != nil {
+		return nil, fmt.Errorf("refresh early balance package balance: %w", err)
+	}
+	if updated == 0 {
+		return nil, ErrUserNotFound
+	}
+
+	if debtRepaid > 0 {
+		if err := recordBalanceDebtLedger(txCtx, client, current.UserID, "repayment", debtRepaid, currentBalance, newBalance, "balance_package_weekly_credit", fmt.Sprintf("package:%d:credit:%d", current.ID, newCount)); err != nil {
+			return nil, err
+		}
+	}
+
+	detail, _ := json.Marshal(map[string]any{
+		"credit_usd":         current.WeeklyCreditUsd,
+		"credited_count":     newCount,
+		"early":              true,
+		"balance_before_usd": currentBalance,
+		"balance_after_usd":  newBalance,
+		"debt_repaid_usd":    debtRepaid,
+	})
+	if _, err := client.PaymentAuditLog.Create().
+		SetOrderID(orderIDStr).
+		SetAction(earlyAction).
+		SetDetail(string(detail)).
+		SetOperator(fmt.Sprintf("admin:%d", adminUserID)).
+		Save(txCtx); err != nil {
+		return nil, fmt.Errorf("record early balance package credit audit: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit early balance package credit: %w", err)
+	}
+
+	// 缓存失效：余额缓存 + 认证快照（后者清掉旧的负余额快照，避免继续拦截刚被充值的用户）。
+	s.invalidateBalanceCache(ctx, current.UserID)
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, current.UserID)
+	}
+
+	return &EarlyWeeklyCreditResult{
+		PackageID:     current.ID,
+		UserID:        current.UserID,
+		OrderID:       current.PaymentOrderID,
+		CreditedCount: newCount,
+		RefreshCount:  current.RefreshCount,
+		CreditUSD:     current.WeeklyCreditUsd,
+		RemainingUSD:  newRemaining,
+		BalanceBefore: currentBalance,
+		BalanceAfter:  newBalance,
+		DebtRepaidUSD: debtRepaid,
+		Status:        statusAfter,
+		NextCreditAt:  newNextCreditAt,
+		ExpiresAt:     current.ExpiresAt,
+		Completed:     completed,
+	}, nil
 }
 
 // expireDueBalances 清理已到期套餐本周未用额度，避免最后一周余额留在普通钱包中。
