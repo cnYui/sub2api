@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy:
-        description: '构建后通过 SSH 部署到 VPS（需先配置 VPS_* secrets）'
+        description: '手动触发时也执行部署（Mac 需 MAC_*+TS_AUTHKEY；VPS 冷备需 VPS_*）'
         required: false
         type: boolean
         default: false
@@ -100,11 +100,11 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # 部署到生产 VPS。
+  # 部署到 VPS —— 2026-09-08 起 VPS 是冷备回滚、不再是生产（生产在 Mac，见下方 deploy-mac）。
   #
-  # 触发条件：push 到 main 自动执行，或手动触发并勾选 deploy。
-  # 但**只有配置了 VPS_* secrets 才会真正执行**——没配就优雅跳过，
-  # 不让缺配置把整条构建判为失败（镜像已经推好了，部署是独立的事）。
+  # 触发条件：**仅手动触发并勾选 deploy**。push main 不再自动部署 VPS，
+  # 否则每次都会重启冷备 VPS 的应用（其 cloudflared 已 disable、不对外，纯属churn）。
+  # 保留此 job 是为了回滚前能把某个镜像先推到 VPS。缺 VPS_* secrets 则优雅跳过。
   #
   # 需要的 repository secrets（Settings → Secrets and variables → Actions）：
   #   VPS_HOST        生产机地址
@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
+      github.event_name == 'workflow_dispatch' && inputs.deploy
     environment: production
     steps:
       # secrets 不能直接写进 job 级 if，所以先在步骤里判断一次。
@@ -182,3 +182,82 @@ jobs:
             fi
             # 传具体 sha tag 而非 :main，让这次部署的版本可精确追溯与回滚。
             ./deploy.sh "$IMAGE_TAG"
+
+  # 部署到生产 MacBook（2026-09-08 起生产在 Mac）。
+  #
+  # Mac 在家用 NAT 后面，云端 runner 没有公网路径直连；因此先用 Tailscale 让 runner
+  # 临时加入 tailnet，再 SSH 到 Mac 的 tailscale 内网地址。push main 自动执行，
+  # 或手动触发并勾选 deploy。只有配齐 MAC_* + TS_AUTHKEY 才执行，缺则优雅跳过。
+  #
+  # 需要的 repository secrets：
+  #   MAC_HOST     Mac 的 tailscale IP（100.x）
+  #   MAC_USER     登录用户
+  #   MAC_SSH_KEY  部署专用私钥（已在 Mac authorized_keys 用 command="…/deploy-mac.sh",restrict
+  #                锁死：这把钥匙只能跑部署脚本、拿不到自由 shell，tag 经 $SSH_ORIGINAL_COMMAND 传入）
+  #   TS_AUTHKEY   Tailscale auth key（建议 reusable + ephemeral），令 runner 临时组网
+  #
+  # 安全：runner 是 GitHub 托管（非自签），仅 push main / 手动 dispatch 触发，
+  # fork PR 碰不到 secrets；即便私钥泄露，command= 也只允许部署合法 sha。
+  # Mac 端脚本模板见 deploy/mac-deploy.sh.example（安装为 ~/sub2api/deploy-mac.sh）。
+  deploy-mac:
+    needs: build
+    runs-on: ubuntu-latest
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy))
+    environment: production
+    steps:
+      - name: 检查 Mac 部署配置
+        id: check
+        env:
+          MAC_HOST: ${{ secrets.MAC_HOST }}
+          MAC_USER: ${{ secrets.MAC_USER }}
+          MAC_SSH_KEY: ${{ secrets.MAC_SSH_KEY }}
+          TS_AUTHKEY: ${{ secrets.TS_AUTHKEY }}
+        run: |
+          missing=""
+          [ -z "$MAC_HOST" ]    && missing="$missing MAC_HOST"
+          [ -z "$MAC_USER" ]    && missing="$missing MAC_USER"
+          [ -z "$MAC_SSH_KEY" ] && missing="$missing MAC_SSH_KEY"
+          [ -z "$TS_AUTHKEY" ]  && missing="$missing TS_AUTHKEY"
+          if [ -n "$missing" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo '### Mac 部署已跳过'
+              echo
+              echo "缺少 secrets：\`${missing# }\`"
+              echo
+              echo '补齐后（尤其 TS_AUTHKEY）推 main 即自动部署到生产 Mac。'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Connect to Tailscale
+        if: steps.check.outputs.ready == 'true'
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          # 临时节点名，便于在 tailscale 后台识别；ephemeral key 跑完自动下线。
+          hostname: gha-deploy-${{ github.run_id }}
+
+      - name: Deploy to Mac over Tailscale SSH
+        if: steps.check.outputs.ready == 'true'
+        env:
+          MAC_HOST: ${{ secrets.MAC_HOST }}
+          MAC_USER: ${{ secrets.MAC_USER }}
+          MAC_SSH_KEY: ${{ secrets.MAC_SSH_KEY }}
+          IMAGE_TAG: sha-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$MAC_SSH_KEY" > ~/.ssh/mac_deploy
+          chmod 600 ~/.ssh/mac_deploy
+          # Mac 端 authorized_keys 用 command= 强制命令，客户端发什么都只会跑 deploy-mac.sh，
+          # 目标版本从 $SSH_ORIGINAL_COMMAND 读取。这里只发这次构建的 sha tag。
+          ssh -i ~/.ssh/mac_deploy \
+            -o StrictHostKeyChecking=accept-new \
+            -o IdentitiesOnly=yes \
+            -o ConnectTimeout=25 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=8 \
+            "$MAC_USER@$MAC_HOST" "$IMAGE_TAG"

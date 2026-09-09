@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# MacBook 端部署脚本模板（2026-09-08 生产迁到 Mac 后新增，对应 VPS 的 vps-deploy.sh.example）。
+#
+# 由 .github/workflows/build.yml 的 deploy-mac job 经 Tailscale + SSH 调用，也可手动执行。
+# 安装到部署目录：
+#   cp deploy/mac-deploy.sh.example ~/sub2api/deploy-mac.sh && chmod +x ~/sub2api/deploy-mac.sh
+#
+# CI 侧用 SSH「强制命令」(authorized_keys 里 command="…/deploy-mac.sh") 调用，
+# 此时目标版本从 $SSH_ORIGINAL_COMMAND 读取；手动执行则用第一个参数：
+#   ./deploy-mac.sh                 # 部署 :main
+#   ./deploy-mac.sh sha-<40位commit># 部署/回滚到指定版本
+#
+# 为什么放在 Mac 而不是写进 workflow：生产 compose 由基础文件 + docker-compose.mac.yml
+# 叠加而成，后者只在本机（承载 BILLING_FINAL_MULTIPLIER、127.0.0.1 绑定、凭证密钥 secret、
+# SERVER_TRUSTED_PROXIES）。叠哪些文件是本机的事实，写进 CI 就是让它猜生产拓扑。
+set -euo pipefail
+
+# ── 按实际情况修改 ──────────────────────────────────────────────
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.mac.yml)
+IMAGE_REPO="ghcr.io/cnyui/sub2api"
+# OrbStack 的 docker CLI 不一定在 PATH，显式加上（CI 非登录 shell 更需要）。
+export PATH="$HOME/.orbstack/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+# ───────────────────────────────────────────────────────────────
+
+# 目标 tag：手动参数优先，其次 SSH 强制命令传来的 $SSH_ORIGINAL_COMMAND，默认 main。
+TAG="${1:-${SSH_ORIGINAL_COMMAND:-main}}"
+TAG="$(printf '%s' "$TAG" | tr -d '[:space:]')"
+# 只允许 main 或 sha-<hex>，堵住经 SSH 命令注入。
+if ! printf '%s' "$TAG" | grep -Eq '^(main|sha-[0-9a-f]{7,40})$'; then
+  echo "非法 IMAGE_TAG: [$TAG]" >&2
+  exit 1
+fi
+
+IMAGE="${IMAGE_REPO}:${TAG}"
+echo "==> 部署 ${IMAGE}"
+
+cd "$HOME/sub2api"
+
+# 记录当前版本，失败时提示回滚。
+PREV_CID="$(docker compose "${COMPOSE_FILES[@]}" ps -q sub2api 2>/dev/null | head -1)"
+PREV=""
+[ -n "$PREV_CID" ] && PREV="$(docker inspect --format '{{.Config.Image}}' "$PREV_CID" 2>/dev/null || true)"
+[ -n "$PREV" ] && echo "==> 当前运行版本：${PREV}"
+
+# 持久化 tag 到 .env（compose 里是 image: ...:${IMAGE_TAG:-main}），保证手动 up/回滚一致。
+if grep -q '^IMAGE_TAG=' .env 2>/dev/null; then
+  sed -i '' "s/^IMAGE_TAG=.*/IMAGE_TAG=${TAG}/" .env
+else
+  printf 'IMAGE_TAG=%s\n' "$TAG" >> .env
+fi
+export IMAGE_TAG="$TAG"
+
+echo "==> 拉取镜像"
+docker compose "${COMPOSE_FILES[@]}" pull sub2api
+echo "==> 重建容器"
+docker compose "${COMPOSE_FILES[@]}" up -d sub2api
+# 只清悬空层，带 tag 的历史镜像保留供回滚。
+docker image prune -f >/dev/null 2>&1 || true
+
+echo "==> 等待健康检查"
+ok=0
+for i in $(seq 1 30); do
+  if curl -fsS --max-time 5 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    ok=1; echo "==> 健康检查通过（第 ${i} 次尝试）"; break
+  fi
+  sleep 2
+done
+if [ "$ok" -ne 1 ]; then
+  echo "!! 健康检查失败，最近 50 行日志：" >&2
+  docker compose "${COMPOSE_FILES[@]}" logs --tail=50 sub2api >&2 || true
+  echo "!! 回滚：./deploy-mac.sh <上一个正常的 tag>" >&2
+  [ -n "$PREV" ] && echo "!! 上一个版本是：${PREV}" >&2
+  exit 1
+fi
+
+echo "==> 关键配置自检"
+CID="$(docker compose "${COMPOSE_FILES[@]}" ps -q sub2api | head -1)"
+MULT="$(docker exec "$CID" sh -c 'echo "${BILLING_FINAL_MULTIPLIER:-<未设置>}"' 2>/dev/null || echo '<读取失败>')"
+echo "    BILLING_FINAL_MULTIPLIER = ${MULT}"
+if [ "$MULT" = "<未设置>" ]; then
+  echo "!! 警告：最终计费倍率未进入容器，会按应收的 1/N 收费。检查 docker-compose.mac.yml。" >&2
+fi
+
+docker compose "${COMPOSE_FILES[@]}" ps
+echo "==> 部署完成：${IMAGE}"
