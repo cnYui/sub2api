@@ -42,6 +42,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # arm64 目标的最终运行阶段有 apk add（在目标架构下执行），需 QEMU 模拟；
+      # Go/前端构建阶段是 --platform=$BUILDPLATFORM 原生交叉编译，不走模拟。
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -69,8 +74,9 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          # 显式声明，避免将来在 arm runner 上构建导致服务器 exec format error。
-          platforms: linux/amd64
+          # 出多架构镜像：生产 Mac 是 Apple Silicon（arm64，OrbStack），VPS 冷备是 amd64。
+          # Dockerfile 用 --platform=$BUILDPLATFORM + CGO_ENABLED=0 交叉编译，两架构都原生出包。
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
