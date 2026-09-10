@@ -16,6 +16,10 @@ describe('UsageGuideView', () => {
     const source = readFileSync(viewPath, 'utf8')
 
     for (const token of [
+      "id: 'deepseek-harness'",
+      "title: 'DeepSeek Harness 接入中转站 DeepSeek 模型'",
+      'const deepseekHarnessSetupSteps: GuideStep[]',
+      'API 地址填写 https://api.aaccx.pw/v1',
       "id: 'codex'",
       "id: 'ccswitch-video'",
       "id: 'formal-api'",
@@ -59,6 +63,7 @@ describe('UsageGuideView', () => {
     expect(source).not.toContain('400 INVALID_BASE_URL')
 
     for (const [id, date] of [
+      ['deepseek-harness', '2026-09-10'],
       ['formal-api', '2026-08-05'],
       ['claude-desktop', '2026-08-11'],
       ['codex-gpt', '2026-08-11'],
@@ -105,6 +110,11 @@ describe('UsageGuideView', () => {
       'codex-gpt-step-02-select-gpt.png',
       'codex-gpt-step-03-provider-config.png',
       'codex-gpt-step-04-enable-restart.png',
+      'deepseek-harness-step-01-clone-repo.png',
+      'deepseek-harness-step-02-local-start.png',
+      'deepseek-harness-step-03-open-settings.png',
+      'deepseek-harness-step-04-add-custom-provider.png',
+      'deepseek-harness-step-05-fill-url-key.png',
       'codex-ccswitch-step-01.png',
       'codex-ccswitch-step-02.png',
       'codex-ccswitch-step-03.png',

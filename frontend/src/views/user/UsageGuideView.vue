@@ -222,6 +222,11 @@ import codexGptStep01Image from '@/assets/usage-guide/codex-gpt-step-01-create-k
 import codexGptStep02Image from '@/assets/usage-guide/codex-gpt-step-02-select-gpt.png'
 import codexGptStep03Image from '@/assets/usage-guide/codex-gpt-step-03-provider-config.png'
 import codexGptStep04Image from '@/assets/usage-guide/codex-gpt-step-04-enable-restart.png'
+import deepseekHarnessStep01Image from '@/assets/usage-guide/deepseek-harness-step-01-clone-repo.png'
+import deepseekHarnessStep02Image from '@/assets/usage-guide/deepseek-harness-step-02-local-start.png'
+import deepseekHarnessStep03Image from '@/assets/usage-guide/deepseek-harness-step-03-open-settings.png'
+import deepseekHarnessStep04Image from '@/assets/usage-guide/deepseek-harness-step-04-add-custom-provider.png'
+import deepseekHarnessStep05Image from '@/assets/usage-guide/deepseek-harness-step-05-fill-url-key.png'
 
 type GuideStep = {
   step: number
@@ -647,7 +652,43 @@ const claudeDesktopSetupSteps: GuideStep[] = [
   },
 ]
 
+const deepseekHarnessSetupSteps: GuideStep[] = [
+  {
+    step: 1,
+    title: '打开 DeepSeek 官方 Harness 仓库（github.com/deepseek-ai/deepseek-harness），克隆它的源代码到本地',
+    images: [{ src: deepseekHarnessStep01Image, alt: 'DeepSeek Harness 接入步骤 1：克隆官方 Harness 源代码' }],
+  },
+  {
+    step: 2,
+    title: '在本地找一个 AI 编程工具，按仓库说明本地启动 DeepSeek Harness',
+    images: [{ src: deepseekHarnessStep02Image, alt: 'DeepSeek Harness 接入步骤 2：让本地 AI 启动 DeepSeek Harness' }],
+  },
+  {
+    step: 3,
+    title: '启动后进入 DeepSeek Harness 主页，点击左下角的“设置”',
+    images: [{ src: deepseekHarnessStep03Image, alt: 'DeepSeek Harness 接入步骤 3：进入主页并点击设置' }],
+  },
+  {
+    step: 4,
+    title: '在设置的“模型”页选择自定义模型，点击“添加自定义提供方”',
+    images: [{ src: deepseekHarnessStep04Image, alt: 'DeepSeek Harness 接入步骤 4：添加自定义提供方' }],
+  },
+  {
+    step: 5,
+    title: '从本站复制并填入 API 地址与 API 密钥：API 地址填写 https://api.aaccx.pw/v1，API 协议保持 openai-completions，然后点“创建提供方”',
+    images: [{ src: deepseekHarnessStep05Image, alt: 'DeepSeek Harness 接入步骤 5：填写 API 地址、API 协议和 API 密钥' }],
+  },
+]
+
 const allGuideTopics: GuideTopic[] = [
+  {
+    id: 'deepseek-harness',
+    title: 'DeepSeek Harness 接入中转站 DeepSeek 模型',
+    updatedAt: '2026-09-10',
+    description: '克隆 DeepSeek 官方 Harness 源码并本地启动，在设置里添加自定义提供方，接入中转站的 DeepSeek 模型。',
+    kind: 'steps',
+    steps: deepseekHarnessSetupSteps,
+  },
   {
     id: 'codex',
     title: 'Codex 接入中转站除GPT模型以外的外部模型',
