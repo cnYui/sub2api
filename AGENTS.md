@@ -22,12 +22,12 @@
   两条护栏：被 AGENTS.md 或 `docs/` 下其它 Markdown **引用到的文档不会被删**（上面那些手册链接因此安全）；正文带 `<!-- prune:keep -->` 的也不会被删。预演用 `-DryRun`，日志在 `logs/prune-ai-context.log`。**这是纯本地任务、不走云端 routine**；换机器或任务丢失时跑 `pwsh -File scripts/install-prune-task.ps1` 重建（幂等），任务快照见 `deploy/prune-ai-context.task.xml`。
 - 生产数据变更必须写 `payment_audit_logs` 审计，并处理认证/余额缓存失效。
 - **SSH 私钥不叫 `id_*`**，部署密钥按机器命名（文件名见 `deploy/ops.env` 的 `OPS_SSH_KEY_FILE`）。用 `ls ~/.ssh/*.pem ~/.ssh/id_*` 过滤会漏掉它、误判为「无 SSH 访问」——**要 `ls ~/.ssh/` 全量看**。默认 `id_ed25519` 确实被服务器拒绝，容易据此得出确定的错误结论。
-- **生产 VPS 远程操作手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`。连接方式、psql 用法、写操作的事务模板、已知表结构坑、缓存失效、核验清单。**动生产数据库前先读它。**
-- **部署生产镜像**：`docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`。生产已切到 GHCR 镜像，换版本只需改 `${OPS_DEPLOY_DIR}/.env` 的 `IMAGE_TAG` 再 `docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。
+- **数据库运维手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`（psql 用法、写操作事务模板、表结构坑、缓存失效、核验清单）。**动生产数据库前先读它。** 注意：**当前生效的生产库在 Mac 上**（`~/.orbstack/bin/docker exec sub2api-postgres psql …`），手册的 psql/事务模板通用，只是连接方式换成 Mac；手册里的 VPS 连接方式仅在回滚后才相关。
+- **部署/换镜像**：生产已迁到 Mac（见第二节）。换版本在 `~/sub2api` 改 `.env` 的 `IMAGE_TAG`（或 `~/.orbstack/bin/docker compose … pull`）再 `docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。VPS 侧 GHCR 首切文档 `docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`（用 `docker-compose.vps.yml`）仅回滚时参考。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
 - 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `212`。
 
-## 二、当前部署拓扑（2026-09-05）
+## 二、当前部署拓扑（2026-09-08：已从 VPS 迁到日本 MacBook）
 
 > **本仓库是公开仓库。** 运维敏感值一律用 `${变量名}` 占位，实际值只写在
 > `deploy/ops.env`（已 gitignore，模板见 `deploy/ops.env.example`）。
@@ -35,22 +35,24 @@
 
 ```
 aaccx.pw / www.aaccx.pw / api.aaccx.pw
-  → Cloudflare Tunnel ${OPS_TUNNEL_ID}
-  → DediOne 洛杉矶 VPS ${OPS_VPS_HOST}  (${OPS_DEPLOY_DIR})
-  → 应用容器（仅 127.0.0.1:8080）
+  → Cloudflare Tunnel ${OPS_TUNNEL_ID}（复用同一隧道，DNS 未改）
+  → 日本 MacBook ${OPS_MAC_HOST}（tailscale 内网；登录用户 ${OPS_MAC_USER}）
+  → OrbStack（arm64 容器运行时）
+  → 应用容器 sub2api（仅 127.0.0.1:8080）
 ```
 
-- **compose 必须带 `-f docker-compose.vps.yml`**，见下方坑 1。
-- postgres / redis 只 `EXPOSE`，不发布端口；应用 `BIND_HOST=127.0.0.1`。
-- 防火墙：`docker-user-firewall.service`（`PartOf=docker.service`，幂等，已实测清空后可完整恢复），IPv4/IPv6 同步。
-- 看门狗：每 2 分钟，故障注入实测 22.5 秒恢复。
-- 异地备份：Cloudflare R2 桶 `${OPS_R2_BUCKET}`，令牌限 IP `${OPS_VPS_HOST}`。
-- 已开 `totp_enabled` 与 `step_up_enabled`；默认管理员 `admin@sub2api.local` 已硬删除。
-- `DATABASE_MAX_OPEN_CONNS=25`。
-- 容量实测：**瓶颈是 CPU 不是带宽**（真实流量仅占 200Mbps 的 0.3%，iowait 0.0%），每请求约 121ms CPU，上限约 990 请求/分钟或 425 条并发流。
-- 笔记本 `sub2api-official-18082` 及其 Cloudflared、watchdog 已全部停止，**数据卷原样保留可回滚**。历史上的笔记本链路（`host.docker.internal:18082` + `sub2api-public-nginx-local`）已不再生效。
+- **运行时是 OrbStack，不是 Docker Desktop**（后者在这台 8GB 机器上引擎起不来，已卸载）。docker CLI 在 `~/.orbstack/bin/docker`（PATH 里可能没有，用全路径）。应用镜像 `ghcr.io/cnyui/sub2api`（amd64）**经 Rosetta 模拟**跑；`postgres:18` / `redis:8` 用 arm64 原生镜像。
+- **部署目录 `~/sub2api/`**，命令 `docker compose -f docker-compose.yml -f docker-compose.mac.yml …`（**不是** vps.yml）。`docker-compose.mac.yml` 由 `docker-compose.vps.yml` 派生，只改两处：① secret 文件指 `./secrets/account_credentials_encryption_key`（Mac 上 `/etc` 要 sudo，故放用户目录，与 VPS `/etc/sub2api/…` sha256 一致）；② `SERVER_TRUSTED_PROXIES=192.168.97.0/24` 对齐 OrbStack 网段——**用 VPS 的 `172.18.0.0/16` 会让日志/限流把所有用户当同一网关 IP**。
+- 公网入口：cloudflared 以 **launchd agent `com.sub2api.cloudflared`** 常驻（`~/.local/bin/cloudflared` + `~/.cloudflared/config.yml`，ingress→`127.0.0.1:8080`）。**同一 Tunnel 同一时刻只能一端连**（切换时已停 VPS 连接器）。
+- postgres / redis 只在 OrbStack 内网、不发布端口；应用 `BIND_HOST=127.0.0.1`，公网只经 cloudflared 到 8080。`DATABASE_MAX_OPEN_CONNS=25`。已开 `totp_enabled`/`step_up_enabled`，默认管理员 `admin@sub2api.local` 已硬删除。计费口径不变（`BILLING_FINAL_MULTIPLIER=18` 由 mac override 的 `:?` 强校验，缺了起不来）。
+- **防睡眠**：launchd agent `com.sub2api.caffeinate`（`caffeinate -dimsu`）。⚠️ 只挡空闲睡眠；**合盖/断电仍会睡＝服务断**——须保持接电源，合盖免睡用 Amphetamine（已保留）或 `sudo pmset -a disablesleep 1`。
+- ⚠️ **durability 是 GUI 会话级**：cloudflared/caffeinate 都是 GUI 域 LaunchAgent，OrbStack 也需登录自启。**重启后必须有人登录 GUI 才会自起，无人值守重启会全断**。真·headless 需改 LaunchDaemon（`/Library/LaunchDaemons`，要 sudo）。
+- **CI 自动部署到生产 Mac**（`build.yml` 的 `deploy-mac` job）：`push main → build（GHCR sha 镜像）→ 云端 runner 经 Tailscale 组网 → SSH 到 Mac 跑 `~/sub2api/deploy-mac.sh`（用 `docker-compose.mac.yml`，含健康检查 + 倍率自检）。需 secrets `MAC_HOST/MAC_USER/MAC_SSH_KEY/TS_AUTHKEY`；`TS_AUTHKEY` 是 Tailscale 后台生成的 auth key（reusable+ephemeral），**缺它该 job 优雅跳过**。部署密钥在 Mac `authorized_keys` 用 `command="…deploy-mac.sh",restrict` 锁死（只能部署合法 sha、无自由 shell）。**VPS 的 deploy 已降为仅手动触发**（`workflow_dispatch + deploy`），push main 不再动 VPS。手动部署/回滚 Mac：`~/sub2api/deploy-mac.sh sha-<commit>`。
+- ⚠️ **R2 异地备份大概率已失效**：应用内置备份仍按 `0 2 * * *` 跑，但 R2 令牌限 IP `${OPS_VPS_HOST}`，从 Mac 上传会被拒。待换令牌或放行 Mac 出口 IP 并验证一次。
 
-详见 `docs/ai/context/20260905-100322-vps-cutover-hardening-and-capacity-audit_CN.md`、`20260905-110342-docker-user-firewall-hardening_CN.md`。
+**VPS `${OPS_VPS_HOST}` 现为冷备回滚**：应用容器 stopped、`cloudflared` stopped+disabled、`sub2api-watchdog.timer` disabled。数据卷原样保留但**从 2026-09-08 切换时刻起冻结**——回滚越晚，丢的 Mac 新数据越多。**回滚**：先停 Mac 连接器 `launchctl bootout gui/$(id -u)/com.sub2api.cloudflared`，再 VPS `systemctl start cloudflared` + `docker start sub2api`（必要时恢复看门狗）。VPS 侧防火墙（`docker-user-firewall`）、容量结论（CPU 瓶颈、约 990 req/min）只在回滚时才相关。
+
+完整切换流水、踩坑与回滚见 `docs/ai/context/20260908-231500-vps-to-macbook-cutover_CN.md`。VPS 时期文档：`20260905-100322-vps-cutover-hardening-and-capacity-audit_CN.md`、`20260905-110342-docker-user-firewall-hardening_CN.md`。
 
 ## 三、计费口径
 
@@ -222,7 +224,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - **`api.ai-genesis.app` 的白名单里有一半模型上游根本没有**。以 `sync-upstream` 实测（坑 24）：`#1129` 上游只有 `gpt-5.5`、`gpt-5.6-luna`、`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-6-astra`（+ `codex-auto-review` 和两个图像模型），`#1128` 更少且无 `gpt-6-astra`；两个账号白名单里的 `gpt-5.4`、`gpt-5.4-2026-03-05`、`gpt-5.4-mini`、`gpt-5.6` 上游都没有，用户看得见调不通（502/503）。是否收紧 `#1128/#1129` 白名单**未定**——上游可能恢复，收紧后需再加回。
 - **`build.yml` 从未实际触发过**——需手动跑一次确认能出镜像且前端不 OOM。
 - **外部拨测未配置**——机器宕机时无人知晓。
-- **单点故障无冗余**——全部服务跑在一台 VPS 上。
+- **单点故障无冗余**——全部服务跑在一台家用 MacBook 上（比 VPS 时更脆：笔记本 + 家用网络 + 依赖 GUI 登录/不睡眠，见第二节 durability 与防睡眠告警）。VPS 是唯一后路（冷备，数据已冻结）。
 - `api_base_url` 仍为空（`/keys` 页面已硬编码 `https://api.aaccx.pw/v1` 兜底，不依赖该设置）。
 - Kimi、DeepSeek 分组**名称与实际倍率不一致**，待统一。
 - `billing_reconciliation_cases` 3,933 条余额不足案件待外部逐笔账单核对。
