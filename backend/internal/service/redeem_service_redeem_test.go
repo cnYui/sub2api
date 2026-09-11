@@ -87,7 +87,7 @@ func TestRedeemRejectsInvitationCodeBeforeTransaction(t *testing.T) {
 			Status: StatusUnused,
 		},
 	}
-	redeemService := NewRedeemService(redeemRepo, nil, nil, nil, nil, nil, nil, nil)
+	redeemService := NewRedeemService(redeemRepo, nil, nil, nil, nil, nil, nil)
 
 	got, err := redeemService.Redeem(ctx, 2, redeemRepo.code.Code)
 

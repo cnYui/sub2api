@@ -119,6 +119,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 ### 其他
 
 - 邀请返利默认开启、比例 8%，直接增加 `users.balance`，`frozen_until` 记 24 小时冻结；**冻结不限制模型使用**。
+- **兑换码只给兑换人本人加普通余额，不触发邀请返利**（含后台 `create-and-redeem`），2026-09-11 管理员明确。上游 `Wei-Shaw/sub2api` 的 `RedeemService` 带这段返利，同步上游时别带回来。后台手动加余额是否返利由设置 `affiliate_admin_recharge_enabled` 单独控制。
 - 充值手续费 `RECHARGE_FEE_RATE=1%`，只增加订单 `pay_amount`，**不改变套餐到账额度或流量卡额度**；服务端始终用商品服务端价格重算。
 - `/monitor` 全部渠道统一为**每次一个带鉴权的 `GET /v1/models`** 目录探测，间隔 1800 秒，不发真实推理请求，不做额外 HEAD。生图渠道禁止周期性生图探测。
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
