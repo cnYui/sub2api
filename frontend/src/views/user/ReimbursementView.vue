@@ -1,57 +1,64 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <div class="mx-auto max-w-3xl space-y-6">
-        <!-- Draft restored notice -->
-        <transition name="fade">
-          <div
-            v-if="draftRestored"
-            class="card border-primary-200 bg-primary-50 dark:border-primary-800/50 dark:bg-primary-900/20"
-            data-test="draft-restored"
-          >
-            <div class="flex items-center gap-3 p-4">
-              <Icon name="infoCircle" size="md" class="shrink-0 text-primary-600 dark:text-primary-400" />
-              <p class="text-sm text-primary-800 dark:text-primary-300">{{ t('reimbursement.draftRestored') }}</p>
-            </div>
+      <!-- Draft restored notice -->
+      <transition name="fade">
+        <div
+          v-if="draftRestored"
+          class="card border-primary-200 bg-primary-50 dark:border-primary-800/50 dark:bg-primary-900/20"
+          data-test="draft-restored"
+        >
+          <div class="flex items-center gap-3 px-6 py-4">
+            <Icon name="infoCircle" size="md" class="shrink-0 text-primary-600 dark:text-primary-400" />
+            <p class="text-sm text-primary-800 dark:text-primary-300">{{ t('reimbursement.draftRestored') }}</p>
           </div>
-        </transition>
+        </div>
+      </transition>
 
-        <!-- Card 1: paste text -->
-        <div class="card">
-          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('reimbursement.pasteTitle') }}
-            </h2>
-          </div>
-          <div class="space-y-4 p-6">
-            <TextArea
-              id="reimbursement-text"
-              v-model="text"
-              :rows="8"
-              :placeholder="t('reimbursement.pastePlaceholder')"
-              :hint="t('reimbursement.pasteHint')"
-              :disabled="busy"
-              data-test="paste-input"
-            />
-            <div class="flex flex-wrap items-center justify-end gap-3">
-              <button
-                v-if="parseResult"
-                type="button"
-                class="btn btn-secondary"
-                :disabled="busy"
-                data-test="restart-button"
-                @click="handleRestart"
-              >
-                {{ t('reimbursement.restartButton') }}
-              </button>
-              <button
-                type="button"
-                class="btn btn-primary"
-                :disabled="!text.trim() || busy"
-                data-test="parse-button"
-                @click="handleParse"
-              >
-                <svg v-if="parsing" class="-ml-1 mr-2 h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+      <!-- Row 1: paste card (2/3) + process guide (1/3), same rhythm as the dashboard -->
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div class="lg:col-span-2">
+          <div class="card flex h-full flex-col" data-test="paste-card">
+            <div class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {{ t('reimbursement.pasteTitle') }}
+                </h2>
+                <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('reimbursement.pasteHint') }}</p>
+              </div>
+              <span class="badge badge-gray shrink-0">{{ t('reimbursement.textOnlyBadge') }}</span>
+            </div>
+            <div class="flex flex-1 flex-col gap-4 p-6">
+              <!-- 让粘贴框撑满与右侧流程卡等高后剩余的空间，避免底部留白 -->
+              <div class="paste-area flex min-h-0 flex-1 flex-col">
+                <TextArea
+                  id="reimbursement-text"
+                  v-model="text"
+                  :rows="10"
+                  :placeholder="t('reimbursement.pastePlaceholder')"
+                  :disabled="busy"
+                  data-test="paste-input"
+                />
+              </div>
+              <div class="flex flex-wrap items-center justify-end gap-3">
+                <button
+                  v-if="parseResult"
+                  type="button"
+                  class="btn btn-secondary"
+                  :disabled="busy"
+                  data-test="restart-button"
+                  @click="handleRestart"
+                >
+                  {{ t('reimbursement.restartButton') }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  :disabled="!text.trim() || busy"
+                  data-test="parse-button"
+                  @click="handleParse"
+                >
+                  <svg v-if="parsing" class="-ml-1 mr-2 h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path
                     class="opacity-75"
@@ -59,137 +66,183 @@
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   ></path>
                 </svg>
-                <Icon v-else name="sparkles" size="md" class="mr-1" />
-                {{ parsing ? t('reimbursement.parsing') : t('reimbursement.parseButton') }}
-              </button>
+                  <Icon v-else name="sparkles" size="md" class="mr-1" />
+                  {{ parsing ? t('reimbursement.parsing') : t('reimbursement.parseButton') }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Card 2: parsed result -->
-        <div v-if="parseResult" class="card" data-test="result-card">
-          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('reimbursement.resultTitle') }}
-            </h2>
-            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('reimbursement.resultHint') }}</p>
-          </div>
-          <div class="space-y-5 p-6">
-            <!-- Summary banner -->
-            <div
-              v-if="complete"
-              class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800/50 dark:bg-emerald-900/20"
-              data-test="complete-banner"
-            >
-              <Icon name="checkCircle" size="md" class="shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                {{ t('reimbursement.completeBanner') }}
-              </p>
+        <div class="lg:col-span-1">
+          <div class="card flex h-full flex-col" data-test="guide-card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('reimbursement.guide.title') }}</h2>
             </div>
-            <div
-              v-else
-              class="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
-              data-test="incomplete-banner"
-            >
-              <Icon name="exclamationTriangle" size="md" class="shrink-0 text-amber-600 dark:text-amber-400" />
-              <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
-                {{ t('reimbursement.incompleteBanner', { fields: missingLabels }) }}
-              </p>
-            </div>
-
-            <!-- Read-only fields -->
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="flex-1 space-y-3 p-4">
               <div
-                v-for="key in fieldKeys"
-                :key="key"
-                :class="key === 'address' ? 'sm:col-span-2' : ''"
-                data-test="field-row"
-                :data-field="key"
+                v-for="(step, index) in guideSteps"
+                :key="step"
+                class="flex items-start gap-4 rounded-xl bg-gray-50 p-4 dark:bg-dark-800/50"
+                data-test="guide-step"
               >
-                <label class="input-label">{{ t(`reimbursement.fields.${key}`) }}</label>
                 <div
-                  :class="[
-                    'input flex items-center justify-between gap-2',
-                    isMissing(key) ? 'input-error ring-2 ring-red-500/20' : ''
-                  ]"
-                  :title="displayValue(key)"
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-sm font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
                 >
-                  <span
-                    class="truncate"
-                    :class="isMissing(key) ? 'text-gray-400 dark:text-dark-500' : 'text-gray-900 dark:text-gray-100'"
-                  >
-                    {{ displayValue(key) || '—' }}
-                  </span>
-                  <Icon
-                    v-if="!isMissing(key)"
-                    name="checkCircle"
-                    size="sm"
-                    class="shrink-0 text-emerald-500"
-                    :title="t('reimbursement.fieldParsed')"
-                  />
-                  <Icon v-else name="exclamationCircle" size="sm" class="shrink-0 text-red-500" />
+                  {{ index + 1 }}
                 </div>
-                <p v-if="isMissing(key)" class="input-error-text" data-test="field-missing">
-                  {{ t('reimbursement.fieldMissing') }}
-                </p>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-gray-900 dark:text-white">
+                    {{ t(`reimbursement.guide.steps.${step}.title`) }}
+                  </p>
+                  <p class="mt-0.5 text-xs leading-5 text-gray-500 dark:text-dark-400">
+                    {{ t(`reimbursement.guide.steps.${step}.description`) }}
+                  </p>
+                </div>
               </div>
             </div>
-
-            <p v-if="parseResult.notes" class="text-xs text-gray-500 dark:text-dark-400" data-test="parse-notes">
-              {{ t('reimbursement.notesLabel') }}: {{ parseResult.notes }}
-            </p>
-
-            <!-- Supplement (only when incomplete) -->
-            <div v-if="!complete" class="space-y-3 border-t border-gray-100 pt-5 dark:border-dark-700">
-              <TextArea
-                id="reimbursement-supplement"
-                v-model="supplementText"
-                :rows="3"
-                :label="t('reimbursement.supplementLabel')"
-                :placeholder="t('reimbursement.supplementPlaceholder')"
-                :disabled="supplementing"
-                data-test="supplement-input"
-              />
-              <div class="flex justify-end">
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  :disabled="!supplementText.trim() || busy"
-                  data-test="supplement-button"
-                  @click="handleSupplement"
-                >
-                  <Icon name="sparkles" size="md" class="mr-1" />
-                  {{ supplementing ? t('reimbursement.supplementing') : t('reimbursement.supplementButton') }}
-                </button>
+            <div class="border-t border-gray-100 px-6 py-4 dark:border-dark-700">
+              <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500">
+                {{ t('reimbursement.guide.statusTitle') }}
+              </p>
+              <div class="space-y-2">
+                <div class="flex items-center gap-3">
+                  <span class="badge badge-warning shrink-0">{{ t('reimbursement.status.pending') }}</span>
+                  <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('reimbursement.guide.pendingHint') }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="badge badge-success shrink-0">{{ t('reimbursement.status.completed') }}</span>
+                  <span class="text-xs text-gray-500 dark:text-dark-400">{{ t('reimbursement.guide.completedHint') }}</span>
+                </div>
               </div>
-            </div>
-
-            <!-- Submit -->
-            <div class="flex justify-end border-t border-gray-100 pt-5 dark:border-dark-700">
-              <button
-                type="button"
-                class="btn btn-primary"
-                :disabled="!complete || busy"
-                data-test="submit-button"
-                @click="handleSubmit"
-              >
-                <svg v-if="submitting" class="-ml-1 mr-2 h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <Icon v-else name="checkCircle" size="md" class="mr-1" />
-                {{ submitting ? t('reimbursement.submitting') : t('reimbursement.submitButton') }}
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Card 3: my requests -->
+      <!-- Row 2: parsed result (full width) -->
+      <div v-if="parseResult" class="card" data-test="result-card">
+        <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{ t('reimbursement.resultTitle') }}
+          </h2>
+          <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('reimbursement.resultHint') }}</p>
+        </div>
+        <div class="space-y-5 p-6">
+          <!-- Summary banner -->
+          <div
+            v-if="complete"
+            class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800/50 dark:bg-emerald-900/20"
+            data-test="complete-banner"
+          >
+            <Icon name="checkCircle" size="md" class="shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <p class="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+              {{ t('reimbursement.completeBanner') }}
+            </p>
+          </div>
+          <div
+            v-else
+            class="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800/50 dark:bg-amber-900/20"
+            data-test="incomplete-banner"
+          >
+            <Icon name="exclamationTriangle" size="md" class="shrink-0 text-amber-600 dark:text-amber-400" />
+            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
+              {{ t('reimbursement.incompleteBanner', { fields: missingLabels }) }}
+            </p>
+          </div>
+
+          <!-- Read-only fields: long text takes 2/3 of the row, short codes 1/3 -->
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="key in fieldKeys"
+              :key="key"
+              :class="fieldSpanClass(key)"
+              data-test="field-row"
+              :data-field="key"
+            >
+              <label class="input-label">{{ t(`reimbursement.fields.${key}`) }}</label>
+              <div
+                :class="[
+                  'input flex items-center justify-between gap-2',
+                  isMissing(key) ? 'input-error ring-2 ring-red-500/20' : ''
+                ]"
+                :title="displayValue(key)"
+              >
+                <span
+                  class="truncate"
+                  :class="isMissing(key) ? 'text-gray-400 dark:text-dark-500' : 'text-gray-900 dark:text-gray-100'"
+                >
+                  {{ displayValue(key) || '—' }}
+                </span>
+                <Icon
+                  v-if="!isMissing(key)"
+                  name="checkCircle"
+                  size="sm"
+                  class="shrink-0 text-emerald-500"
+                  :title="t('reimbursement.fieldParsed')"
+                />
+                <Icon v-else name="exclamationCircle" size="sm" class="shrink-0 text-red-500" />
+              </div>
+              <p v-if="isMissing(key)" class="input-error-text" data-test="field-missing">
+                {{ t('reimbursement.fieldMissing') }}
+              </p>
+            </div>
+          </div>
+
+          <p v-if="parseResult.notes" class="text-xs text-gray-500 dark:text-dark-400" data-test="parse-notes">
+            {{ t('reimbursement.notesLabel') }}: {{ parseResult.notes }}
+          </p>
+
+          <!-- Supplement (only when incomplete) -->
+          <div v-if="!complete" class="space-y-3 border-t border-gray-100 pt-5 dark:border-dark-700">
+            <TextArea
+              id="reimbursement-supplement"
+              v-model="supplementText"
+              :rows="3"
+              :label="t('reimbursement.supplementLabel')"
+              :placeholder="t('reimbursement.supplementPlaceholder')"
+              :disabled="supplementing"
+              data-test="supplement-input"
+            />
+            <div class="flex justify-end">
+              <button
+                type="button"
+                class="btn btn-primary"
+                :disabled="!supplementText.trim() || busy"
+                data-test="supplement-button"
+                @click="handleSupplement"
+              >
+                <Icon name="sparkles" size="md" class="mr-1" />
+                {{ supplementing ? t('reimbursement.supplementing') : t('reimbursement.supplementButton') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit -->
+          <div class="flex justify-end border-t border-gray-100 pt-5 dark:border-dark-700">
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="!complete || busy"
+              data-test="submit-button"
+              @click="handleSubmit"
+            >
+              <svg v-if="submitting" class="-ml-1 mr-2 h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+              <Icon v-else name="checkCircle" size="md" class="mr-1" />
+              {{ submitting ? t('reimbursement.submitting') : t('reimbursement.submitButton') }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: my requests (full width) -->
       <div ref="listSection" class="card" data-test="request-list">
         <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -267,7 +320,6 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import {
   reimbursementAPI,
-  REIMBURSEMENT_FIELD_KEYS,
   type ReimbursementFieldKey,
   type ReimbursementFields,
   type ReimbursementParseResult,
@@ -298,7 +350,15 @@ interface ReimbursementDraft {
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const fieldKeys = REIMBURSEMENT_FIELD_KEYS
+// 展示顺序按「长文本(占 2/3) + 短编号(占 1/3)」配对，不影响提交时的字段集合
+const fieldKeys: ReimbursementFieldKey[] = ['company_name', 'tax_id', 'bank_name', 'bank_account', 'address', 'amount']
+const guideSteps = ['paste', 'parse', 'submit', 'download'] as const
+
+function fieldSpanClass(key: ReimbursementFieldKey): string {
+  if (key === 'company_name' || key === 'bank_name') return 'lg:col-span-2'
+  if (key === 'address') return 'sm:col-span-2'
+  return ''
+}
 
 // ===== Parse state =====
 const text = ref('')
@@ -570,5 +630,14 @@ onMounted(() => {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+.paste-area :deep(> div),
+.paste-area :deep(.relative) {
+  @apply flex min-h-0 flex-1 flex-col;
+}
+
+.paste-area :deep(textarea) {
+  @apply h-full min-h-[15rem];
 }
 </style>
