@@ -92,3 +92,9 @@
 未修（有意）：发票 PDF 无异地备份（已写进 AGENTS.md 待办）；邮件模板在未配 `frontend_url` 时链接为空（与仓库既有模板一致，配了就有）；六项齐全后补充框消失（契约明文如此，重新解析入口仍在卡片一）。
 
 修复后复验：后端 gofmt/build/全量 unit 编译/定向单测/wire check/golangci-lint 全绿；前端 lint/typecheck/全量 vitest 全绿；重建二进制后 API 端到端 26 项再次全 PASS（脚本已幂等，连跑两次一致）（含清 key → 未配置 503 → 配置 → 解析 → 补充 → 提交 → 上传 → 下载）。
+
+## 上线记录（2026-09-15）
+
+- PR [#34](https://github.com/cnYui/sub2api/pull/34) squash 合并到 main（af2e6c59d），CI 12 项检查全绿；build.yml 构建多架构镜像并经 Tailscale SSH 自动部署到生产 Mac（`deploy-mac` job success）。
+- SSH 部署链路**带不上 key**：Mac 端 `deploy-mac.sh` 只换 `IMAGE_TAG` 后 `docker compose pull/up`，仓库里的 compose/.env 不同步到 Mac，且部署密钥被 `command=` 锁死。所以 key 走 settings 表：用已登录的 Chrome 后台会话在页面内 `fetch` `PUT /api/v1/admin/reimbursement/config` 写入，再 `POST .../config/test` 验证——生产返回六字段齐全、耗时 1760 ms、模型 `deepseek-flash`。
+- 生产核验：`/health` 200；`/api/v1/reimbursement/requests` 与 `/api/v1/admin/reimbursement/config` 未登录均 401（路由已存在）；管理页 `/admin/reimbursements` 可打开。

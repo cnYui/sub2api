@@ -125,11 +125,11 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
 - 商品当前只有余额套餐和流量卡；普通余额 / 旧订阅后端不再兼容，历史字段仅保留只读查询。
 
-### 报销/开票申请（2026-09-15 代码完成，待合并部署）
+### 报销/开票申请（2026-09-15 上线，PR #34）
 
 - 用户侧 `/reimbursement`，管理侧 `/admin/reimbursements`；表 `reimbursement_requests`（迁移 `214`）。状态只有 `pending`（用户侧显示「审核中」、管理侧「待处理」）和 `completed`。六字段：`company_name / tax_id / bank_account / bank_name / address / amount`。
 - 解析走 DeepSeek 官方 API，模型 ID 是 **`deepseek-flash`**（`GET https://api.deepseek.com/models` 只返回它和 `deepseek-v4-pro`，没有「flash-4」这种写法）。代码在 `service/reimbursement_llm.go`，**裸 net/http 直连、不经网关计费路径**（不扣用户余额、不写 `usage_logs`）。system prompt 在同文件常量里，已用三个真实案例验证；改 prompt 要同步跑 `TestReimbursementParser_Live`。
-- **API key 不在仓库、不在 compose 的真实值里**：三级取值 = settings 表 `reimbursement_llm_config`（后台「报销开票管理 → 解析设置」弹窗可改、无需重启）> env `REIMBURSEMENT_LLM_API_KEY / _BASE_URL / _MODEL / _TIMEOUT_MS` > 内置默认。**部署后必须在后台粘贴一次 key 并点「测试解析」**，否则 `/reimbursement/parse` 返回 `503 REIMBURSEMENT_LLM_NOT_CONFIGURED`（提交、列表、下载不受影响）。key 明文存 settings（与 `content_moderation_config`、SMTP 密码同口径），读回只给尾 4 位掩码。
+- **API key 不在仓库、不在 compose 的真实值里**：三级取值 = settings 表 `reimbursement_llm_config`（后台「报销开票管理 → 解析设置」弹窗可改、无需重启）> env `REIMBURSEMENT_LLM_API_KEY / _BASE_URL / _MODEL / _TIMEOUT_MS` > 内置默认。生产 key 已于上线当天写入 settings（后台「解析设置」可换）；若 settings 与 env 都为空， `/reimbursement/parse` 返回 `503 REIMBURSEMENT_LLM_NOT_CONFIGURED`（提交、列表、下载不受影响）。key 明文存 settings（与 `content_moderation_config`、SMTP 密码同口径），读回只给尾 4 位掩码。
 - 六字段齐全才入库（服务端二次校验，缺项 `400 REIMBURSEMENT_INCOMPLETE`）；缺失时前端只存浏览器 `localStorage` 键 `reimbursement_draft`。补充信息 = 「previous 字段 + 新文本」再喂 LLM，服务端再做防御性合并（LLM 返回 null 而 previous 有值则沿用）。用户不能手工改字段，只能用文字补充。
 - PDF 落在 `/app/data/reimbursement/<id>.pdf`（`sub2api_data` 卷，可用 `REIMBURSEMENT_PDF_DIR` 覆盖），DB 只存相对路径 + sha256 + 大小。**R2 异地备份已失效，所以发票 PDF 目前没有异地备份。** 上传是 multipart 字段 `file`，只认 `.pdf` 扩展名 + `%PDF-` 魔数、≤20MB；已完成的记录可重新上传（覆盖文件，`completed_at` 保留首次值）。
 - 上传成功后邮件通知是 best-effort（事件 `reimbursement.completed`，SMTP 未配置静默跳过），失败不回滚状态；用户侧靠列表状态与「下载 PDF」按钮。
@@ -237,7 +237,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - **`build.yml` 从未实际触发过**——需手动跑一次确认能出镜像且前端不 OOM。
 - **外部拨测未配置**——机器宕机时无人知晓。
 - **单点故障无冗余**——全部服务跑在一台家用 MacBook 上（比 VPS 时更脆：笔记本 + 家用网络 + 依赖 GUI 登录/不睡眠，见第二节 durability 与防睡眠告警）。VPS 是唯一后路（冷备，数据已冻结）。
-- **报销/开票功能生产 key 未配置**：合并部署后需管理员在后台「报销开票管理 → 解析设置」粘贴 DeepSeek key 并点「测试解析」验证一次。发票 PDF 落本机数据卷、无异地备份。实现记录见 `docs/ai/context/20260915-131500-reimbursement-invoice-feature_CN.md`。
+- **报销/开票的发票 PDF 落本机数据卷、无异地备份**（`/app/data/reimbursement/`）。功能已于 2026-09-15 上线（PR #34），DeepSeek key 已写入生产 `settings` 表并「测试解析」通过；换 key 只需在后台「报销开票管理 → 解析设置」重填。实现记录见 `docs/ai/context/20260915-131500-reimbursement-invoice-feature_CN.md`。
 - `api_base_url` 仍为空（`/keys` 页面已硬编码 `https://api.aaccx.pw/v1` 兜底，不依赖该设置）。
 - Kimi、DeepSeek 分组**名称与实际倍率不一致**，待统一。
 - `billing_reconciliation_cases` 3,933 条余额不足案件待外部逐笔账单核对。
