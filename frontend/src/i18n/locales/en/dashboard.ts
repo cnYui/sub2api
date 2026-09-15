@@ -658,6 +658,64 @@ export default {
     pleaseEnterCode: 'Please enter a redeem code'
   },
 
+  // Reimbursement / invoice information
+  reimbursement: {
+    title: 'Reimbursement / Invoice Info',
+    description: 'Paste your invoice details; six fields are extracted automatically. Submit once complete, then download the invoice PDF here after it is issued.',
+    pasteTitle: 'Paste invoice / reimbursement info',
+    pasteHint: 'Text only, no file upload. Paste the invoice details (company name, tax ID, bank account, bank name, address, amount) directly.',
+    pastePlaceholder:
+      'Example:\nCompany: Beijing Example Technology Co., Ltd.\nTax ID: 91110000XXXXXXXXXX\nBank: ICBC Beijing XX Branch\nAccount: 0200000000000000000\nAddress: No. 1 XX Road, Chaoyang District, Beijing\nAmount: 49',
+    parseButton: 'Parse',
+    parsing: 'Parsing...',
+    textRequired: 'Please paste the invoice information first',
+    parseFailed: 'Parsing failed, please try again later',
+    resultTitle: 'Parsed Result',
+    resultHint: 'Fields cannot be edited by hand; if anything is wrong or missing, add text below and parse again.',
+    fields: {
+      company_name: 'Company Name',
+      tax_id: 'Tax ID',
+      bank_account: 'Bank Account',
+      bank_name: 'Bank Name',
+      address: 'Address',
+      amount: 'Amount (CNY)'
+    },
+    fieldParsed: 'Recognized',
+    fieldMissing: 'Not recognized, please add it below',
+    completeBanner: 'All information is complete and ready to submit',
+    incompleteBanner: 'Still missing: {fields}',
+    notesLabel: 'Parser notes',
+    supplementLabel: 'Additional information',
+    supplementPlaceholder: 'e.g. The address is 12F, No. 500 Zhangyang Road, Pudong, Shanghai; amount 414.1',
+    supplementButton: 'Add and parse again',
+    supplementing: 'Parsing again...',
+    submitButton: 'Submit Request',
+    submitting: 'Submitting...',
+    submitSuccess: 'Request submitted. Once processed, the invoice PDF can be downloaded below',
+    submitFailed: 'Submission failed, please try again later',
+    restartButton: 'Start Over',
+    draftRestored: 'Restored your unsubmitted draft',
+    myRequestsTitle: 'My Requests',
+    columns: {
+      index: '#',
+      submittedAt: 'Submitted At',
+      companyName: 'Company Name',
+      taxId: 'Tax ID',
+      amount: 'Amount',
+      status: 'Status',
+      actions: 'Actions'
+    },
+    status: {
+      pending: 'Under Review',
+      completed: 'Completed'
+    },
+    downloadPdf: 'Download PDF',
+    downloadFailed: 'Download failed, please try again later',
+    noRequests: 'No requests yet',
+    noRequestsDescription: 'Paste your invoice information above and submit; requests will appear here',
+    loadFailed: 'Failed to load requests'
+  },
+
   // Profile
   profile: {
     title: 'Profile Settings',

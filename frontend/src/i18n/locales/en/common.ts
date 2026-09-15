@@ -157,6 +157,8 @@ export default {
     usage: 'Usage',
     usageGuide: 'Usage Guide',
     redeem: 'Redeem',
+    reimbursement: 'Reimbursement',
+    reimbursements: 'Reimbursements',
     affiliate: 'Affiliate Rebates',
     affiliateManagement: 'Affiliate Rebates',
     affiliateInviteRecords: 'Invite Records',

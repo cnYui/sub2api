@@ -146,6 +146,13 @@ func TestPromptAuditMutationAuditRoutesHaveStableActionsAndOmitBodies(t *testing
 	}
 }
 
+// 报销解析的请求体是用户整段粘贴的开票资料原文（银行账号、税号），
+// 键级脱敏覆盖不了自由文本，必须整体不入库；正式提交的 /requests 仍要审计。
+func TestReimbursementParseRouteOmitsAuditBody(t *testing.T) {
+	require.Contains(t, auditBodyOmittedRoutes, "POST /api/v1/reimbursement/parse")
+	require.NotContains(t, auditBodyOmittedRoutes, "POST /api/v1/reimbursement/requests")
+}
+
 func TestPasskeyLoginAuditUsesCanonicalLoginActionAndOmitsCredentialBody(t *testing.T) {
 	route := "POST /api/v1/auth/passkey/login/finish"
 	require.Equal(t, service.AuditActionLogin, auditActionOverrides[route])

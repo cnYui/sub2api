@@ -157,6 +157,9 @@ var auditBodyOmittedRoutes = map[string]struct{}{
 	"POST /api/v1/admin/prompt-audit/events/batch-delete":       {},
 	"POST /api/v1/admin/prompt-audit/events/delete-preview":     {},
 	"POST /api/v1/admin/prompt-audit/events/delete-by-filter":   {},
+	// 报销解析请求体是用户整段粘贴的开票资料原文（银行账号、税号等），键级脱敏覆盖不了；
+	// 正式提交的 /reimbursement/requests 仍保留审计。
+	"POST /api/v1/reimbursement/parse": {},
 }
 
 // NewAuditLogMiddleware 创建审计中间件。

@@ -126,6 +126,17 @@ func RegisterUserRoutes(
 			redeem.GET("/history", h.Redeem.GetHistory)
 		}
 
+		// 报销/开票信息申请
+		reimbursement := authenticated.Group("/reimbursement")
+		{
+			// 调外部 LLM 属重操作，叠加更严格的按用户限流
+			reimbursement.POST("/parse", panelRateLimiter.Heavy(), h.Reimbursement.Parse)
+			reimbursement.POST("/requests", h.Reimbursement.Create)
+			reimbursement.GET("/requests", h.Reimbursement.List)
+			reimbursement.GET("/requests/:id", h.Reimbursement.GetByID)
+			reimbursement.GET("/requests/:id/pdf", h.Reimbursement.DownloadPDF)
+		}
+
 		// 用户订阅
 		subscriptions := authenticated.Group("/subscriptions")
 		{

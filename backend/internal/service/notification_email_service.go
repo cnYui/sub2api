@@ -31,6 +31,7 @@ const (
 	NotificationEmailEventCyberPolicyNotice           = "content_moderation.cyber_policy_notice"
 	NotificationEmailEventOpsAlert                    = "ops.alert"
 	NotificationEmailEventOpsScheduledReport          = "ops.scheduled_report"
+	NotificationEmailEventReimbursementCompleted      = "reimbursement.completed"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -939,6 +940,10 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"report_start_time":   "2026-07-18T01:00:26Z",
 			"report_end_time":     "2026-07-19T01:00:26Z",
 			"report_html":         "<h2>日报</h2><p>请求量：2,374</p>",
+			"company_name":        "示例科技有限公司",
+			"amount":              "414.10",
+			"request_id":          "12",
+			"download_page_url":   "https://example.com/reimbursement",
 		}
 		addNotificationEmailOpsSummarySampleVariables(variables)
 		return variables
@@ -987,6 +992,10 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"report_start_time":   "2026-07-18T01:00:26Z",
 		"report_end_time":     "2026-07-19T01:00:26Z",
 		"report_html":         "<h2>Daily summary</h2><p>Requests: 2,374</p>",
+		"company_name":        "Example Tech Co., Ltd.",
+		"amount":              "414.10",
+		"request_id":          "12",
+		"download_page_url":   "https://example.com/reimbursement",
 	}
 	addNotificationEmailOpsSummarySampleVariables(variables)
 	return variables
@@ -1030,9 +1039,19 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventCyberPolicyNotice,
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
+	NotificationEmailEventReimbursementCompleted,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
+	NotificationEmailEventReimbursementCompleted: {
+		Event:       NotificationEmailEventReimbursementCompleted,
+		Label:       "Reimbursement invoice ready",
+		Description: "Optional notice sent to the user when an admin uploads the invoice PDF for a reimbursement request.",
+		Category:    "billing",
+		Optional:    true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"company_name", "amount", "request_id", "download_page_url", "unsubscribe_url"),
+	},
 	NotificationEmailEventAuthVerifyCode: {
 		Event:        NotificationEmailEventAuthVerifyCode,
 		Label:        "Email verification code",
@@ -1378,6 +1397,34 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 		notificationEmailLocaleChinese: {
 			Subject: "[运维报表] {{report_name}}",
 			HTML:    notificationEmailOpsScheduledReportTemplate(notificationEmailLocaleChinese),
+		},
+	},
+	NotificationEmailEventReimbursementCompleted: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] Invoice ready for request #{{request_id}}",
+			HTML: notificationEmailCard("#0f766e", "Invoice ready", `
+<p>Hello {{recipient_name}},</p>
+<p>Your reimbursement / invoice request has been completed and the invoice PDF is ready to download.</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>Request ID</td><td>#{{request_id}}</td></tr>
+  <tr><td>Company</td><td>{{company_name}}</td></tr>
+  <tr><td>Amount</td><td>¥{{amount}}</td></tr>
+</table>
+<p><a class="button" href="{{download_page_url}}">Download invoice</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from these notices</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 开票申请 #{{request_id}} 的发票已上传",
+			HTML: notificationEmailCard("#0f766e", "发票已上传", `
+<p>{{recipient_name}}，您好：</p>
+<p>您提交的报销/开票申请已处理完成，发票 PDF 已上传，可登录后在「报销/开票」页面下载。</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>申请编号</td><td>#{{request_id}}</td></tr>
+  <tr><td>开票抬头</td><td>{{company_name}}</td></tr>
+  <tr><td>金额</td><td>¥{{amount}}</td></tr>
+</table>
+<p><a class="button" href="{{download_page_url}}">前往下载</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订此类通知</a></p>`),
 		},
 	},
 }

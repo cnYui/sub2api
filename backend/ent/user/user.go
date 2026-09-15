@@ -85,6 +85,8 @@ const (
 	EdgePaymentOrders = "payment_orders"
 	// EdgeBalancePackages holds the string denoting the balance_packages edge name in mutations.
 	EdgeBalancePackages = "balance_packages"
+	// EdgeReimbursementRequests holds the string denoting the reimbursement_requests edge name in mutations.
+	EdgeReimbursementRequests = "reimbursement_requests"
 	// EdgeAuthIdentities holds the string denoting the auth_identities edge name in mutations.
 	EdgeAuthIdentities = "auth_identities"
 	// EdgePendingAuthSessions holds the string denoting the pending_auth_sessions edge name in mutations.
@@ -170,6 +172,13 @@ const (
 	BalancePackagesInverseTable = "user_balance_packages"
 	// BalancePackagesColumn is the table column denoting the balance_packages relation/edge.
 	BalancePackagesColumn = "user_id"
+	// ReimbursementRequestsTable is the table that holds the reimbursement_requests relation/edge.
+	ReimbursementRequestsTable = "reimbursement_requests"
+	// ReimbursementRequestsInverseTable is the table name for the ReimbursementRequest entity.
+	// It exists in this package in order to avoid circular dependency with the "reimbursementrequest" package.
+	ReimbursementRequestsInverseTable = "reimbursement_requests"
+	// ReimbursementRequestsColumn is the table column denoting the reimbursement_requests relation/edge.
+	ReimbursementRequestsColumn = "user_id"
 	// AuthIdentitiesTable is the table that holds the auth_identities relation/edge.
 	AuthIdentitiesTable = "auth_identities"
 	// AuthIdentitiesInverseTable is the table name for the AuthIdentity entity.
@@ -583,6 +592,20 @@ func ByBalancePackages(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByReimbursementRequestsCount orders the results by reimbursement_requests count.
+func ByReimbursementRequestsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newReimbursementRequestsStep(), opts...)
+	}
+}
+
+// ByReimbursementRequests orders the results by reimbursement_requests terms.
+func ByReimbursementRequests(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newReimbursementRequestsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAuthIdentitiesCount orders the results by auth_identities count.
 func ByAuthIdentitiesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -713,6 +736,13 @@ func newBalancePackagesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(BalancePackagesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, BalancePackagesTable, BalancePackagesColumn),
+	)
+}
+func newReimbursementRequestsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ReimbursementRequestsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ReimbursementRequestsTable, ReimbursementRequestsColumn),
 	)
 }
 func newAuthIdentitiesStep() *sqlgraph.Step {

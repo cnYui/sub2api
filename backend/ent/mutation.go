@@ -41,6 +41,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -94,6 +95,7 @@ const (
 	TypePromoCodeUsage                = "PromoCodeUsage"
 	TypeProxy                         = "Proxy"
 	TypeRedeemCode                    = "RedeemCode"
+	TypeReimbursementRequest          = "ReimbursementRequest"
 	TypeSecuritySecret                = "SecuritySecret"
 	TypeSetting                       = "Setting"
 	TypeSubscriptionPlan              = "SubscriptionPlan"
@@ -40548,6 +40550,1540 @@ func (m *RedeemCodeMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown RedeemCode edge %s", name)
 }
 
+// ReimbursementRequestMutation represents an operation that mutates the ReimbursementRequest nodes in the graph.
+type ReimbursementRequestMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int64
+	raw_text        *string
+	company_name    *string
+	tax_id          *string
+	bank_account    *string
+	bank_name       *string
+	address         *string
+	amount          *float64
+	addamount       *float64
+	status          *string
+	pdf_path        *string
+	pdf_file_name   *string
+	pdf_size        *int64
+	addpdf_size     *int64
+	pdf_sha256      *string
+	pdf_uploaded_at *time.Time
+	handled_by      *int64
+	addhandled_by   *int64
+	completed_at    *time.Time
+	notified_at     *time.Time
+	created_at      *time.Time
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	user            *int64
+	cleareduser     bool
+	done            bool
+	oldValue        func(context.Context) (*ReimbursementRequest, error)
+	predicates      []predicate.ReimbursementRequest
+}
+
+var _ ent.Mutation = (*ReimbursementRequestMutation)(nil)
+
+// reimbursementrequestOption allows management of the mutation configuration using functional options.
+type reimbursementrequestOption func(*ReimbursementRequestMutation)
+
+// newReimbursementRequestMutation creates new mutation for the ReimbursementRequest entity.
+func newReimbursementRequestMutation(c config, op Op, opts ...reimbursementrequestOption) *ReimbursementRequestMutation {
+	m := &ReimbursementRequestMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeReimbursementRequest,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withReimbursementRequestID sets the ID field of the mutation.
+func withReimbursementRequestID(id int64) reimbursementrequestOption {
+	return func(m *ReimbursementRequestMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ReimbursementRequest
+		)
+		m.oldValue = func(ctx context.Context) (*ReimbursementRequest, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ReimbursementRequest.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withReimbursementRequest sets the old ReimbursementRequest of the mutation.
+func withReimbursementRequest(node *ReimbursementRequest) reimbursementrequestOption {
+	return func(m *ReimbursementRequestMutation) {
+		m.oldValue = func(context.Context) (*ReimbursementRequest, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ReimbursementRequestMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ReimbursementRequestMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ReimbursementRequestMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ReimbursementRequestMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ReimbursementRequest.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUserID sets the "user_id" field.
+func (m *ReimbursementRequestMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *ReimbursementRequestMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *ReimbursementRequestMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetRawText sets the "raw_text" field.
+func (m *ReimbursementRequestMutation) SetRawText(s string) {
+	m.raw_text = &s
+}
+
+// RawText returns the value of the "raw_text" field in the mutation.
+func (m *ReimbursementRequestMutation) RawText() (r string, exists bool) {
+	v := m.raw_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRawText returns the old "raw_text" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldRawText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRawText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRawText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRawText: %w", err)
+	}
+	return oldValue.RawText, nil
+}
+
+// ResetRawText resets all changes to the "raw_text" field.
+func (m *ReimbursementRequestMutation) ResetRawText() {
+	m.raw_text = nil
+}
+
+// SetCompanyName sets the "company_name" field.
+func (m *ReimbursementRequestMutation) SetCompanyName(s string) {
+	m.company_name = &s
+}
+
+// CompanyName returns the value of the "company_name" field in the mutation.
+func (m *ReimbursementRequestMutation) CompanyName() (r string, exists bool) {
+	v := m.company_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompanyName returns the old "company_name" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldCompanyName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompanyName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompanyName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompanyName: %w", err)
+	}
+	return oldValue.CompanyName, nil
+}
+
+// ResetCompanyName resets all changes to the "company_name" field.
+func (m *ReimbursementRequestMutation) ResetCompanyName() {
+	m.company_name = nil
+}
+
+// SetTaxID sets the "tax_id" field.
+func (m *ReimbursementRequestMutation) SetTaxID(s string) {
+	m.tax_id = &s
+}
+
+// TaxID returns the value of the "tax_id" field in the mutation.
+func (m *ReimbursementRequestMutation) TaxID() (r string, exists bool) {
+	v := m.tax_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTaxID returns the old "tax_id" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldTaxID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTaxID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTaxID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTaxID: %w", err)
+	}
+	return oldValue.TaxID, nil
+}
+
+// ResetTaxID resets all changes to the "tax_id" field.
+func (m *ReimbursementRequestMutation) ResetTaxID() {
+	m.tax_id = nil
+}
+
+// SetBankAccount sets the "bank_account" field.
+func (m *ReimbursementRequestMutation) SetBankAccount(s string) {
+	m.bank_account = &s
+}
+
+// BankAccount returns the value of the "bank_account" field in the mutation.
+func (m *ReimbursementRequestMutation) BankAccount() (r string, exists bool) {
+	v := m.bank_account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBankAccount returns the old "bank_account" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldBankAccount(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBankAccount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBankAccount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBankAccount: %w", err)
+	}
+	return oldValue.BankAccount, nil
+}
+
+// ResetBankAccount resets all changes to the "bank_account" field.
+func (m *ReimbursementRequestMutation) ResetBankAccount() {
+	m.bank_account = nil
+}
+
+// SetBankName sets the "bank_name" field.
+func (m *ReimbursementRequestMutation) SetBankName(s string) {
+	m.bank_name = &s
+}
+
+// BankName returns the value of the "bank_name" field in the mutation.
+func (m *ReimbursementRequestMutation) BankName() (r string, exists bool) {
+	v := m.bank_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBankName returns the old "bank_name" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldBankName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBankName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBankName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBankName: %w", err)
+	}
+	return oldValue.BankName, nil
+}
+
+// ResetBankName resets all changes to the "bank_name" field.
+func (m *ReimbursementRequestMutation) ResetBankName() {
+	m.bank_name = nil
+}
+
+// SetAddress sets the "address" field.
+func (m *ReimbursementRequestMutation) SetAddress(s string) {
+	m.address = &s
+}
+
+// Address returns the value of the "address" field in the mutation.
+func (m *ReimbursementRequestMutation) Address() (r string, exists bool) {
+	v := m.address
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAddress returns the old "address" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldAddress(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAddress is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAddress requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAddress: %w", err)
+	}
+	return oldValue.Address, nil
+}
+
+// ResetAddress resets all changes to the "address" field.
+func (m *ReimbursementRequestMutation) ResetAddress() {
+	m.address = nil
+}
+
+// SetAmount sets the "amount" field.
+func (m *ReimbursementRequestMutation) SetAmount(f float64) {
+	m.amount = &f
+	m.addamount = nil
+}
+
+// Amount returns the value of the "amount" field in the mutation.
+func (m *ReimbursementRequestMutation) Amount() (r float64, exists bool) {
+	v := m.amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmount returns the old "amount" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmount: %w", err)
+	}
+	return oldValue.Amount, nil
+}
+
+// AddAmount adds f to the "amount" field.
+func (m *ReimbursementRequestMutation) AddAmount(f float64) {
+	if m.addamount != nil {
+		*m.addamount += f
+	} else {
+		m.addamount = &f
+	}
+}
+
+// AddedAmount returns the value that was added to the "amount" field in this mutation.
+func (m *ReimbursementRequestMutation) AddedAmount() (r float64, exists bool) {
+	v := m.addamount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAmount resets all changes to the "amount" field.
+func (m *ReimbursementRequestMutation) ResetAmount() {
+	m.amount = nil
+	m.addamount = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *ReimbursementRequestMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *ReimbursementRequestMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *ReimbursementRequestMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetPdfPath sets the "pdf_path" field.
+func (m *ReimbursementRequestMutation) SetPdfPath(s string) {
+	m.pdf_path = &s
+}
+
+// PdfPath returns the value of the "pdf_path" field in the mutation.
+func (m *ReimbursementRequestMutation) PdfPath() (r string, exists bool) {
+	v := m.pdf_path
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPdfPath returns the old "pdf_path" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldPdfPath(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPdfPath is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPdfPath requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPdfPath: %w", err)
+	}
+	return oldValue.PdfPath, nil
+}
+
+// ResetPdfPath resets all changes to the "pdf_path" field.
+func (m *ReimbursementRequestMutation) ResetPdfPath() {
+	m.pdf_path = nil
+}
+
+// SetPdfFileName sets the "pdf_file_name" field.
+func (m *ReimbursementRequestMutation) SetPdfFileName(s string) {
+	m.pdf_file_name = &s
+}
+
+// PdfFileName returns the value of the "pdf_file_name" field in the mutation.
+func (m *ReimbursementRequestMutation) PdfFileName() (r string, exists bool) {
+	v := m.pdf_file_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPdfFileName returns the old "pdf_file_name" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldPdfFileName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPdfFileName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPdfFileName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPdfFileName: %w", err)
+	}
+	return oldValue.PdfFileName, nil
+}
+
+// ResetPdfFileName resets all changes to the "pdf_file_name" field.
+func (m *ReimbursementRequestMutation) ResetPdfFileName() {
+	m.pdf_file_name = nil
+}
+
+// SetPdfSize sets the "pdf_size" field.
+func (m *ReimbursementRequestMutation) SetPdfSize(i int64) {
+	m.pdf_size = &i
+	m.addpdf_size = nil
+}
+
+// PdfSize returns the value of the "pdf_size" field in the mutation.
+func (m *ReimbursementRequestMutation) PdfSize() (r int64, exists bool) {
+	v := m.pdf_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPdfSize returns the old "pdf_size" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldPdfSize(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPdfSize is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPdfSize requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPdfSize: %w", err)
+	}
+	return oldValue.PdfSize, nil
+}
+
+// AddPdfSize adds i to the "pdf_size" field.
+func (m *ReimbursementRequestMutation) AddPdfSize(i int64) {
+	if m.addpdf_size != nil {
+		*m.addpdf_size += i
+	} else {
+		m.addpdf_size = &i
+	}
+}
+
+// AddedPdfSize returns the value that was added to the "pdf_size" field in this mutation.
+func (m *ReimbursementRequestMutation) AddedPdfSize() (r int64, exists bool) {
+	v := m.addpdf_size
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetPdfSize resets all changes to the "pdf_size" field.
+func (m *ReimbursementRequestMutation) ResetPdfSize() {
+	m.pdf_size = nil
+	m.addpdf_size = nil
+}
+
+// SetPdfSha256 sets the "pdf_sha256" field.
+func (m *ReimbursementRequestMutation) SetPdfSha256(s string) {
+	m.pdf_sha256 = &s
+}
+
+// PdfSha256 returns the value of the "pdf_sha256" field in the mutation.
+func (m *ReimbursementRequestMutation) PdfSha256() (r string, exists bool) {
+	v := m.pdf_sha256
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPdfSha256 returns the old "pdf_sha256" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldPdfSha256(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPdfSha256 is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPdfSha256 requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPdfSha256: %w", err)
+	}
+	return oldValue.PdfSha256, nil
+}
+
+// ResetPdfSha256 resets all changes to the "pdf_sha256" field.
+func (m *ReimbursementRequestMutation) ResetPdfSha256() {
+	m.pdf_sha256 = nil
+}
+
+// SetPdfUploadedAt sets the "pdf_uploaded_at" field.
+func (m *ReimbursementRequestMutation) SetPdfUploadedAt(t time.Time) {
+	m.pdf_uploaded_at = &t
+}
+
+// PdfUploadedAt returns the value of the "pdf_uploaded_at" field in the mutation.
+func (m *ReimbursementRequestMutation) PdfUploadedAt() (r time.Time, exists bool) {
+	v := m.pdf_uploaded_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPdfUploadedAt returns the old "pdf_uploaded_at" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldPdfUploadedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPdfUploadedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPdfUploadedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPdfUploadedAt: %w", err)
+	}
+	return oldValue.PdfUploadedAt, nil
+}
+
+// ClearPdfUploadedAt clears the value of the "pdf_uploaded_at" field.
+func (m *ReimbursementRequestMutation) ClearPdfUploadedAt() {
+	m.pdf_uploaded_at = nil
+	m.clearedFields[reimbursementrequest.FieldPdfUploadedAt] = struct{}{}
+}
+
+// PdfUploadedAtCleared returns if the "pdf_uploaded_at" field was cleared in this mutation.
+func (m *ReimbursementRequestMutation) PdfUploadedAtCleared() bool {
+	_, ok := m.clearedFields[reimbursementrequest.FieldPdfUploadedAt]
+	return ok
+}
+
+// ResetPdfUploadedAt resets all changes to the "pdf_uploaded_at" field.
+func (m *ReimbursementRequestMutation) ResetPdfUploadedAt() {
+	m.pdf_uploaded_at = nil
+	delete(m.clearedFields, reimbursementrequest.FieldPdfUploadedAt)
+}
+
+// SetHandledBy sets the "handled_by" field.
+func (m *ReimbursementRequestMutation) SetHandledBy(i int64) {
+	m.handled_by = &i
+	m.addhandled_by = nil
+}
+
+// HandledBy returns the value of the "handled_by" field in the mutation.
+func (m *ReimbursementRequestMutation) HandledBy() (r int64, exists bool) {
+	v := m.handled_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHandledBy returns the old "handled_by" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldHandledBy(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHandledBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHandledBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHandledBy: %w", err)
+	}
+	return oldValue.HandledBy, nil
+}
+
+// AddHandledBy adds i to the "handled_by" field.
+func (m *ReimbursementRequestMutation) AddHandledBy(i int64) {
+	if m.addhandled_by != nil {
+		*m.addhandled_by += i
+	} else {
+		m.addhandled_by = &i
+	}
+}
+
+// AddedHandledBy returns the value that was added to the "handled_by" field in this mutation.
+func (m *ReimbursementRequestMutation) AddedHandledBy() (r int64, exists bool) {
+	v := m.addhandled_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearHandledBy clears the value of the "handled_by" field.
+func (m *ReimbursementRequestMutation) ClearHandledBy() {
+	m.handled_by = nil
+	m.addhandled_by = nil
+	m.clearedFields[reimbursementrequest.FieldHandledBy] = struct{}{}
+}
+
+// HandledByCleared returns if the "handled_by" field was cleared in this mutation.
+func (m *ReimbursementRequestMutation) HandledByCleared() bool {
+	_, ok := m.clearedFields[reimbursementrequest.FieldHandledBy]
+	return ok
+}
+
+// ResetHandledBy resets all changes to the "handled_by" field.
+func (m *ReimbursementRequestMutation) ResetHandledBy() {
+	m.handled_by = nil
+	m.addhandled_by = nil
+	delete(m.clearedFields, reimbursementrequest.FieldHandledBy)
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *ReimbursementRequestMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *ReimbursementRequestMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *ReimbursementRequestMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[reimbursementrequest.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *ReimbursementRequestMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[reimbursementrequest.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *ReimbursementRequestMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, reimbursementrequest.FieldCompletedAt)
+}
+
+// SetNotifiedAt sets the "notified_at" field.
+func (m *ReimbursementRequestMutation) SetNotifiedAt(t time.Time) {
+	m.notified_at = &t
+}
+
+// NotifiedAt returns the value of the "notified_at" field in the mutation.
+func (m *ReimbursementRequestMutation) NotifiedAt() (r time.Time, exists bool) {
+	v := m.notified_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNotifiedAt returns the old "notified_at" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldNotifiedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNotifiedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNotifiedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNotifiedAt: %w", err)
+	}
+	return oldValue.NotifiedAt, nil
+}
+
+// ClearNotifiedAt clears the value of the "notified_at" field.
+func (m *ReimbursementRequestMutation) ClearNotifiedAt() {
+	m.notified_at = nil
+	m.clearedFields[reimbursementrequest.FieldNotifiedAt] = struct{}{}
+}
+
+// NotifiedAtCleared returns if the "notified_at" field was cleared in this mutation.
+func (m *ReimbursementRequestMutation) NotifiedAtCleared() bool {
+	_, ok := m.clearedFields[reimbursementrequest.FieldNotifiedAt]
+	return ok
+}
+
+// ResetNotifiedAt resets all changes to the "notified_at" field.
+func (m *ReimbursementRequestMutation) ResetNotifiedAt() {
+	m.notified_at = nil
+	delete(m.clearedFields, reimbursementrequest.FieldNotifiedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ReimbursementRequestMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ReimbursementRequestMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ReimbursementRequestMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *ReimbursementRequestMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *ReimbursementRequestMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the ReimbursementRequest entity.
+// If the ReimbursementRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ReimbursementRequestMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *ReimbursementRequestMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *ReimbursementRequestMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[reimbursementrequest.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *ReimbursementRequestMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *ReimbursementRequestMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *ReimbursementRequestMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the ReimbursementRequestMutation builder.
+func (m *ReimbursementRequestMutation) Where(ps ...predicate.ReimbursementRequest) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ReimbursementRequestMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ReimbursementRequestMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ReimbursementRequest, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ReimbursementRequestMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ReimbursementRequestMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ReimbursementRequest).
+func (m *ReimbursementRequestMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ReimbursementRequestMutation) Fields() []string {
+	fields := make([]string, 0, 19)
+	if m.user != nil {
+		fields = append(fields, reimbursementrequest.FieldUserID)
+	}
+	if m.raw_text != nil {
+		fields = append(fields, reimbursementrequest.FieldRawText)
+	}
+	if m.company_name != nil {
+		fields = append(fields, reimbursementrequest.FieldCompanyName)
+	}
+	if m.tax_id != nil {
+		fields = append(fields, reimbursementrequest.FieldTaxID)
+	}
+	if m.bank_account != nil {
+		fields = append(fields, reimbursementrequest.FieldBankAccount)
+	}
+	if m.bank_name != nil {
+		fields = append(fields, reimbursementrequest.FieldBankName)
+	}
+	if m.address != nil {
+		fields = append(fields, reimbursementrequest.FieldAddress)
+	}
+	if m.amount != nil {
+		fields = append(fields, reimbursementrequest.FieldAmount)
+	}
+	if m.status != nil {
+		fields = append(fields, reimbursementrequest.FieldStatus)
+	}
+	if m.pdf_path != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfPath)
+	}
+	if m.pdf_file_name != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfFileName)
+	}
+	if m.pdf_size != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfSize)
+	}
+	if m.pdf_sha256 != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfSha256)
+	}
+	if m.pdf_uploaded_at != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfUploadedAt)
+	}
+	if m.handled_by != nil {
+		fields = append(fields, reimbursementrequest.FieldHandledBy)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, reimbursementrequest.FieldCompletedAt)
+	}
+	if m.notified_at != nil {
+		fields = append(fields, reimbursementrequest.FieldNotifiedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, reimbursementrequest.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, reimbursementrequest.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ReimbursementRequestMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case reimbursementrequest.FieldUserID:
+		return m.UserID()
+	case reimbursementrequest.FieldRawText:
+		return m.RawText()
+	case reimbursementrequest.FieldCompanyName:
+		return m.CompanyName()
+	case reimbursementrequest.FieldTaxID:
+		return m.TaxID()
+	case reimbursementrequest.FieldBankAccount:
+		return m.BankAccount()
+	case reimbursementrequest.FieldBankName:
+		return m.BankName()
+	case reimbursementrequest.FieldAddress:
+		return m.Address()
+	case reimbursementrequest.FieldAmount:
+		return m.Amount()
+	case reimbursementrequest.FieldStatus:
+		return m.Status()
+	case reimbursementrequest.FieldPdfPath:
+		return m.PdfPath()
+	case reimbursementrequest.FieldPdfFileName:
+		return m.PdfFileName()
+	case reimbursementrequest.FieldPdfSize:
+		return m.PdfSize()
+	case reimbursementrequest.FieldPdfSha256:
+		return m.PdfSha256()
+	case reimbursementrequest.FieldPdfUploadedAt:
+		return m.PdfUploadedAt()
+	case reimbursementrequest.FieldHandledBy:
+		return m.HandledBy()
+	case reimbursementrequest.FieldCompletedAt:
+		return m.CompletedAt()
+	case reimbursementrequest.FieldNotifiedAt:
+		return m.NotifiedAt()
+	case reimbursementrequest.FieldCreatedAt:
+		return m.CreatedAt()
+	case reimbursementrequest.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ReimbursementRequestMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case reimbursementrequest.FieldUserID:
+		return m.OldUserID(ctx)
+	case reimbursementrequest.FieldRawText:
+		return m.OldRawText(ctx)
+	case reimbursementrequest.FieldCompanyName:
+		return m.OldCompanyName(ctx)
+	case reimbursementrequest.FieldTaxID:
+		return m.OldTaxID(ctx)
+	case reimbursementrequest.FieldBankAccount:
+		return m.OldBankAccount(ctx)
+	case reimbursementrequest.FieldBankName:
+		return m.OldBankName(ctx)
+	case reimbursementrequest.FieldAddress:
+		return m.OldAddress(ctx)
+	case reimbursementrequest.FieldAmount:
+		return m.OldAmount(ctx)
+	case reimbursementrequest.FieldStatus:
+		return m.OldStatus(ctx)
+	case reimbursementrequest.FieldPdfPath:
+		return m.OldPdfPath(ctx)
+	case reimbursementrequest.FieldPdfFileName:
+		return m.OldPdfFileName(ctx)
+	case reimbursementrequest.FieldPdfSize:
+		return m.OldPdfSize(ctx)
+	case reimbursementrequest.FieldPdfSha256:
+		return m.OldPdfSha256(ctx)
+	case reimbursementrequest.FieldPdfUploadedAt:
+		return m.OldPdfUploadedAt(ctx)
+	case reimbursementrequest.FieldHandledBy:
+		return m.OldHandledBy(ctx)
+	case reimbursementrequest.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	case reimbursementrequest.FieldNotifiedAt:
+		return m.OldNotifiedAt(ctx)
+	case reimbursementrequest.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case reimbursementrequest.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown ReimbursementRequest field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReimbursementRequestMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case reimbursementrequest.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case reimbursementrequest.FieldRawText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRawText(v)
+		return nil
+	case reimbursementrequest.FieldCompanyName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompanyName(v)
+		return nil
+	case reimbursementrequest.FieldTaxID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTaxID(v)
+		return nil
+	case reimbursementrequest.FieldBankAccount:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBankAccount(v)
+		return nil
+	case reimbursementrequest.FieldBankName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBankName(v)
+		return nil
+	case reimbursementrequest.FieldAddress:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAddress(v)
+		return nil
+	case reimbursementrequest.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmount(v)
+		return nil
+	case reimbursementrequest.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case reimbursementrequest.FieldPdfPath:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPdfPath(v)
+		return nil
+	case reimbursementrequest.FieldPdfFileName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPdfFileName(v)
+		return nil
+	case reimbursementrequest.FieldPdfSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPdfSize(v)
+		return nil
+	case reimbursementrequest.FieldPdfSha256:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPdfSha256(v)
+		return nil
+	case reimbursementrequest.FieldPdfUploadedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPdfUploadedAt(v)
+		return nil
+	case reimbursementrequest.FieldHandledBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHandledBy(v)
+		return nil
+	case reimbursementrequest.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	case reimbursementrequest.FieldNotifiedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNotifiedAt(v)
+		return nil
+	case reimbursementrequest.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case reimbursementrequest.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ReimbursementRequestMutation) AddedFields() []string {
+	var fields []string
+	if m.addamount != nil {
+		fields = append(fields, reimbursementrequest.FieldAmount)
+	}
+	if m.addpdf_size != nil {
+		fields = append(fields, reimbursementrequest.FieldPdfSize)
+	}
+	if m.addhandled_by != nil {
+		fields = append(fields, reimbursementrequest.FieldHandledBy)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ReimbursementRequestMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case reimbursementrequest.FieldAmount:
+		return m.AddedAmount()
+	case reimbursementrequest.FieldPdfSize:
+		return m.AddedPdfSize()
+	case reimbursementrequest.FieldHandledBy:
+		return m.AddedHandledBy()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ReimbursementRequestMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case reimbursementrequest.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAmount(v)
+		return nil
+	case reimbursementrequest.FieldPdfSize:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPdfSize(v)
+		return nil
+	case reimbursementrequest.FieldHandledBy:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddHandledBy(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ReimbursementRequestMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(reimbursementrequest.FieldPdfUploadedAt) {
+		fields = append(fields, reimbursementrequest.FieldPdfUploadedAt)
+	}
+	if m.FieldCleared(reimbursementrequest.FieldHandledBy) {
+		fields = append(fields, reimbursementrequest.FieldHandledBy)
+	}
+	if m.FieldCleared(reimbursementrequest.FieldCompletedAt) {
+		fields = append(fields, reimbursementrequest.FieldCompletedAt)
+	}
+	if m.FieldCleared(reimbursementrequest.FieldNotifiedAt) {
+		fields = append(fields, reimbursementrequest.FieldNotifiedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ReimbursementRequestMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ReimbursementRequestMutation) ClearField(name string) error {
+	switch name {
+	case reimbursementrequest.FieldPdfUploadedAt:
+		m.ClearPdfUploadedAt()
+		return nil
+	case reimbursementrequest.FieldHandledBy:
+		m.ClearHandledBy()
+		return nil
+	case reimbursementrequest.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	case reimbursementrequest.FieldNotifiedAt:
+		m.ClearNotifiedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ReimbursementRequestMutation) ResetField(name string) error {
+	switch name {
+	case reimbursementrequest.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case reimbursementrequest.FieldRawText:
+		m.ResetRawText()
+		return nil
+	case reimbursementrequest.FieldCompanyName:
+		m.ResetCompanyName()
+		return nil
+	case reimbursementrequest.FieldTaxID:
+		m.ResetTaxID()
+		return nil
+	case reimbursementrequest.FieldBankAccount:
+		m.ResetBankAccount()
+		return nil
+	case reimbursementrequest.FieldBankName:
+		m.ResetBankName()
+		return nil
+	case reimbursementrequest.FieldAddress:
+		m.ResetAddress()
+		return nil
+	case reimbursementrequest.FieldAmount:
+		m.ResetAmount()
+		return nil
+	case reimbursementrequest.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case reimbursementrequest.FieldPdfPath:
+		m.ResetPdfPath()
+		return nil
+	case reimbursementrequest.FieldPdfFileName:
+		m.ResetPdfFileName()
+		return nil
+	case reimbursementrequest.FieldPdfSize:
+		m.ResetPdfSize()
+		return nil
+	case reimbursementrequest.FieldPdfSha256:
+		m.ResetPdfSha256()
+		return nil
+	case reimbursementrequest.FieldPdfUploadedAt:
+		m.ResetPdfUploadedAt()
+		return nil
+	case reimbursementrequest.FieldHandledBy:
+		m.ResetHandledBy()
+		return nil
+	case reimbursementrequest.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	case reimbursementrequest.FieldNotifiedAt:
+		m.ResetNotifiedAt()
+		return nil
+	case reimbursementrequest.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case reimbursementrequest.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ReimbursementRequestMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.user != nil {
+		edges = append(edges, reimbursementrequest.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ReimbursementRequestMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case reimbursementrequest.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ReimbursementRequestMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ReimbursementRequestMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ReimbursementRequestMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.cleareduser {
+		edges = append(edges, reimbursementrequest.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ReimbursementRequestMutation) EdgeCleared(name string) bool {
+	switch name {
+	case reimbursementrequest.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ReimbursementRequestMutation) ClearEdge(name string) error {
+	switch name {
+	case reimbursementrequest.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ReimbursementRequestMutation) ResetEdge(name string) error {
+	switch name {
+	case reimbursementrequest.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown ReimbursementRequest edge %s", name)
+}
+
 // SecuritySecretMutation represents an operation that mutates the SecuritySecret nodes in the graph.
 type SecuritySecretMutation struct {
 	config
@@ -49240,6 +50776,9 @@ type UserMutation struct {
 	balance_packages              map[int64]struct{}
 	removedbalance_packages       map[int64]struct{}
 	clearedbalance_packages       bool
+	reimbursement_requests        map[int64]struct{}
+	removedreimbursement_requests map[int64]struct{}
+	clearedreimbursement_requests bool
 	auth_identities               map[int64]struct{}
 	removedauth_identities        map[int64]struct{}
 	clearedauth_identities        bool
@@ -51009,6 +52548,60 @@ func (m *UserMutation) ResetBalancePackages() {
 	m.removedbalance_packages = nil
 }
 
+// AddReimbursementRequestIDs adds the "reimbursement_requests" edge to the ReimbursementRequest entity by ids.
+func (m *UserMutation) AddReimbursementRequestIDs(ids ...int64) {
+	if m.reimbursement_requests == nil {
+		m.reimbursement_requests = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.reimbursement_requests[ids[i]] = struct{}{}
+	}
+}
+
+// ClearReimbursementRequests clears the "reimbursement_requests" edge to the ReimbursementRequest entity.
+func (m *UserMutation) ClearReimbursementRequests() {
+	m.clearedreimbursement_requests = true
+}
+
+// ReimbursementRequestsCleared reports if the "reimbursement_requests" edge to the ReimbursementRequest entity was cleared.
+func (m *UserMutation) ReimbursementRequestsCleared() bool {
+	return m.clearedreimbursement_requests
+}
+
+// RemoveReimbursementRequestIDs removes the "reimbursement_requests" edge to the ReimbursementRequest entity by IDs.
+func (m *UserMutation) RemoveReimbursementRequestIDs(ids ...int64) {
+	if m.removedreimbursement_requests == nil {
+		m.removedreimbursement_requests = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.reimbursement_requests, ids[i])
+		m.removedreimbursement_requests[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedReimbursementRequests returns the removed IDs of the "reimbursement_requests" edge to the ReimbursementRequest entity.
+func (m *UserMutation) RemovedReimbursementRequestsIDs() (ids []int64) {
+	for id := range m.removedreimbursement_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ReimbursementRequestsIDs returns the "reimbursement_requests" edge IDs in the mutation.
+func (m *UserMutation) ReimbursementRequestsIDs() (ids []int64) {
+	for id := range m.reimbursement_requests {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetReimbursementRequests resets all changes to the "reimbursement_requests" edge.
+func (m *UserMutation) ResetReimbursementRequests() {
+	m.reimbursement_requests = nil
+	m.clearedreimbursement_requests = false
+	m.removedreimbursement_requests = nil
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by ids.
 func (m *UserMutation) AddAuthIdentityIDs(ids ...int64) {
 	if m.auth_identities == nil {
@@ -51809,7 +53402,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -51842,6 +53435,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.balance_packages != nil {
 		edges = append(edges, user.EdgeBalancePackages)
+	}
+	if m.reimbursement_requests != nil {
+		edges = append(edges, user.EdgeReimbursementRequests)
 	}
 	if m.auth_identities != nil {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -51925,6 +53521,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeReimbursementRequests:
+		ids := make([]ent.Value, 0, len(m.reimbursement_requests))
+		for id := range m.reimbursement_requests {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAuthIdentities:
 		ids := make([]ent.Value, 0, len(m.auth_identities))
 		for id := range m.auth_identities {
@@ -51949,7 +53551,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -51982,6 +53584,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedbalance_packages != nil {
 		edges = append(edges, user.EdgeBalancePackages)
+	}
+	if m.removedreimbursement_requests != nil {
+		edges = append(edges, user.EdgeReimbursementRequests)
 	}
 	if m.removedauth_identities != nil {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -52065,6 +53670,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeReimbursementRequests:
+		ids := make([]ent.Value, 0, len(m.removedreimbursement_requests))
+		for id := range m.removedreimbursement_requests {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeAuthIdentities:
 		ids := make([]ent.Value, 0, len(m.removedauth_identities))
 		for id := range m.removedauth_identities {
@@ -52089,7 +53700,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -52122,6 +53733,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedbalance_packages {
 		edges = append(edges, user.EdgeBalancePackages)
+	}
+	if m.clearedreimbursement_requests {
+		edges = append(edges, user.EdgeReimbursementRequests)
 	}
 	if m.clearedauth_identities {
 		edges = append(edges, user.EdgeAuthIdentities)
@@ -52161,6 +53775,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedpayment_orders
 	case user.EdgeBalancePackages:
 		return m.clearedbalance_packages
+	case user.EdgeReimbursementRequests:
+		return m.clearedreimbursement_requests
 	case user.EdgeAuthIdentities:
 		return m.clearedauth_identities
 	case user.EdgePendingAuthSessions:
@@ -52215,6 +53831,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeBalancePackages:
 		m.ResetBalancePackages()
+		return nil
+	case user.EdgeReimbursementRequests:
+		m.ResetReimbursementRequests()
 		return nil
 	case user.EdgeAuthIdentities:
 		m.ResetAuthIdentities()

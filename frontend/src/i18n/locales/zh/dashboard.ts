@@ -663,6 +663,64 @@ export default {
     pleaseEnterCode: '请输入兑换码'
   },
 
+  // Reimbursement / invoice information
+  reimbursement: {
+    title: '报销/开票信息',
+    description: '粘贴开票资料，系统自动识别六项字段，信息齐全后提交，发票 PDF 上传后可在此下载',
+    pasteTitle: '粘贴开票/报销信息',
+    pasteHint: '只支持文字，不支持上传文件。把开票资料（公司名称、税号、银行账户、开户行、地址、金额）直接粘贴进来即可。',
+    pastePlaceholder:
+      '例如：\n名称：北京示例科技有限公司\n纳税人识别号：91110000XXXXXXXXXX\n开户行：中国工商银行股份有限公司北京某某支行\n银行账号：0200000000000000000\n地址：北京市朝阳区某某路 1 号\n金额：49',
+    parseButton: '智能解析',
+    parsing: '解析中...',
+    textRequired: '请先粘贴开票信息',
+    parseFailed: '解析失败，请稍后重试',
+    resultTitle: '解析结果',
+    resultHint: '字段不可手动编辑；若识别有误或缺失，请在下方用文字补充后重新解析。',
+    fields: {
+      company_name: '公司名称',
+      tax_id: '公司税号',
+      bank_account: '银行账户',
+      bank_name: '开户行',
+      address: '地址',
+      amount: '金额（元）'
+    },
+    fieldParsed: '已识别',
+    fieldMissing: '未识别，请在下方补充',
+    completeBanner: '信息已完整，可以提交',
+    incompleteBanner: '还缺少：{fields}',
+    notesLabel: '解析备注',
+    supplementLabel: '补充信息',
+    supplementPlaceholder: '例如：地址是上海市浦东新区张杨路 500 号 12 楼；金额 414.1',
+    supplementButton: '补充并重新解析',
+    supplementing: '重新解析中...',
+    submitButton: '提交申请',
+    submitting: '提交中...',
+    submitSuccess: '申请已提交，管理员处理完成后可在下方下载发票 PDF',
+    submitFailed: '提交失败，请稍后重试',
+    restartButton: '重新开始',
+    draftRestored: '已恢复上次未提交的草稿',
+    myRequestsTitle: '我的申请',
+    columns: {
+      index: '序号',
+      submittedAt: '提交日期',
+      companyName: '公司名称',
+      taxId: '税号',
+      amount: '金额',
+      status: '处理状态',
+      actions: '操作'
+    },
+    status: {
+      pending: '审核中',
+      completed: '已完成'
+    },
+    downloadPdf: '下载 PDF',
+    downloadFailed: '下载失败，请稍后重试',
+    noRequests: '还没有申请记录',
+    noRequestsDescription: '在上方粘贴开票信息并提交后，申请会显示在这里',
+    loadFailed: '加载申请列表失败'
+  },
+
   // Profile
   profile: {
     title: '个人设置',

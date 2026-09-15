@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -518,6 +519,21 @@ func (_c *UserCreate) AddBalancePackages(v ...*UserBalancePackage) *UserCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddBalancePackageIDs(ids...)
+}
+
+// AddReimbursementRequestIDs adds the "reimbursement_requests" edge to the ReimbursementRequest entity by IDs.
+func (_c *UserCreate) AddReimbursementRequestIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddReimbursementRequestIDs(ids...)
+	return _c
+}
+
+// AddReimbursementRequests adds the "reimbursement_requests" edges to the ReimbursementRequest entity.
+func (_c *UserCreate) AddReimbursementRequests(v ...*ReimbursementRequest) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddReimbursementRequestIDs(ids...)
 }
 
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by IDs.
@@ -1057,6 +1073,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userbalancepackage.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ReimbursementRequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

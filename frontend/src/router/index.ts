@@ -266,6 +266,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/reimbursement',
+    name: 'Reimbursement',
+    component: () => import('@/views/user/ReimbursementView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Reimbursement',
+      titleKey: 'reimbursement.title',
+      descriptionKey: 'reimbursement.description'
+    }
+  },
+  {
     path: '/affiliate',
     name: 'Affiliate',
     component: () => import('@/views/user/AffiliateView.vue'),
@@ -571,6 +583,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Redeem Code Management',
       titleKey: 'admin.redeem.title',
       descriptionKey: 'admin.redeem.description'
+    }
+  },
+  {
+    path: '/admin/reimbursements',
+    name: 'AdminReimbursements',
+    component: () => import('@/views/admin/ReimbursementsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Reimbursement Requests',
+      titleKey: 'admin.reimbursements.title',
+      descriptionKey: 'admin.reimbursements.description'
     }
   },
   {
@@ -929,8 +953,10 @@ router.beforeEach(async (to, _from, next) => {
       '/admin/groups',
       '/admin/subscriptions',
       '/admin/redeem',
+      '/admin/reimbursements',
       '/subscriptions',
-      '/redeem'
+      '/redeem',
+      '/reimbursement'
     ]
 
     if (restrictedPaths.some((path) => to.path.startsWith(path))) {
