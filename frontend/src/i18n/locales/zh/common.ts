@@ -157,6 +157,8 @@ export default {
     usage: '使用记录',
     usageGuide: '使用方法',
     redeem: '兑换',
+    reimbursement: '报销开票',
+    reimbursements: '报销开票管理',
     affiliate: '邀请返利',
     affiliateManagement: '邀请返利',
     affiliateInviteRecords: '邀请记录',

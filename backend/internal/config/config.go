@@ -100,6 +100,7 @@ type Config struct {
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
 	BatchImage              BatchImageConfig              `mapstructure:"batch_image"`
 	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
+	Reimbursement           ReimbursementConfig           `mapstructure:"reimbursement"`
 }
 
 type LogConfig struct {
@@ -273,6 +274,22 @@ func (c *ImageStorageConfig) MissingCredentialKeys() []string {
 		missing = append(missing, "image_storage.secret_access_key")
 	}
 	return missing
+}
+
+// ReimbursementConfig 是报销/开票信息解析功能的 env/config 级配置。
+// settings 表里的 reimbursement_llm_config 优先于这里的值，这里只作兜底，
+// 便于纯 env 部署时不进后台也能把 DeepSeek key 配上。
+type ReimbursementConfig struct {
+	LLMAPIKey    string `mapstructure:"llm_api_key"`
+	LLMBaseURL   string `mapstructure:"llm_base_url"`   // 默认 https://api.deepseek.com
+	LLMModel     string `mapstructure:"llm_model"`      // 默认 deepseek-flash
+	LLMTimeoutMS int    `mapstructure:"llm_timeout_ms"` // 默认 60000
+	PDFDir       string `mapstructure:"pdf_dir"`        // 为空则 <pricing.data_dir>/reimbursement
+}
+
+// LLMConfigured 返回 env 级是否提供了 DeepSeek API key。
+func (c *ReimbursementConfig) LLMConfigured() bool {
+	return strings.TrimSpace(c.LLMAPIKey) != ""
 }
 
 type LinuxDoConnectConfig struct {
@@ -2120,6 +2137,14 @@ func setDefaults() {
 	viper.SetDefault("image_storage.access_key_id", "")
 	viper.SetDefault("image_storage.secret_access_key", "")
 	viper.SetDefault("image_storage.public_base_url", "")
+
+	// Reimbursement (报销/开票信息解析)
+	// 每个键都要 SetDefault 注册，否则纯 env 部署下 REIMBURSEMENT_* 会被静默丢弃。
+	viper.SetDefault("reimbursement.llm_api_key", "")
+	viper.SetDefault("reimbursement.llm_base_url", "https://api.deepseek.com")
+	viper.SetDefault("reimbursement.llm_model", "deepseek-flash")
+	viper.SetDefault("reimbursement.llm_timeout_ms", 60000)
+	viper.SetDefault("reimbursement.pdf_dir", "")
 
 	// Ops (vNext)
 	viper.SetDefault("ops.enabled", true)

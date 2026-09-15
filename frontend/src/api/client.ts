@@ -99,6 +99,21 @@ apiClient.interceptors.request.use(
 
 // ==================== Response Interceptor ====================
 
+// responseType 为 blob 时后端的 JSON 错误体也会被包成 Blob，直接当对象用取不到 message，
+// 最终只剩 axios 的「Request failed with status code N」；这里先还原成对象，任何一步失败都退回原值
+async function unwrapBlobErrorBody(data: unknown): Promise<unknown> {
+  try {
+    if (typeof Blob === 'undefined' || !(data instanceof Blob)) return data
+    if (!String(data.type || '').includes('json')) return data
+    const blob = data as Blob & { text?: () => Promise<string> }
+    if (typeof blob.text !== 'function') return data
+    const parsed: unknown = JSON.parse(await blob.text())
+    return typeof parsed === 'object' && parsed !== null ? parsed : data
+  } catch {
+    return data
+  }
+}
+
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     // Unwrap standard API response format { code, message, data }
@@ -132,7 +147,8 @@ apiClient.interceptors.response.use(
 
     // Handle common errors
     if (error.response) {
-      const { status, data } = error.response
+      const { status } = error.response
+      const data = await unwrapBlobErrorBody(error.response.data)
       const url = String(error.config?.url || '')
 
       // Validate `data` shape to avoid HTML error pages breaking our error handling.

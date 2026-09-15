@@ -1638,6 +1638,29 @@ func HasBalancePackagesWith(preds ...predicate.UserBalancePackage) predicate.Use
 	})
 }
 
+// HasReimbursementRequests applies the HasEdge predicate on the "reimbursement_requests" edge.
+func HasReimbursementRequests() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, ReimbursementRequestsTable, ReimbursementRequestsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasReimbursementRequestsWith applies the HasEdge predicate on the "reimbursement_requests" edge with a given conditions (other predicates).
+func HasReimbursementRequestsWith(preds ...predicate.ReimbursementRequest) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newReimbursementRequestsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAuthIdentities applies the HasEdge predicate on the "auth_identities" edge.
 func HasAuthIdentities() predicate.User {
 	return predicate.User(func(s *sql.Selector) {

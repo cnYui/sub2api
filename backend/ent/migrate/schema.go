@@ -1529,6 +1529,55 @@ var (
 			},
 		},
 	}
+	// ReimbursementRequestsColumns holds the columns for the "reimbursement_requests" table.
+	ReimbursementRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "raw_text", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "company_name", Type: field.TypeString, Size: 255},
+		{Name: "tax_id", Type: field.TypeString, Size: 64},
+		{Name: "bank_account", Type: field.TypeString, Size: 64},
+		{Name: "bank_name", Type: field.TypeString, Size: 255},
+		{Name: "address", Type: field.TypeString, Size: 500},
+		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "pending"},
+		{Name: "pdf_path", Type: field.TypeString, Size: 500, Default: ""},
+		{Name: "pdf_file_name", Type: field.TypeString, Size: 255, Default: ""},
+		{Name: "pdf_size", Type: field.TypeInt64, Default: 0},
+		{Name: "pdf_sha256", Type: field.TypeString, Size: 64, Default: ""},
+		{Name: "pdf_uploaded_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "handled_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "completed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "notified_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// ReimbursementRequestsTable holds the schema information for the "reimbursement_requests" table.
+	ReimbursementRequestsTable = &schema.Table{
+		Name:       "reimbursement_requests",
+		Columns:    ReimbursementRequestsColumns,
+		PrimaryKey: []*schema.Column{ReimbursementRequestsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "reimbursement_requests_users_reimbursement_requests",
+				Columns:    []*schema.Column{ReimbursementRequestsColumns[19]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "reimbursementrequest_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ReimbursementRequestsColumns[19], ReimbursementRequestsColumns[17]},
+			},
+			{
+				Name:    "reimbursementrequest_status_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{ReimbursementRequestsColumns[8], ReimbursementRequestsColumns[17]},
+			},
+		},
+	}
 	// SecuritySecretsColumns holds the columns for the "security_secrets" table.
 	SecuritySecretsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2179,6 +2228,7 @@ var (
 		PromoCodeUsagesTable,
 		ProxiesTable,
 		RedeemCodesTable,
+		ReimbursementRequestsTable,
 		SecuritySecretsTable,
 		SettingsTable,
 		SubscriptionPlansTable,
@@ -2302,6 +2352,10 @@ func init() {
 	RedeemCodesTable.ForeignKeys[1].RefTable = UsersTable
 	RedeemCodesTable.Annotation = &entsql.Annotation{
 		Table: "redeem_codes",
+	}
+	ReimbursementRequestsTable.ForeignKeys[0].RefTable = UsersTable
+	ReimbursementRequestsTable.Annotation = &entsql.Annotation{
+		Table: "reimbursement_requests",
 	}
 	SecuritySecretsTable.Annotation = &entsql.Annotation{
 		Table: "security_secrets",

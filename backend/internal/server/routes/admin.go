@@ -66,6 +66,9 @@ func RegisterAdminRoutes(
 		// 优惠码管理
 		registerPromoCodeRoutes(admin, h)
 
+		// 报销/开票申请管理
+		registerReimbursementRoutes(admin, h)
+
 		// 系统设置
 		registerSettingsRoutes(admin, h)
 
@@ -424,6 +427,20 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)
 		announcements.GET("/:id/read-status", h.Admin.Announcement.ListReadStatus)
+	}
+}
+
+func registerReimbursementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	reimbursement := admin.Group("/reimbursement")
+	{
+		reimbursement.GET("/requests", h.Admin.Reimbursement.List)
+		reimbursement.GET("/requests/:id", h.Admin.Reimbursement.GetByID)
+		// PDF 上限 20MB，路由级再放宽 1MB 容纳 multipart 边界与表单头
+		reimbursement.POST("/requests/:id/pdf", middleware.RequestBodyLimit(21<<20), h.Admin.Reimbursement.UploadPDF)
+		reimbursement.GET("/requests/:id/pdf", h.Admin.Reimbursement.DownloadPDF)
+		reimbursement.GET("/config", h.Admin.Reimbursement.GetConfig)
+		reimbursement.PUT("/config", h.Admin.Reimbursement.UpdateConfig)
+		reimbursement.POST("/config/test", h.Admin.Reimbursement.TestConfig)
 	}
 }
 

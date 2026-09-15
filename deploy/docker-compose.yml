@@ -112,6 +112,17 @@ services:
       - TOTP_ENCRYPTION_KEY=${TOTP_ENCRYPTION_KEY:-}
 
       # =======================================================================
+      # Reimbursement / Invoice info parsing (DeepSeek, OpenAI-compatible)
+      # Admin panel settings (reimbursement_llm_config) override these; env is
+      # only the fallback. NEVER put a real key in this file, use .env.
+      # =======================================================================
+      - REIMBURSEMENT_LLM_API_KEY=${REIMBURSEMENT_LLM_API_KEY:-}
+      - REIMBURSEMENT_LLM_BASE_URL=${REIMBURSEMENT_LLM_BASE_URL:-https://api.deepseek.com}
+      - REIMBURSEMENT_LLM_MODEL=${REIMBURSEMENT_LLM_MODEL:-deepseek-flash}
+      - REIMBURSEMENT_LLM_TIMEOUT_MS=${REIMBURSEMENT_LLM_TIMEOUT_MS:-60000}
+      - REIMBURSEMENT_PDF_DIR=${REIMBURSEMENT_PDF_DIR:-}
+
+      # =======================================================================
       # Timezone Configuration
       # This affects ALL time operations in the application:
       # - Database timestamps

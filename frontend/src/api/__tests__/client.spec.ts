@@ -305,6 +305,79 @@ describe('API Client', () => {
 
       window.removeEventListener('admin-compliance-required', listener)
     })
+
+    // jsdom 的 Blob 可能没有 text()，这里按需补上，模拟浏览器行为
+    function makeJsonBlob(body: string, type = 'application/json'): Blob {
+      const blob = new Blob([body], { type })
+      if (typeof (blob as Blob & { text?: unknown }).text !== 'function') {
+        Object.defineProperty(blob, 'text', { value: async () => body, configurable: true })
+      }
+      return blob
+    }
+
+    function rejectWithBlob(status: number, blob: Blob) {
+      return vi.fn().mockRejectedValue({
+        response: { status, data: blob },
+        config: { url: '/reimbursement/requests/2/pdf', headers: {} },
+        code: 'ERR_BAD_REQUEST',
+        message: `Request failed with status code ${status}`,
+      })
+    }
+
+    it('responseType=blob 时把 JSON 错误体还原成结构化错误', async () => {
+      apiClient.defaults.adapter = rejectWithBlob(
+        404,
+        makeJsonBlob(
+          JSON.stringify({
+            code: 404,
+            message: 'pdf not ready',
+            reason: 'REIMBURSEMENT_PDF_NOT_READY',
+            metadata: { id: 2 },
+          })
+        )
+      )
+
+      await expect(
+        apiClient.get('/reimbursement/requests/2/pdf', { responseType: 'blob' })
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 404,
+          code: 404,
+          message: 'pdf not ready',
+          reason: 'REIMBURSEMENT_PDF_NOT_READY',
+          metadata: { id: 2 },
+        })
+      )
+    })
+
+    it('Blob 错误体不是合法 JSON 时退回 axios 原始 message', async () => {
+      apiClient.defaults.adapter = rejectWithBlob(404, makeJsonBlob('<html>not json</html>'))
+
+      await expect(
+        apiClient.get('/reimbursement/requests/2/pdf', { responseType: 'blob' })
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 404,
+          message: 'Request failed with status code 404',
+        })
+      )
+    })
+
+    it('非 JSON 类型的 Blob 错误体不解析，退回 axios 原始 message', async () => {
+      apiClient.defaults.adapter = rejectWithBlob(
+        500,
+        makeJsonBlob(JSON.stringify({ message: 'should not be parsed' }), 'application/pdf')
+      )
+
+      await expect(
+        apiClient.get('/reimbursement/requests/2/pdf', { responseType: 'blob' })
+      ).rejects.toEqual(
+        expect.objectContaining({
+          status: 500,
+          message: 'Request failed with status code 500',
+        })
+      )
+    })
   })
 
   // --- 401 Token 刷新 ---

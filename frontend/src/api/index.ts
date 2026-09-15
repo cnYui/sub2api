@@ -14,6 +14,14 @@ export { keysAPI } from './keys'
 export { usageAPI } from './usage'
 export { userAPI } from './user'
 export { redeemAPI, type RedeemHistoryItem } from './redeem'
+export {
+  reimbursementAPI,
+  type ReimbursementFields,
+  type ReimbursementFieldKey,
+  type ReimbursementParseResult,
+  type ReimbursementRequest,
+  type ReimbursementStatus
+} from './reimbursement'
 export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'

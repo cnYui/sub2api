@@ -33,6 +33,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/schema"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
@@ -1805,6 +1806,70 @@ func init() {
 	redeemcodeDescValidityDays := redeemcodeFields[10].Descriptor()
 	// redeemcode.DefaultValidityDays holds the default value on creation for the validity_days field.
 	redeemcode.DefaultValidityDays = redeemcodeDescValidityDays.Default.(int)
+	reimbursementrequestFields := schema.ReimbursementRequest{}.Fields()
+	_ = reimbursementrequestFields
+	// reimbursementrequestDescRawText is the schema descriptor for raw_text field.
+	reimbursementrequestDescRawText := reimbursementrequestFields[1].Descriptor()
+	// reimbursementrequest.DefaultRawText holds the default value on creation for the raw_text field.
+	reimbursementrequest.DefaultRawText = reimbursementrequestDescRawText.Default.(string)
+	// reimbursementrequestDescCompanyName is the schema descriptor for company_name field.
+	reimbursementrequestDescCompanyName := reimbursementrequestFields[2].Descriptor()
+	// reimbursementrequest.CompanyNameValidator is a validator for the "company_name" field. It is called by the builders before save.
+	reimbursementrequest.CompanyNameValidator = reimbursementrequestDescCompanyName.Validators[0].(func(string) error)
+	// reimbursementrequestDescTaxID is the schema descriptor for tax_id field.
+	reimbursementrequestDescTaxID := reimbursementrequestFields[3].Descriptor()
+	// reimbursementrequest.TaxIDValidator is a validator for the "tax_id" field. It is called by the builders before save.
+	reimbursementrequest.TaxIDValidator = reimbursementrequestDescTaxID.Validators[0].(func(string) error)
+	// reimbursementrequestDescBankAccount is the schema descriptor for bank_account field.
+	reimbursementrequestDescBankAccount := reimbursementrequestFields[4].Descriptor()
+	// reimbursementrequest.BankAccountValidator is a validator for the "bank_account" field. It is called by the builders before save.
+	reimbursementrequest.BankAccountValidator = reimbursementrequestDescBankAccount.Validators[0].(func(string) error)
+	// reimbursementrequestDescBankName is the schema descriptor for bank_name field.
+	reimbursementrequestDescBankName := reimbursementrequestFields[5].Descriptor()
+	// reimbursementrequest.BankNameValidator is a validator for the "bank_name" field. It is called by the builders before save.
+	reimbursementrequest.BankNameValidator = reimbursementrequestDescBankName.Validators[0].(func(string) error)
+	// reimbursementrequestDescAddress is the schema descriptor for address field.
+	reimbursementrequestDescAddress := reimbursementrequestFields[6].Descriptor()
+	// reimbursementrequest.AddressValidator is a validator for the "address" field. It is called by the builders before save.
+	reimbursementrequest.AddressValidator = reimbursementrequestDescAddress.Validators[0].(func(string) error)
+	// reimbursementrequestDescStatus is the schema descriptor for status field.
+	reimbursementrequestDescStatus := reimbursementrequestFields[8].Descriptor()
+	// reimbursementrequest.DefaultStatus holds the default value on creation for the status field.
+	reimbursementrequest.DefaultStatus = reimbursementrequestDescStatus.Default.(string)
+	// reimbursementrequest.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	reimbursementrequest.StatusValidator = reimbursementrequestDescStatus.Validators[0].(func(string) error)
+	// reimbursementrequestDescPdfPath is the schema descriptor for pdf_path field.
+	reimbursementrequestDescPdfPath := reimbursementrequestFields[9].Descriptor()
+	// reimbursementrequest.DefaultPdfPath holds the default value on creation for the pdf_path field.
+	reimbursementrequest.DefaultPdfPath = reimbursementrequestDescPdfPath.Default.(string)
+	// reimbursementrequest.PdfPathValidator is a validator for the "pdf_path" field. It is called by the builders before save.
+	reimbursementrequest.PdfPathValidator = reimbursementrequestDescPdfPath.Validators[0].(func(string) error)
+	// reimbursementrequestDescPdfFileName is the schema descriptor for pdf_file_name field.
+	reimbursementrequestDescPdfFileName := reimbursementrequestFields[10].Descriptor()
+	// reimbursementrequest.DefaultPdfFileName holds the default value on creation for the pdf_file_name field.
+	reimbursementrequest.DefaultPdfFileName = reimbursementrequestDescPdfFileName.Default.(string)
+	// reimbursementrequest.PdfFileNameValidator is a validator for the "pdf_file_name" field. It is called by the builders before save.
+	reimbursementrequest.PdfFileNameValidator = reimbursementrequestDescPdfFileName.Validators[0].(func(string) error)
+	// reimbursementrequestDescPdfSize is the schema descriptor for pdf_size field.
+	reimbursementrequestDescPdfSize := reimbursementrequestFields[11].Descriptor()
+	// reimbursementrequest.DefaultPdfSize holds the default value on creation for the pdf_size field.
+	reimbursementrequest.DefaultPdfSize = reimbursementrequestDescPdfSize.Default.(int64)
+	// reimbursementrequestDescPdfSha256 is the schema descriptor for pdf_sha256 field.
+	reimbursementrequestDescPdfSha256 := reimbursementrequestFields[12].Descriptor()
+	// reimbursementrequest.DefaultPdfSha256 holds the default value on creation for the pdf_sha256 field.
+	reimbursementrequest.DefaultPdfSha256 = reimbursementrequestDescPdfSha256.Default.(string)
+	// reimbursementrequest.PdfSha256Validator is a validator for the "pdf_sha256" field. It is called by the builders before save.
+	reimbursementrequest.PdfSha256Validator = reimbursementrequestDescPdfSha256.Validators[0].(func(string) error)
+	// reimbursementrequestDescCreatedAt is the schema descriptor for created_at field.
+	reimbursementrequestDescCreatedAt := reimbursementrequestFields[17].Descriptor()
+	// reimbursementrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	reimbursementrequest.DefaultCreatedAt = reimbursementrequestDescCreatedAt.Default.(func() time.Time)
+	// reimbursementrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	reimbursementrequestDescUpdatedAt := reimbursementrequestFields[18].Descriptor()
+	// reimbursementrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	reimbursementrequest.DefaultUpdatedAt = reimbursementrequestDescUpdatedAt.Default.(func() time.Time)
+	// reimbursementrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	reimbursementrequest.UpdateDefaultUpdatedAt = reimbursementrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
 	securitysecretMixin := schema.SecuritySecret{}.Mixin()
 	securitysecretMixinFields0 := securitysecretMixin[0].Fields()
 	_ = securitysecretMixinFields0

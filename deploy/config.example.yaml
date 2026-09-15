@@ -1293,3 +1293,25 @@ image_storage:
   presign_expiry_hours: 24
   # 当上游返回的是图片 url 时，下载该图片再转存的字节上限（默认 32MB）
   max_download_bytes: 33554432
+
+# =============================================================================
+# Reimbursement / Invoice Info Parsing (报销/开票信息解析)
+# =============================================================================
+# 用户在「报销/开票」页粘贴文本，后端调用 DeepSeek（OpenAI 兼容 chat/completions）
+# 抽取公司名称、税号、银行账户、开户行、地址、金额 6 个字段。
+#
+# 生效优先级：后台「解析设置」（settings 表 reimbursement_llm_config）> 这里 / 环境变量
+# REIMBURSEMENT_* > 内置默认值。API key 两处都为空时解析接口返回 503，其余功能不受影响。
+#
+# 安全：本文件会被提交进公开仓库，llm_api_key 永远留空，真实 key 只写进 .env 或后台。
+reimbursement:
+  # DeepSeek API key（留空；由 REIMBURSEMENT_LLM_API_KEY 或后台配置提供）
+  llm_api_key: ""
+  # OpenAI 兼容端点根地址，服务端会拼接 /chat/completions
+  llm_base_url: "https://api.deepseek.com"
+  # 模型 ID（DeepSeek 当前可用：deepseek-flash / deepseek-v4-pro）
+  llm_model: "deepseek-flash"
+  # 单次解析超时（毫秒），允许范围 5000~120000
+  llm_timeout_ms: 60000
+  # 管理员上传的发票 PDF 存放目录；留空则用 <pricing.data_dir>/reimbursement（容器内 /app/data/reimbursement）
+  pdf_dir: ""

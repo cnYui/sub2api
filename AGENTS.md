@@ -25,7 +25,7 @@
 - **数据库运维手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`（psql 用法、写操作事务模板、表结构坑、缓存失效、核验清单）。**动生产数据库前先读它。** 注意：**当前生效的生产库在 Mac 上**（`~/.orbstack/bin/docker exec sub2api-postgres psql …`），手册的 psql/事务模板通用，只是连接方式换成 Mac；手册里的 VPS 连接方式仅在回滚后才相关。
 - **部署/换镜像**：生产已迁到 Mac（见第二节）。换版本在 `~/sub2api` 改 `.env` 的 `IMAGE_TAG`（或 `~/.orbstack/bin/docker compose … pull`）再 `docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。VPS 侧 GHCR 首切文档 `docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`（用 `docker-compose.vps.yml`）仅回滚时参考。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
-- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `212`。
+- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `214`。
 
 ## 二、当前部署拓扑（2026-09-08：已从 VPS 迁到日本 MacBook）
 
@@ -125,6 +125,17 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
 - 商品当前只有余额套餐和流量卡；普通余额 / 旧订阅后端不再兼容，历史字段仅保留只读查询。
 
+### 报销/开票申请（2026-09-15 代码完成，待合并部署）
+
+- 用户侧 `/reimbursement`，管理侧 `/admin/reimbursements`；表 `reimbursement_requests`（迁移 `214`）。状态只有 `pending`（用户侧显示「审核中」、管理侧「待处理」）和 `completed`。六字段：`company_name / tax_id / bank_account / bank_name / address / amount`。
+- 解析走 DeepSeek 官方 API，模型 ID 是 **`deepseek-flash`**（`GET https://api.deepseek.com/models` 只返回它和 `deepseek-v4-pro`，没有「flash-4」这种写法）。代码在 `service/reimbursement_llm.go`，**裸 net/http 直连、不经网关计费路径**（不扣用户余额、不写 `usage_logs`）。system prompt 在同文件常量里，已用三个真实案例验证；改 prompt 要同步跑 `TestReimbursementParser_Live`。
+- **API key 不在仓库、不在 compose 的真实值里**：三级取值 = settings 表 `reimbursement_llm_config`（后台「报销开票管理 → 解析设置」弹窗可改、无需重启）> env `REIMBURSEMENT_LLM_API_KEY / _BASE_URL / _MODEL / _TIMEOUT_MS` > 内置默认。**部署后必须在后台粘贴一次 key 并点「测试解析」**，否则 `/reimbursement/parse` 返回 `503 REIMBURSEMENT_LLM_NOT_CONFIGURED`（提交、列表、下载不受影响）。key 明文存 settings（与 `content_moderation_config`、SMTP 密码同口径），读回只给尾 4 位掩码。
+- 六字段齐全才入库（服务端二次校验，缺项 `400 REIMBURSEMENT_INCOMPLETE`）；缺失时前端只存浏览器 `localStorage` 键 `reimbursement_draft`。补充信息 = 「previous 字段 + 新文本」再喂 LLM，服务端再做防御性合并（LLM 返回 null 而 previous 有值则沿用）。用户不能手工改字段，只能用文字补充。
+- PDF 落在 `/app/data/reimbursement/<id>.pdf`（`sub2api_data` 卷，可用 `REIMBURSEMENT_PDF_DIR` 覆盖），DB 只存相对路径 + sha256 + 大小。**R2 异地备份已失效，所以发票 PDF 目前没有异地备份。** 上传是 multipart 字段 `file`，只认 `.pdf` 扩展名 + `%PDF-` 魔数、≤20MB；已完成的记录可重新上传（覆盖文件，`completed_at` 保留首次值）。
+- 上传成功后邮件通知是 best-effort（事件 `reimbursement.completed`，SMTP 未配置静默跳过），失败不回滚状态；用户侧靠列表状态与「下载 PDF」按钮。
+- 管理端列表默认 `created_at asc`（需求：按提交时间从早到晚），用户端列表 desc。`parse` 端点挂了 `panelRateLimiter.Heavy()`。
+- 管理端 `/api/v1/admin/reimbursement/*` 同样接受 admin `x-api-key`，不挂 step-up。
+
 ## 五、坑
 
 1. **`BIND_HOST`**：基础 compose 写的是 `"${BIND_HOST:-0.0.0.0}:..."`。漏掉 `-f docker-compose.vps.yml` 就会真的绕过 UFW 把端口暴露到公网。现有三层防护：`.env` 改为 `127.0.0.1`、vps override、`DOCKER-USER` 兜底。
@@ -148,7 +159,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 19. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
 20. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。**但「加」模型 UI 是安全的**：编辑弹窗底部有 `自定义模型名称` 输入框 + `填入` 按钮，不碰 chip。同一弹窗里 `同步最新支持模型` / `同步上游支持的模型` 会用上游清单**整体替换**白名单（对 ai-genesis 账号 = 放进图像模型并删掉四个在售条目），`清除所有模型` 字面意思，三个都别碰。提交后按钮会卡在「更新中...」但 toast 已报成功、数据已落库，**不要重复提交**；**分组编辑弹窗是同款症状**——`PUT` 已返回 200、数据已落库，按钮却长期停在「更新中...」。
 21. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
-22. **「提前刷新周额度」没有 API 也没有 UI，只能直连数据库**。管理侧 `balance-packages` 只有 `list`/`grant`/`resume-debt-paused`；`grant` 是新建套餐、`POST /admin/users/:id/balance` 只改余额数字。**用后者变通会导致 `next_credit_at` 不推进，定时任务到原日期重复发放**，且不写审计。正确做法是单个 SERIALIZABLE 事务：锁「用户→套餐→订单」、校验幂等（`payment_audit_logs` 对 `(order_id, action)` 唯一）、按锁内实时值算 `creditDueBalance`、`next_credit_at` 取「原值 + interval」保持节奏、`starts_at` 不动、`balance_debt_ledger` 有 `amount_usd > 0` 约束故无欠费时不可写入。模板见 `docs/ai/context/20260905-172724-user565-early-weekly-credit-execution_CN.md`。
+22. **「提前刷新周额度」走专用端点，别手写 SQL、更别拿「改余额」变通**。`POST /api/v1/admin/payment/balance-packages/{package_id}/credit-next`（`package_id` = `user_balance_packages.id`；2026-09-08 上线，09-09 首次生产验证，09-12 双用户复用）：一次只发一期、金额按锁内实时值算、DB 级幂等（`payment_audit_logs` 对 `(order_id, action)` 唯一）、`next_credit_at` 取「原值 + interval」保持节奏、末期自动置 `completed` 并清空 `next_credit_at`；审计、`balance_debt_ledger` 欠费抵扣、余额缓存 + API Key 鉴权快照失效全在事务内完成。**前端仍无按钮**，只能用 admin `x-api-key` 直调（key 在 `settings` 表 `admin_api_key`，现只能从生产 Mac 的库里读，VPS 那条路已作废）。⚠️ **不要为「验证」重复调**：请求级幂等只在短 TTL 内去重，TTL 过后再调 = 发下一期（多发），不是无操作。`POST /admin/users/:id/balance` 变通会让 `next_credit_at` 不推进、定时任务到原日期重复发放且不写审计——永远别用。历史手写 SERIALIZABLE 事务模板仅在端点不可用时参考：`docs/ai/context/20260905-172724-user565-early-weekly-credit-execution_CN.md`；最近一次执行记录 `docs/ai/context/20260912-163044-dingsong212-2410748989-early-weekly-credit-mac_CN.md`。
 
 23. **`schema_migrations` 行数多于迁移文件数是正常的**，不能据此判断代码来源。生产已应用 284 条而仓库只有 258 个文件，多出的 26 条是数据库从旧实例 pg_restore 带来的历史痕迹（旧实例跑过更新的上游构建）。迁移运行器只执行「文件存在但未应用」的，多余的行不影响启动。**据此误判过两次**：先认为「生产跑的不是本仓库代码」，再认为「部署本仓库是降级、须先合并落后 1095 提交的上游」，甚至已 merge 出 47 个冲突才发现搞错。判断代码来源要去看 `${OPS_DEPLOY_DIR}/src` 的实际文件，不看迁移行数。
 
@@ -226,6 +237,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - **`build.yml` 从未实际触发过**——需手动跑一次确认能出镜像且前端不 OOM。
 - **外部拨测未配置**——机器宕机时无人知晓。
 - **单点故障无冗余**——全部服务跑在一台家用 MacBook 上（比 VPS 时更脆：笔记本 + 家用网络 + 依赖 GUI 登录/不睡眠，见第二节 durability 与防睡眠告警）。VPS 是唯一后路（冷备，数据已冻结）。
+- **报销/开票功能生产 key 未配置**：合并部署后需管理员在后台「报销开票管理 → 解析设置」粘贴 DeepSeek key 并点「测试解析」验证一次。发票 PDF 落本机数据卷、无异地备份。实现记录见 `docs/ai/context/20260915-131500-reimbursement-invoice-feature_CN.md`。
 - `api_base_url` 仍为空（`/keys` 页面已硬编码 `https://api.aaccx.pw/v1` 兜底，不依赖该设置）。
 - Kimi、DeepSeek 分组**名称与实际倍率不一致**，待统一。
 - `billing_reconciliation_cases` 3,933 条余额不足案件待外部逐笔账单核对。

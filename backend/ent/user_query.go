@@ -22,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
@@ -49,6 +50,7 @@ type UserQuery struct {
 	withPromoCodeUsages       *PromoCodeUsageQuery
 	withPaymentOrders         *PaymentOrderQuery
 	withBalancePackages       *UserBalancePackageQuery
+	withReimbursementRequests *ReimbursementRequestQuery
 	withAuthIdentities        *AuthIdentityQuery
 	withPendingAuthSessions   *PendingAuthSessionQuery
 	withPlatformQuotas        *UserPlatformQuotaQuery
@@ -325,6 +327,28 @@ func (_q *UserQuery) QueryBalancePackages() *UserBalancePackageQuery {
 			sqlgraph.From(user.Table, user.FieldID, selector),
 			sqlgraph.To(userbalancepackage.Table, userbalancepackage.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, user.BalancePackagesTable, user.BalancePackagesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryReimbursementRequests chains the current query on the "reimbursement_requests" edge.
+func (_q *UserQuery) QueryReimbursementRequests() *ReimbursementRequestQuery {
+	query := (&ReimbursementRequestClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, selector),
+			sqlgraph.To(reimbursementrequest.Table, reimbursementrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ReimbursementRequestsTable, user.ReimbursementRequestsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -623,6 +647,7 @@ func (_q *UserQuery) Clone() *UserQuery {
 		withPromoCodeUsages:       _q.withPromoCodeUsages.Clone(),
 		withPaymentOrders:         _q.withPaymentOrders.Clone(),
 		withBalancePackages:       _q.withBalancePackages.Clone(),
+		withReimbursementRequests: _q.withReimbursementRequests.Clone(),
 		withAuthIdentities:        _q.withAuthIdentities.Clone(),
 		withPendingAuthSessions:   _q.withPendingAuthSessions.Clone(),
 		withPlatformQuotas:        _q.withPlatformQuotas.Clone(),
@@ -754,6 +779,17 @@ func (_q *UserQuery) WithBalancePackages(opts ...func(*UserBalancePackageQuery))
 	return _q
 }
 
+// WithReimbursementRequests tells the query-builder to eager-load the nodes that are connected to
+// the "reimbursement_requests" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserQuery) WithReimbursementRequests(opts ...func(*ReimbursementRequestQuery)) *UserQuery {
+	query := (&ReimbursementRequestClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withReimbursementRequests = query
+	return _q
+}
+
 // WithAuthIdentities tells the query-builder to eager-load the nodes that are connected to
 // the "auth_identities" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *UserQuery) WithAuthIdentities(opts ...func(*AuthIdentityQuery)) *UserQuery {
@@ -876,7 +912,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 	var (
 		nodes       = []*User{}
 		_spec       = _q.querySpec()
-		loadedTypes = [15]bool{
+		loadedTypes = [16]bool{
 			_q.withAPIKeys != nil,
 			_q.withRedeemCodes != nil,
 			_q.withSubscriptions != nil,
@@ -888,6 +924,7 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 			_q.withPromoCodeUsages != nil,
 			_q.withPaymentOrders != nil,
 			_q.withBalancePackages != nil,
+			_q.withReimbursementRequests != nil,
 			_q.withAuthIdentities != nil,
 			_q.withPendingAuthSessions != nil,
 			_q.withPlatformQuotas != nil,
@@ -991,6 +1028,15 @@ func (_q *UserQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*User, e
 		if err := _q.loadBalancePackages(ctx, query, nodes,
 			func(n *User) { n.Edges.BalancePackages = []*UserBalancePackage{} },
 			func(n *User, e *UserBalancePackage) { n.Edges.BalancePackages = append(n.Edges.BalancePackages, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withReimbursementRequests; query != nil {
+		if err := _q.loadReimbursementRequests(ctx, query, nodes,
+			func(n *User) { n.Edges.ReimbursementRequests = []*ReimbursementRequest{} },
+			func(n *User, e *ReimbursementRequest) {
+				n.Edges.ReimbursementRequests = append(n.Edges.ReimbursementRequests, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1379,6 +1425,36 @@ func (_q *UserQuery) loadBalancePackages(ctx context.Context, query *UserBalance
 	}
 	query.Where(predicate.UserBalancePackage(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(user.BalancePackagesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.UserID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "user_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserQuery) loadReimbursementRequests(ctx context.Context, query *ReimbursementRequestQuery, nodes []*User, init func(*User), assign func(*User, *ReimbursementRequest)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*User)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(reimbursementrequest.FieldUserID)
+	}
+	query.Where(predicate.ReimbursementRequest(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(user.ReimbursementRequestsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

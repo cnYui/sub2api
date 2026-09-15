@@ -20,6 +20,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
@@ -598,6 +599,21 @@ func (_u *UserUpdate) AddBalancePackages(v ...*UserBalancePackage) *UserUpdate {
 	return _u.AddBalancePackageIDs(ids...)
 }
 
+// AddReimbursementRequestIDs adds the "reimbursement_requests" edge to the ReimbursementRequest entity by IDs.
+func (_u *UserUpdate) AddReimbursementRequestIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddReimbursementRequestIDs(ids...)
+	return _u
+}
+
+// AddReimbursementRequests adds the "reimbursement_requests" edges to the ReimbursementRequest entity.
+func (_u *UserUpdate) AddReimbursementRequests(v ...*ReimbursementRequest) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReimbursementRequestIDs(ids...)
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by IDs.
 func (_u *UserUpdate) AddAuthIdentityIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAuthIdentityIDs(ids...)
@@ -877,6 +893,27 @@ func (_u *UserUpdate) RemoveBalancePackages(v ...*UserBalancePackage) *UserUpdat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveBalancePackageIDs(ids...)
+}
+
+// ClearReimbursementRequests clears all "reimbursement_requests" edges to the ReimbursementRequest entity.
+func (_u *UserUpdate) ClearReimbursementRequests() *UserUpdate {
+	_u.mutation.ClearReimbursementRequests()
+	return _u
+}
+
+// RemoveReimbursementRequestIDs removes the "reimbursement_requests" edge to ReimbursementRequest entities by IDs.
+func (_u *UserUpdate) RemoveReimbursementRequestIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveReimbursementRequestIDs(ids...)
+	return _u
+}
+
+// RemoveReimbursementRequests removes "reimbursement_requests" edges to ReimbursementRequest entities.
+func (_u *UserUpdate) RemoveReimbursementRequests(v ...*ReimbursementRequest) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReimbursementRequestIDs(ids...)
 }
 
 // ClearAuthIdentities clears all "auth_identities" edges to the AuthIdentity entity.
@@ -1643,6 +1680,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ReimbursementRequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReimbursementRequestsIDs(); len(nodes) > 0 && !_u.mutation.ReimbursementRequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReimbursementRequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AuthIdentitiesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2355,6 +2437,21 @@ func (_u *UserUpdateOne) AddBalancePackages(v ...*UserBalancePackage) *UserUpdat
 	return _u.AddBalancePackageIDs(ids...)
 }
 
+// AddReimbursementRequestIDs adds the "reimbursement_requests" edge to the ReimbursementRequest entity by IDs.
+func (_u *UserUpdateOne) AddReimbursementRequestIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddReimbursementRequestIDs(ids...)
+	return _u
+}
+
+// AddReimbursementRequests adds the "reimbursement_requests" edges to the ReimbursementRequest entity.
+func (_u *UserUpdateOne) AddReimbursementRequests(v ...*ReimbursementRequest) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddReimbursementRequestIDs(ids...)
+}
+
 // AddAuthIdentityIDs adds the "auth_identities" edge to the AuthIdentity entity by IDs.
 func (_u *UserUpdateOne) AddAuthIdentityIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAuthIdentityIDs(ids...)
@@ -2634,6 +2731,27 @@ func (_u *UserUpdateOne) RemoveBalancePackages(v ...*UserBalancePackage) *UserUp
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveBalancePackageIDs(ids...)
+}
+
+// ClearReimbursementRequests clears all "reimbursement_requests" edges to the ReimbursementRequest entity.
+func (_u *UserUpdateOne) ClearReimbursementRequests() *UserUpdateOne {
+	_u.mutation.ClearReimbursementRequests()
+	return _u
+}
+
+// RemoveReimbursementRequestIDs removes the "reimbursement_requests" edge to ReimbursementRequest entities by IDs.
+func (_u *UserUpdateOne) RemoveReimbursementRequestIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveReimbursementRequestIDs(ids...)
+	return _u
+}
+
+// RemoveReimbursementRequests removes "reimbursement_requests" edges to ReimbursementRequest entities.
+func (_u *UserUpdateOne) RemoveReimbursementRequests(v ...*ReimbursementRequest) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveReimbursementRequestIDs(ids...)
 }
 
 // ClearAuthIdentities clears all "auth_identities" edges to the AuthIdentity entity.
@@ -3423,6 +3541,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(userbalancepackage.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ReimbursementRequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedReimbursementRequestsIDs(); len(nodes) > 0 && !_u.mutation.ReimbursementRequestsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ReimbursementRequestsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.ReimbursementRequestsTable,
+			Columns: []string{user.ReimbursementRequestsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(reimbursementrequest.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

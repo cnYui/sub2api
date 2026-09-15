@@ -43,6 +43,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
+	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
 	"github.com/Wei-Shaw/sub2api/ent/setting"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
@@ -121,6 +122,8 @@ type Client struct {
 	Proxy *ProxyClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
+	// ReimbursementRequest is the client for interacting with the ReimbursementRequest builders.
+	ReimbursementRequest *ReimbursementRequestClient
 	// SecuritySecret is the client for interacting with the SecuritySecret builders.
 	SecuritySecret *SecuritySecretClient
 	// Setting is the client for interacting with the Setting builders.
@@ -186,6 +189,7 @@ func (c *Client) init() {
 	c.PromoCodeUsage = NewPromoCodeUsageClient(c.config)
 	c.Proxy = NewProxyClient(c.config)
 	c.RedeemCode = NewRedeemCodeClient(c.config)
+	c.ReimbursementRequest = NewReimbursementRequestClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
 	c.Setting = NewSettingClient(c.config)
 	c.SubscriptionPlan = NewSubscriptionPlanClient(c.config)
@@ -319,6 +323,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		ReimbursementRequest:          NewReimbursementRequestClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -379,6 +384,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
+		ReimbursementRequest:          NewReimbursementRequestClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
 		Setting:                       NewSettingClient(cfg),
 		SubscriptionPlan:              NewSubscriptionPlanClient(cfg),
@@ -428,10 +434,11 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserBalancePackage, c.UserPlatformQuota, c.UserSubscription,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ReimbursementRequest,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserBalancePackage,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -448,10 +455,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserBalancePackage, c.UserPlatformQuota, c.UserSubscription,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ReimbursementRequest,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserBalancePackage,
+		c.UserPlatformQuota, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -516,6 +524,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Proxy.mutate(ctx, m)
 	case *RedeemCodeMutation:
 		return c.RedeemCode.mutate(ctx, m)
+	case *ReimbursementRequestMutation:
+		return c.ReimbursementRequest.mutate(ctx, m)
 	case *SecuritySecretMutation:
 		return c.SecuritySecret.mutate(ctx, m)
 	case *SettingMutation:
@@ -4952,6 +4962,155 @@ func (c *RedeemCodeClient) mutate(ctx context.Context, m *RedeemCodeMutation) (V
 	}
 }
 
+// ReimbursementRequestClient is a client for the ReimbursementRequest schema.
+type ReimbursementRequestClient struct {
+	config
+}
+
+// NewReimbursementRequestClient returns a client for the ReimbursementRequest from the given config.
+func NewReimbursementRequestClient(c config) *ReimbursementRequestClient {
+	return &ReimbursementRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `reimbursementrequest.Hooks(f(g(h())))`.
+func (c *ReimbursementRequestClient) Use(hooks ...Hook) {
+	c.hooks.ReimbursementRequest = append(c.hooks.ReimbursementRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `reimbursementrequest.Intercept(f(g(h())))`.
+func (c *ReimbursementRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ReimbursementRequest = append(c.inters.ReimbursementRequest, interceptors...)
+}
+
+// Create returns a builder for creating a ReimbursementRequest entity.
+func (c *ReimbursementRequestClient) Create() *ReimbursementRequestCreate {
+	mutation := newReimbursementRequestMutation(c.config, OpCreate)
+	return &ReimbursementRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ReimbursementRequest entities.
+func (c *ReimbursementRequestClient) CreateBulk(builders ...*ReimbursementRequestCreate) *ReimbursementRequestCreateBulk {
+	return &ReimbursementRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ReimbursementRequestClient) MapCreateBulk(slice any, setFunc func(*ReimbursementRequestCreate, int)) *ReimbursementRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ReimbursementRequestCreateBulk{err: fmt.Errorf("calling to ReimbursementRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ReimbursementRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ReimbursementRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ReimbursementRequest.
+func (c *ReimbursementRequestClient) Update() *ReimbursementRequestUpdate {
+	mutation := newReimbursementRequestMutation(c.config, OpUpdate)
+	return &ReimbursementRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ReimbursementRequestClient) UpdateOne(_m *ReimbursementRequest) *ReimbursementRequestUpdateOne {
+	mutation := newReimbursementRequestMutation(c.config, OpUpdateOne, withReimbursementRequest(_m))
+	return &ReimbursementRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ReimbursementRequestClient) UpdateOneID(id int64) *ReimbursementRequestUpdateOne {
+	mutation := newReimbursementRequestMutation(c.config, OpUpdateOne, withReimbursementRequestID(id))
+	return &ReimbursementRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ReimbursementRequest.
+func (c *ReimbursementRequestClient) Delete() *ReimbursementRequestDelete {
+	mutation := newReimbursementRequestMutation(c.config, OpDelete)
+	return &ReimbursementRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ReimbursementRequestClient) DeleteOne(_m *ReimbursementRequest) *ReimbursementRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ReimbursementRequestClient) DeleteOneID(id int64) *ReimbursementRequestDeleteOne {
+	builder := c.Delete().Where(reimbursementrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ReimbursementRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for ReimbursementRequest.
+func (c *ReimbursementRequestClient) Query() *ReimbursementRequestQuery {
+	return &ReimbursementRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeReimbursementRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ReimbursementRequest entity by its id.
+func (c *ReimbursementRequestClient) Get(ctx context.Context, id int64) (*ReimbursementRequest, error) {
+	return c.Query().Where(reimbursementrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ReimbursementRequestClient) GetX(ctx context.Context, id int64) *ReimbursementRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a ReimbursementRequest.
+func (c *ReimbursementRequestClient) QueryUser(_m *ReimbursementRequest) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(reimbursementrequest.Table, reimbursementrequest.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, reimbursementrequest.UserTable, reimbursementrequest.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ReimbursementRequestClient) Hooks() []Hook {
+	return c.hooks.ReimbursementRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *ReimbursementRequestClient) Interceptors() []Interceptor {
+	return c.inters.ReimbursementRequest
+}
+
+func (c *ReimbursementRequestClient) mutate(ctx context.Context, m *ReimbursementRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ReimbursementRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ReimbursementRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ReimbursementRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ReimbursementRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ReimbursementRequest mutation op: %q", m.Op())
+	}
+}
+
 // SecuritySecretClient is a client for the SecuritySecret schema.
 type SecuritySecretClient struct {
 	config
@@ -6114,6 +6273,22 @@ func (c *UserClient) QueryBalancePackages(_m *User) *UserBalancePackageQuery {
 	return query
 }
 
+// QueryReimbursementRequests queries the reimbursement_requests edge of a User.
+func (c *UserClient) QueryReimbursementRequests(_m *User) *ReimbursementRequestQuery {
+	query := (&ReimbursementRequestClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(reimbursementrequest.Table, reimbursementrequest.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.ReimbursementRequestsTable, user.ReimbursementRequestsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAuthIdentities queries the auth_identities edge of a User.
 func (c *UserClient) QueryAuthIdentities(_m *User) *AuthIdentityQuery {
 	query := (&AuthIdentityClient{config: c.config}).Query()
@@ -7145,10 +7320,11 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserBalancePackage, UserPlatformQuota, UserSubscription []ent.Hook
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ReimbursementRequest,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserBalancePackage, UserPlatformQuota,
+		UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
@@ -7157,10 +7333,11 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserBalancePackage, UserPlatformQuota, UserSubscription []ent.Interceptor
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ReimbursementRequest,
+		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserBalancePackage, UserPlatformQuota,
+		UserSubscription []ent.Interceptor
 	}
 )
 
