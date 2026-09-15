@@ -694,6 +694,19 @@ export default {
     submitSuccess: 'Request submitted. Once processed, the invoice PDF can be downloaded below',
     submitFailed: 'Submission failed, please try again later',
     restartButton: 'Start Over',
+    textOnlyBadge: 'Text only',
+    guide: {
+      title: 'How it works',
+      steps: {
+        paste: { title: 'Paste invoice details', description: 'Company name, tax ID, bank account, bank name, address and amount, as plain text.' },
+        parse: { title: 'Parse and supplement', description: 'Six fields are extracted automatically; add a sentence for anything missing and parse again.' },
+        submit: { title: 'Submit the request', description: 'Once all six fields are present you can submit; the status shows "Pending".' },
+        download: { title: 'Download the PDF', description: 'After the admin uploads the invoice the status becomes "Completed" and a download button appears below.' }
+      },
+      statusTitle: 'Status',
+      pendingHint: 'Waiting for the admin to upload the invoice',
+      completedHint: 'Invoice uploaded, ready to download'
+    },
     draftRestored: 'Restored your unsubmitted draft',
     myRequestsTitle: 'My Requests',
     columns: {

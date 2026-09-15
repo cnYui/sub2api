@@ -3,12 +3,13 @@
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-wrap items-center gap-3">
-          <div class="flex-1 sm:max-w-72">
+          <div class="relative w-full md:w-72">
+            <Icon name="search" size="md" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               v-model="searchQuery"
               type="text"
               :placeholder="t('admin.reimbursements.searchPlaceholder')"
-              class="input"
+              class="input pl-10"
               data-test="search-input"
               @input="handleSearch"
             />

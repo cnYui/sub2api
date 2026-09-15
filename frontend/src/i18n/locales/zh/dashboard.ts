@@ -700,6 +700,19 @@ export default {
     submitFailed: '提交失败，请稍后重试',
     restartButton: '重新开始',
     draftRestored: '已恢复上次未提交的草稿',
+    textOnlyBadge: '仅支持文字',
+    guide: {
+      title: '办理流程',
+      steps: {
+        paste: { title: '粘贴开票资料', description: '公司名称、税号、银行账户、开户行、地址、金额，纯文字粘贴即可。' },
+        parse: { title: '智能解析并补充', description: '系统自动识别六项字段；缺什么就用一句话补充，再解析一次。' },
+        submit: { title: '提交申请', description: '六项齐全后即可提交，状态显示「审核中」。' },
+        download: { title: '下载发票 PDF', description: '管理员上传发票后状态变为「已完成」，在下方列表点「下载 PDF」。' }
+      },
+      statusTitle: '状态说明',
+      pendingHint: '等待管理员上传发票',
+      completedHint: '发票已上传，可下载'
+    },
     myRequestsTitle: '我的申请',
     columns: {
       index: '序号',

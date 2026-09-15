@@ -895,11 +895,10 @@ const activeTopic = computed(() => (
 </script>
 
 <style scoped>
+/* 与 /dashboard、/ops、/users 共用一套卡片语言：.card 的圆角/边框/阴影 + dark-* 灰阶，
+   不再用 gray-900(#111827) 这种偏蓝的硬编码底色。 */
 .usage-guide-shell {
-  display: grid;
-  gap: 1.5rem;
-  max-width: 96rem;
-  margin: 0 auto;
+  @apply mx-auto grid max-w-screen-2xl gap-6;
 }
 
 .usage-guide-side-nav {
@@ -907,14 +906,11 @@ const activeTopic = computed(() => (
 }
 
 .usage-guide-main {
-  min-width: 0;
+  @apply min-w-0 space-y-6;
 }
 
 .usage-guide-mobile-tabs {
-  display: flex;
-  gap: 0.5rem;
-  overflow-x: auto;
-  padding: 0.125rem 0.125rem 0.875rem;
+  @apply flex gap-2 overflow-x-auto pb-1;
   scrollbar-width: none;
 }
 
@@ -924,251 +920,100 @@ const activeTopic = computed(() => (
 
 .usage-guide-mobile-tab,
 .usage-guide-nav-item {
-  border: 1px solid rgb(229 231 235);
-  background: rgb(255 255 255);
-  color: rgb(55 65 81);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color 180ms ease-out,
-    border-color 180ms ease-out,
-    color 180ms ease-out,
-    transform 160ms ease-out;
-}
-
-.dark .usage-guide-mobile-tab,
-.dark .usage-guide-nav-item {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  color: rgb(209 213 219);
+  @apply cursor-pointer text-left;
+  @apply rounded-xl border border-gray-100 bg-white text-gray-600 shadow-card;
+  @apply dark:border-dark-700/50 dark:bg-dark-900 dark:text-dark-300;
+  @apply transition-all duration-200;
 }
 
 .usage-guide-mobile-tab {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.12rem;
-  border-radius: 0.5rem;
-  padding: 0.55rem 0.8rem;
-  font-size: 0.875rem;
-  font-weight: 700;
+  @apply flex flex-none flex-col items-start gap-0.5 px-3 py-2 text-sm font-semibold;
 }
 
 .usage-guide-mobile-tab time,
 .usage-guide-nav-date,
 .usage-guide-date {
-  color: rgb(107 114 128);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.usage-guide-mobile-tab-active time,
-.usage-guide-nav-item-active .usage-guide-nav-date {
-  color: rgb(209 213 219);
-}
-
-.dark .usage-guide-mobile-tab time,
-.dark .usage-guide-nav-date,
-.dark .usage-guide-date {
-  color: rgb(156 163 175);
-}
-
-.dark .usage-guide-mobile-tab-active time,
-.dark .usage-guide-nav-item-active .usage-guide-nav-date {
-  color: rgb(75 85 99);
+  @apply text-xs font-medium leading-5 text-gray-400 dark:text-dark-500;
 }
 
 .usage-guide-mobile-tab-active,
 .usage-guide-nav-item-active {
-  border-color: rgb(17 24 39);
-  background: rgb(17 24 39);
-  color: rgb(255 255 255);
-  box-shadow: 0 4px 12px rgb(17 24 39 / 0.16);
+  @apply border-primary-200 bg-primary-50 text-primary-700 shadow-none;
+  @apply dark:border-primary-800/50 dark:bg-primary-900/20 dark:text-primary-300;
 }
 
-.dark .usage-guide-mobile-tab-active,
-.dark .usage-guide-nav-item-active {
-  border-color: rgb(243 244 246);
-  background: rgb(243 244 246);
-  color: rgb(17 24 39);
+.usage-guide-mobile-tab-active time,
+.usage-guide-nav-item-active .usage-guide-nav-date {
+  @apply text-primary-500 dark:text-primary-400/80;
 }
 
 .usage-guide-header {
-  margin-bottom: 1rem;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 1rem;
-  background: rgb(255 255 255);
-  padding: 1.25rem;
-  box-shadow: 0 10px 30px rgb(15 23 42 / 0.06);
-}
-
-.dark .usage-guide-header {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
+  @apply card p-6;
 }
 
 .usage-guide-kicker {
-  color: rgb(107 114 128);
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.dark .usage-guide-kicker {
-  color: rgb(156 163 175);
+  @apply text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500;
 }
 
 .usage-guide-heading {
-  margin-top: 0.25rem;
-  color: rgb(17 24 39);
-  font-size: clamp(1.35rem, 1.6vw, 1.75rem);
-  font-weight: 800;
-  line-height: 1.25;
+  @apply mt-1 text-2xl font-bold leading-tight text-gray-900 dark:text-white;
 }
 
 .usage-guide-date {
-  display: block;
-  margin-top: 0.35rem;
-}
-
-.dark .usage-guide-heading {
-  color: rgb(243 244 246);
+  @apply mt-2 block;
 }
 
 .usage-guide-description {
-  margin-top: 0.5rem;
-  color: rgb(75 85 99);
-  font-size: 0.9rem;
-  line-height: 1.65;
-}
-
-.dark .usage-guide-description {
-  color: rgb(209 213 219);
+  @apply mt-3 text-sm leading-6 text-gray-500 dark:text-dark-400;
 }
 
 .usage-guide-steps,
 .usage-guide-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  @apply flex flex-col gap-6;
 }
 
 .usage-guide-video-section {
-  width: 100%;
-  max-width: 60rem;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 1rem;
-  background: rgb(255 255 255);
-  padding: 1.25rem;
-  box-shadow: 0 10px 30px rgb(15 23 42 / 0.06);
-}
-
-.dark .usage-guide-video-section {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.18);
+  @apply card w-full max-w-5xl p-6;
 }
 
 .usage-guide-video-title {
-  margin: 0 0 0.875rem;
-  color: rgb(17 24 39);
-  font-size: 1.125rem;
-  font-weight: 700;
-}
-
-.dark .usage-guide-video-title {
-  color: rgb(248 250 252);
+  @apply mb-4 text-lg font-semibold text-gray-900 dark:text-white;
 }
 
 .usage-guide-video {
-  display: block;
-  width: 100%;
+  @apply block w-full rounded-xl bg-black object-contain;
   aspect-ratio: 16 / 9;
-  border-radius: 0.75rem;
-  background: rgb(0 0 0);
-  object-fit: contain;
 }
 
 .guide-step,
 .usage-guide-section-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 1rem;
-  background: rgb(255 255 255);
-  padding: 1.25rem;
-  box-shadow: 0 10px 30px rgb(15 23 42 / 0.05);
-}
-
-.dark .guide-step,
-.dark .usage-guide-section-card {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39);
+  @apply card flex flex-col gap-4 p-6;
 }
 
 .guide-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  @apply flex flex-col gap-1;
 }
 
 .guide-kicker {
-  color: rgb(107 114 128);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1rem;
-}
-
-.dark .guide-kicker {
-  color: rgb(156 163 175);
+  @apply text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-dark-500;
 }
 
 .guide-title,
 .usage-guide-section-title {
-  color: rgb(17 24 39);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.6;
-}
-
-.dark .guide-title,
-.dark .usage-guide-section-title {
-  color: rgb(243 244 246);
+  @apply text-base font-semibold leading-7 text-gray-900 dark:text-white;
 }
 
 .usage-guide-section-text {
-  color: rgb(75 85 99);
-  font-size: 0.92rem;
-  line-height: 1.75;
-}
-
-.dark .usage-guide-section-text {
-  color: rgb(209 213 219);
+  @apply text-sm leading-7 text-gray-600 dark:text-dark-300;
 }
 
 .usage-guide-table-wrap {
-  overflow-x: auto;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 0.75rem;
-}
-
-.dark .usage-guide-table-wrap {
-  border-color: rgb(55 65 81);
+  @apply overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-700;
 }
 
 .usage-guide-endpoint-table {
-  width: 100%;
+  @apply w-full border-collapse text-sm leading-6 text-gray-700 dark:text-gray-300;
   min-width: 44rem;
-  border-collapse: collapse;
-  color: rgb(55 65 81);
-  font-size: 0.86rem;
-  line-height: 1.55;
-}
-
-.dark .usage-guide-endpoint-table {
-  color: rgb(209 213 219);
 }
 
 .usage-guide-error-table {
@@ -1177,128 +1022,70 @@ const activeTopic = computed(() => (
 
 .usage-guide-endpoint-table th,
 .usage-guide-endpoint-table td {
-  border-bottom: 1px solid rgb(229 231 235);
-  padding: 0.75rem;
-  text-align: left;
-  vertical-align: top;
+  @apply border-b border-gray-100 px-4 py-3 text-left align-top dark:border-dark-800;
 }
 
-.usage-guide-endpoint-table tbody tr {
-  transition: background-color 150ms ease-out;
-}
-
-.usage-guide-mobile-tab:focus-visible,
-.usage-guide-nav-item:focus-visible {
-  outline: 2px solid rgb(59 130 246);
-  outline-offset: 2px;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .usage-guide-mobile-tab:hover,
-  .usage-guide-nav-item:hover {
-    border-color: rgb(156 163 175);
-    transform: translateY(-1px);
-  }
-
-  .usage-guide-mobile-tab:active,
-  .usage-guide-nav-item:active {
-    transform: scale(0.98);
-  }
-
-  .usage-guide-endpoint-table tbody tr:hover {
-    background: rgb(249 250 251);
-  }
-
-  .dark .usage-guide-endpoint-table tbody tr:hover {
-    background: rgb(31 41 55 / 0.55);
-  }
-}
-
-.dark .usage-guide-endpoint-table th,
-.dark .usage-guide-endpoint-table td {
-  border-bottom-color: rgb(55 65 81);
+.usage-guide-endpoint-table th {
+  @apply whitespace-nowrap border-gray-200 bg-gray-50 font-medium text-gray-600;
+  @apply dark:border-dark-700 dark:bg-dark-800/50 dark:text-dark-300;
 }
 
 .usage-guide-endpoint-table tr:last-child td {
   border-bottom: 0;
 }
 
-.usage-guide-endpoint-table th {
-  background: rgb(249 250 251);
-  color: rgb(17 24 39);
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.dark .usage-guide-endpoint-table th {
-  background: rgb(3 7 18);
-  color: rgb(243 244 246);
+.usage-guide-endpoint-table tbody tr {
+  @apply transition-colors duration-150;
 }
 
 .usage-guide-endpoint-table code {
-  color: rgb(17 24 39);
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    "Courier New",
-    monospace;
-  font-size: 0.82rem;
+  @apply font-mono text-xs text-gray-900 dark:text-gray-100;
   overflow-wrap: anywhere;
 }
 
-.dark .usage-guide-endpoint-table code {
-  color: rgb(243 244 246);
-}
-
 .usage-guide-code {
-  overflow-x: auto;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 0.75rem;
-  background: rgb(17 24 39);
-  color: rgb(243 244 246);
-  padding: 1rem;
-  font-size: 0.82rem;
-  line-height: 1.7;
+  @apply overflow-x-auto rounded-xl border border-gray-200 bg-gray-900 p-4 text-xs leading-relaxed text-gray-100;
+  @apply dark:border-dark-700 dark:bg-dark-950;
 }
 
 .guide-images {
-  display: grid;
-  gap: 1rem;
+  @apply grid gap-4;
 }
 
 .guide-images-before {
-  margin-bottom: 0.25rem;
+  @apply mb-1;
 }
 
 .guide-image {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  border: 1px solid rgb(229 231 235);
-  border-radius: 0.75rem;
-  background: rgb(249 250 251);
+  @apply block h-auto w-full max-w-full rounded-xl border border-gray-200 bg-gray-50;
+  @apply dark:border-dark-700 dark:bg-dark-950;
 }
 
-.dark .guide-image {
-  border-color: rgb(55 65 81);
-  background: rgb(3 7 18);
+.usage-guide-mobile-tab:focus-visible,
+.usage-guide-nav-item:focus-visible {
+  @apply outline-none ring-2 ring-primary-500/30 ring-offset-2 dark:ring-offset-dark-900;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .usage-guide-mobile-tab:hover,
+  .usage-guide-nav-item:hover {
+    @apply border-gray-200 bg-gray-50 dark:border-dark-600 dark:bg-dark-800;
+  }
+
+  .usage-guide-mobile-tab-active:hover,
+  .usage-guide-nav-item-active:hover {
+    @apply border-primary-200 bg-primary-100 dark:border-primary-800/50 dark:bg-primary-900/30;
+  }
+
+  .usage-guide-endpoint-table tbody tr:hover {
+    @apply bg-gray-50 dark:bg-dark-800/50;
+  }
 }
 
 @media (min-width: 768px) {
-  .guide-step,
-  .usage-guide-section-card,
-  .usage-guide-header {
-    padding: 1.25rem;
-  }
-
   .guide-title,
   .usage-guide-section-title {
-    font-size: 1.125rem;
+    @apply text-lg;
   }
 }
 
@@ -1309,11 +1096,7 @@ const activeTopic = computed(() => (
   }
 
   .usage-guide-side-nav {
-    position: sticky;
-    top: 5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+    @apply sticky top-20 flex flex-col gap-3;
   }
 
   .usage-guide-mobile-tabs {
@@ -1321,22 +1104,15 @@ const activeTopic = computed(() => (
   }
 
   .usage-guide-nav-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    border-radius: 0.75rem;
-    padding: 1rem;
+    @apply flex flex-col gap-1 p-4;
   }
 
   .usage-guide-nav-title {
-    font-size: 0.95rem;
-    font-weight: 800;
+    @apply text-sm font-semibold;
   }
 
   .usage-guide-nav-desc {
-    font-size: 0.78rem;
-    line-height: 1.5;
-    opacity: 0.78;
+    @apply text-xs leading-5 opacity-80;
   }
 }
 
