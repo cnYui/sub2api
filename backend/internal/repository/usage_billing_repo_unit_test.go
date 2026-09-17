@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"math"
 	"testing"
 	"time"
 
@@ -222,6 +223,136 @@ func TestApplyUsageBillingEffectsUsesTrafficPackForDebtAcrossPlatforms(t *testin
 	require.InDelta(t, -2.0, *result.NewBalance, 0.000001)
 	require.True(t, result.TrafficCreditCharged)
 	require.False(t, result.BalanceOverdrafted)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func expectTrafficPackCharge(mock sqlmock.Sqlmock, cost, cardRemaining, charged float64, requestID string) {
+	expectUsageBillingUserAndPackageLocks(mock, 42)
+	mock.ExpectQuery(conditionalBalanceDeductSQL).
+		WithArgs(cost, int64(42)).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(userExistsForBillingSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-2.0))
+	mock.ExpectQuery(trafficCreditBatchesSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
+		}).AddRow(55, 42, nil, nil, 30.0, cardRemaining, time.Now().Add(-time.Hour), time.Now().Add(time.Hour)))
+	mock.ExpectQuery(trafficCreditDeductSQL).
+		WithArgs(charged, int64(55)).
+		WillReturnRows(sqlmock.NewRows([]string{"remaining_usd"}).AddRow(cardRemaining - charged))
+	mock.ExpectExec(trafficCreditLedgerSQL).
+		WithArgs(int64(42), int64(55), requestID, service.TrafficCreditLedgerTypeDeduction, charged, cardRemaining-charged).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+}
+
+// 流量卡足额时，扣款按 10 位小数舍入，与原始费用只差不足一个精度单位；
+// 这个尾差若被当成欠费写库，会违反 amount_usd > 0，整笔计费回滚、请求白用。
+func TestApplyUsageBillingEffectsSkipsSubPrecisionTrafficDebt(t *testing.T) {
+	cases := []struct {
+		name    string
+		cost    float64
+		charged float64
+	}{
+		{name: "float noise above ledger precision", cost: math.Nextafter(0.3, 1), charged: 0.3},
+		{name: "eleventh decimal rounds down", cost: 0.51663276004, charged: 0.51663276},
+		{name: "eleventh decimal rounds up", cost: 0.51663276006, charged: 0.5166327601},
+		{name: "cost below ledger precision", cost: 0.00000000004, charged: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer func() { _ = db.Close() }()
+
+			mock.ExpectBegin()
+			tx, err := db.BeginTx(ctx, nil)
+			require.NoError(t, err)
+			if tc.charged > 0 {
+				expectTrafficPackCharge(mock, tc.cost, 5.716406078, tc.charged, "traffic-request")
+			} else {
+				expectUsageBillingUserAndPackageLocks(mock, 42)
+				mock.ExpectQuery(conditionalBalanceDeductSQL).
+					WithArgs(tc.cost, int64(42)).
+					WillReturnError(sql.ErrNoRows)
+				mock.ExpectQuery(userExistsForBillingSQL).
+					WithArgs(int64(42)).
+					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
+				mock.ExpectQuery(lockedUsageBillingBalanceSQL).
+					WithArgs(int64(42)).
+					WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-2.0))
+				mock.ExpectQuery(trafficCreditBatchesSQL).
+					WithArgs(int64(42)).
+					WillReturnRows(sqlmock.NewRows([]string{
+						"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
+					}).AddRow(55, 42, nil, nil, 30.0, 5.716406078, time.Now().Add(-time.Hour), time.Now().Add(time.Hour)))
+			}
+			mock.ExpectCommit()
+
+			result := &service.UsageBillingApplyResult{Applied: true}
+			err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+				UserID:      42,
+				Platform:    service.PlatformOpenAI,
+				RequestID:   "traffic-request",
+				BalanceCost: tc.cost,
+			}, result)
+			require.NoError(t, err)
+			require.True(t, result.TrafficCreditCharged)
+			require.NoError(t, tx.Commit())
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestApplyUsageBillingEffectsRecordsTrafficDebtAtLedgerPrecision(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	expectTrafficPackCharge(mock, 10.00000000004, 3.0, 3.0, "partial-request")
+	mock.ExpectQuery(trafficDebtNetSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"debt"}).AddRow(1.25))
+	mock.ExpectExec(trafficDebtLedgerSQL).
+		WithArgs(int64(42), 7.0, 8.25, "partial-request").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:      42,
+		Platform:    service.PlatformOpenAI,
+		RequestID:   "partial-request",
+		BalanceCost: 10.00000000004,
+	}, result)
+	require.NoError(t, err)
+	require.True(t, result.TrafficCreditCharged)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRecordTrafficCreditDebtIgnoresAmountBelowLedgerPrecision(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	mock.ExpectCommit()
+
+	require.NoError(t, recordTrafficCreditDebt(ctx, tx, 42, 0.00000000004, "tiny-request"))
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
