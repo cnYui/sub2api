@@ -195,8 +195,7 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 				if trafficErr != nil {
 					return trafficErr
 				}
-				trafficDebt := cmd.BalanceCost - trafficCharged
-				if trafficDebt > 0 {
+				if trafficDebt := trafficCreditShortfall(cmd.BalanceCost, trafficCharged); trafficDebt > 0 {
 					if err := recordTrafficCreditDebt(ctx, tx, cmd.UserID, trafficDebt, cmd.RequestID); err != nil {
 						return err
 					}
@@ -417,7 +416,20 @@ func deductUsageBillingTrafficPack(ctx context.Context, tx *sql.Tx, userID int64
 	return charged, nil
 }
 
+// trafficCreditShortfall 返回流量卡没付完、要记为欠费的金额。扣款计划先把费用舍入到账本精度再扣，
+// 这里必须用同一个舍入后的费用去减：直接用原始费用会留下不足一个精度单位的正尾差，
+// 入库被舍成 0 后违反 amount_usd > 0，整笔计费事务回滚，请求成功却没有扣费。
+func trafficCreditShortfall(costUSD, chargedUSD float64) float64 {
+	shortfall := service.RoundTrafficCreditAmount(service.RoundTrafficCreditAmount(costUSD) - chargedUSD)
+	if shortfall <= 0 {
+		return 0
+	}
+	return shortfall
+}
+
 func recordTrafficCreditDebt(ctx context.Context, tx *sql.Tx, userID int64, amountUSD float64, requestID string) error {
+	// 不足一个精度单位的金额入库后是 0，会违反 amount_usd > 0 并回滚整笔计费。
+	amountUSD = service.RoundTrafficCreditAmount(amountUSD)
 	if amountUSD <= 0 {
 		return nil
 	}
@@ -428,7 +440,7 @@ func recordTrafficCreditDebt(ctx context.Context, tx *sql.Tx, userID int64, amou
 	if debtBefore < 0 {
 		debtBefore = 0
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO traffic_credit_debt_ledger(user_id,entry_type,amount_usd,balance_after_usd,source_type,source_ref,created_at) VALUES($1,'debt',$2,$3,'usage_billing',$4,NOW())`, userID, amountUSD, debtBefore+amountUSD, requestID)
+	_, err := tx.ExecContext(ctx, `INSERT INTO traffic_credit_debt_ledger(user_id,entry_type,amount_usd,balance_after_usd,source_type,source_ref,created_at) VALUES($1,'debt',$2,$3,'usage_billing',$4,NOW())`, userID, amountUSD, service.RoundTrafficCreditAmount(debtBefore+amountUSD), requestID)
 	return err
 }
 

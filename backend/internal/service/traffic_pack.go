@@ -152,7 +152,7 @@ func (s *TrafficPackService) RevokePurchase(ctx context.Context, orderID int64, 
 }
 
 func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64) ([]TrafficCreditDeduction, bool) {
-	amountUSD = roundTrafficCreditAmount(amountUSD)
+	amountUSD = RoundTrafficCreditAmount(amountUSD)
 	if amountUSD <= 0 {
 		return nil, true
 	}
@@ -172,14 +172,16 @@ func PlanTrafficCreditDeductions(batches []TrafficCreditBatch, amountUSD float64
 		if remaining <= 0 || batch.RemainingUSD <= 0 {
 			break
 		}
-		amount := roundTrafficCreditAmount(math.Min(batch.RemainingUSD, remaining))
+		amount := RoundTrafficCreditAmount(math.Min(batch.RemainingUSD, remaining))
 		if amount <= 0 {
 			continue
 		}
 		plan = append(plan, TrafficCreditDeduction{CreditID: batch.ID, AmountUSD: amount})
-		remaining = roundTrafficCreditAmount(remaining - amount)
+		remaining = RoundTrafficCreditAmount(remaining - amount)
 	}
 	return plan, remaining <= 0.0000000001
 }
 
-func roundTrafficCreditAmount(value float64) float64 { return math.Round(value*1e10) / 1e10 }
+// RoundTrafficCreditAmount 与流量卡账本列 numeric(20,10) 同精度；扣款和欠费入账必须共用它，
+// 否则两边的舍入尾差会被当成欠费写库。
+func RoundTrafficCreditAmount(value float64) float64 { return math.Round(value*1e10) / 1e10 }
