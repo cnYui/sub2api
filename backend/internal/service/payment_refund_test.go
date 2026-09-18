@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"testing"
 	"time"
@@ -306,10 +307,12 @@ func TestMarkRefundOKRevokesBalancePackageRemainingCredit(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 
+	// 余额 = 普通余额 3.12667936 + 本周未用额度 6.87332064。
 	user, err := client.User.Create().
 		SetEmail("balance-package-refund@example.com").
 		SetPasswordHash("hash").
 		SetUsername("balance-package-refund-user").
+		SetBalance(10).
 		Save(ctx)
 	require.NoError(t, err)
 
@@ -350,7 +353,11 @@ func TestMarkRefundOKRevokesBalancePackageRemainingCredit(t *testing.T) {
 		Save(ctx)
 	require.NoError(t, err)
 
-	svc := &PaymentService{entClient: client}
+	authCache := &authCacheInvalidatorStub{}
+	svc := &PaymentService{
+		entClient:             client,
+		balancePackageService: &BalancePackageService{authCacheInvalidator: authCache},
+	}
 	result, err := svc.markRefundOk(ctx, &RefundPlan{
 		OrderID: order.ID, Order: order, RefundAmount: 1.99, GatewayAmount: 1.99, Reason: "partial refund",
 	})
@@ -362,6 +369,21 @@ func TestMarkRefundOKRevokesBalancePackageRemainingCredit(t *testing.T) {
 	require.Equal(t, "refunded", updatedPackage.Status)
 	require.Zero(t, updatedPackage.RemainingUsd)
 	require.Nil(t, updatedPackage.NextCreditAt)
+
+	// 本周未用额度必须和套餐一起收回，否则用户既拿到退款又留着这笔额度。
+	require.InDelta(t, 3.12667936, balancePackageRefundUserBalance(t, ctx, client, user.ID), 1e-9)
+	require.Equal(t, []int64{user.ID}, authCache.userIDs)
+
+	successLog, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+		Only(ctx)
+	require.NoError(t, err)
+	var detail map[string]any
+	require.NoError(t, json.Unmarshal([]byte(successLog.Detail), &detail))
+	require.InDelta(t, 6.87332064, detail["reclaimedRemainingUsd"], 1e-9)
+	require.InDelta(t, 10, detail["balanceBeforeUsd"], 1e-9)
+	require.InDelta(t, 3.12667936, detail["balanceAfterUsd"], 1e-9)
+	require.EqualValues(t, packageRecord.ID, detail["balancePackageId"])
 }
 
 func TestWriteAuditLogUpdatesDuplicateAction(t *testing.T) {

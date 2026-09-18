@@ -43,9 +43,52 @@
         </div>
       </div>
 
-      <div class="flex justify-between rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
-        <span class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.refundAmount') }}</span>
-        <span class="font-medium text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ refundAmount.toFixed(2) }}</span>
+      <!-- Live Refund Quote: the server recalculates it again on confirm -->
+      <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
+        <p v-if="quoteLoading" class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.loading') }}</p>
+        <p v-else-if="quoteError" class="text-xs text-red-600 dark:text-red-400">{{ quoteError }}</p>
+        <template v-else-if="quote">
+          <div v-if="!quote.manual_review_required" class="space-y-1">
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.periodQuotaUsage') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ quote.used_quota_usd.toFixed(2) }} / {{ creditedAmountSymbol }}{{ quote.period_total_quota_usd.toFixed(2) }}</span>
+            </div>
+            <div v-if="retainedQuota > 0" class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.retainedQuota') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ retainedQuota.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.usageRatio') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ Math.round(quote.usage_ratio * 100) }}%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.timeRatio') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ Math.round(quote.time_ratio * 100) }}%</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.consumptionRatio') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ Math.round(quote.consumption_ratio * 100) }}%</span>
+            </div>
+            <div v-if="reclaimQuota > 0" class="flex justify-between">
+              <span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.reclaimQuota') }}</span>
+              <span class="text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ reclaimQuota.toFixed(2) }}</span>
+            </div>
+          </div>
+          <div class="mt-2 flex justify-between font-medium">
+            <span class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.refundAmount') }}</span>
+            <span class="text-gray-900 dark:text-white">{{ creditedAmountSymbol }}{{ quote.estimated_refund_amount.toFixed(2) }}</span>
+          </div>
+          <p v-if="quote.manual_review_required" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.manualReviewRequired') }}</p>
+          <template v-else>
+            <p v-if="quote.estimated_refund_amount <= 0" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.zeroRefundCancelsPackage') }}</p>
+            <p v-if="reclaimQuota > 0" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.admin.refundReclaimNotice', { amount: creditedAmountSymbol + reclaimQuota.toFixed(2) }) }}</p>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.refundQuoteLive') }}</p>
+          </template>
+        </template>
+        <div v-if="lastAttemptedRefund > 0" class="mt-2 flex justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>{{ t('payment.admin.lastAttemptedRefund') }}</span>
+          <span>{{ creditedAmountSymbol }}{{ lastAttemptedRefund.toFixed(2) }}</span>
+        </div>
       </div>
 
       <!-- Reason -->
@@ -70,7 +113,7 @@
         <button
           type="submit"
           form="refund-form"
-          :disabled="submitting"
+          :disabled="submitting || !canConfirm"
           class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-dark-800"
         >
           {{ submitting ? t('common.processing') : t('payment.admin.confirmRefund') }}
@@ -81,10 +124,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import type { PaymentOrder } from '@/types/payment'
+import { adminPaymentAPI } from '@/api/admin/payment'
+import { extractI18nErrorMessage } from '@/utils/apiError'
+import type { BalancePackageRefundQuote, PaymentOrder } from '@/types/payment'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { currencySymbol } from '@/components/payment/currency'
 
@@ -109,19 +154,51 @@ const form = reactive({
   reason: '',
 })
 
-const refundAmount = computed(() => props.order?.refund_amount || 0)
+// 订单上存的是上次尝试（或用户申请时）的金额；真正退多少以实时报价为准。
+const lastAttemptedRefund = computed(() => props.order?.refund_amount || 0)
 
-watch(() => props.show, (val) => {
-  if (val && props.order) {
-    form.reason = props.order.refund_request_reason || ''
+const quote = ref<BalancePackageRefundQuote | null>(null)
+const quoteLoading = ref(false)
+const quoteError = ref('')
+let quoteRequestSeq = 0
+
+const retainedQuota = computed(() => quote.value?.retained_quota_usd ?? 0)
+const reclaimQuota = computed(() => quote.value?.reclaim_quota_usd ?? 0)
+const canConfirm = computed(() => !quoteLoading.value && !!quote.value && !quote.value.manual_review_required)
+
+async function loadQuote(orderId: number) {
+  const seq = ++quoteRequestSeq
+  quote.value = null
+  quoteError.value = ''
+  quoteLoading.value = true
+  try {
+    const res = await adminPaymentAPI.getRefundQuote(orderId)
+    if (seq === quoteRequestSeq) quote.value = res.data
+  } catch (err: unknown) {
+    if (seq === quoteRequestSeq) {
+      quoteError.value = extractI18nErrorMessage(err, t, 'payment.errors', t('payment.admin.refundQuoteFailed'))
+    }
+  } finally {
+    if (seq === quoteRequestSeq) quoteLoading.value = false
   }
-})
+}
+
+watch(
+  () => [props.show, props.order?.id] as const,
+  ([show]) => {
+    if (!show || !props.order) return
+    form.reason = props.order.refund_request_reason || ''
+    void loadQuote(props.order.id)
+  },
+  { immediate: true },
+)
 
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
 }
 
 function handleSubmit() {
+  if (props.submitting || !canConfirm.value) return
   emit('confirm', { ...form })
 }
 </script>

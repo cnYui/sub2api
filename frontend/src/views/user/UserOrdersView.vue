@@ -69,6 +69,8 @@
             <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.nonRefundableFee') }}</span><span>{{ formatPaymentAmount(refundQuote.non_refundable_fee, refundTarget.currency) }}</span></div>
             <template v-if="!refundQuote.manual_review_required">
               <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.periodQuotaUsage') }}</span><span>{{ usdSymbol }}{{ refundQuote.used_quota_usd.toFixed(2) }} / {{ usdSymbol }}{{ refundQuote.period_total_quota_usd.toFixed(2) }}</span></div>
+              <div v-if="(refundQuote.retained_quota_usd ?? 0) > 0" class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.retainedQuota') }}</span><span>{{ usdSymbol }}{{ (refundQuote.retained_quota_usd ?? 0).toFixed(2) }}</span></div>
+              <div v-if="(refundQuote.reclaim_quota_usd ?? 0) > 0" class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.reclaimQuota') }}</span><span>{{ usdSymbol }}{{ (refundQuote.reclaim_quota_usd ?? 0).toFixed(2) }}</span></div>
               <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.usageRatio') }}</span><span>{{ Math.round(refundQuote.usage_ratio * 100) }}%</span></div>
               <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.timeRatio') }}</span><span>{{ Math.round(refundQuote.time_ratio * 100) }}%</span></div>
               <div class="mt-1 flex justify-between"><span class="text-gray-500 dark:text-gray-400">{{ t('payment.refundQuote.consumptionRatio') }}</span><span>{{ Math.round(refundQuote.consumption_ratio * 100) }}%</span></div>
@@ -76,6 +78,7 @@
             <div class="mt-2 flex justify-between font-medium text-gray-900 dark:text-white"><span>{{ t('payment.refundQuote.estimatedRefund') }}</span><span>{{ formatPaymentAmount(refundQuote.estimated_refund_amount, refundTarget.currency) }}</span></div>
             <p v-if="refundQuote.manual_review_required" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.manualReviewRequired') }}</p>
             <p v-else-if="refundQuote.estimated_refund_amount <= 0" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.zeroRefundCancelsPackage') }}</p>
+            <p v-if="!refundQuote.manual_review_required && (refundQuote.reclaim_quota_usd ?? 0) > 0" class="mt-2 text-xs text-amber-600 dark:text-amber-400">{{ t('payment.refundQuote.reclaimNotice', { amount: usdSymbol + (refundQuote.reclaim_quota_usd ?? 0).toFixed(2) }) }}</p>
           </div>
           <p v-else-if="quoteLoading" class="mt-2 text-xs text-gray-500">{{ t('payment.refundQuote.loading') }}</p>
         </div>

@@ -1182,6 +1182,18 @@ func (s *BalancePackageService) invalidateBalanceCache(ctx context.Context, user
 	}
 }
 
+// invalidateBalanceAndAuthCache 用于单用户余额被直接改动后：认证快照也带余额，
+// 只清余额缓存的话，旧快照会在 TTL 内继续按改动前的余额放行或拦截。
+func (s *BalancePackageService) invalidateBalanceAndAuthCache(ctx context.Context, userID int64) {
+	if s == nil || userID <= 0 {
+		return
+	}
+	s.invalidateBalanceCache(ctx, userID)
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
+	}
+}
+
 // recordBalanceDebtLedger 追加不可变欠费/还款流水，避免套餐退款或刷新覆盖历史欠费事实。
 func recordBalanceDebtLedger(ctx context.Context, client *dbent.Client, userID int64, entryType string, amount, balanceBefore, balanceAfter float64, sourceType, sourceRef string) error {
 	if client == nil || client.Driver().Dialect() != dialect.Postgres || userID <= 0 || amount <= 0 {
