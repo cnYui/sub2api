@@ -9,6 +9,7 @@ import type {
   PaymentOrder,
   PaymentChannel,
   BalancePackagePlan,
+  BalancePackageRefundQuote,
   ProviderInstance
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
@@ -109,6 +110,11 @@ export const adminPaymentAPI = {
   /** Retry recharge for a failed order */
   retryRecharge(id: number) {
     return apiClient.post(`/admin/payment/orders/${id}/retry`)
+  },
+
+  /** Live refund quote; the server recalculates it again on confirm */
+  getRefundQuote(id: number) {
+    return apiClient.get<BalancePackageRefundQuote>(`/admin/payment/orders/${id}/refund-quote`)
   },
 
   /** Process a refund */

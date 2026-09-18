@@ -111,7 +111,11 @@ export interface BalancePackageRefundQuote {
   purchase_base_amount: number
   non_refundable_fee: number
   period_total_quota_usd: number
+  /** Includes retained_quota_usd: quota the user kept when an admin cancelled the package. */
   used_quota_usd: number
+  retained_quota_usd?: number
+  /** Unused weekly quota that is deducted from the balance once the refund succeeds. */
+  reclaim_quota_usd?: number
   usage_ratio: number
   time_ratio: number
   consumption_ratio: number

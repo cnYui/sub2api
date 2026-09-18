@@ -249,10 +249,9 @@ func (s *PaymentService) PrepareRefund(ctx context.Context, oid int64, reason st
 	return p, nil
 }
 
+// balancePackageRefundAmount 每次都按当前时间和用量重新报价，也不跳过人工审核。
+// 退款失败后套餐不会撤销，用户照常使用、周额度照常到账，沿用失败时存下的金额会多退。
 func (s *PaymentService) balancePackageRefundAmount(ctx context.Context, o *dbent.PaymentOrder) (float64, error) {
-	if (o.Status == OrderStatusRefundRequested || o.Status == OrderStatusRefundFailed) && o.RefundAmount > 0 {
-		return o.RefundAmount, nil
-	}
 	quote, err := s.requireBalancePackageRefundQuote(ctx, o)
 	if err != nil {
 		return 0, err
@@ -467,15 +466,16 @@ func (s *PaymentService) getRefundProvider(ctx context.Context, o *dbent.Payment
 
 func (s *PaymentService) handleGwFail(ctx context.Context, p *RefundPlan, gErr error) (*RefundResult, error) {
 	now := time.Now()
-	_, _ = s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(OrderStatusRefundFailed).SetFailedAt(now).SetFailedReason(psErrMsg(gErr)).Save(ctx)
-	s.writeAuditLog(ctx, p.OrderID, "REFUND_FAILED", refundOperator(p), map[string]any{"detail": psErrMsg(gErr)})
+	// 记下这次实际尝试的金额：管理员重试会重新报价，列表里的金额要跟上。
+	_, _ = s.entClient.PaymentOrder.UpdateOneID(p.OrderID).SetStatus(OrderStatusRefundFailed).SetRefundAmount(p.RefundAmount).SetFailedAt(now).SetFailedReason(psErrMsg(gErr)).Save(ctx)
+	s.writeAuditLog(ctx, p.OrderID, "REFUND_FAILED", refundOperator(p), map[string]any{"detail": psErrMsg(gErr), "refundAmount": p.RefundAmount})
 	return nil, infraerrors.InternalServer("REFUND_FAILED", psErrMsg(gErr))
 }
 
 func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*RefundResult, error) {
 	now := time.Now()
 
-	// 网关退款此时已成功，本地必须原子地完成两件事：撤销余额套餐、把订单置为 REFUNDED。
+	// 网关退款此时已成功，本地必须原子地完成两件事：撤销余额套餐（含收回本周未用额度）、把订单置为 REFUNDED。
 	// 若拆成两次独立 autocommit 写入，中途崩溃/取消会留下「钱已退、套餐已撤销、订单仍 REFUNDING」
 	// 的不一致，且该状态既无法重试也无法自动兜底。放进同一个事务保证要么都成、要么都回滚。
 	tx, err := s.entClient.Tx(ctx)
@@ -485,8 +485,10 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 	defer func() { _ = tx.Rollback() }()
 	txClient := tx.Client()
 
+	var revoked balancePackageRevocation
 	if p.Order != nil && p.Order.OrderType == payment.OrderTypeBalanceSubscription {
-		if err := s.revokeBalancePackage(ctx, txClient, p.OrderID); err != nil {
+		revoked, err = s.revokeBalancePackage(ctx, txClient, p.OrderID)
+		if err != nil {
 			return nil, fmt.Errorf("revoke balance package: %w", err)
 		}
 	}
@@ -501,9 +503,19 @@ func (s *PaymentService) markRefundOk(ctx context.Context, p *RefundPlan) (*Refu
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("mark refund commit: %w", err)
 	}
+	if revoked.ReclaimedUSD > 0 {
+		s.balancePackageService.invalidateBalanceAndAuthCache(ctx, revoked.UserID)
+	}
 
 	// 审计日志是 best-effort 副作用，放在事务外，避免一条非关键写入失败把整笔退款回滚。
-	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), map[string]any{"refundAmount": p.RefundAmount, "gatewayRefundAmount": p.GatewayAmount, "reason": p.Reason})
+	detail := map[string]any{"refundAmount": p.RefundAmount, "gatewayRefundAmount": p.GatewayAmount, "reason": p.Reason}
+	if revoked.PackageID > 0 {
+		detail["balancePackageId"] = revoked.PackageID
+		detail["reclaimedRemainingUsd"] = revoked.ReclaimedUSD
+		detail["balanceBeforeUsd"] = revoked.BalanceBefore
+		detail["balanceAfterUsd"] = revoked.BalanceAfter
+	}
+	s.writeAuditLog(ctx, p.OrderID, "REFUND_SUCCESS", refundOperator(p), detail)
 	return &RefundResult{Success: true}, nil
 }
 

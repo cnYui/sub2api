@@ -346,6 +346,22 @@ func (h *PaymentHandler) setCancellableBalancePackageOrders(ctx context.Context,
 	return nil
 }
 
+// GetRefundQuote 返回确认退款前的实时报价，确认时服务端会按同一口径重新计算。
+// GET /api/v1/admin/payment/orders/:id/refund-quote
+func (h *PaymentHandler) GetRefundQuote(c *gin.Context) {
+	orderID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+
+	quote, err := h.paymentService.GetBalancePackageRefundQuoteForAdmin(c.Request.Context(), orderID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, quote)
+}
+
 // AdminProcessRefundRequest is the request body for admin refund processing.
 type AdminProcessRefundRequest struct {
 	Reason string `json:"reason"`
