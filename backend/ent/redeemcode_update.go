@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
@@ -214,6 +215,26 @@ func (_u *RedeemCodeUpdate) AddValidityDays(v int) *RedeemCodeUpdate {
 	return _u
 }
 
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_u *RedeemCodeUpdate) SetBalancePackagePlanID(v int64) *RedeemCodeUpdate {
+	_u.mutation.SetBalancePackagePlanID(v)
+	return _u
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdate) SetNillableBalancePackagePlanID(v *int64) *RedeemCodeUpdate {
+	if v != nil {
+		_u.SetBalancePackagePlanID(*v)
+	}
+	return _u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (_u *RedeemCodeUpdate) ClearBalancePackagePlanID() *RedeemCodeUpdate {
+	_u.mutation.ClearBalancePackagePlanID()
+	return _u
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_u *RedeemCodeUpdate) SetUserID(id int64) *RedeemCodeUpdate {
 	_u.mutation.SetUserID(id)
@@ -238,6 +259,11 @@ func (_u *RedeemCodeUpdate) SetGroup(v *Group) *RedeemCodeUpdate {
 	return _u.SetGroupID(v.ID)
 }
 
+// SetBalancePackagePlan sets the "balance_package_plan" edge to the BalancePackagePlan entity.
+func (_u *RedeemCodeUpdate) SetBalancePackagePlan(v *BalancePackagePlan) *RedeemCodeUpdate {
+	return _u.SetBalancePackagePlanID(v.ID)
+}
+
 // Mutation returns the RedeemCodeMutation object of the builder.
 func (_u *RedeemCodeUpdate) Mutation() *RedeemCodeMutation {
 	return _u.mutation
@@ -252,6 +278,12 @@ func (_u *RedeemCodeUpdate) ClearUser() *RedeemCodeUpdate {
 // ClearGroup clears the "group" edge to the Group entity.
 func (_u *RedeemCodeUpdate) ClearGroup() *RedeemCodeUpdate {
 	_u.mutation.ClearGroup()
+	return _u
+}
+
+// ClearBalancePackagePlan clears the "balance_package_plan" edge to the BalancePackagePlan entity.
+func (_u *RedeemCodeUpdate) ClearBalancePackagePlan() *RedeemCodeUpdate {
+	_u.mutation.ClearBalancePackagePlan()
 	return _u
 }
 
@@ -404,6 +436,35 @@ func (_u *RedeemCodeUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BalancePackagePlanCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   redeemcode.BalancePackagePlanTable,
+			Columns: []string{redeemcode.BalancePackagePlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(balancepackageplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BalancePackagePlanIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   redeemcode.BalancePackagePlanTable,
+			Columns: []string{redeemcode.BalancePackagePlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(balancepackageplan.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -615,6 +676,26 @@ func (_u *RedeemCodeUpdateOne) AddValidityDays(v int) *RedeemCodeUpdateOne {
 	return _u
 }
 
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_u *RedeemCodeUpdateOne) SetBalancePackagePlanID(v int64) *RedeemCodeUpdateOne {
+	_u.mutation.SetBalancePackagePlanID(v)
+	return _u
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_u *RedeemCodeUpdateOne) SetNillableBalancePackagePlanID(v *int64) *RedeemCodeUpdateOne {
+	if v != nil {
+		_u.SetBalancePackagePlanID(*v)
+	}
+	return _u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (_u *RedeemCodeUpdateOne) ClearBalancePackagePlanID() *RedeemCodeUpdateOne {
+	_u.mutation.ClearBalancePackagePlanID()
+	return _u
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_u *RedeemCodeUpdateOne) SetUserID(id int64) *RedeemCodeUpdateOne {
 	_u.mutation.SetUserID(id)
@@ -639,6 +720,11 @@ func (_u *RedeemCodeUpdateOne) SetGroup(v *Group) *RedeemCodeUpdateOne {
 	return _u.SetGroupID(v.ID)
 }
 
+// SetBalancePackagePlan sets the "balance_package_plan" edge to the BalancePackagePlan entity.
+func (_u *RedeemCodeUpdateOne) SetBalancePackagePlan(v *BalancePackagePlan) *RedeemCodeUpdateOne {
+	return _u.SetBalancePackagePlanID(v.ID)
+}
+
 // Mutation returns the RedeemCodeMutation object of the builder.
 func (_u *RedeemCodeUpdateOne) Mutation() *RedeemCodeMutation {
 	return _u.mutation
@@ -653,6 +739,12 @@ func (_u *RedeemCodeUpdateOne) ClearUser() *RedeemCodeUpdateOne {
 // ClearGroup clears the "group" edge to the Group entity.
 func (_u *RedeemCodeUpdateOne) ClearGroup() *RedeemCodeUpdateOne {
 	_u.mutation.ClearGroup()
+	return _u
+}
+
+// ClearBalancePackagePlan clears the "balance_package_plan" edge to the BalancePackagePlan entity.
+func (_u *RedeemCodeUpdateOne) ClearBalancePackagePlan() *RedeemCodeUpdateOne {
+	_u.mutation.ClearBalancePackagePlan()
 	return _u
 }
 
@@ -835,6 +927,35 @@ func (_u *RedeemCodeUpdateOne) sqlSave(ctx context.Context) (_node *RedeemCode, 
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.BalancePackagePlanCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   redeemcode.BalancePackagePlanTable,
+			Columns: []string{redeemcode.BalancePackagePlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(balancepackageplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.BalancePackagePlanIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   redeemcode.BalancePackagePlanTable,
+			Columns: []string{redeemcode.BalancePackagePlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(balancepackageplan.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

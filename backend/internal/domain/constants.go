@@ -42,6 +42,9 @@ const (
 	RedeemTypeConcurrency  = "concurrency"
 	RedeemTypeSubscription = "subscription"
 	RedeemTypeInvitation   = "invitation"
+	// RedeemTypeBalancePackage 按 balance_package_plan_id 绑定的档位发放余额套餐，
+	// 走与购买页完全相同的到账/周刷新逻辑，value 字段对该类型无意义。
+	RedeemTypeBalancePackage = "balance_package"
 )
 
 // PromoCode status constants

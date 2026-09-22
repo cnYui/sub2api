@@ -229,6 +229,7 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		client,
 		nil,
 	)
@@ -335,6 +336,7 @@ func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		client,
 		nil,
 	)
@@ -423,6 +425,7 @@ func TestVerifyOrderByOutTradeNoRejectsPaidQueryWithZeroAmount(t *testing.T) {
 	redeemService := NewRedeemService(
 		redeemRepo,
 		userRepo,
+		nil,
 		nil,
 		nil,
 		nil,
@@ -643,6 +646,7 @@ func TestReconcilePendingWxpayOrdersBackfillsPaidOrder(t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		client,
 		nil,
 	)
@@ -744,6 +748,7 @@ func TestVerifyOrderByOutTradeNoUsesOutTradeNoWhenPaymentTradeNoAlreadyExistsFor
 	redeemService := NewRedeemService(
 		redeemRepo,
 		userRepo,
+		nil,
 		nil,
 		nil,
 		nil,

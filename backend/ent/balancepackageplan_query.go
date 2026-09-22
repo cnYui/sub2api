@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -14,16 +15,18 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 )
 
 // BalancePackagePlanQuery is the builder for querying BalancePackagePlan entities.
 type BalancePackagePlanQuery struct {
 	config
-	ctx        *QueryContext
-	order      []balancepackageplan.OrderOption
-	inters     []Interceptor
-	predicates []predicate.BalancePackagePlan
-	modifiers  []func(*sql.Selector)
+	ctx             *QueryContext
+	order           []balancepackageplan.OrderOption
+	inters          []Interceptor
+	predicates      []predicate.BalancePackagePlan
+	withRedeemCodes *RedeemCodeQuery
+	modifiers       []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +61,28 @@ func (_q *BalancePackagePlanQuery) Unique(unique bool) *BalancePackagePlanQuery 
 func (_q *BalancePackagePlanQuery) Order(o ...balancepackageplan.OrderOption) *BalancePackagePlanQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryRedeemCodes chains the current query on the "redeem_codes" edge.
+func (_q *BalancePackagePlanQuery) QueryRedeemCodes() *RedeemCodeQuery {
+	query := (&RedeemCodeClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(balancepackageplan.Table, balancepackageplan.FieldID, selector),
+			sqlgraph.To(redeemcode.Table, redeemcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, balancepackageplan.RedeemCodesTable, balancepackageplan.RedeemCodesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first BalancePackagePlan entity from the query.
@@ -247,15 +272,27 @@ func (_q *BalancePackagePlanQuery) Clone() *BalancePackagePlanQuery {
 		return nil
 	}
 	return &BalancePackagePlanQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]balancepackageplan.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.BalancePackagePlan{}, _q.predicates...),
+		config:          _q.config,
+		ctx:             _q.ctx.Clone(),
+		order:           append([]balancepackageplan.OrderOption{}, _q.order...),
+		inters:          append([]Interceptor{}, _q.inters...),
+		predicates:      append([]predicate.BalancePackagePlan{}, _q.predicates...),
+		withRedeemCodes: _q.withRedeemCodes.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithRedeemCodes tells the query-builder to eager-load the nodes that are connected to
+// the "redeem_codes" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *BalancePackagePlanQuery) WithRedeemCodes(opts ...func(*RedeemCodeQuery)) *BalancePackagePlanQuery {
+	query := (&RedeemCodeClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRedeemCodes = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -334,8 +371,11 @@ func (_q *BalancePackagePlanQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *BalancePackagePlanQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*BalancePackagePlan, error) {
 	var (
-		nodes = []*BalancePackagePlan{}
-		_spec = _q.querySpec()
+		nodes       = []*BalancePackagePlan{}
+		_spec       = _q.querySpec()
+		loadedTypes = [1]bool{
+			_q.withRedeemCodes != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*BalancePackagePlan).scanValues(nil, columns)
@@ -343,6 +383,7 @@ func (_q *BalancePackagePlanQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &BalancePackagePlan{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	if len(_q.modifiers) > 0 {
@@ -357,7 +398,48 @@ func (_q *BalancePackagePlanQuery) sqlAll(ctx context.Context, hooks ...queryHoo
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withRedeemCodes; query != nil {
+		if err := _q.loadRedeemCodes(ctx, query, nodes,
+			func(n *BalancePackagePlan) { n.Edges.RedeemCodes = []*RedeemCode{} },
+			func(n *BalancePackagePlan, e *RedeemCode) { n.Edges.RedeemCodes = append(n.Edges.RedeemCodes, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *BalancePackagePlanQuery) loadRedeemCodes(ctx context.Context, query *RedeemCodeQuery, nodes []*BalancePackagePlan, init func(*BalancePackagePlan), assign func(*BalancePackagePlan, *RedeemCode)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*BalancePackagePlan)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(redeemcode.FieldBalancePackagePlanID)
+	}
+	query.Where(predicate.RedeemCode(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(balancepackageplan.RedeemCodesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.BalancePackagePlanID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "balance_package_plan_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "balance_package_plan_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (_q *BalancePackagePlanQuery) sqlCount(ctx context.Context) (int, error) {

@@ -13,7 +13,7 @@ export { authAPI, isTotp2FARequired, type LoginResponse } from './auth'
 export { keysAPI } from './keys'
 export { usageAPI } from './usage'
 export { userAPI } from './user'
-export { redeemAPI, type RedeemHistoryItem } from './redeem'
+export { redeemAPI, type RedeemHistoryItem, type RedeemResult } from './redeem'
 export {
   reimbursementAPI,
   type ReimbursementFields,

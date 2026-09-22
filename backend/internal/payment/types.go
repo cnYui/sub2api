@@ -42,6 +42,9 @@ const (
 	OrderTypeBalanceSubscription = "balance_subscription"
 	OrderTypeTrafficPack         = "traffic_pack"
 	PaymentTypeAdminGrant        = "admin_grant"
+	// PaymentTypeRedeemCode 标记由兑换码发放的零金额余额套餐订单。
+	// 它不在 validateRealPaidBalancePackageOrder 的支付方式白名单里，因此天然不可退款。
+	PaymentTypeRedeemCode = "redeem_code"
 )
 
 // Entity statuses shared across users, groups, etc.

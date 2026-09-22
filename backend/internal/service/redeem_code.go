@@ -21,8 +21,26 @@ type RedeemCode struct {
 	GroupID      *int64
 	ValidityDays int
 
-	User  *User
-	Group *Group
+	// BalancePackagePlanID 只对 RedeemTypeBalancePackage 有意义。
+	BalancePackagePlanID *int64
+
+	User               *User
+	Group              *Group
+	BalancePackagePlan *RedeemBalancePackagePlan
+}
+
+// RedeemBalancePackagePlan 是兑换码绑定的余额套餐档位快照（只读展示用）。
+// 字段取自 balance_package_plans 当前值，不是下单时的冻结值。
+type RedeemBalancePackagePlan struct {
+	ID                  int64
+	Code                string
+	Name                string
+	PriceCNY            float64
+	WeeklyCreditUSD     float64
+	ValidityDays        int
+	RefreshCount        int
+	RefreshIntervalDays int
+	ForSale             bool
 }
 
 func (r *RedeemCode) IsUsed() bool {

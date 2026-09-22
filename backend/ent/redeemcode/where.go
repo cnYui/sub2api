@@ -110,6 +110,11 @@ func ValidityDays(v int) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldValidityDays, v))
 }
 
+// BalancePackagePlanID applies equality check predicate on the "balance_package_plan_id" field. It's identical to BalancePackagePlanIDEQ.
+func BalancePackagePlanID(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalancePackagePlanID, v))
+}
+
 // CodeEQ applies the EQ predicate on the "code" field.
 func CodeEQ(v string) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldEQ(FieldCode, v))
@@ -660,6 +665,36 @@ func ValidityDaysLTE(v int) predicate.RedeemCode {
 	return predicate.RedeemCode(sql.FieldLTE(FieldValidityDays, v))
 }
 
+// BalancePackagePlanIDEQ applies the EQ predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDEQ(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldEQ(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDNEQ applies the NEQ predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNEQ(v int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNEQ(FieldBalancePackagePlanID, v))
+}
+
+// BalancePackagePlanIDIn applies the In predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDIn(vs ...int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIn(FieldBalancePackagePlanID, vs...))
+}
+
+// BalancePackagePlanIDNotIn applies the NotIn predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNotIn(vs ...int64) predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotIn(FieldBalancePackagePlanID, vs...))
+}
+
+// BalancePackagePlanIDIsNil applies the IsNil predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDIsNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldIsNull(FieldBalancePackagePlanID))
+}
+
+// BalancePackagePlanIDNotNil applies the NotNil predicate on the "balance_package_plan_id" field.
+func BalancePackagePlanIDNotNil() predicate.RedeemCode {
+	return predicate.RedeemCode(sql.FieldNotNull(FieldBalancePackagePlanID))
+}
+
 // HasUser applies the HasEdge predicate on the "user" edge.
 func HasUser() predicate.RedeemCode {
 	return predicate.RedeemCode(func(s *sql.Selector) {
@@ -698,6 +733,29 @@ func HasGroup() predicate.RedeemCode {
 func HasGroupWith(preds ...predicate.Group) predicate.RedeemCode {
 	return predicate.RedeemCode(func(s *sql.Selector) {
 		step := newGroupStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasBalancePackagePlan applies the HasEdge predicate on the "balance_package_plan" edge.
+func HasBalancePackagePlan() predicate.RedeemCode {
+	return predicate.RedeemCode(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, BalancePackagePlanTable, BalancePackagePlanColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBalancePackagePlanWith applies the HasEdge predicate on the "balance_package_plan" edge with a given conditions (other predicates).
+func HasBalancePackagePlanWith(preds ...predicate.BalancePackagePlan) predicate.RedeemCode {
+	return predicate.RedeemCode(func(s *sql.Selector) {
+		step := newBalancePackagePlanStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

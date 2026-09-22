@@ -1839,6 +1839,22 @@ func (c *BalancePackagePlanClient) GetX(ctx context.Context, id int64) *BalanceP
 	return obj
 }
 
+// QueryRedeemCodes queries the redeem_codes edge of a BalancePackagePlan.
+func (c *BalancePackagePlanClient) QueryRedeemCodes(_m *BalancePackagePlan) *RedeemCodeQuery {
+	query := (&RedeemCodeClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(balancepackageplan.Table, balancepackageplan.FieldID, id),
+			sqlgraph.To(redeemcode.Table, redeemcode.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, balancepackageplan.RedeemCodesTable, balancepackageplan.RedeemCodesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *BalancePackagePlanClient) Hooks() []Hook {
 	return c.hooks.BalancePackagePlan
@@ -4930,6 +4946,22 @@ func (c *RedeemCodeClient) QueryGroup(_m *RedeemCode) *GroupQuery {
 			sqlgraph.From(redeemcode.Table, redeemcode.FieldID, id),
 			sqlgraph.To(group.Table, group.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, redeemcode.GroupTable, redeemcode.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBalancePackagePlan queries the balance_package_plan edge of a RedeemCode.
+func (c *RedeemCodeClient) QueryBalancePackagePlan(_m *RedeemCode) *BalancePackagePlanQuery {
+	query := (&BalancePackagePlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(redeemcode.Table, redeemcode.FieldID, id),
+			sqlgraph.To(balancepackageplan.Table, balancepackageplan.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, redeemcode.BalancePackagePlanTable, redeemcode.BalancePackagePlanColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil

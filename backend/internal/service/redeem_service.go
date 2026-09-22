@@ -123,15 +123,16 @@ type RedeemCodeBatchUpdateResult struct {
 
 // RedeemService 兑换码服务
 type RedeemService struct {
-	redeemRepo           RedeemCodeRepository
-	userRepo             UserRepository
-	redeemUserRepo       RedeemUserAdjustmentRepository
-	subscriptionService  *SubscriptionService
-	cache                RedeemCache
-	billingCacheService  *BillingCacheService
-	entClient            *dbent.Client
-	authCacheInvalidator APIKeyAuthCacheInvalidator
-	purchaseNotify       *PurchaseNotifyService
+	redeemRepo            RedeemCodeRepository
+	userRepo              UserRepository
+	redeemUserRepo        RedeemUserAdjustmentRepository
+	subscriptionService   *SubscriptionService
+	balancePackageService *BalancePackageService
+	cache                 RedeemCache
+	billingCacheService   *BillingCacheService
+	entClient             *dbent.Client
+	authCacheInvalidator  APIKeyAuthCacheInvalidator
+	purchaseNotify        *PurchaseNotifyService
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -139,6 +140,7 @@ func NewRedeemService(
 	redeemRepo RedeemCodeRepository,
 	userRepo UserRepository,
 	subscriptionService *SubscriptionService,
+	balancePackageService *BalancePackageService,
 	cache RedeemCache,
 	billingCacheService *BillingCacheService,
 	entClient *dbent.Client,
@@ -146,14 +148,15 @@ func NewRedeemService(
 ) *RedeemService {
 	redeemUserRepo, _ := userRepo.(RedeemUserAdjustmentRepository)
 	return &RedeemService{
-		redeemRepo:           redeemRepo,
-		userRepo:             userRepo,
-		redeemUserRepo:       redeemUserRepo,
-		subscriptionService:  subscriptionService,
-		cache:                cache,
-		billingCacheService:  billingCacheService,
-		entClient:            entClient,
-		authCacheInvalidator: authCacheInvalidator,
+		redeemRepo:            redeemRepo,
+		userRepo:              userRepo,
+		redeemUserRepo:        redeemUserRepo,
+		subscriptionService:   subscriptionService,
+		balancePackageService: balancePackageService,
+		cache:                 cache,
+		billingCacheService:   billingCacheService,
+		entClient:             entClient,
+		authCacheInvalidator:  authCacheInvalidator,
 	}
 }
 
@@ -190,8 +193,8 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		return nil, errors.New("count must be greater than 0")
 	}
 
-	// 邀请码类型不需要数值，其他类型需要非零值（支持负数用于退款）
-	if req.Type != RedeemTypeInvitation && req.Value == 0 {
+	// 邀请码和套餐码不需要数值（套餐面值由绑定的档位决定），其他类型需要非零值（支持负数用于退款）
+	if !redeemTypeIgnoresValue(req.Type) && req.Value == 0 {
 		return nil, errors.New("value must not be zero")
 	}
 
@@ -204,9 +207,9 @@ func (s *RedeemService) GenerateCodes(ctx context.Context, req GenerateCodesRequ
 		codeType = RedeemTypeBalance
 	}
 
-	// 邀请码类型的 value 设为 0
+	// 邀请码和套餐码的 value 设为 0
 	value := req.Value
-	if codeType == RedeemTypeInvitation {
+	if redeemTypeIgnoresValue(codeType) {
 		value = 0
 	}
 
@@ -247,8 +250,14 @@ func (s *RedeemService) CreateCode(ctx context.Context, code *RedeemCode) error 
 	if code.Type == "" {
 		code.Type = RedeemTypeBalance
 	}
-	if code.Type != RedeemTypeInvitation && code.Value == 0 {
+	if !redeemTypeIgnoresValue(code.Type) && code.Value == 0 {
 		return errors.New("value must not be zero")
+	}
+	if code.Type == RedeemTypeBalancePackage {
+		if code.BalancePackagePlanID == nil || *code.BalancePackagePlanID <= 0 {
+			return errors.New("balance_package_plan_id is required for balance_package type")
+		}
+		code.Value = 0
 	}
 	if code.Status == "" {
 		code.Status = StatusUnused
@@ -370,6 +379,12 @@ func (s *RedeemService) releaseRedeemLock(ctx context.Context, code string) {
 	_ = s.cache.ReleaseRedeemLock(ctx, code)
 }
 
+// redeemTypeIgnoresValue 标记 value 字段无意义的兑换码类型：
+// 邀请码只在注册流程用，套餐码的面值由绑定的档位决定。
+func redeemTypeIgnoresValue(codeType string) bool {
+	return codeType == RedeemTypeInvitation || codeType == RedeemTypeBalancePackage
+}
+
 func unsupportedRedeemTypeError(codeType string) error {
 	if codeType == RedeemTypeInvitation {
 		return infraerrors.BadRequest("REDEEM_CODE_UNSUPPORTED_TYPE", "invitation codes can only be used during registration")
@@ -417,6 +432,13 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 		if redeemCode.GroupID == nil {
 			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing group_id")
 		}
+	case RedeemTypeBalancePackage:
+		if redeemCode.BalancePackagePlanID == nil {
+			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid balance package redeem code: missing balance_package_plan_id")
+		}
+		if s.balancePackageService == nil {
+			return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
+		}
 	default:
 		return nil, unsupportedRedeemTypeError(redeemCode.Type)
 	}
@@ -446,6 +468,9 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 		return nil, fmt.Errorf("mark code as used: %w", err)
 	}
 
+	// grantedOrder 只在套餐类型下非空：到账通知要读套餐行，必须等事务提交后再发。
+	var grantedOrder *dbent.PaymentOrder
+
 	// 执行兑换逻辑（兑换码已被锁定，此时可安全操作）
 	switch redeemCode.Type {
 	case RedeemTypeBalance:
@@ -472,6 +497,14 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 			}
 		} else if err := s.userRepo.UpdateConcurrency(txCtx, userID, delta); err != nil {
 			return nil, fmt.Errorf("update user concurrency: %w", err)
+		}
+
+	case RedeemTypeBalancePackage:
+		// 用户已有有效套餐时这里会返回 BALANCE_PACKAGE_ACTIVE，整个事务回滚，
+		// 兑换码保持未使用状态，用户可在本期套餐失效后重试。
+		grantedOrder, err = s.balancePackageService.GrantByRedeemCode(txCtx, tx.Client(), userID, *redeemCode.BalancePackagePlanID, redeemCode.Code)
+		if err != nil {
+			return nil, err
 		}
 
 	case RedeemTypeSubscription:
@@ -509,9 +542,15 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	// 事务提交成功后失效缓存。兑换码刻意不触发邀请返利，只给兑换人本人加额度。
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
 
-	// 到账通知只覆盖"加余额"这一种；负数 admin_balance 是后台补扣，发信在服务内被挡掉。
-	if s.purchaseNotify != nil && redeemCode.Type == RedeemTypeBalance {
-		s.purchaseNotify.NotifyRedeemBalance(userID, redeemCode.ID, redeemCode.Code, redeemCode.Value)
+	// 到账通知：加余额发"兑换码到账"，套餐发和购买页同一封"套餐已生效"（类型标成兑换码兑换）。
+	// 负数 admin_balance 是后台补扣，发信在服务内被挡掉。
+	if s.purchaseNotify != nil {
+		switch {
+		case redeemCode.Type == RedeemTypeBalance:
+			s.purchaseNotify.NotifyRedeemBalance(userID, redeemCode.ID, redeemCode.Code, redeemCode.Value)
+		case redeemCode.Type == RedeemTypeBalancePackage && grantedOrder != nil:
+			s.purchaseNotify.NotifyBalancePackage(grantedOrder)
+		}
 	}
 
 	// 重新获取更新后的兑换码
@@ -526,7 +565,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 // invalidateRedeemCaches 失效兑换相关的缓存
 func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64, redeemCode *RedeemCode) {
 	switch redeemCode.Type {
-	case RedeemTypeBalance:
+	case RedeemTypeBalance, RedeemTypeBalancePackage:
 		if s.authCacheInvalidator != nil {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
 		}

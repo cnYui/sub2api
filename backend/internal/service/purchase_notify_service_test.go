@@ -200,6 +200,19 @@ func TestPurchasePayAmountTextForAdminGrant(t *testing.T) {
 	require.Equal(t, "29.29 CNY", purchasePayAmountText(paid, purchaseKindNew, notificationEmailLocaleChinese))
 }
 
+// 兑换码换来的套餐也是零金额订单，但码可能是用户在别处买的，
+// "实付"写成"赠送"是替对方下结论，这里钉死留空。
+func TestPurchasePayAmountTextForRedeemCode(t *testing.T) {
+	order := purchaseNoticeTestOrder()
+	order.PaymentType = payment.PaymentTypeRedeemCode
+	order.PayAmount = 0
+
+	require.Equal(t, purchaseKindRedeem, balancePackagePurchaseKind(order, purchaseNoticeTestPackage()))
+	require.Equal(t, "—", purchasePayAmountText(order, purchaseKindRedeem, notificationEmailLocaleChinese))
+	require.Equal(t, "兑换码兑换", purchaseKindLabel(purchaseKindRedeem, notificationEmailLocaleChinese))
+	require.Equal(t, "Code redemption", purchaseKindLabel(purchaseKindRedeem, notificationEmailDefaultLocale))
+}
+
 // 后台手工补扣用的是负数 admin_balance 兑换码，绝不能给用户发"到账"通知。
 func TestSendRedeemBalanceNoticeSkipsNonPositiveAmounts(t *testing.T) {
 	svc := &PurchaseNotifyService{

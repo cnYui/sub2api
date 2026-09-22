@@ -4,7 +4,13 @@
  */
 
 import { apiClient } from '../client'
-import type { AdminUser, UpdateUserRequest, PaginatedResponse, ApiKey } from '@/types'
+import type {
+  AdminUser,
+  UpdateUserRequest,
+  PaginatedResponse,
+  ApiKey,
+  RedeemBalancePackagePlan
+} from '@/types'
 
 export interface AdminBindAuthIdentityChannelRequest {
   channel: string
@@ -265,8 +271,10 @@ export interface BalanceHistoryItem {
   group_id: number | null
   validity_days: number
   notes: string
+  balance_package_plan_id?: number | null
   user?: { id: number; email: string } | null
   group?: { id: number; name: string } | null
+  balance_package_plan?: RedeemBalancePackagePlan | null
 }
 
 // Balance history response extends pagination with total_recharged summary

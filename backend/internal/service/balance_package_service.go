@@ -394,7 +394,9 @@ func (s *BalancePackageService) creditInitialBalance(ctx context.Context, client
 		if err := validateBalancePackagePlanChange(current, *order.BalancePackagePlanID); err != nil {
 			return nil, err
 		}
-		if order.PaymentType == payment.PaymentTypeAdminGrant {
+		// 零金额发放（后台手动 / 兑换码）不做续费：续费会把套餐改绑到这笔零金额订单，
+		// 用户原来那笔真实支付的订单就再也退不了款了。
+		if order.PaymentType == payment.PaymentTypeAdminGrant || order.PaymentType == payment.PaymentTypeRedeemCode {
 			return nil, infraerrors.Conflict("BALANCE_PACKAGE_ACTIVE", "用户已有有效余额套餐，不能重复发放")
 		}
 		return s.renewBalancePackage(ctx, client, order, current, lockedUser)

@@ -120,6 +120,11 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 - 邀请返利默认开启、比例 8%，直接增加 `users.balance`，`frozen_until` 记 24 小时冻结；**冻结不限制模型使用**。
 - **兑换码只给兑换人本人加普通余额，不触发邀请返利**（含后台 `create-and-redeem`），2026-09-11 管理员明确。上游 `Wei-Shaw/sub2api` 的 `RedeemService` 带这段返利，同步上游时别带回来。后台手动加余额是否返利由设置 `affiliate_admin_recharge_enabled` 单独控制。
+- **兑换码类型 `balance_package`（2026-09-22 新增，迁移 `215`）**：码上绑 `redeem_codes.balance_package_plan_id`，兑换时按该档位发放余额套餐，走的就是购买页那套 `creditInitialBalance`（首期立即到账、28 天 4 期、先抵负余额）。
+  - 生成时校验档位存在且配置合法；**兑换时不要求档位仍在售**——码发出去就是承诺，下架档位不该让码作废。`value` 恒为 0，别把它当美元额度。
+  - 会建一笔零金额订单，`payment_type=redeem_code`。它不在 `validateRealPaidBalancePackageOrder` 的支付方式白名单里，所以**天然不可退款**，审计写 `REDEEM_BALANCE_PACKAGE_GRANTED`。
+  - **到账邮件复用购买页那封**「余额套餐已生效」（事件 `balance_package_credited`），类型标成「兑换码兑换」、实付留空（码可能是用户在别处买的，写「赠送」是替对方下结论）。普通余额兑换码仍走 `NotifyRedeemBalance` 那封。
+  - **用户已有有效套餐时一律拒绝**（`BALANCE_PACKAGE_ACTIVE`），不走同档续费：续费会把套餐改绑到这笔零金额订单，用户原来那笔真实支付的订单就再也退不了款了。拒绝时整个事务回滚，**兑换码保持未使用**，用户可在本期套餐失效后重试。同一条闸门也管着后台手动发放。
 - 充值手续费 `RECHARGE_FEE_RATE=1%`，只增加订单 `pay_amount`，**不改变套餐到账额度或流量卡额度**；服务端始终用商品服务端价格重算。
 - `/monitor` 全部渠道统一为**每次一个带鉴权的 `GET /v1/models`** 目录探测，间隔 1800 秒，不发真实推理请求，不做额外 HEAD。生图渠道禁止周期性生图探测。
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。

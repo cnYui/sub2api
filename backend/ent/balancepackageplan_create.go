@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 )
 
 // BalancePackagePlanCreate is the builder for creating a BalancePackagePlan entity.
@@ -142,6 +143,21 @@ func (_c *BalancePackagePlanCreate) SetNillableUpdatedAt(v *time.Time) *BalanceP
 		_c.SetUpdatedAt(*v)
 	}
 	return _c
+}
+
+// AddRedeemCodeIDs adds the "redeem_codes" edge to the RedeemCode entity by IDs.
+func (_c *BalancePackagePlanCreate) AddRedeemCodeIDs(ids ...int64) *BalancePackagePlanCreate {
+	_c.mutation.AddRedeemCodeIDs(ids...)
+	return _c
+}
+
+// AddRedeemCodes adds the "redeem_codes" edges to the RedeemCode entity.
+func (_c *BalancePackagePlanCreate) AddRedeemCodes(v ...*RedeemCode) *BalancePackagePlanCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRedeemCodeIDs(ids...)
 }
 
 // Mutation returns the BalancePackagePlanMutation object of the builder.
@@ -324,6 +340,22 @@ func (_c *BalancePackagePlanCreate) createSpec() (*BalancePackagePlan, *sqlgraph
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(balancepackageplan.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.RedeemCodesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   balancepackageplan.RedeemCodesTable,
+			Columns: []string{balancepackageplan.RedeemCodesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(redeemcode.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

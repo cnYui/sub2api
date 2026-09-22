@@ -36,10 +36,14 @@ const (
 	FieldGroupID = "group_id"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
 	FieldValidityDays = "validity_days"
+	// FieldBalancePackagePlanID holds the string denoting the balance_package_plan_id field in the database.
+	FieldBalancePackagePlanID = "balance_package_plan_id"
 	// EdgeUser holds the string denoting the user edge name in mutations.
 	EdgeUser = "user"
 	// EdgeGroup holds the string denoting the group edge name in mutations.
 	EdgeGroup = "group"
+	// EdgeBalancePackagePlan holds the string denoting the balance_package_plan edge name in mutations.
+	EdgeBalancePackagePlan = "balance_package_plan"
 	// Table holds the table name of the redeemcode in the database.
 	Table = "redeem_codes"
 	// UserTable is the table that holds the user relation/edge.
@@ -56,6 +60,13 @@ const (
 	GroupInverseTable = "groups"
 	// GroupColumn is the table column denoting the group relation/edge.
 	GroupColumn = "group_id"
+	// BalancePackagePlanTable is the table that holds the balance_package_plan relation/edge.
+	BalancePackagePlanTable = "redeem_codes"
+	// BalancePackagePlanInverseTable is the table name for the BalancePackagePlan entity.
+	// It exists in this package in order to avoid circular dependency with the "balancepackageplan" package.
+	BalancePackagePlanInverseTable = "balance_package_plans"
+	// BalancePackagePlanColumn is the table column denoting the balance_package_plan relation/edge.
+	BalancePackagePlanColumn = "balance_package_plan_id"
 )
 
 // Columns holds all SQL columns for redeemcode fields.
@@ -72,6 +83,7 @@ var Columns = []string{
 	FieldExpiresAt,
 	FieldGroupID,
 	FieldValidityDays,
+	FieldBalancePackagePlanID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -166,6 +178,11 @@ func ByValidityDays(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldValidityDays, opts...).ToFunc()
 }
 
+// ByBalancePackagePlanID orders the results by the balance_package_plan_id field.
+func ByBalancePackagePlanID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldBalancePackagePlanID, opts...).ToFunc()
+}
+
 // ByUserField orders the results by user field.
 func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -177,6 +194,13 @@ func ByUserField(field string, opts ...sql.OrderTermOption) OrderOption {
 func ByGroupField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newGroupStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByBalancePackagePlanField orders the results by balance_package_plan field.
+func ByBalancePackagePlanField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBalancePackagePlanStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newUserStep() *sqlgraph.Step {
@@ -191,5 +215,12 @@ func newGroupStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(GroupInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, GroupTable, GroupColumn),
+	)
+}
+func newBalancePackagePlanStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BalancePackagePlanInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, BalancePackagePlanTable, BalancePackagePlanColumn),
 	)
 }

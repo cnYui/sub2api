@@ -399,12 +399,29 @@ type RedeemCode struct {
 	GroupID      *int64 `json:"group_id"`
 	ValidityDays int    `json:"validity_days"`
 
+	// BalancePackagePlanID 只对 balance_package 类型有意义
+	BalancePackagePlanID *int64 `json:"balance_package_plan_id,omitempty"`
+
 	// Notes is only populated for admin_balance/admin_concurrency types
 	// so users can see why they were charged or credited
 	Notes *string `json:"notes,omitempty"`
 
-	User  *User  `json:"user,omitempty"`
-	Group *Group `json:"group,omitempty"`
+	User               *User                     `json:"user,omitempty"`
+	Group              *Group                    `json:"group,omitempty"`
+	BalancePackagePlan *RedeemBalancePackagePlan `json:"balance_package_plan,omitempty"`
+}
+
+// RedeemBalancePackagePlan 描述兑换码绑定的余额套餐档位，供前端展示「这张码能兑什么」。
+type RedeemBalancePackagePlan struct {
+	ID                  int64   `json:"id"`
+	Code                string  `json:"code"`
+	Name                string  `json:"name"`
+	PriceCNY            float64 `json:"price_cny"`
+	WeeklyCreditUSD     float64 `json:"weekly_credit_usd"`
+	ValidityDays        int     `json:"validity_days"`
+	RefreshCount        int     `json:"refresh_count"`
+	RefreshIntervalDays int     `json:"refresh_interval_days"`
+	ForSale             bool    `json:"for_sale"`
 }
 
 // AdminRedeemCode 是管理员接口使用的 redeem code DTO（包含 notes 等字段）。

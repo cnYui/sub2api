@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -170,6 +171,20 @@ func (_c *RedeemCodeCreate) SetNillableValidityDays(v *int) *RedeemCodeCreate {
 	return _c
 }
 
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (_c *RedeemCodeCreate) SetBalancePackagePlanID(v int64) *RedeemCodeCreate {
+	_c.mutation.SetBalancePackagePlanID(v)
+	return _c
+}
+
+// SetNillableBalancePackagePlanID sets the "balance_package_plan_id" field if the given value is not nil.
+func (_c *RedeemCodeCreate) SetNillableBalancePackagePlanID(v *int64) *RedeemCodeCreate {
+	if v != nil {
+		_c.SetBalancePackagePlanID(*v)
+	}
+	return _c
+}
+
 // SetUserID sets the "user" edge to the User entity by ID.
 func (_c *RedeemCodeCreate) SetUserID(id int64) *RedeemCodeCreate {
 	_c.mutation.SetUserID(id)
@@ -192,6 +207,11 @@ func (_c *RedeemCodeCreate) SetUser(v *User) *RedeemCodeCreate {
 // SetGroup sets the "group" edge to the Group entity.
 func (_c *RedeemCodeCreate) SetGroup(v *Group) *RedeemCodeCreate {
 	return _c.SetGroupID(v.ID)
+}
+
+// SetBalancePackagePlan sets the "balance_package_plan" edge to the BalancePackagePlan entity.
+func (_c *RedeemCodeCreate) SetBalancePackagePlan(v *BalancePackagePlan) *RedeemCodeCreate {
+	return _c.SetBalancePackagePlanID(v.ID)
 }
 
 // Mutation returns the RedeemCodeMutation object of the builder.
@@ -381,6 +401,23 @@ func (_c *RedeemCodeCreate) createSpec() (*RedeemCode, *sqlgraph.CreateSpec) {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.GroupID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.BalancePackagePlanIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   redeemcode.BalancePackagePlanTable,
+			Columns: []string{redeemcode.BalancePackagePlanColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(balancepackageplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.BalancePackagePlanID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
@@ -594,6 +631,24 @@ func (u *RedeemCodeUpsert) UpdateValidityDays() *RedeemCodeUpsert {
 // AddValidityDays adds v to the "validity_days" field.
 func (u *RedeemCodeUpsert) AddValidityDays(v int) *RedeemCodeUpsert {
 	u.Add(redeemcode.FieldValidityDays, v)
+	return u
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsert) SetBalancePackagePlanID(v int64) *RedeemCodeUpsert {
+	u.Set(redeemcode.FieldBalancePackagePlanID, v)
+	return u
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsert) UpdateBalancePackagePlanID() *RedeemCodeUpsert {
+	u.SetExcluded(redeemcode.FieldBalancePackagePlanID)
+	return u
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsert) ClearBalancePackagePlanID() *RedeemCodeUpsert {
+	u.SetNull(redeemcode.FieldBalancePackagePlanID)
 	return u
 }
 
@@ -828,6 +883,27 @@ func (u *RedeemCodeUpsertOne) AddValidityDays(v int) *RedeemCodeUpsertOne {
 func (u *RedeemCodeUpsertOne) UpdateValidityDays() *RedeemCodeUpsertOne {
 	return u.Update(func(s *RedeemCodeUpsert) {
 		s.UpdateValidityDays()
+	})
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsertOne) SetBalancePackagePlanID(v int64) *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalancePackagePlanID(v)
+	})
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertOne) UpdateBalancePackagePlanID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalancePackagePlanID()
+	})
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsertOne) ClearBalancePackagePlanID() *RedeemCodeUpsertOne {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBalancePackagePlanID()
 	})
 }
 
@@ -1228,6 +1304,27 @@ func (u *RedeemCodeUpsertBulk) AddValidityDays(v int) *RedeemCodeUpsertBulk {
 func (u *RedeemCodeUpsertBulk) UpdateValidityDays() *RedeemCodeUpsertBulk {
 	return u.Update(func(s *RedeemCodeUpsert) {
 		s.UpdateValidityDays()
+	})
+}
+
+// SetBalancePackagePlanID sets the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsertBulk) SetBalancePackagePlanID(v int64) *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.SetBalancePackagePlanID(v)
+	})
+}
+
+// UpdateBalancePackagePlanID sets the "balance_package_plan_id" field to the value that was provided on create.
+func (u *RedeemCodeUpsertBulk) UpdateBalancePackagePlanID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.UpdateBalancePackagePlanID()
+	})
+}
+
+// ClearBalancePackagePlanID clears the value of the "balance_package_plan_id" field.
+func (u *RedeemCodeUpsertBulk) ClearBalancePackagePlanID() *RedeemCodeUpsertBulk {
+	return u.Update(func(s *RedeemCodeUpsert) {
+		s.ClearBalancePackagePlanID()
 	})
 }
 

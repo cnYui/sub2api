@@ -28,6 +28,7 @@ const (
 	purchaseKindNew        = "new"
 	purchaseKindRenewal    = "renewal"
 	purchaseKindAdminGrant = "admin_grant"
+	purchaseKindRedeem     = "redeem"
 
 	// 前端路由，见 frontend/src/router/index.ts。
 	balancePackageDashboardPath = "/subscriptions"
@@ -126,13 +127,7 @@ func (s *PurchaseNotifyService) sendBalancePackageNotice(ctx context.Context, or
 	}
 
 	locale := s.notificationEmail.ResolveRecipientLocale(ctx, userID, recipient)
-	kind := purchaseKindNew
-	switch {
-	case order.PaymentType == payment.PaymentTypeAdminGrant:
-		kind = purchaseKindAdminGrant
-	case pkg.RenewalCount > 0:
-		kind = purchaseKindRenewal
-	}
+	kind := balancePackagePurchaseKind(order, pkg)
 
 	variables := buildBalancePackageNoticeVariables(
 		order, pkg, kind, locale,
@@ -223,6 +218,21 @@ func (s *PurchaseNotifyService) sendRedeemBalanceNotice(ctx context.Context, use
 		SourceID:       strconv.FormatInt(redeemCodeID, 10),
 		Variables:      variables,
 	})
+}
+
+// balancePackagePurchaseKind 判定邮件里那一行"类型"。零金额的两种发放各有说法，
+// 其余按是否续费区分。
+func balancePackagePurchaseKind(order *dbent.PaymentOrder, pkg *dbent.UserBalancePackage) string {
+	switch {
+	case order.PaymentType == payment.PaymentTypeAdminGrant:
+		return purchaseKindAdminGrant
+	case order.PaymentType == payment.PaymentTypeRedeemCode:
+		return purchaseKindRedeem
+	case pkg != nil && pkg.RenewalCount > 0:
+		return purchaseKindRenewal
+	default:
+		return purchaseKindNew
+	}
 }
 
 // buildBalancePackageNoticeVariables 等三个构造器是纯函数，便于用回归测试钉死"占位符必须传满"。
@@ -318,6 +328,10 @@ func (s *PurchaseNotifyService) balancePackagePlanName(ctx context.Context, plan
 
 // purchasePayAmountText 管理员发放是零金额订单，写金额会误导用户，这里改写成"赠送"。
 func purchasePayAmountText(order *dbent.PaymentOrder, kind, locale string) string {
+	// 兑换码同样是零金额订单，但码本身可能是用户在别处花钱买的，写"赠送"是替对方下结论，所以留空。
+	if kind == purchaseKindRedeem {
+		return "—"
+	}
 	if kind == purchaseKindAdminGrant || order.PayAmount <= 0 {
 		if isChinesePurchaseLocale(locale) {
 			return "赠送"
@@ -364,6 +378,11 @@ func purchaseKindLabel(kind, locale string) string {
 			return "管理员发放"
 		}
 		return "Admin grant"
+	case purchaseKindRedeem:
+		if zh {
+			return "兑换码兑换"
+		}
+		return "Code redemption"
 	default:
 		if zh {
 			return "新购"
