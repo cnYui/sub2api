@@ -66,6 +66,10 @@ type UserBalancePackageView struct {
 	Status              string     `json:"status"`
 	CreatedAt           time.Time  `json:"created_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
+	// CanCreditNextEarly 与 EarlyCreditBlockReason 供用户端渲染「提前刷新」按钮的可用状态。
+	// 判定只放在服务端一处，避免前端另写一份规则后与实际准入口径漂移。
+	CanCreditNextEarly     bool   `json:"can_credit_next_early"`
+	EarlyCreditBlockReason string `json:"early_credit_block_reason,omitempty"`
 }
 
 var defaultBalancePackagePlans = []defaultBalancePackagePlan{
@@ -205,6 +209,7 @@ func (s *BalancePackageService) ListUserPackages(ctx context.Context, userID int
 			CreatedAt:           item.CreatedAt,
 			UpdatedAt:           item.UpdatedAt,
 		}
+		view.CanCreditNextEarly, view.EarlyCreditBlockReason = evaluateSelfEarlyCredit(item, now)
 		if plan != nil {
 			view.Code = plan.Code
 			view.Name = plan.Name
@@ -852,6 +857,37 @@ func (s *BalancePackageService) creditDueBalance(ctx context.Context, item *dben
 	return true, nil
 }
 
+// 自助提前刷新的准入门槛与拒绝原因码。原因码同时回给用户端做按钮禁用文案。
+const (
+	// 本周额度必须已经用尽才允许自助提前刷新。留出容差是因为提前刷新按窗口替换而非累加，
+	// 卡在几厘钱上会让用户既用不掉也刷不了，只能回来找人工。
+	balancePackageSelfCreditRemainingEpsilon = 0.01
+
+	earlyCreditBlockNotActive            = "not_active"
+	earlyCreditBlockFullyCredited        = "fully_credited"
+	earlyCreditBlockExpired              = "expired"
+	earlyCreditBlockNoSchedule           = "no_schedule"
+	earlyCreditBlockWeeklyQuotaRemaining = "weekly_quota_remaining"
+)
+
+// evaluateSelfEarlyCredit 判断一个套餐当下能否由用户本人提前刷新下一期。
+// 这里的条件必须与 creditNextEarly 事务内的校验保持一致：展示态只是提前告知，真正的准入仍在锁内复核。
+func evaluateSelfEarlyCredit(item *dbent.UserBalancePackage, now time.Time) (bool, string) {
+	switch {
+	case item == nil, item.Status != balancePackageStatusActive:
+		return false, earlyCreditBlockNotActive
+	case item.CreditedCount >= item.RefreshCount:
+		return false, earlyCreditBlockFullyCredited
+	case !item.ExpiresAt.After(now):
+		return false, earlyCreditBlockExpired
+	case item.NextCreditAt == nil:
+		return false, earlyCreditBlockNoSchedule
+	case item.RemainingUsd > balancePackageSelfCreditRemainingEpsilon:
+		return false, earlyCreditBlockWeeklyQuotaRemaining
+	}
+	return true, ""
+}
+
 // EarlyWeeklyCreditResult 汇报一次手动提前到账的结果，供管理端回显与审计。
 type EarlyWeeklyCreditResult struct {
 	PackageID     int64      `json:"package_id"`
@@ -879,11 +915,36 @@ type EarlyWeeklyCreditResult struct {
 //
 // 幂等：同一订单同一期若已存在提前或定时到账审计则拒绝。金额一律用锁内实时余额计算，避免与并发计费打架。
 func (s *BalancePackageService) CreditNextEarly(ctx context.Context, packageID, adminUserID int64, now time.Time) (*EarlyWeeklyCreditResult, error) {
-	if s == nil || s.entClient == nil {
-		return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
-	}
 	if packageID <= 0 || adminUserID <= 0 {
 		return nil, infraerrors.BadRequest("INVALID_EARLY_CREDIT_INPUT", "package and admin are required")
+	}
+	return s.creditNextEarly(ctx, packageID, earlyCreditActor{operator: fmt.Sprintf("admin:%d", adminUserID)}, now)
+}
+
+// CreditNextEarlySelf 由用户本人提前刷新自己套餐的下一期额度。相比管理端多两道闸：
+// 套餐必须属于调用者，且本周额度必须已经用尽——提前刷新是窗口替换而非累加，
+// 本周没花完就刷会把未用部分抹掉。
+func (s *BalancePackageService) CreditNextEarlySelf(ctx context.Context, packageID, userID int64, now time.Time) (*EarlyWeeklyCreditResult, error) {
+	if packageID <= 0 || userID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_EARLY_CREDIT_INPUT", "package and user are required")
+	}
+	return s.creditNextEarly(ctx, packageID, earlyCreditActor{
+		operator:       fmt.Sprintf("user:%d", userID),
+		requireUserID:  userID,
+		requireDrained: true,
+	}, now)
+}
+
+// earlyCreditActor 描述一次提前到账的发起方：审计 operator，以及用户自助时额外的归属与门槛校验。
+type earlyCreditActor struct {
+	operator       string
+	requireUserID  int64
+	requireDrained bool
+}
+
+func (s *BalancePackageService) creditNextEarly(ctx context.Context, packageID int64, actor earlyCreditActor, now time.Time) (*EarlyWeeklyCreditResult, error) {
+	if s == nil || s.entClient == nil {
+		return nil, infraerrors.ServiceUnavailable("BALANCE_PACKAGE_UNAVAILABLE", "balance package service is unavailable")
 	}
 
 	tx, err := s.entClient.Tx(ctx)
@@ -901,6 +962,11 @@ func (s *BalancePackageService) CreditNextEarly(ctx context.Context, packageID, 
 			return nil, infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
 		}
 		return nil, fmt.Errorf("load early balance package: %w", err)
+	}
+	// 归属校验放在加锁之前：既能快速失败，也避免调用者用别人的套餐 ID 去锁别人的用户行。
+	// user_id 一经写入不会变，这里判定即可，不必等到锁内。回 NotFound 是为了不泄露套餐是否存在。
+	if actor.requireUserID > 0 && candidate.UserID != actor.requireUserID {
+		return nil, infraerrors.NotFound("BALANCE_PACKAGE_NOT_FOUND", "balance package not found")
 	}
 	// 固定加锁顺序：先用户后套餐，与 creditDueBalance 一致，避免与定时到账互相死锁。
 	lockedUser, err := lockBalancePackageUser(txCtx, client, candidate.UserID)
@@ -935,6 +1001,10 @@ func (s *BalancePackageService) CreditNextEarly(ctx context.Context, packageID, 
 	}
 	if current.NextCreditAt == nil {
 		return nil, infraerrors.Conflict("BALANCE_PACKAGE_NO_SCHEDULE", "balance package has no scheduled credit")
+	}
+	// 锁内复核门槛：列表接口给出的可用状态只是展示态，这期间用户可能刚被周刷新或退款改过额度。
+	if actor.requireDrained && current.RemainingUsd > balancePackageSelfCreditRemainingEpsilon {
+		return nil, infraerrors.Conflict("BALANCE_PACKAGE_WEEKLY_QUOTA_REMAINING", "current weekly quota is not used up yet")
 	}
 
 	newCount := current.CreditedCount + 1
@@ -1020,7 +1090,7 @@ func (s *BalancePackageService) CreditNextEarly(ctx context.Context, packageID, 
 		SetOrderID(orderIDStr).
 		SetAction(earlyAction).
 		SetDetail(string(detail)).
-		SetOperator(fmt.Sprintf("admin:%d", adminUserID)).
+		SetOperator(actor.operator).
 		Save(txCtx); err != nil {
 		return nil, fmt.Errorf("record early balance package credit audit: %w", err)
 	}

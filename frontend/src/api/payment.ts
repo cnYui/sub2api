@@ -12,7 +12,8 @@ import type {
   CreateOrderResult,
   PaymentOrder,
   BalancePackageRefundQuote,
-  UserBalancePackage
+  UserBalancePackage,
+  EarlyWeeklyCreditResult
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -37,6 +38,11 @@ export const paymentAPI = {
   /** Get the current user's purchased balance packages and credit progress */
   getMyBalancePackages() {
     return apiClient.get<UserBalancePackage[]>('/payment/balance-packages')
+  },
+
+  /** Credit the next period of the user's own balance package ahead of schedule */
+  creditNextEarlyBalancePackage(packageId: number) {
+    return apiClient.post<EarlyWeeklyCreditResult>(`/payment/balance-packages/${packageId}/credit-next`)
   },
 
   /** Get payment method limits and fee rates */

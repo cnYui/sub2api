@@ -232,6 +232,14 @@ func (s *PaymentService) CreditNextEarlyBalancePackage(ctx context.Context, pack
 	return s.balancePackageService.CreditNextEarly(ctx, packageID, adminUserID, time.Now().UTC())
 }
 
+// CreditNextEarlyOwnBalancePackage 由用户本人提前刷新自己套餐的下一期额度（用户端自助触发）。
+func (s *PaymentService) CreditNextEarlyOwnBalancePackage(ctx context.Context, packageID, userID int64) (*EarlyWeeklyCreditResult, error) {
+	if s == nil || s.balancePackageService == nil {
+		return nil, fmt.Errorf("balance package service is unavailable")
+	}
+	return s.balancePackageService.CreditNextEarlySelf(ctx, packageID, userID, time.Now().UTC())
+}
+
 func (s *PaymentService) CancellableBalancePackageOrderIDs(ctx context.Context, orderIDs []int64) (map[int64]bool, error) {
 	if s == nil || s.balancePackageService == nil {
 		return nil, fmt.Errorf("balance package service is unavailable")
