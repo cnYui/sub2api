@@ -516,6 +516,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.SubscriptionExpiryNotifyEnabled != after.SubscriptionExpiryNotifyEnabled {
 		changed = append(changed, "subscription_expiry_notify_enabled")
 	}
+	if before.PurchaseNotifyEnabled != after.PurchaseNotifyEnabled {
+		changed = append(changed, "purchase_notify_enabled")
+	}
 	if before.AccountQuotaNotifyEnabled != after.AccountQuotaNotifyEnabled {
 		changed = append(changed, "account_quota_notify_enabled")
 	}

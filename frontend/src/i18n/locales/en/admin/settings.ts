@@ -794,6 +794,14 @@ export default {
         enabled: 'Enable Subscription Expiry Reminder',
         enabledHint: 'When enabled, the system sends reminders 7, 3, and 1 day before expiry.'
       },
+      purchaseNotify: {
+        title: 'Credited Notification',
+        description:
+          'Control whether users receive a confirmation email when a balance package, traffic pack, or redeem code is credited.',
+        enabled: 'Enable Credited Notification',
+        enabledHint:
+          'When enabled, users get one confirmation email for a paid purchase, an admin-granted package, or a redeem-code top-up. They can also opt out via the unsubscribe link in the email.'
+      },
       smtp: {
         title: 'SMTP Settings',
         description: 'Configure email sending for verification codes',

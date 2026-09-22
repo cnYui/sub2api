@@ -131,6 +131,7 @@ type RedeemService struct {
 	billingCacheService  *BillingCacheService
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
+	purchaseNotify       *PurchaseNotifyService
 }
 
 // NewRedeemService 创建兑换码服务实例
@@ -154,6 +155,11 @@ func NewRedeemService(
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
 	}
+}
+
+// SetPurchaseNotifyService 挂上到账通知邮件服务（可为 nil，表示不发信）。
+func (s *RedeemService) SetPurchaseNotifyService(purchaseNotify *PurchaseNotifyService) {
+	s.purchaseNotify = purchaseNotify
 }
 
 // GenerateRandomCode 生成随机兑换码
@@ -502,6 +508,11 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 
 	// 事务提交成功后失效缓存。兑换码刻意不触发邀请返利，只给兑换人本人加额度。
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
+
+	// 到账通知只覆盖"加余额"这一种；负数 admin_balance 是后台补扣，发信在服务内被挡掉。
+	if s.purchaseNotify != nil && redeemCode.Type == RedeemTypeBalance {
+		s.purchaseNotify.NotifyRedeemBalance(userID, redeemCode.ID, redeemCode.Code, redeemCode.Value)
+	}
 
 	// 重新获取更新后的兑换码
 	redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)

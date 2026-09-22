@@ -194,6 +194,7 @@ type PaymentService struct {
 	notificationEmailService *NotificationEmailService
 	balancePackageService    *BalancePackageService
 	trafficPackService       *TrafficPackService
+	purchaseNotifyService    *PurchaseNotifyService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService) *PaymentService {
@@ -260,6 +261,10 @@ func (s *PaymentService) SetNotificationEmailService(notificationEmailService *N
 
 func (s *PaymentService) SetTrafficPackService(trafficPackService *TrafficPackService) {
 	s.trafficPackService = trafficPackService
+}
+
+func (s *PaymentService) SetPurchaseNotifyService(purchaseNotifyService *PurchaseNotifyService) {
+	s.purchaseNotifyService = purchaseNotifyService
 }
 
 func (s *PaymentService) ListTrafficPacksForSale(ctx context.Context) ([]TrafficPack, error) {
