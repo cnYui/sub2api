@@ -118,6 +118,15 @@ const (
 	openAIGPT54LongContextOutputMultiplier = 1.5
 )
 
+// xAI Grok 4 系列长上下文档：官方口径是「≥200K 按高价」，而
+// shouldApplySessionLongContextPricing 判的是严格大于，故阈值写 199999。
+// 输入 / 输出 / 缓存读全部 2 倍（与 GPT 的 1.5x 输出不同）。
+const (
+	xaiGrok4LongContextInputThreshold   = 199999
+	xaiGrok4LongContextInputMultiplier  = 2.0
+	xaiGrok4LongContextOutputMultiplier = 2.0
+)
+
 func normalizeBillingServiceTier(serviceTier string) string {
 	return strings.ToLower(strings.TrimSpace(serviceTier))
 }
@@ -399,6 +408,46 @@ func (s *BillingService) initFallbackPricing() {
 	}
 
 	// ============================================================
+	// xAI Grok 4 系列（数据源：docs.x.ai/developers/models，2026-09-22 核对）
+	// 只登记当前在售并已上架的 4.5/4.6/4.7；grok-4.3、grok-build-* 未上架，
+	// 不进兜底表（白名单语义，见 getFallbackPricing）。
+	// 这三个模型至今不在远端价格目录里，没有兜底价就会命中坑 12（缺价按零成本放行），
+	// 同时模型广场的「官方」列也取不到值。
+	// xAI 不单独对缓存写计价，缓存写＝输入价。
+	// ============================================================
+	s.fallbackPrices["grok-4.5"] = &ModelPricing{
+		InputPricePerToken:          2e-6,   // $2 per MTok
+		OutputPricePerToken:         6e-6,   // $6 per MTok
+		CacheCreationPricePerToken:  2e-6,   // 同输入价
+		CacheReadPricePerToken:      0.3e-6, // $0.30 per MTok
+		SupportsCacheBreakdown:      false,
+		LongContextInputThreshold:   xaiGrok4LongContextInputThreshold,
+		LongContextInputMultiplier:  xaiGrok4LongContextInputMultiplier,
+		LongContextOutputMultiplier: xaiGrok4LongContextOutputMultiplier,
+	}
+	s.fallbackPrices["grok-4.6"] = &ModelPricing{
+		InputPricePerToken:          2e-6,   // $2 per MTok
+		OutputPricePerToken:         6e-6,   // $6 per MTok
+		CacheCreationPricePerToken:  2e-6,   // 同输入价
+		CacheReadPricePerToken:      0.5e-6, // $0.50 per MTok
+		SupportsCacheBreakdown:      false,
+		LongContextInputThreshold:   xaiGrok4LongContextInputThreshold,
+		LongContextInputMultiplier:  xaiGrok4LongContextInputMultiplier,
+		LongContextOutputMultiplier: xaiGrok4LongContextOutputMultiplier,
+	}
+	// grok-4.7 与 4.6 逐项同价（官方页面两行数字完全一致）。
+	s.fallbackPrices["grok-4.7"] = &ModelPricing{
+		InputPricePerToken:          2e-6,   // $2 per MTok
+		OutputPricePerToken:         6e-6,   // $6 per MTok
+		CacheCreationPricePerToken:  2e-6,   // 同输入价
+		CacheReadPricePerToken:      0.5e-6, // $0.50 per MTok
+		SupportsCacheBreakdown:      false,
+		LongContextInputThreshold:   xaiGrok4LongContextInputThreshold,
+		LongContextInputMultiplier:  xaiGrok4LongContextInputMultiplier,
+		LongContextOutputMultiplier: xaiGrok4LongContextOutputMultiplier,
+	}
+
+	// ============================================================
 	// 国产 LLM 兜底定价（数据源：各家官方定价页/USD 口径）
 	// 顺序：DeepSeek → 月之暗面 Kimi → MiniMax
 	// 覆盖逻辑见同文件 getFallbackPricing()
@@ -564,6 +613,19 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 	}
 	if strings.Contains(modelLower, "gemini-3.6-flash") || strings.Contains(modelLower, "gemini-3-6-flash") {
 		return s.fallbackPrices["gemini-3.6-flash"]
+	}
+
+	// xAI Grok 4 系列：只认已上架的 4.7/4.6/4.5（含 -latest 等后缀写法）。
+	// 未上架的 grok-4.3 / grok-build-* 不回退，沿用白名单语义避免按错价计费；
+	// grok-imagine-* 媒体模型走独立定价路径，模型名不含 "grok-4." 不会误命中。
+	if strings.Contains(modelLower, "grok-4.7") || strings.Contains(modelLower, "grok-4-7") {
+		return s.fallbackPrices["grok-4.7"]
+	}
+	if strings.Contains(modelLower, "grok-4.6") || strings.Contains(modelLower, "grok-4-6") {
+		return s.fallbackPrices["grok-4.6"]
+	}
+	if strings.Contains(modelLower, "grok-4.5") || strings.Contains(modelLower, "grok-4-5") {
+		return s.fallbackPrices["grok-4.5"]
 	}
 
 	// DeepSeek V4 系列：仅匹配已知 V4 Pro/Flash 与官方兼容别名
@@ -741,6 +803,20 @@ func isKimiK3Model(model string) bool {
 		strings.HasSuffix(modelLower, "/k3") || strings.HasSuffix(modelLower, "/k3-256k")
 }
 
+// isXAIGrok4Model 判定是否为已上架的 xAI Grok 4 系列（4.7/4.6/4.5）。
+// 与 getFallbackPricing 的匹配串保持一致：未上架的 grok-4.3 / grok-build-* 不在内，
+// grok-imagine-* 媒体模型名不含 "grok-4." 也不会命中。
+func isXAIGrok4Model(model string) bool {
+	modelLower := strings.ToLower(model)
+	return strings.Contains(modelLower, "grok-4.7") || strings.Contains(modelLower, "grok-4-7") ||
+		strings.Contains(modelLower, "grok-4.6") || strings.Contains(modelLower, "grok-4-6") ||
+		strings.Contains(modelLower, "grok-4.5") || strings.Contains(modelLower, "grok-4-5")
+}
+
+// usesCalibratedFallbackPricing 标记「基准价以本地兜底表为准」的模型。
+// Kimi / DeepSeek 是因为远端目录价带上游展示换算或同步漂移；
+// Grok 4 系列是因为远端目录**根本没有这几个键**——不走这里的话，
+// 模型广场 lookupOfficialPricing 的第一分支不会被调用，「官方」列只能显示 "-"。
 func usesCalibratedFallbackPricing(model string) bool {
 	modelLower := strings.ToLower(model)
 	return isKimiK3Model(modelLower) ||
@@ -749,7 +825,8 @@ func usesCalibratedFallbackPricing(model string) bool {
 		strings.Contains(modelLower, "kimi-for-coding") ||
 		isKimiK25Model(modelLower) ||
 		strings.Contains(modelLower, "deepseek-v4-flash") ||
-		strings.Contains(modelLower, "deepseek-v4-pro")
+		strings.Contains(modelLower, "deepseek-v4-pro") ||
+		isXAIGrok4Model(modelLower)
 }
 
 // GetModelPricingWithChannel 获取模型定价，渠道配置的价格覆盖默认值
