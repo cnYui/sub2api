@@ -193,19 +193,60 @@ func TestGrokChannelIntervalsWinOverAccountLongContextSwitch(t *testing.T) {
 	require.False(t, withSwitchOff.LongContextBillingApplied,
 		"没有区间定价且账号开关关闭时，长上下文不生效——这正是渠道区间存在的理由")
 
-	resolved := &ResolvedPricing{
-		Intervals: []PricingInterval{
-			{MinTokens: 0, MaxTokens: &[]int{grok4LongCtxBoundaryToks}[0],
-				InputPrice: ptrFloat(grok4InputPerToken), OutputPrice: ptrFloat(grok4OutputPerToken)},
-			{MinTokens: grok4LongCtxBoundaryToks,
-				InputPrice: ptrFloat(grok4InputPerToken * 2), OutputPrice: ptrFloat(grok4OutputPerToken * 2)},
-		},
-	}
+	resolved := &ResolvedPricing{Intervals: grok4ChannelPricing().Intervals}
 	iv := FindMatchingInterval(resolved.Intervals, longInput)
 	require.NotNil(t, iv)
 	require.NotNil(t, iv.InputPrice)
 	require.InDelta(t, grok4InputPerToken*2, *iv.InputPrice, 1e-12)
 	require.False(t, math.IsNaN(*iv.InputPrice))
+}
+
+// 本次给兜底价加了 LongContext* 字段，于是多出一个新风险：渠道区间已经把
+// ≥200K 表达成 2x 了，如果 applyLongCtx 还叠上来就会变成 4x——广场显示 2x、
+// 实扣 4x。`applyLongCtx := len(resolved.Intervals) == 0 && ...` 挡住了这一点，
+// 这条用例把它钉死。
+func TestGrokChannelIntervalsDoNotDoubleApplyLongContextMultiplier(t *testing.T) {
+	svc := newGrokProductionLikeBillingService()
+	channelPricing := grok4ChannelPricing()
+
+	const longInput = 300000
+	breakdown, err := svc.calculateCostInternal("grok-4.7",
+		UsageTokens{InputTokens: longInput, OutputTokens: 1000}, 1, "", channelPricing)
+	require.NoError(t, err)
+
+	require.InDelta(t, longInput*grok4InputPerToken*2, breakdown.InputCost, 1e-9,
+		"应当只按区间的长档价收一次 2x，而不是区间 2x 再叠 LongContextInputMultiplier")
+	require.InDelta(t, 1000*grok4OutputPerToken*2, breakdown.OutputCost, 1e-9)
+
+	short, err := svc.calculateCostInternal("grok-4.7",
+		UsageTokens{InputTokens: 100000, OutputTokens: 1000}, 1, "", channelPricing)
+	require.NoError(t, err)
+	require.InDelta(t, 100000*grok4InputPerToken, short.InputCost, 1e-9)
+	require.InDelta(t, 1000*grok4OutputPerToken, short.OutputCost, 1e-9)
+}
+
+// grok4ChannelPricing 复刻生产渠道 4 对 grok-4.7 的区间配置。
+func grok4ChannelPricing() *ChannelModelPricing {
+	boundary := grok4LongCtxBoundaryToks
+	return &ChannelModelPricing{
+		Platform:    "openai",
+		Models:      []string{"grok-4.7"},
+		BillingMode: BillingModeToken,
+		InputPrice:  ptrFloat(grok4InputPerToken),
+		OutputPrice: ptrFloat(grok4OutputPerToken),
+		Intervals: []PricingInterval{
+			{
+				MinTokens: 0, MaxTokens: &boundary,
+				InputPrice: ptrFloat(grok4InputPerToken), OutputPrice: ptrFloat(grok4OutputPerToken),
+				CacheWritePrice: ptrFloat(grok4InputPerToken), CacheReadPrice: ptrFloat(grok46CacheReadPerToken),
+			},
+			{
+				MinTokens:  grok4LongCtxBoundaryToks,
+				InputPrice: ptrFloat(grok4InputPerToken * 2), OutputPrice: ptrFloat(grok4OutputPerToken * 2),
+				CacheWritePrice: ptrFloat(grok4InputPerToken * 2), CacheReadPrice: ptrFloat(grok46CacheReadPerToken * 2),
+			},
+		},
+	}
 }
 
 func ptrFloat(v float64) *float64 { return &v }
