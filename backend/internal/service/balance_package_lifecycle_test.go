@@ -741,3 +741,140 @@ func TestCreditNextEarlyFinalPeriodCompletesAndRejectsFurther(t *testing.T) {
 		t.Fatalf("expected error crediting a completed package, got nil")
 	}
 }
+
+// selfEarlyCreditFixture 建一个「本周额度已用尽、还剩两期」的在用套餐，供自助提前刷新用例复用。
+func selfEarlyCreditFixture(t *testing.T, email string, orderID int64, remaining float64) (*dbent.Client, *dbent.User, *dbent.UserBalancePackage, time.Time) {
+	t.Helper()
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	account, err := client.User.Create().SetEmail(email).
+		SetPasswordHash("hash").SetBalance(remaining).SetTotalRecharged(200).Save(ctx)
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	plan := createLifecyclePlan(t, client, fmt.Sprintf("plan-%d", orderID), 100)
+	now := time.Now().UTC().Truncate(time.Second)
+	pkg, err := client.UserBalancePackage.Create().
+		SetUserID(account.ID).SetPlanID(plan.ID).SetPaymentOrderID(orderID).
+		SetWeeklyCreditUsd(100).SetRemainingUsd(remaining).SetCreditedCount(2).SetRefreshCount(4).
+		SetRefreshIntervalDays(7).SetStartsAt(now.Add(-14 * 24 * time.Hour)).
+		SetNextCreditAt(now.Add(5 * 24 * time.Hour)).
+		SetExpiresAt(now.Add(14 * 24 * time.Hour)).SetStatus(balancePackageStatusActive).Save(ctx)
+	if err != nil {
+		t.Fatalf("create package: %v", err)
+	}
+	return client, account, pkg, now
+}
+
+func TestCreditNextEarlySelfCreditsAndRecordsUserOperator(t *testing.T) {
+	ctx := context.Background()
+	client, account, pkg, now := selfEarlyCreditFixture(t, "package-self-credit@example.com", 9101, 0)
+
+	res, err := NewBalancePackageService(client).CreditNextEarlySelf(ctx, pkg.ID, account.ID, now)
+	if err != nil {
+		t.Fatalf("credit next early self: %v", err)
+	}
+	if res.CreditedCount != 3 || res.RemainingUSD != 100 || res.BalanceAfter != 100 {
+		t.Fatalf("unexpected result: %#v", res)
+	}
+
+	// 审计 operator 必须区分自助与管理员，否则事后无法判断这一期是谁发的。
+	operator, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderID("9101"), paymentauditlog.Action("BALANCE_PACKAGE_EARLY_WEEKLY_CREDIT_3")).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("early credit audit missing: %v", err)
+	}
+	if want := fmt.Sprintf("user:%d", account.ID); operator.Operator != want {
+		t.Fatalf("audit operator = %q, want %q", operator.Operator, want)
+	}
+}
+
+func TestCreditNextEarlySelfRejectsOtherUsersPackage(t *testing.T) {
+	ctx := context.Background()
+	client, account, pkg, now := selfEarlyCreditFixture(t, "package-self-owner@example.com", 9102, 0)
+	intruder, err := client.User.Create().SetEmail("package-self-intruder@example.com").
+		SetPasswordHash("hash").SetBalance(0).Save(ctx)
+	if err != nil {
+		t.Fatalf("create intruder: %v", err)
+	}
+
+	err = func() error {
+		_, err := NewBalancePackageService(client).CreditNextEarlySelf(ctx, pkg.ID, intruder.ID, now)
+		return err
+	}()
+	if infraerrors.Reason(err) != "BALANCE_PACKAGE_NOT_FOUND" {
+		t.Fatalf("foreign package error reason = %q, want BALANCE_PACKAGE_NOT_FOUND", infraerrors.Reason(err))
+	}
+
+	unchanged, err := client.UserBalancePackage.Get(ctx, pkg.ID)
+	if err != nil {
+		t.Fatalf("get package: %v", err)
+	}
+	if unchanged.CreditedCount != 2 {
+		t.Fatalf("credited_count = %d, want 2 (package must stay untouched)", unchanged.CreditedCount)
+	}
+	owner, err := client.User.Get(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get owner: %v", err)
+	}
+	if owner.Balance != 0 {
+		t.Fatalf("owner balance = %f, want 0", owner.Balance)
+	}
+}
+
+func TestCreditNextEarlySelfRequiresWeeklyQuotaDrained(t *testing.T) {
+	ctx := context.Background()
+	client, account, pkg, now := selfEarlyCreditFixture(t, "package-self-quota@example.com", 9103, 12.5)
+	svc := NewBalancePackageService(client)
+
+	_, err := svc.CreditNextEarlySelf(ctx, pkg.ID, account.ID, now)
+	if infraerrors.Reason(err) != "BALANCE_PACKAGE_WEEKLY_QUOTA_REMAINING" {
+		t.Fatalf("undrained quota error reason = %q, want BALANCE_PACKAGE_WEEKLY_QUOTA_REMAINING", infraerrors.Reason(err))
+	}
+	// 同样的套餐，管理员仍可强发：门槛只针对自助路径。
+	if _, err := svc.CreditNextEarly(ctx, pkg.ID, 7, now); err != nil {
+		t.Fatalf("admin credit next early should still work: %v", err)
+	}
+}
+
+func TestEvaluateSelfEarlyCreditBlockReasons(t *testing.T) {
+	now := time.Now().UTC()
+	next := now.Add(24 * time.Hour)
+	base := func() *dbent.UserBalancePackage {
+		return &dbent.UserBalancePackage{
+			Status:        balancePackageStatusActive,
+			CreditedCount: 1,
+			RefreshCount:  4,
+			ExpiresAt:     now.Add(14 * 24 * time.Hour),
+			NextCreditAt:  &next,
+			RemainingUsd:  0,
+		}
+	}
+
+	cases := []struct {
+		name       string
+		mutate     func(*dbent.UserBalancePackage)
+		wantCan    bool
+		wantReason string
+	}{
+		{name: "drained", mutate: func(*dbent.UserBalancePackage) {}, wantCan: true},
+		{name: "quota left", mutate: func(p *dbent.UserBalancePackage) { p.RemainingUsd = 0.5 }, wantReason: earlyCreditBlockWeeklyQuotaRemaining},
+		// 容差之内视为已用尽，否则用户会被几厘钱永久卡住。
+		{name: "dust left", mutate: func(p *dbent.UserBalancePackage) { p.RemainingUsd = 0.005 }, wantCan: true},
+		{name: "fully credited", mutate: func(p *dbent.UserBalancePackage) { p.CreditedCount = 4 }, wantReason: earlyCreditBlockFullyCredited},
+		{name: "expired", mutate: func(p *dbent.UserBalancePackage) { p.ExpiresAt = now.Add(-time.Hour) }, wantReason: earlyCreditBlockExpired},
+		{name: "no schedule", mutate: func(p *dbent.UserBalancePackage) { p.NextCreditAt = nil }, wantReason: earlyCreditBlockNoSchedule},
+		{name: "not active", mutate: func(p *dbent.UserBalancePackage) { p.Status = balancePackageStatusCompleted }, wantReason: earlyCreditBlockNotActive},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pkg := base()
+			tc.mutate(pkg)
+			can, reason := evaluateSelfEarlyCredit(pkg, now)
+			if can != tc.wantCan || reason != tc.wantReason {
+				t.Fatalf("evaluateSelfEarlyCredit = (%v, %q), want (%v, %q)", can, reason, tc.wantCan, tc.wantReason)
+			}
+		})
+	}
+}

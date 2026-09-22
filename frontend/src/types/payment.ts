@@ -179,6 +179,34 @@ export interface UserBalancePackage {
   status: 'active' | 'completed' | 'debt_paused' | 'expired' | 'refunded' | string
   created_at: string
   updated_at: string
+  /** 能否自助提前刷新下一期额度，由服务端判定，前端不再重复推导规则 */
+  can_credit_next_early: boolean
+  /** 不可提前刷新时的原因码，用于按钮下方的提示文案 */
+  early_credit_block_reason?: EarlyCreditBlockReason
+}
+
+export type EarlyCreditBlockReason =
+  | 'not_active'
+  | 'fully_credited'
+  | 'expired'
+  | 'no_schedule'
+  | 'weekly_quota_remaining'
+
+export interface EarlyWeeklyCreditResult {
+  package_id: number
+  user_id: number
+  order_id: number
+  credited_count: number
+  refresh_count: number
+  credit_usd: number
+  remaining_usd: number
+  balance_before_usd: number
+  balance_after_usd: number
+  debt_repaid_usd: number
+  status: string
+  next_credit_at?: string
+  expires_at: string
+  completed: boolean
 }
 
 export interface PaymentChannel {

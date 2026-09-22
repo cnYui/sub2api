@@ -3,15 +3,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import SubscriptionsView from '../SubscriptionsView.vue'
 
-const { getMyBalancePackages, getMySubscriptions, showError, routerPush } = vi.hoisted(() => ({
+const {
+  getMyBalancePackages,
+  getMySubscriptions,
+  creditNextEarlyBalancePackage,
+  showError,
+  showSuccess,
+  refreshUser,
+  routerPush
+} = vi.hoisted(() => ({
   getMyBalancePackages: vi.fn(),
   getMySubscriptions: vi.fn(),
+  creditNextEarlyBalancePackage: vi.fn(),
   showError: vi.fn(),
+  showSuccess: vi.fn(),
+  refreshUser: vi.fn(),
   routerPush: vi.fn()
 }))
 
 vi.mock('@/api/payment', () => ({
-  paymentAPI: { getMyBalancePackages }
+  paymentAPI: { getMyBalancePackages, creditNextEarlyBalancePackage }
 }))
 
 vi.mock('@/api/subscriptions', () => ({
@@ -21,8 +32,13 @@ vi.mock('@/api/subscriptions', () => ({
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showError,
+    showSuccess,
     cachedPublicSettings: null
   })
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ refreshUser })
 }))
 
 vi.mock('vue-router', () => ({
@@ -50,6 +66,13 @@ vi.mock('vue-i18n', async () => {
     'userSubscriptions.daysRemaining': '剩余 {days} 天',
     'userSubscriptions.renewedBadge': '已续费 ×{count}',
     'userSubscriptions.renewalExtended': '续费已重置周期，有效期延长至 {date}',
+    'userSubscriptions.earlyRefresh': '提前刷新',
+    'userSubscriptions.earlyRefreshTitle': '提前刷新下一期额度',
+    'userSubscriptions.earlyRefreshMessage': '将立即发放第 {next} / {total} 期额度 ${amount}',
+    'userSubscriptions.earlyRefreshNote': '套餐总额度仍是 {total} 期',
+    'userSubscriptions.earlyRefreshConfirm': '确认刷新',
+    'userSubscriptions.earlyRefreshBlockedQuota': '本周还有 ${amount} 未用完，用完后即可提前刷新下一期。',
+    'userSubscriptions.earlyRefreshSuccess': '已发放第 {count} / {total} 期额度 ${amount}',
   }
   return {
     ...actual,
@@ -91,6 +114,8 @@ function balancePackage(overrides: Record<string, unknown> = {}) {
     status: 'active',
     created_at: '2030-01-01T00:00:00.000Z',
     updated_at: '2030-01-01T00:00:00.000Z',
+    can_credit_next_early: false,
+    early_credit_block_reason: 'weekly_quota_remaining',
     ...overrides
   }
 }
@@ -110,9 +135,13 @@ describe('SubscriptionsView', () => {
   beforeEach(() => {
     getMySubscriptions.mockReset()
     getMyBalancePackages.mockReset()
+    creditNextEarlyBalancePackage.mockReset()
     showError.mockReset()
+    showSuccess.mockReset()
+    refreshUser.mockReset()
     routerPush.mockReset()
     getMySubscriptions.mockResolvedValue([])
+    refreshUser.mockResolvedValue(undefined)
   })
 
   it('显示本周套餐剩余额度与下次刷新时间', async () => {
@@ -172,5 +201,57 @@ describe('SubscriptionsView', () => {
     expect(wrapper.text()).not.toContain('首周额度不足以抵销欠费，后续额度已暂停，请联系管理员')
     expect(wrapper.text()).toContain('下次刷新')
     expect(wrapper.text()).not.toContain('原计划刷新时间')
+  })
+
+  it('本周额度未用完时提前刷新按钮禁用并说明原因', async () => {
+    getMyBalancePackages.mockResolvedValue({ data: [balancePackage()] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const button = wrapper.get('button[disabled]')
+    expect(button.text()).toContain('提前刷新')
+    expect(wrapper.text()).toContain('本周还有 $43.25 未用完')
+  })
+
+  it('本周额度用尽后可提前刷新，并刷新套餐与余额', async () => {
+    getMyBalancePackages.mockResolvedValue({
+      data: [balancePackage({ current_remaining_usd: 0, can_credit_next_early: true, early_credit_block_reason: undefined })]
+    })
+    creditNextEarlyBalancePackage.mockResolvedValue({
+      data: { credited_count: 3, refresh_count: 4, credit_usd: 128 }
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const button = wrapper.findAll('button').find((item) => item.text().includes('提前刷新'))
+    expect(button).toBeTruthy()
+    expect(button!.attributes('disabled')).toBeUndefined()
+
+    await button!.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('提前刷新下一期额度')
+
+    const confirm = Array.from(document.querySelectorAll('button')).find((item) => item.textContent?.includes('确认刷新'))
+    confirm!.click()
+    await flushPromises()
+
+    expect(creditNextEarlyBalancePackage).toHaveBeenCalledWith(1)
+    expect(showSuccess).toHaveBeenCalledWith('已发放第 3 / 4 期额度 $128.00')
+    expect(refreshUser).toHaveBeenCalled()
+    // 发放后必须重新拉取套餐，否则卡片还停在旧的到账进度上
+    expect(getMyBalancePackages).toHaveBeenCalledTimes(2)
+  })
+
+  it('套餐期数发完后不展示提前刷新入口', async () => {
+    getMyBalancePackages.mockResolvedValue({
+      data: [balancePackage({ status: 'completed', credited_count: 4, next_credit_at: undefined, can_credit_next_early: false, early_credit_block_reason: 'fully_credited' })]
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('提前刷新')
   })
 })

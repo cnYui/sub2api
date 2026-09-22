@@ -32,6 +32,7 @@ func RegisterPaymentRoutes(
 		authenticated.GET("/config", paymentHandler.GetPaymentConfig)
 		authenticated.GET("/checkout-info", paymentHandler.GetCheckoutInfo)
 		authenticated.GET("/balance-packages", paymentHandler.GetMyBalancePackages)
+		authenticated.POST("/balance-packages/:id/credit-next", paymentHandler.CreditNextEarlyMyBalancePackage)
 		authenticated.GET("/limits", paymentHandler.GetLimits)
 
 		orders := authenticated.Group("/orders")

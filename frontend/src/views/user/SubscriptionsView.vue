@@ -108,11 +108,28 @@
                   </div>
                   <div v-if="balancePackage.next_credit_at" class="flex items-center justify-between">
                     <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.nextRefresh') }}</span>
-                    <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
+                    <span class="flex items-center gap-2">
+                      <span class="text-gray-700 dark:text-gray-300">{{ formatDateTimeToMinute(new Date(balancePackage.next_credit_at)) }}</span>
+                      <button
+                        v-if="showsEarlyRefresh(balancePackage)"
+                        :disabled="!balancePackage.can_credit_next_early"
+                        class="inline-flex items-center gap-1 rounded-md border border-emerald-300 px-2 py-0.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400 disabled:hover:bg-transparent dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/40 dark:disabled:border-dark-600 dark:disabled:text-dark-500"
+                        @click="openEarlyRefreshDialog(balancePackage)"
+                      >
+                        <Icon name="refresh" size="xs" />
+                        {{ t('userSubscriptions.earlyRefresh') }}
+                      </button>
+                    </span>
                   </div>
                   <div v-else-if="balancePackage.status === 'completed'" class="text-gray-500 dark:text-dark-400">
                     {{ t('userSubscriptions.refreshCompleted') }}
                   </div>
+                  <p
+                    v-if="showsEarlyRefresh(balancePackage) && !balancePackage.can_credit_next_early"
+                    class="text-xs text-amber-600 dark:text-amber-400"
+                  >
+                    {{ t('userSubscriptions.earlyRefreshBlockedQuota', { amount: balancePackage.current_remaining_usd.toFixed(2) }) }}
+                  </p>
                   <div v-if="balancePackage.renewal_count > 0" class="text-xs text-teal-700 dark:text-teal-300/80">
                     {{ t('userSubscriptions.renewalExtended', { date: formatDateTimeToMinute(new Date(balancePackage.expires_at)) }) }}
                   </div>
@@ -351,20 +368,54 @@
         </section>
       </div>
     </div>
+
+    <ConfirmDialog
+      :show="!!earlyRefreshTarget"
+      :title="t('userSubscriptions.earlyRefreshTitle')"
+      :message="earlyRefreshMessage"
+      :confirm-text="t('userSubscriptions.earlyRefreshConfirm')"
+      :cancel-text="t('common.cancel')"
+      :submitting="earlyRefreshSubmitting"
+      @confirm="confirmEarlyRefresh"
+      @cancel="earlyRefreshTarget = null"
+    >
+      <div v-if="earlyRefreshTarget" class="space-y-2">
+        <div class="rounded-xl bg-gray-50 p-3 text-sm dark:bg-dark-700/60">
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.weeklyRemaining') }}</span>
+            <span class="text-gray-800 dark:text-gray-200">
+              ${{ earlyRefreshTarget.current_remaining_usd.toFixed(2) }} → ${{ earlyRefreshTarget.weekly_credit_usd.toFixed(2) }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between py-0.5">
+            <span class="text-gray-500 dark:text-dark-400">{{ t('userSubscriptions.creditedProgress') }}</span>
+            <span class="text-gray-800 dark:text-gray-200">
+              {{ earlyRefreshTarget.credited_count }} / {{ earlyRefreshTarget.refresh_count }}
+              → {{ earlyRefreshTarget.credited_count + 1 }} / {{ earlyRefreshTarget.refresh_count }}
+            </span>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-dark-400">
+          {{ t('userSubscriptions.earlyRefreshNote', { total: earlyRefreshTarget.refresh_count }) }}
+        </p>
+      </div>
+    </ConfirmDialog>
   </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
 import { paymentAPI } from '@/api/payment'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import type { UserBalancePackage } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { formatDateTimeToMinute } from '@/utils/format'
 import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
@@ -388,10 +439,58 @@ function platformAccentDotClass(p: string): string {
 const { t } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 
 const subscriptions = ref<UserSubscription[]>([])
 const balancePackages = ref<UserBalancePackage[]>([])
 const loading = ref(true)
+const earlyRefreshTarget = ref<UserBalancePackage | null>(null)
+const earlyRefreshSubmitting = ref(false)
+
+// 只在「这个套餐本来就能提前刷、只是本周还没用完」时露出按钮；
+// 期数发完、已过期、无排期这些情况按钮直接不出现，避免给出点了必然失败的入口。
+function showsEarlyRefresh(balancePackage: UserBalancePackage): boolean {
+  return balancePackage.can_credit_next_early || balancePackage.early_credit_block_reason === 'weekly_quota_remaining'
+}
+
+function openEarlyRefreshDialog(balancePackage: UserBalancePackage) {
+  if (!balancePackage.can_credit_next_early) return
+  earlyRefreshTarget.value = balancePackage
+}
+
+const earlyRefreshMessage = computed(() => {
+  const target = earlyRefreshTarget.value
+  if (!target) return ''
+  return t('userSubscriptions.earlyRefreshMessage', {
+    next: target.credited_count + 1,
+    total: target.refresh_count,
+    amount: target.weekly_credit_usd.toFixed(2)
+  })
+})
+
+async function confirmEarlyRefresh() {
+  const target = earlyRefreshTarget.value
+  if (!target || earlyRefreshSubmitting.value) return
+  earlyRefreshSubmitting.value = true
+  try {
+    const { data } = await paymentAPI.creditNextEarlyBalancePackage(target.id)
+    appStore.showSuccess(
+      t('userSubscriptions.earlyRefreshSuccess', {
+        count: data.credited_count,
+        total: data.refresh_count,
+        amount: data.credit_usd.toFixed(2)
+      })
+    )
+    earlyRefreshTarget.value = null
+    // 额度直接进的是 users.balance，顶栏余额也要跟着变，否则用户会以为没到账。
+    await Promise.all([loadSubscriptions(), authStore.refreshUser()])
+  } catch (error) {
+    console.error('Failed to credit next balance package period early:', error)
+    appStore.showError((error as { message?: string })?.message || t('userSubscriptions.earlyRefreshFailed'))
+  } finally {
+    earlyRefreshSubmitting.value = false
+  }
+}
 
 function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
   return hasPeakRate(subscription.group)

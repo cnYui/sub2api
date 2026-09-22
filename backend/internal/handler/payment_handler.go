@@ -115,6 +115,30 @@ func (h *PaymentHandler) GetMyBalancePackages(c *gin.Context) {
 	response.Success(c, packages)
 }
 
+// CreditNextEarlyMyBalancePackage 让用户本人提前刷新自己套餐的下一期额度。
+// POST /api/v1/payment/balance-packages/:id/credit-next
+//
+// 与管理端 credit-next 共用同一套事务与幂等，只是额外校验套餐归属、并要求本周额度已用尽。
+func (h *PaymentHandler) CreditNextEarlyMyBalancePackage(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+
+	packageID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid balance package ID")
+		return
+	}
+
+	result, err := h.paymentService.CreditNextEarlyOwnBalancePackage(c.Request.Context(), packageID, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
 type checkoutInfoResponse struct {
 	Methods                       map[string]service.MethodLimits `json:"methods"`
 	GlobalMin                     float64                         `json:"global_min"`
