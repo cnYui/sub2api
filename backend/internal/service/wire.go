@@ -830,8 +830,8 @@ func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, 
 }
 
 // ProvideRedeemService creates RedeemService and attaches the credited-balance notification.
-func ProvideRedeemService(redeemRepo RedeemCodeRepository, userRepo UserRepository, subscriptionService *SubscriptionService, cache RedeemCache, billingCacheService *BillingCacheService, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator, purchaseNotifyService *PurchaseNotifyService) *RedeemService {
-	svc := NewRedeemService(redeemRepo, userRepo, subscriptionService, cache, billingCacheService, entClient, authCacheInvalidator)
+func ProvideRedeemService(redeemRepo RedeemCodeRepository, userRepo UserRepository, subscriptionService *SubscriptionService, balancePackageService *BalancePackageService, cache RedeemCache, billingCacheService *BillingCacheService, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator, purchaseNotifyService *PurchaseNotifyService) *RedeemService {
+	svc := NewRedeemService(redeemRepo, userRepo, subscriptionService, balancePackageService, cache, billingCacheService, entClient, authCacheInvalidator)
 	svc.SetPurchaseNotifyService(purchaseNotifyService)
 	return svc
 }

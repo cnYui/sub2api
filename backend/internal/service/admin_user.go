@@ -13,6 +13,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -1264,6 +1265,28 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 		}
 	}
 
+	// 余额套餐类型：档位必须存在且配置合法，否则用户兑换时才报错就晚了
+	if input.Type == RedeemTypeBalancePackage {
+		if input.BalancePackagePlanID == nil || *input.BalancePackagePlanID <= 0 {
+			return nil, errors.New("balance_package_plan_id is required for balance_package type")
+		}
+		if s.entClient == nil {
+			return nil, errors.New("balance package plans are unavailable")
+		}
+		plan, err := s.entClient.BalancePackagePlan.Query().
+			Where(balancepackageplan.IDEQ(*input.BalancePackagePlanID)).
+			Only(ctx)
+		if err != nil {
+			if dbent.IsNotFound(err) {
+				return nil, infraerrors.NotFound("BALANCE_PACKAGE_NOT_AVAILABLE", "balance package is not available")
+			}
+			return nil, fmt.Errorf("get balance package plan: %w", err)
+		}
+		if err := validateBalancePackagePlan(plan); err != nil {
+			return nil, err
+		}
+	}
+
 	codes := make([]RedeemCode, 0, input.Count)
 	for i := 0; i < input.Count; i++ {
 		codeValue, err := GenerateRedeemCode()
@@ -1284,6 +1307,11 @@ func (s *adminServiceImpl) GenerateRedeemCodes(ctx context.Context, input *Gener
 			if code.ValidityDays <= 0 {
 				code.ValidityDays = 30 // 默认30天
 			}
+		}
+		// 余额套餐类型：面值由档位决定，value 留 0 免得后台把它当成美元额度
+		if input.Type == RedeemTypeBalancePackage {
+			code.BalancePackagePlanID = input.BalancePackagePlanID
+			code.Value = 0
 		}
 		if err := s.redeemCodeRepo.Create(ctx, &code); err != nil {
 			return nil, err

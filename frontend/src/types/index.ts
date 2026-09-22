@@ -1542,7 +1542,12 @@ export interface CodexSessionImportResult {
 
 // ==================== Usage & Redeem Types ====================
 
-export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription' | 'invitation'
+export type RedeemCodeType =
+  | 'balance'
+  | 'concurrency'
+  | 'subscription'
+  | 'invitation'
+  | 'balance_package'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2' | 'cyber' | 'live'
 export type ImageSizeSource = 'output' | 'input' | 'default' | 'legacy'
 export type ImageSizeBreakdown = Record<string, number>
@@ -1679,8 +1684,23 @@ export interface RedeemCode {
   notes?: string
   group_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
+  balance_package_plan_id?: number | null // 余额套餐类型专用
   user?: User
   group?: Group // 关联的分组
+  balance_package_plan?: RedeemBalancePackagePlan // 关联的余额套餐档位
+}
+
+// 兑换码绑定的余额套餐档位（只读展示）
+export interface RedeemBalancePackagePlan {
+  id: number
+  code: string
+  name: string
+  price_cny: number
+  weekly_credit_usd: number
+  validity_days: number
+  refresh_count: number
+  refresh_interval_days: number
+  for_sale: boolean
 }
 
 export interface GenerateRedeemCodesRequest {
@@ -1689,6 +1709,7 @@ export interface GenerateRedeemCodesRequest {
   value: number
   group_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
+  balance_package_plan_id?: number | null // 余额套餐类型专用
   expires_at?: string | null
   expires_in_days?: number
 }

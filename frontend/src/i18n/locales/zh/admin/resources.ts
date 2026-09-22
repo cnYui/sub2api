@@ -254,6 +254,7 @@ export default {
       },
       types: {
         balance: '余额',
+        balance_package: '余额套餐',
         concurrency: '并发数',
         subscription: '订阅',
         invitation: '邀请码',
@@ -263,10 +264,17 @@ export default {
       },
       // 用于选择器和筛选器的直接键
       balance: '余额',
+      balancePackage: '余额套餐',
       concurrency: '并发数',
       subscription: '订阅',
       invitation: '邀请码',
       invitationHint: '邀请码用于限制用户注册，使用后自动标记为已使用。',
+      selectBalancePackage: '选择套餐档位',
+      selectBalancePackagePlaceholder: '选择要发放的余额套餐',
+      balancePackageRequired: '请选择要发放的余额套餐档位',
+      balancePackageHint:
+        '用户兑换后自动绑定该档位套餐，到账和周刷新规则与购买完全一致；若用户当前已有有效套餐，兑换会被拒绝且兑换码保持未使用。',
+      perRefresh: '期',
       allTypes: '全部类型',
       allStatus: '全部状态',
       unused: '未使用',

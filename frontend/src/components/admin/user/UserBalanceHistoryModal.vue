@@ -199,6 +199,7 @@ const totalPages = computed(() => Math.ceil(total.value / pageSize) || 1)
 const typeOptions = computed(() => [
   { value: '', label: t('admin.users.allTypes') },
   { value: 'balance', label: t('admin.users.typeBalance') },
+  { value: 'balance_package', label: t('admin.redeem.balancePackage') },
   { value: 'affiliate_balance', label: t('admin.users.typeAffiliateBalance') },
   { value: 'admin_balance', label: t('admin.users.typeAdminBalance') },
   { value: 'concurrency', label: t('admin.users.typeConcurrency') },
@@ -243,6 +244,9 @@ const isBalanceType = (type: string) => type === 'balance' || type === 'admin_ba
 
 // Helper: check if subscription type
 const isSubscriptionType = (type: string) => type === 'subscription'
+
+// Helper: check if balance package type（value 恒为 0，只能展示档位名）
+const isBalancePackageType = (type: string) => type === 'balance_package'
 
 // Icon name based on type
 const getIconName = (item: BalanceHistoryItem) => {
@@ -305,6 +309,8 @@ const getItemTitle = (item: BalanceHistoryItem) => {
       return item.value >= 0 ? t('redeem.concurrencyAddedAdmin') : t('redeem.concurrencyReducedAdmin')
     case 'subscription':
       return t('redeem.subscriptionAssigned')
+    case 'balance_package':
+      return t('redeem.balancePackageAddedRedeem')
     default:
       return t('common.unknown')
   }
@@ -320,6 +326,9 @@ const formatValue = (item: BalanceHistoryItem) => {
     const days = item.validity_days || Math.round(item.value)
     const groupName = item.group?.name || ''
     return groupName ? `${days}d - ${groupName}` : `${days}d`
+  }
+  if (isBalancePackageType(item.type)) {
+    return item.balance_package_plan?.name || t('redeem.balancePackageAddedRedeem')
   }
   // concurrency types
   const sign = item.value >= 0 ? '+' : ''

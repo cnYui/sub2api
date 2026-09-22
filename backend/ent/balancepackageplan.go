@@ -38,8 +38,29 @@ type BalancePackagePlan struct {
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the BalancePackagePlanQuery when eager-loading is set.
+	Edges        BalancePackagePlanEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// BalancePackagePlanEdges holds the relations/edges for other nodes in the graph.
+type BalancePackagePlanEdges struct {
+	// RedeemCodes holds the value of the redeem_codes edge.
+	RedeemCodes []*RedeemCode `json:"redeem_codes,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// RedeemCodesOrErr returns the RedeemCodes value or an error if the edge
+// was not loaded in eager-loading.
+func (e BalancePackagePlanEdges) RedeemCodesOrErr() ([]*RedeemCode, error) {
+	if e.loadedTypes[0] {
+		return e.RedeemCodes, nil
+	}
+	return nil, &NotLoadedError{edge: "redeem_codes"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -155,6 +176,11 @@ func (_m *BalancePackagePlan) assignValues(columns []string, values []any) error
 // This includes values selected through modifiers, order, etc.
 func (_m *BalancePackagePlan) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryRedeemCodes queries the "redeem_codes" edge of the BalancePackagePlan entity.
+func (_m *BalancePackagePlan) QueryRedeemCodes() *RedeemCodeQuery {
+	return NewBalancePackagePlanClient(_m.config).QueryRedeemCodes(_m)
 }
 
 // Update returns a builder for updating this BalancePackagePlan.

@@ -62,6 +62,7 @@ export async function getById(id: number): Promise<RedeemCode> {
  * @param groupId - Group ID (required for subscription type)
  * @param validityDays - Validity days (for subscription type)
  * @param expiresInDays - Days before the code itself expires
+ * @param balancePackagePlanId - Balance package plan (required for balance_package type)
  * @returns Array of generated redeem codes
  */
 export async function generate(
@@ -70,7 +71,8 @@ export async function generate(
   value: number,
   groupId?: number | null,
   validityDays?: number,
-  expiresInDays?: number | null
+  expiresInDays?: number | null,
+  balancePackagePlanId?: number | null
 ): Promise<RedeemCode[]> {
   const payload: GenerateRedeemCodesRequest = {
     count,
@@ -84,6 +86,11 @@ export async function generate(
     if (validityDays && validityDays > 0) {
       payload.validity_days = validityDays
     }
+  }
+  // 余额套餐类型：面值由档位决定，只需要带上档位 ID
+  if (type === 'balance_package') {
+    payload.value = 0
+    payload.balance_package_plan_id = balancePackagePlanId
   }
   if (expiresInDays && expiresInDays > 0) {
     payload.expires_in_days = expiresInDays

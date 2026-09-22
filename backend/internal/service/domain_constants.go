@@ -83,6 +83,7 @@ const (
 	RedeemTypeConcurrency      = domain.RedeemTypeConcurrency
 	RedeemTypeSubscription     = domain.RedeemTypeSubscription
 	RedeemTypeInvitation       = domain.RedeemTypeInvitation
+	RedeemTypeBalancePackage   = domain.RedeemTypeBalancePackage
 	RedeemTypeAffiliateBalance = "affiliate_balance"
 )
 

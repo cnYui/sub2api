@@ -86,10 +86,11 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	affiliateService := service.NewAffiliateService(affiliateRepository, settingService, apiKeyAuthCacheInvalidator, billingCacheService)
 	authService := service.NewAuthService(client, userRepository, redeemCodeRepository, refreshTokenCache, configConfig, settingService, emailService, turnstileService, emailQueueService, promoService, subscriptionService, affiliateService, serviceUserPlatformQuotaRepository)
 	userService := service.NewUserService(userRepository, settingRepository, apiKeyAuthCacheInvalidator, billingCache)
+	balancePackageService := service.ProvideBalancePackageService(client, billingCacheService, apiKeyAuthCacheInvalidator)
 	redeemCache := repository.NewRedeemCache(redisClient)
 	notificationEmailService := service.NewNotificationEmailService(settingRepository, emailService)
 	purchaseNotifyService := service.NewPurchaseNotifyService(notificationEmailService, settingRepository, userRepository, client, configConfig)
-	redeemService := service.ProvideRedeemService(redeemCodeRepository, userRepository, subscriptionService, redeemCache, billingCacheService, client, apiKeyAuthCacheInvalidator, purchaseNotifyService)
+	redeemService := service.ProvideRedeemService(redeemCodeRepository, userRepository, subscriptionService, balancePackageService, redeemCache, billingCacheService, client, apiKeyAuthCacheInvalidator, purchaseNotifyService)
 	secretEncryptor, err := repository.NewAESEncryptor(configConfig)
 	if err != nil {
 		return nil, err
@@ -228,7 +229,6 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentConfigService := service.ProvidePaymentConfigService(client, settingRepository, encryptionKey)
 	registry := payment.ProvideRegistry()
 	defaultLoadBalancer := payment.ProvideDefaultLoadBalancer(client, encryptionKey)
-	balancePackageService := service.ProvideBalancePackageService(client, billingCacheService, apiKeyAuthCacheInvalidator)
 	paymentService := service.ProvidePaymentService(client, registry, defaultLoadBalancer, redeemService, subscriptionService, paymentConfigService, userRepository, groupRepository, affiliateService, notificationEmailService, balancePackageService, trafficPackService, purchaseNotifyService)
 	settingHandler := handler.ProvideAdminSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService, userAttributeService, notificationEmailService, totpService, userService)
 	opsHandler := admin.NewOpsHandler(opsService)

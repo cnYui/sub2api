@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/balancepackageplan"
-	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -60,51 +58,20 @@ func (s *PaymentService) GrantBalancePackage(ctx context.Context, input GrantBal
 		return nil, err
 	}
 
-	grantUser, err := client.User.Query().Where(user.IDEQ(input.UserID)).Only(txCtx)
+	grantUser, err := loadGrantableUser(txCtx, client, input.UserID)
 	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("get grant user: %w", err)
-	}
-	if grantUser.Status != payment.EntityStatusActive {
-		return nil, infraerrors.Forbidden("USER_INACTIVE", "user account is disabled")
+		return nil, err
 	}
 
-	now := time.Now().UTC()
-	order, err := client.PaymentOrder.Create().
-		SetUserID(grantUser.ID).
-		SetUserEmail(grantUser.Email).
-		SetUserName(grantUser.Username).
-		SetNillableUserNotes(psNilIfEmpty(grantUser.Notes)).
-		SetAmount(0).
-		SetPayAmount(0).
-		SetFeeRate(0).
-		SetRechargeCode("").
-		SetOutTradeNo("").
-		SetPaymentType(payment.PaymentTypeAdminGrant).
-		SetPaymentTradeNo("").
-		SetOrderType(payment.OrderTypeBalanceSubscription).
-		SetBalancePackagePlanID(plan.ID).
-		SetBalancePackageWeeklyCreditUsd(plan.WeeklyCreditUsd).
-		SetBalancePackageRefreshCount(plan.RefreshCount).
-		SetBalancePackageRefreshIntervalDays(plan.RefreshIntervalDays).
-		SetBalancePackageValidityDays(plan.ValidityDays).
-		SetStatus(OrderStatusCompleted).
-		SetExpiresAt(now).
-		SetPaidAt(now).
-		SetCompletedAt(now).
-		SetClientIP("admin").
-		SetSrcHost("admin").
-		Save(txCtx)
+	order, err := createBalancePackageGrantOrder(txCtx, client, balancePackageGrantOrder{
+		Plan:               plan,
+		User:               grantUser,
+		PaymentType:        payment.PaymentTypeAdminGrant,
+		RechargeCodePrefix: "ADMIN-GRANT-",
+		Origin:             "admin",
+	})
 	if err != nil {
-		return nil, fmt.Errorf("create admin balance package grant order: %w", err)
-	}
-	order, err = client.PaymentOrder.UpdateOneID(order.ID).
-		SetRechargeCode("ADMIN-GRANT-" + strconv.FormatInt(order.ID, 10)).
-		Save(txCtx)
-	if err != nil {
-		return nil, fmt.Errorf("set admin balance package grant code: %w", err)
+		return nil, err
 	}
 
 	pkg, err := s.balancePackageService.creditInitialBalance(txCtx, client, order)

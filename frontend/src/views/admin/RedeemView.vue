@@ -121,7 +121,9 @@
                   ? 'badge-success'
                   : value === 'subscription'
                     ? 'badge-warning'
-                    : 'badge-primary'
+                    : value === 'balance_package'
+                      ? 'badge-purple'
+                      : 'badge-primary'
               ]"
             >
               {{ t('admin.redeem.types.' + value) }}
@@ -131,6 +133,16 @@
           <template #cell-value="{ value, row }">
             <span class="text-sm font-medium text-gray-900 dark:text-white">
               <template v-if="row.type === 'balance'">${{ value.toFixed(2) }}</template>
+              <template v-else-if="row.type === 'balance_package'">
+                {{ row.balance_package_plan?.name || `#${row.balance_package_plan_id ?? '-'}` }}
+                <span
+                  v-if="row.balance_package_plan"
+                  class="ml-1 text-xs text-gray-500 dark:text-gray-400"
+                >
+                  (${{ row.balance_package_plan.weekly_credit_usd }} ×
+                  {{ row.balance_package_plan.refresh_count }})
+                </span>
+              </template>
               <template v-else-if="row.type === 'subscription'">
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
                 <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
@@ -288,7 +300,13 @@
               <Select v-model="generateForm.type" :options="typeOptions" />
             </div>
             <!-- 余额/并发类型：显示数值输入 -->
-            <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
+            <div
+              v-if="
+                generateForm.type !== 'subscription' &&
+                generateForm.type !== 'invitation' &&
+                generateForm.type !== 'balance_package'
+              "
+            >
               <label class="input-label">
                 {{
                   generateForm.type === 'balance'
@@ -311,6 +329,22 @@
                 {{ t('admin.redeem.invitationHint') }}
               </p>
             </div>
+            <!-- 余额套餐类型：只需要选档位，到账规则完全由档位决定 -->
+            <template v-if="generateForm.type === 'balance_package'">
+              <div>
+                <label class="input-label">{{ t('admin.redeem.selectBalancePackage') }}</label>
+                <Select
+                  v-model="generateForm.balance_package_plan_id"
+                  :options="balancePackagePlanOptions"
+                  :placeholder="t('admin.redeem.selectBalancePackagePlaceholder')"
+                />
+              </div>
+              <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+                <p class="text-sm text-blue-700 dark:text-blue-300">
+                  {{ t('admin.redeem.balancePackageHint') }}
+                </p>
+              </div>
+            </template>
             <!-- 订阅类型：显示分组选择和有效天数 -->
             <template v-if="generateForm.type === 'subscription'">
               <div>
@@ -624,6 +658,7 @@ import type {
   SubscriptionType,
   BatchUpdateRedeemCodeFields
 } from '@/types'
+import type { BalancePackagePlan } from '@/types/payment'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -652,6 +687,15 @@ const showGenerateDialog = ref(false)
 const showResultDialog = ref(false)
 const generatedCodes = ref<RedeemCode[]>([])
 const subscriptionGroups = ref<Group[]>([])
+const balancePackagePlans = ref<BalancePackagePlan[]>([])
+
+// 余额套餐档位选项：名称后面直接跟到账规则，避免管理员发错档
+const balancePackagePlanOptions = computed(() =>
+  balancePackagePlans.value.map((plan) => ({
+    value: plan.id,
+    label: `${plan.name} · ¥${plan.price_cny} · $${plan.weekly_credit_usd}/${t('admin.redeem.perRefresh')} × ${plan.refresh_count}`
+  }))
+)
 
 // 订阅类型分组选项
 const subscriptionGroupOptions = computed(() => {
@@ -733,6 +777,7 @@ const columns = computed<Column[]>(() => [
 
 const typeOptions = computed(() => [
   { value: 'balance', label: t('admin.redeem.balance') },
+  { value: 'balance_package', label: t('admin.redeem.balancePackage') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
   { value: 'invitation', label: t('admin.redeem.invitation') }
@@ -741,6 +786,7 @@ const typeOptions = computed(() => [
 const filterTypeOptions = computed(() => [
   { value: '', label: t('admin.redeem.allTypes') },
   { value: 'balance', label: t('admin.redeem.balance') },
+  { value: 'balance_package', label: t('admin.redeem.balancePackage') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
   { value: 'subscription', label: t('admin.redeem.subscription') },
   { value: 'invitation', label: t('admin.redeem.invitation') }
@@ -833,15 +879,16 @@ const generateForm = reactive({
   count: 1,
   group_id: null as number | null,
   validity_days: 30,
+  balance_package_plan_id: null as number | null,
   expiry_option: 'never' as RedeemCodeExpiryOption,
   custom_expiry_days: 7
 })
 
-// 监听类型变化，邀请码类型时自动设置 value 为 0
+// 监听类型变化：邀请码和套餐码都不用面值，自动把 value 归零
 watch(
   () => generateForm.type,
   (newType) => {
-    if (newType === 'invitation') {
+    if (newType === 'invitation' || newType === 'balance_package') {
       generateForm.value = 0
     } else if (generateForm.value === 0) {
       generateForm.value = 10
@@ -1023,6 +1070,11 @@ const handleGenerateCodes = async () => {
     appStore.showError(t('admin.redeem.groupRequired'))
     return
   }
+  // 套餐类型必须选择档位
+  if (generateForm.type === 'balance_package' && !generateForm.balance_package_plan_id) {
+    appStore.showError(t('admin.redeem.balancePackageRequired'))
+    return
+  }
 
   const expiresInDays = getRedeemCodeExpiresInDays()
   if (expiresInDays === null) {
@@ -1038,7 +1090,8 @@ const handleGenerateCodes = async () => {
       generateForm.value,
       generateForm.type === 'subscription' ? generateForm.group_id : undefined,
       generateForm.type === 'subscription' ? generateForm.validity_days : undefined,
-      expiresInDays
+      expiresInDays,
+      generateForm.type === 'balance_package' ? generateForm.balance_package_plan_id : undefined
     )
     showGenerateDialog.value = false
     generatedCodes.value = result
@@ -1046,6 +1099,7 @@ const handleGenerateCodes = async () => {
     // 重置表单
     generateForm.group_id = null
     generateForm.validity_days = 30
+    generateForm.balance_package_plan_id = null
     generateForm.expiry_option = 'never'
     generateForm.custom_expiry_days = 7
     loadCodes()
@@ -1177,9 +1231,21 @@ const loadSubscriptionGroups = async () => {
   }
 }
 
+// 加载可发放的余额套餐档位（接口只返回在售档位）
+const loadBalancePackagePlans = async () => {
+  try {
+    const { data } = await adminAPI.payment.getBalancePackages()
+    balancePackagePlans.value = data || []
+  } catch (error) {
+    console.error('Error loading balance package plans:', error)
+    balancePackagePlans.value = []
+  }
+}
+
 onMounted(() => {
   loadCodes()
   loadSubscriptionGroups()
+  loadBalancePackagePlans()
 })
 
 onUnmounted(() => {

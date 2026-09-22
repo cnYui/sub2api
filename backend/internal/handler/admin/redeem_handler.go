@@ -34,27 +34,31 @@ func NewRedeemHandler(adminService service.AdminService, redeemService *service.
 
 // GenerateRedeemCodesRequest represents generate redeem codes request
 type GenerateRedeemCodesRequest struct {
-	Count         int        `json:"count" binding:"required,min=1,max=100"`
-	Type          string     `json:"type" binding:"required,oneof=balance concurrency subscription invitation"`
-	Value         float64    `json:"value"`
-	GroupID       *int64     `json:"group_id"`      // 订阅类型必填
-	ValidityDays  int        `json:"validity_days"` // 订阅类型使用，正数增加/负数退款扣减
-	ExpiresAt     *time.Time `json:"expires_at"`
-	ExpiresInDays *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
+	Count                int        `json:"count" binding:"required,min=1,max=100"`
+	Type                 string     `json:"type" binding:"required,oneof=balance concurrency subscription invitation balance_package"`
+	Value                float64    `json:"value"`
+	GroupID              *int64     `json:"group_id"`                // 订阅类型必填
+	ValidityDays         int        `json:"validity_days"`           // 订阅类型使用，正数增加/负数退款扣减
+	BalancePackagePlanID *int64     `json:"balance_package_plan_id"` // 余额套餐类型必填
+	ExpiresAt            *time.Time `json:"expires_at"`
+	ExpiresInDays        *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
 }
 
 // CreateAndRedeemCodeRequest represents creating a fixed code and redeeming it for a target user.
 // Type 为 omitempty 而非 required 是为了向后兼容旧版调用方（不传 type 时默认 balance）。
 type CreateAndRedeemCodeRequest struct {
-	Code          string     `json:"code" binding:"required,min=3,max=128"`
-	Type          string     `json:"type" binding:"omitempty,oneof=balance concurrency subscription invitation"` // 不传时默认 balance（向后兼容）
-	Value         float64    `json:"value" binding:"required"`
-	UserID        int64      `json:"user_id" binding:"required,gt=0"`
-	GroupID       *int64     `json:"group_id"`      // subscription 类型必填
-	ValidityDays  int        `json:"validity_days"` // subscription 类型：正数增加，负数退款扣减
-	Notes         string     `json:"notes"`
-	ExpiresAt     *time.Time `json:"expires_at"`
-	ExpiresInDays *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
+	Code string `json:"code" binding:"required,min=3,max=128"`
+	Type string `json:"type" binding:"omitempty,oneof=balance concurrency subscription invitation balance_package"` // 不传时默认 balance（向后兼容）
+	// Value 对 balance_package 无意义（面值由档位决定），因此这里不能用 binding:"required"
+	// （那会连 0 一起拒掉）；非套餐类型的非零校验放在 handler 里显式做。
+	Value                float64    `json:"value"`
+	UserID               int64      `json:"user_id" binding:"required,gt=0"`
+	GroupID              *int64     `json:"group_id"`                // subscription 类型必填
+	ValidityDays         int        `json:"validity_days"`           // subscription 类型：正数增加，负数退款扣减
+	BalancePackagePlanID *int64     `json:"balance_package_plan_id"` // balance_package 类型必填
+	Notes                string     `json:"notes"`
+	ExpiresAt            *time.Time `json:"expires_at"`
+	ExpiresInDays        *int       `json:"expires_in_days" binding:"omitempty,min=1,max=3650"`
 }
 
 func resolveRedeemCodeExpiresAt(expiresAt *time.Time, expiresInDays *int) (*time.Time, error) {
@@ -136,6 +140,11 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 		return
 	}
 
+	if req.Type == service.RedeemTypeBalancePackage && (req.BalancePackagePlanID == nil || *req.BalancePackagePlanID <= 0) {
+		response.BadRequest(c, "balance_package_plan_id is required for balance_package type")
+		return
+	}
+
 	expiresAt, err := resolveRedeemCodeExpiresAt(req.ExpiresAt, req.ExpiresInDays)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -144,12 +153,13 @@ func (h *RedeemHandler) Generate(c *gin.Context) {
 
 	executeAdminIdempotentJSON(c, "admin.redeem_codes.generate", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		codes, execErr := h.adminService.GenerateRedeemCodes(ctx, &service.GenerateRedeemCodesInput{
-			Count:        req.Count,
-			Type:         req.Type,
-			Value:        req.Value,
-			GroupID:      req.GroupID,
-			ValidityDays: req.ValidityDays,
-			ExpiresAt:    expiresAt,
+			Count:                req.Count,
+			Type:                 req.Type,
+			Value:                req.Value,
+			GroupID:              req.GroupID,
+			ValidityDays:         req.ValidityDays,
+			BalancePackagePlanID: req.BalancePackagePlanID,
+			ExpiresAt:            expiresAt,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -193,6 +203,17 @@ func (h *RedeemHandler) CreateAndRedeem(c *gin.Context) {
 			return
 		}
 	}
+	if req.Type == service.RedeemTypeBalancePackage {
+		if req.BalancePackagePlanID == nil || *req.BalancePackagePlanID <= 0 {
+			response.BadRequest(c, "balance_package_plan_id is required for balance_package type")
+			return
+		}
+		req.Value = 0
+	} else if req.Value == 0 {
+		// 历史上靠 binding:"required" 拦下来的 0 面值，这里继续拦。
+		response.BadRequest(c, "Invalid request: value must not be zero")
+		return
+	}
 
 	expiresAt, err := resolveRedeemCodeExpiresAt(req.ExpiresAt, req.ExpiresInDays)
 	if err != nil {
@@ -210,14 +231,15 @@ func (h *RedeemHandler) CreateAndRedeem(c *gin.Context) {
 		}
 
 		createErr := h.redeemService.CreateCode(ctx, &service.RedeemCode{
-			Code:         req.Code,
-			Type:         req.Type,
-			Value:        req.Value,
-			Status:       service.StatusUnused,
-			Notes:        req.Notes,
-			GroupID:      req.GroupID,
-			ValidityDays: req.ValidityDays,
-			ExpiresAt:    expiresAt,
+			Code:                 req.Code,
+			Type:                 req.Type,
+			Value:                req.Value,
+			Status:               service.StatusUnused,
+			Notes:                req.Notes,
+			GroupID:              req.GroupID,
+			ValidityDays:         req.ValidityDays,
+			BalancePackagePlanID: req.BalancePackagePlanID,
+			ExpiresAt:            expiresAt,
 		})
 		if createErr != nil {
 			// Unique code race: if code now exists, use idempotent semantics by used_by.
@@ -412,7 +434,7 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 	writer := csv.NewWriter(&buf)
 
 	// Write header
-	if err := writer.Write([]string{"id", "code", "type", "value", "status", "used_by", "used_by_email", "used_at", "expires_at", "created_at"}); err != nil {
+	if err := writer.Write([]string{"id", "code", "type", "value", "status", "used_by", "used_by_email", "used_at", "expires_at", "created_at", "balance_package_plan"}); err != nil {
 		response.InternalError(c, "Failed to export redeem codes: "+err.Error())
 		return
 	}
@@ -435,6 +457,12 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 		if code.ExpiresAt != nil {
 			expiresAt = code.ExpiresAt.Format("2006-01-02 15:04:05")
 		}
+		balancePackagePlan := ""
+		if code.BalancePackagePlan != nil {
+			balancePackagePlan = code.BalancePackagePlan.Name
+		} else if code.BalancePackagePlanID != nil {
+			balancePackagePlan = fmt.Sprintf("#%d", *code.BalancePackagePlanID)
+		}
 		if err := writer.Write([]string{
 			fmt.Sprintf("%d", code.ID),
 			code.Code,
@@ -446,6 +474,7 @@ func (h *RedeemHandler) Export(c *gin.Context) {
 			usedAt,
 			expiresAt,
 			code.CreatedAt.Format("2006-01-02 15:04:05"),
+			balancePackagePlan,
 		}); err != nil {
 			response.InternalError(c, "Failed to export redeem codes: "+err.Error())
 			return

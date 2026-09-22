@@ -594,6 +594,9 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 		ValidityDays: rc.ValidityDays,
 		User:         UserFromServiceShallow(rc.User),
 		Group:        GroupFromServiceShallow(rc.Group),
+
+		BalancePackagePlanID: rc.BalancePackagePlanID,
+		BalancePackagePlan:   redeemBalancePackagePlanFromService(rc.BalancePackagePlan),
 	}
 	if rc.IsExpired() {
 		out.Status = service.StatusExpired
@@ -606,6 +609,23 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 	}
 
 	return out
+}
+
+func redeemBalancePackagePlanFromService(p *service.RedeemBalancePackagePlan) *RedeemBalancePackagePlan {
+	if p == nil {
+		return nil
+	}
+	return &RedeemBalancePackagePlan{
+		ID:                  p.ID,
+		Code:                p.Code,
+		Name:                p.Name,
+		PriceCNY:            p.PriceCNY,
+		WeeklyCreditUSD:     p.WeeklyCreditUSD,
+		ValidityDays:        p.ValidityDays,
+		RefreshCount:        p.RefreshCount,
+		RefreshIntervalDays: p.RefreshIntervalDays,
+		ForSale:             p.ForSale,
+	}
 }
 
 // AccountSummaryFromService returns a minimal AccountSummary for usage log display.

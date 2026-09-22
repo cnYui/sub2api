@@ -105,6 +105,24 @@
                       {{ t('redeem.added') }}: {{ redeemResult.value }}
                       {{ t('redeem.concurrentRequests') }}
                     </p>
+                    <p v-else-if="redeemResult.type === 'balance_package'" class="font-medium">
+                      {{ t('redeem.balancePackageRedeemed') }}
+                      <span v-if="redeemResult.balance_package_plan">
+                        - {{ redeemResult.balance_package_plan.name }}</span
+                      >
+                      <span
+                        v-if="redeemResult.balance_package_plan"
+                        class="block text-xs font-normal"
+                      >
+                        {{
+                          t('redeem.balancePackageDetail', {
+                            credit: redeemResult.balance_package_plan.weekly_credit_usd,
+                            count: redeemResult.balance_package_plan.refresh_count,
+                            days: redeemResult.balance_package_plan.validity_days
+                          })
+                        }}
+                      </span>
+                    </p>
                     <p v-else-if="redeemResult.type === 'subscription'" class="font-medium">
                       {{ t('redeem.subscriptionAssigned') }}
                       <span v-if="redeemResult.group_name"> - {{ redeemResult.group_name }}</span>
@@ -242,9 +260,11 @@
                         : 'bg-red-100 dark:bg-red-900/30'
                       : isSubscriptionType(item.type)
                         ? 'bg-purple-100 dark:bg-purple-900/30'
-                        : item.value >= 0
-                          ? 'bg-blue-100 dark:bg-blue-900/30'
-                          : 'bg-orange-100 dark:bg-orange-900/30'
+                        : isBalancePackageType(item.type)
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                          : item.value >= 0
+                            ? 'bg-blue-100 dark:bg-blue-900/30'
+                            : 'bg-orange-100 dark:bg-orange-900/30'
                   ]"
                 >
                   <!-- 余额类型图标 -->
@@ -264,6 +284,13 @@
                     name="badge"
                     size="md"
                     class="text-purple-600 dark:text-purple-400"
+                  />
+                  <!-- 余额套餐类型图标 -->
+                  <Icon
+                    v-else-if="isBalancePackageType(item.type)"
+                    name="gift"
+                    size="md"
+                    class="text-emerald-600 dark:text-emerald-400"
                   />
                   <!-- 并发类型图标 -->
                   <Icon
@@ -296,9 +323,11 @@
                         : 'text-red-600 dark:text-red-400'
                       : isSubscriptionType(item.type)
                         ? 'text-purple-600 dark:text-purple-400'
-                        : item.value >= 0
-                          ? 'text-blue-600 dark:text-blue-400'
-                          : 'text-orange-600 dark:text-orange-400'
+                        : isBalancePackageType(item.type)
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : item.value >= 0
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : 'text-orange-600 dark:text-orange-400'
                   ]"
                 >
                   {{ formatHistoryValue(item) }}
@@ -347,7 +376,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useSubscriptionStore } from '@/stores/subscriptions'
-import { redeemAPI, authAPI, type RedeemHistoryItem } from '@/api'
+import { redeemAPI, authAPI, type RedeemHistoryItem, type RedeemResult } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTime } from '@/utils/format'
@@ -361,15 +390,7 @@ const user = computed(() => authStore.user)
 
 const redeemCode = ref('')
 const submitting = ref(false)
-const redeemResult = ref<{
-  message: string
-  type: string
-  value: number
-  new_balance?: number
-  new_concurrency?: number
-  group_name?: string
-  validity_days?: number
-} | null>(null)
+const redeemResult = ref<RedeemResult | null>(null)
 const errorMessage = ref('')
 
 // History data
@@ -384,6 +405,10 @@ const isBalanceType = (type: string) => {
 
 const isSubscriptionType = (type: string) => {
   return type === 'subscription'
+}
+
+const isBalancePackageType = (type: string) => {
+  return type === 'balance_package'
 }
 
 const isAdminAdjustment = (type: string) => {
@@ -401,6 +426,8 @@ const getHistoryItemTitle = (item: RedeemHistoryItem) => {
     return item.value >= 0 ? t('redeem.concurrencyAddedAdmin') : t('redeem.concurrencyReducedAdmin')
   } else if (item.type === 'subscription') {
     return t('redeem.subscriptionAssigned')
+  } else if (item.type === 'balance_package') {
+    return t('redeem.balancePackageAddedRedeem')
   }
   return t('common.unknown')
 }
@@ -409,6 +436,9 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
   if (isBalanceType(item.type)) {
     const sign = item.value >= 0 ? '+' : ''
     return `${sign}$${item.value.toFixed(2)}`
+  } else if (isBalancePackageType(item.type)) {
+    // 套餐码的 value 恒为 0，能展示的只有档位名称
+    return item.balance_package_plan?.name || t('redeem.balancePackageAddedRedeem')
   } else if (isSubscriptionType(item.type)) {
     // 订阅类型显示有效天数和分组名称
     const days = item.validity_days || Math.round(item.value)

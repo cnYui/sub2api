@@ -72,6 +72,10 @@ func (RedeemCode) Fields() []ent.Field {
 			Nillable(),
 		field.Int("validity_days").
 			Default(30),
+		// balance_package_plan_id 只对 balance_package 类型有意义：兑换时按该档位发放余额套餐。
+		field.Int64("balance_package_plan_id").
+			Optional().
+			Nillable(),
 	}
 }
 
@@ -85,6 +89,10 @@ func (RedeemCode) Edges() []ent.Edge {
 			Ref("redeem_codes").
 			Field("group_id").
 			Unique(),
+		edge.From("balance_package_plan", BalancePackagePlan.Type).
+			Ref("redeem_codes").
+			Field("balance_package_plan_id").
+			Unique(),
 	}
 }
 
@@ -94,6 +102,7 @@ func (RedeemCode) Indexes() []ent.Index {
 		index.Fields("status"),
 		index.Fields("used_by"),
 		index.Fields("group_id"),
+		index.Fields("balance_package_plan_id"),
 		index.Fields("expires_at"),
 	}
 }

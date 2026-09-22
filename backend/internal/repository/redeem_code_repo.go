@@ -34,6 +34,7 @@ func (r *redeemCodeRepository) Create(ctx context.Context, code *service.RedeemC
 		SetNillableUsedBy(code.UsedBy).
 		SetNillableUsedAt(code.UsedAt).
 		SetNillableGroupID(code.GroupID).
+		SetNillableBalancePackagePlanID(code.BalancePackagePlanID).
 		Save(ctx)
 	if err == nil {
 		code.ID = created.ID
@@ -60,7 +61,8 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 			SetNillableExpiresAt(c.ExpiresAt).
 			SetNillableUsedBy(c.UsedBy).
 			SetNillableUsedAt(c.UsedAt).
-			SetNillableGroupID(c.GroupID)
+			SetNillableGroupID(c.GroupID).
+			SetNillableBalancePackagePlanID(c.BalancePackagePlanID)
 		builders = append(builders, b)
 	}
 
@@ -70,6 +72,7 @@ func (r *redeemCodeRepository) CreateBatch(ctx context.Context, codes []service.
 func (r *redeemCodeRepository) GetByID(ctx context.Context, id int64) (*service.RedeemCode, error) {
 	m, err := r.client.RedeemCode.Query().
 		Where(redeemcode.IDEQ(id)).
+		WithBalancePackagePlan().
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -83,6 +86,7 @@ func (r *redeemCodeRepository) GetByID(ctx context.Context, id int64) (*service.
 func (r *redeemCodeRepository) GetByCode(ctx context.Context, code string) (*service.RedeemCode, error) {
 	m, err := r.client.RedeemCode.Query().
 		Where(redeemcode.CodeEQ(code)).
+		WithBalancePackagePlan().
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -149,6 +153,7 @@ func (r *redeemCodeRepository) ListWithFilters(ctx context.Context, params pagin
 	codesQuery := q.
 		WithUser().
 		WithGroup().
+		WithBalancePackagePlan().
 		Offset(params.Offset()).
 		Limit(params.Limit())
 	for _, order := range redeemCodeListOrder(params) {
@@ -218,6 +223,11 @@ func (r *redeemCodeRepository) Update(ctx context.Context, code *service.RedeemC
 		up.SetGroupID(*code.GroupID)
 	} else {
 		up.ClearGroupID()
+	}
+	if code.BalancePackagePlanID != nil {
+		up.SetBalancePackagePlanID(*code.BalancePackagePlanID)
+	} else {
+		up.ClearBalancePackagePlanID()
 	}
 	if code.ExpiresAt != nil {
 		up.SetExpiresAt(*code.ExpiresAt)
@@ -347,6 +357,7 @@ func (r *redeemCodeRepository) ListByUser(ctx context.Context, userID int64, lim
 	codes, err := r.client.RedeemCode.Query().
 		Where(redeemcode.UsedByEQ(userID)).
 		WithGroup().
+		WithBalancePackagePlan().
 		Order(dbent.Desc(redeemcode.FieldUsedAt)).
 		Limit(limit).
 		All(ctx)
@@ -358,7 +369,7 @@ func (r *redeemCodeRepository) ListByUser(ctx context.Context, userID int64, lim
 }
 
 // ListByUserPaginated returns paginated balance/concurrency history for a user.
-// Supports optional type filter (e.g. "balance", "admin_balance", "concurrency", "admin_concurrency", "subscription").
+// Supports optional type filter (e.g. "balance", "balance_package", "admin_balance", "concurrency", "admin_concurrency", "subscription").
 func (r *redeemCodeRepository) ListByUserPaginated(ctx context.Context, userID int64, params pagination.PaginationParams, codeType string) ([]service.RedeemCode, *pagination.PaginationResult, error) {
 	q := r.client.RedeemCode.Query().
 		Where(redeemcode.UsedByEQ(userID))
@@ -375,6 +386,7 @@ func (r *redeemCodeRepository) ListByUserPaginated(ctx context.Context, userID i
 
 	codes, err := q.
 		WithGroup().
+		WithBalancePackagePlan().
 		Offset(params.Offset()).
 		Limit(params.Limit()).
 		Order(dbent.Desc(redeemcode.FieldUsedAt)).
@@ -425,6 +437,8 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 		ExpiresAt:    m.ExpiresAt,
 		GroupID:      m.GroupID,
 		ValidityDays: m.ValidityDays,
+
+		BalancePackagePlanID: m.BalancePackagePlanID,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)
@@ -432,7 +446,27 @@ func redeemCodeEntityToService(m *dbent.RedeemCode) *service.RedeemCode {
 	if m.Edges.Group != nil {
 		out.Group = groupEntityToService(m.Edges.Group)
 	}
+	if m.Edges.BalancePackagePlan != nil {
+		out.BalancePackagePlan = balancePackagePlanEntityToRedeemService(m.Edges.BalancePackagePlan)
+	}
 	return out
+}
+
+func balancePackagePlanEntityToRedeemService(m *dbent.BalancePackagePlan) *service.RedeemBalancePackagePlan {
+	if m == nil {
+		return nil
+	}
+	return &service.RedeemBalancePackagePlan{
+		ID:                  m.ID,
+		Code:                m.Code,
+		Name:                m.Name,
+		PriceCNY:            m.PriceCny,
+		WeeklyCreditUSD:     m.WeeklyCreditUsd,
+		ValidityDays:        m.ValidityDays,
+		RefreshCount:        m.RefreshCount,
+		RefreshIntervalDays: m.RefreshIntervalDays,
+		ForSale:             m.ForSale,
+	}
 }
 
 func redeemCodeEntitiesToService(models []*dbent.RedeemCode) []service.RedeemCode {

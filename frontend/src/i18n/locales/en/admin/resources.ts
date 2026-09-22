@@ -247,10 +247,17 @@ export default {
       allTypes: 'All Types',
       allStatus: 'All Status',
       balance: 'Balance',
+      balancePackage: 'Balance Package',
       concurrency: 'Concurrency',
       subscription: 'Subscription',
       invitation: 'Invitation',
       invitationHint: 'Invitation codes are used to restrict user registration. They are automatically marked as used after use.',
+      selectBalancePackage: 'Select Package',
+      selectBalancePackagePlaceholder: 'Choose a balance package',
+      balancePackageRequired: 'Please select a balance package',
+      balancePackageHint:
+        'Redeeming binds the package to the user with the same crediting and weekly refresh rules as a purchase. If the user already has an active package the redemption is rejected and the code stays unused.',
+      perRefresh: 'refresh',
       unused: 'Unused',
       used: 'Used',
       columns: {
@@ -313,6 +320,7 @@ export default {
       failedToCopy: 'Failed to copy codes',
       types: {
         balance: 'Balance',
+        balance_package: 'Balance Package',
         concurrency: 'Concurrency',
         subscription: 'Subscription',
         invitation: 'Invitation',
