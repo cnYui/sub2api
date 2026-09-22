@@ -154,6 +154,27 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
 - 商品当前只有余额套餐和流量卡；普通余额 / 旧订阅后端不再兼容，历史字段仅保留只读查询。
 
+### 购买/到账成功邮件通知（2026-09-22 实现）
+
+- **注册和忘记密码不是 SMTP 的全部**：`notification_email_service.go` 是一套通用通知邮件框架，
+  后台「设置 → 邮件模板」可改中英文案并预览，事件 `Optional: true` 的还带退订链接和退订记录。
+  加新通知应该**往这个框架里加事件**，不要另起一套发信逻辑。
+- 三个到账事件：`payment.balance_package_credited`（余额套餐首期，新购/续费/管理员发放共用）、
+  `payment.traffic_pack_credited`（流量卡）、`redeem.balance_credited`（兑换码加普通余额）。
+  实现在 `purchase_notify_service.go`（`PurchaseNotifyService`，`PaymentService` 与 `RedeemService` 各持一份）。
+- **挂载点是 `markCompleted`（`payment_fulfillment.go`）**，两种订单在这里汇合，
+  且 lease + `recharging → completed` 乐观锁保证只赢一次，所以天然防重复发信；
+  `updated == 0 && 已 completed` 的早返回分支不发。管理员发放不走这里，单独挂在
+  `GrantBalancePackage` 提交之后；兑换码挂在 `Redeem` 提交之后。
+- 全局开关 `purchase_notify_enabled`，**缺省即开启**（`!isFalseSettingValue`）。
+  每周额度到账**刻意不发**（一个周期会发 3 封，管理员判定为骚扰）。
+- **负数兑换码不发信**：后台手工补扣写的是负数 `admin_balance` 兑换码（坑 30），
+  `amountUSD <= 0` 直接返回，否则用户会收到「成功兑换 $-33.5」。
+- 续费与新购共用 `creditInitialBalance`，调用方看不出区别：靠套餐行 `renewal_count > 0` 判续费、
+  `PaymentType == admin_grant` 判发放。续费会把 `payment_order_id` 改绑新订单，
+  所以按订单 id 反查套餐行对两种情况都成立。
+- 实现记录见 `docs/ai/context/20260922-124500-purchase-credited-email-notifications_CN.md`。
+
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 
 - 用户侧 `/reimbursement`，管理侧 `/admin/reimbursements`；表 `reimbursement_requests`（迁移 `214`）。状态只有 `pending`（用户侧显示「审核中」、管理侧「待处理」）和 `completed`。六字段：`company_name / tax_id / bank_account / bank_name / address / amount`。
@@ -261,6 +282,20 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
       3. 订单 819（user 454）历史多留的 $46.19 仍在他余额里，**要不要扣回由管理员决定**，代码不会追溯。
     - **没修**：续费过的套餐比例会失真（分母含上一单顺延的期数、时间窗口被拉长，退款基数只有新订单价格），已退款的 16 笔都没续费过。
     - 排查与修复记录：`docs/ai/context/20260917-182925-balance-package-refund-proportional-audit_CN.md`、`docs/ai/context/20260917-195859-balance-package-refund-overpay-fix_CN.md`。
+
+33. **加通知邮件事件时，声明了却没传的占位符会把"预览示例值"发给真实用户。**
+    `NotificationEmailService.runtimeVariables` 先铺一层 `notificationEmailSampleVariables`
+    再用调用方传入的变量覆盖，所以漏传一个占位符，用户收到的就是 `张三` /
+    `https://example.com/...` / `Claude Pro` 这类假数据。`ops.scheduled_report` 里那段
+    `if _, ok := input.Variables["report_html"]; !ok` 就是专门防这个的。
+    **新增事件必须把事件定义里声明的占位符全部显式传满**（框架自己补的只有
+    `site_name` / `recipient_name` / `recipient_email` / `unsubscribe_url`）。
+    回归测试写法见 `purchase_notify_service_test.go`：逐事件断言占位符覆盖，
+    再真渲染一遍断言结果不含示例值片段。
+    另两条配套事实：① `EmailService.SendEmail` 是**同步 SMTP**，
+    挂在支付回调等链路上必须异步，否则易支付/微信会判超时重推回调；
+    ② 加设置项会让 `internal/server/api_contract_test.go` 的
+    `GET /admin/settings` 字段快照变红，要同步改（有两处）。
 
 ## 五点五、待处理的计费偏差（已确认，未修复）
 
