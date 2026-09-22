@@ -32,6 +32,9 @@ const (
 	NotificationEmailEventOpsAlert                    = "ops.alert"
 	NotificationEmailEventOpsScheduledReport          = "ops.scheduled_report"
 	NotificationEmailEventReimbursementCompleted      = "reimbursement.completed"
+	NotificationEmailEventBalancePackageCredited      = "payment.balance_package_credited"
+	NotificationEmailEventTrafficPackCredited         = "payment.traffic_pack_credited"
+	NotificationEmailEventRedeemBalanceCredited       = "redeem.balance_credited"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -944,6 +947,22 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"amount":              "414.10",
 			"request_id":          "12",
 			"download_page_url":   "https://example.com/reimbursement",
+
+			"purchase_kind":         "新购",
+			"plan_name":             "余额套餐 ¥29",
+			"pay_amount":            "29.00 CNY",
+			"weekly_credit_usd":     "76.00",
+			"remaining_usd":         "76.00",
+			"refresh_count":         "4",
+			"refresh_interval_days": "7",
+			"next_credit_at":        "2026-06-18 12:00 UTC",
+			"expires_at":            "2026-07-09 12:00 UTC",
+			"order_no":              "sub2_20260611aB3kX9mQ",
+			"dashboard_url":         "https://example.com/subscriptions",
+			"pack_name":             "流量卡 $10",
+			"credit_usd":            "10.00",
+			"validity_days":         "30",
+			"redeem_code":           "********9F2C",
 		}
 		addNotificationEmailOpsSummarySampleVariables(variables)
 		return variables
@@ -996,6 +1015,22 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"amount":              "414.10",
 		"request_id":          "12",
 		"download_page_url":   "https://example.com/reimbursement",
+
+		"purchase_kind":         "New purchase",
+		"plan_name":             "Balance package ¥29",
+		"pay_amount":            "29.00 CNY",
+		"weekly_credit_usd":     "76.00",
+		"remaining_usd":         "76.00",
+		"refresh_count":         "4",
+		"refresh_interval_days": "7",
+		"next_credit_at":        "2026-06-18 12:00 UTC",
+		"expires_at":            "2026-07-09 12:00 UTC",
+		"order_no":              "sub2_20260611aB3kX9mQ",
+		"dashboard_url":         "https://example.com/subscriptions",
+		"pack_name":             "Traffic pack $10",
+		"credit_usd":            "10.00",
+		"validity_days":         "30",
+		"redeem_code":           "********9F2C",
 	}
 	addNotificationEmailOpsSummarySampleVariables(variables)
 	return variables
@@ -1040,6 +1075,9 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
 	NotificationEmailEventReimbursementCompleted,
+	NotificationEmailEventBalancePackageCredited,
+	NotificationEmailEventTrafficPackCredited,
+	NotificationEmailEventRedeemBalanceCredited,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
@@ -1051,6 +1089,36 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Optional:    true,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
 			"company_name", "amount", "request_id", "download_page_url", "unsubscribe_url"),
+	},
+	NotificationEmailEventBalancePackageCredited: {
+		Event:       NotificationEmailEventBalancePackageCredited,
+		Label:       "Balance package credited",
+		Description: "Optional receipt sent when a balance package is paid for, renewed, or granted by an admin and the first period lands.",
+		Category:    "billing",
+		Optional:    true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"purchase_kind", "plan_name", "pay_amount", "weekly_credit_usd", "remaining_usd",
+			"refresh_count", "refresh_interval_days", "next_credit_at", "expires_at",
+			"order_no", "dashboard_url", "unsubscribe_url"),
+	},
+	NotificationEmailEventTrafficPackCredited: {
+		Event:       NotificationEmailEventTrafficPackCredited,
+		Label:       "Traffic pack credited",
+		Description: "Optional receipt sent when a traffic pack order is paid for and the quota lands.",
+		Category:    "billing",
+		Optional:    true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"pack_name", "pay_amount", "credit_usd", "validity_days", "expires_at",
+			"order_no", "dashboard_url", "unsubscribe_url"),
+	},
+	NotificationEmailEventRedeemBalanceCredited: {
+		Event:       NotificationEmailEventRedeemBalanceCredited,
+		Label:       "Redeem code credited",
+		Description: "Optional receipt sent when a redeem code tops up the user's balance. Never sent for negative (admin back-charge) codes.",
+		Category:    "billing",
+		Optional:    true,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"redeem_code", "credit_usd", "current_balance", "dashboard_url", "unsubscribe_url"),
 	},
 	NotificationEmailEventAuthVerifyCode: {
 		Event:        NotificationEmailEventAuthVerifyCode,
@@ -1397,6 +1465,112 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 		notificationEmailLocaleChinese: {
 			Subject: "[运维报表] {{report_name}}",
 			HTML:    notificationEmailOpsScheduledReportTemplate(notificationEmailLocaleChinese),
+		},
+	},
+	NotificationEmailEventBalancePackageCredited: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] {{plan_name}} is active - {{purchase_kind}}",
+			HTML: notificationEmailCard("#2563eb", "Balance package active", `
+<p>Hello {{recipient_name}},</p>
+<p>Your balance package is active and the first period has been credited.</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>Package</td><td>{{plan_name}}</td></tr>
+  <tr><td>Type</td><td>{{purchase_kind}}</td></tr>
+  <tr><td>Paid</td><td>{{pay_amount}}</td></tr>
+  <tr><td>Credit per period</td><td>${{weekly_credit_usd}}</td></tr>
+  <tr><td>Available this period</td><td>${{remaining_usd}}</td></tr>
+  <tr><td>Schedule</td><td>{{refresh_count}} periods, one every {{refresh_interval_days}} days</td></tr>
+  <tr><td>Next credit</td><td>{{next_credit_at}}</td></tr>
+  <tr><td>Valid until</td><td>{{expires_at}}</td></tr>
+  <tr><td>Order</td><td>{{order_no}}</td></tr>
+</table>
+<p class="muted">If you had a negative balance, this credit repaid it first, so the amount available this period can be lower than the credit per period.</p>
+<p><a class="button" href="{{dashboard_url}}">View my package</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from these notices</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] {{plan_name}} 已生效（{{purchase_kind}}）",
+			HTML: notificationEmailCard("#2563eb", "余额套餐已生效", `
+<p>{{recipient_name}}，您好：</p>
+<p>您的余额套餐已生效，首期额度已到账。</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>套餐</td><td>{{plan_name}}</td></tr>
+  <tr><td>类型</td><td>{{purchase_kind}}</td></tr>
+  <tr><td>实付</td><td>{{pay_amount}}</td></tr>
+  <tr><td>每期额度</td><td>${{weekly_credit_usd}}</td></tr>
+  <tr><td>本期可用</td><td>${{remaining_usd}}</td></tr>
+  <tr><td>发放周期</td><td>共 {{refresh_count}} 期，每 {{refresh_interval_days}} 天一期</td></tr>
+  <tr><td>下次到账</td><td>{{next_credit_at}}</td></tr>
+  <tr><td>有效期至</td><td>{{expires_at}}</td></tr>
+  <tr><td>订单号</td><td>{{order_no}}</td></tr>
+</table>
+<p class="muted">如果此前余额为负，本次额度会先抵扣欠费，所以「本期可用」可能小于「每期额度」。</p>
+<p><a class="button" href="{{dashboard_url}}">查看我的套餐</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订此类通知</a></p>`),
+		},
+	},
+	NotificationEmailEventTrafficPackCredited: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] {{pack_name}} credited",
+			HTML: notificationEmailCard("#7c3aed", "Traffic pack credited", `
+<p>Hello {{recipient_name}},</p>
+<p>Your traffic pack has been credited and is ready to use.</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>Pack</td><td>{{pack_name}}</td></tr>
+  <tr><td>Paid</td><td>{{pay_amount}}</td></tr>
+  <tr><td>Quota</td><td>${{credit_usd}}</td></tr>
+  <tr><td>Validity</td><td>{{validity_days}} days</td></tr>
+  <tr><td>Expires</td><td>{{expires_at}}</td></tr>
+  <tr><td>Order</td><td>{{order_no}}</td></tr>
+</table>
+<p class="muted">Traffic pack quota is used once your regular balance goes negative, and unused quota is forfeited at expiry.</p>
+<p><a class="button" href="{{dashboard_url}}">View my quota</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from these notices</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] {{pack_name}} 已到账",
+			HTML: notificationEmailCard("#7c3aed", "流量卡已到账", `
+<p>{{recipient_name}}，您好：</p>
+<p>您购买的流量卡额度已到账，可以直接使用。</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>流量卡</td><td>{{pack_name}}</td></tr>
+  <tr><td>实付</td><td>{{pay_amount}}</td></tr>
+  <tr><td>额度</td><td>${{credit_usd}}</td></tr>
+  <tr><td>有效期</td><td>{{validity_days}} 天</td></tr>
+  <tr><td>到期时间</td><td>{{expires_at}}</td></tr>
+  <tr><td>订单号</td><td>{{order_no}}</td></tr>
+</table>
+<p class="muted">流量卡额度在普通余额为负时启用；到期未用完的部分会失效。</p>
+<p><a class="button" href="{{dashboard_url}}">查看我的额度</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订此类通知</a></p>`),
+		},
+	},
+	NotificationEmailEventRedeemBalanceCredited: {
+		notificationEmailDefaultLocale: {
+			Subject: "[{{site_name}}] ${{credit_usd}} credited to your balance",
+			HTML: notificationEmailCard("#0f766e", "Redeem code credited", `
+<p>Hello {{recipient_name}},</p>
+<p>Your redeem code has been applied and the credit is now in your balance.</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>Redeem code</td><td>{{redeem_code}}</td></tr>
+  <tr><td>Credited</td><td>${{credit_usd}}</td></tr>
+  <tr><td>Current balance</td><td>${{current_balance}}</td></tr>
+</table>
+<p><a class="button" href="{{dashboard_url}}">View my balance</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">Unsubscribe from these notices</a></p>`),
+		},
+		notificationEmailLocaleChinese: {
+			Subject: "[{{site_name}}] 兑换成功，余额到账 ${{credit_usd}}",
+			HTML: notificationEmailCard("#0f766e", "兑换码已到账", `
+<p>{{recipient_name}}，您好：</p>
+<p>您的兑换码已使用成功，额度已加入账户余额。</p>
+<table style="width:100%;border-collapse:collapse;">
+  <tr><td>兑换码</td><td>{{redeem_code}}</td></tr>
+  <tr><td>本次到账</td><td>${{credit_usd}}</td></tr>
+  <tr><td>当前余额</td><td>${{current_balance}}</td></tr>
+</table>
+<p><a class="button" href="{{dashboard_url}}">查看我的余额</a></p>
+<p class="muted"><a href="{{unsubscribe_url}}">退订此类通知</a></p>`),
 		},
 	},
 	NotificationEmailEventReimbursementCompleted: {

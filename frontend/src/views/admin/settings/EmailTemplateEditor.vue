@@ -365,6 +365,24 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
     timing: "用户余额低于全局或个人配置的提醒阈值时发送。",
     categoryLabel: "计费",
   },
+  "payment.balance_package_credited": {
+    label: "余额套餐到账",
+    timing:
+      "余额套餐首期额度到账后发送，覆盖付费新购、续费和管理员后台发放三种情况；可在邮件设置中的「到账成功通知」开关关闭。",
+    categoryLabel: "计费",
+  },
+  "payment.traffic_pack_credited": {
+    label: "流量卡到账",
+    timing:
+      "流量卡订单支付完成、额度入账后发送；可在邮件设置中的「到账成功通知」开关关闭。",
+    categoryLabel: "计费",
+  },
+  "redeem.balance_credited": {
+    label: "兑换码到账",
+    timing:
+      "兑换码为账户加余额成功后发送；后台手工补扣用的负数兑换码不会触发。",
+    categoryLabel: "计费",
+  },
   "account.quota_alert": {
     label: "账号限额告警",
     timing: "上游账号的用量达到配置的额度告警阈值时发送给管理员通知邮箱。",
@@ -412,6 +430,24 @@ const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
     label: "Subscription Expiry Reminder",
     timing: "Sent by the background job when an active subscription has 7, 3, or 1 day remaining. It can be disabled in Email settings.",
     categoryLabel: "Subscription",
+  },
+  "payment.balance_package_credited": {
+    label: "Balance Package Credited",
+    timing:
+      "Sent after the first period of a balance package is credited, covering paid purchases, renewals, and admin grants. Can be turned off with the credited-notification switch in email settings.",
+    categoryLabel: "Billing",
+  },
+  "payment.traffic_pack_credited": {
+    label: "Traffic Pack Credited",
+    timing:
+      "Sent once a traffic pack order is paid and the quota is credited. Can be turned off with the credited-notification switch in email settings.",
+    categoryLabel: "Billing",
+  },
+  "redeem.balance_credited": {
+    label: "Redeem Code Credited",
+    timing:
+      "Sent when a redeem code tops up the account balance. Negative admin back-charge codes never trigger it.",
+    categoryLabel: "Billing",
   },
   "balance.low": {
     label: "Low Balance Alert",

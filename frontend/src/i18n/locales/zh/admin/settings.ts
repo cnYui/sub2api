@@ -789,6 +789,13 @@ export default {
         enabled: '启用订阅到期提醒',
         enabledHint: '开启后，系统会在订阅到期前 7 天、3 天、1 天各发送一次提醒。'
       },
+      purchaseNotify: {
+        title: '到账成功通知',
+        description: '控制是否在余额套餐、流量卡、兑换码到账后向用户发送确认邮件。',
+        enabled: '启用到账成功通知',
+        enabledHint:
+          '开启后，用户付费购买、管理员发放套餐、兑换码加余额成功时各发一封确认邮件。用户也可以点邮件里的退订链接自行关闭。'
+      },
       smtp: {
         title: 'SMTP 设置',
         description: '配置用于发送验证码的邮件服务',

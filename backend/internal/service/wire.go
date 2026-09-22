@@ -688,7 +688,8 @@ var ProviderSet = wire.NewSet(
 	NewCompositeRouteResolver,
 	NewAccountService,
 	NewProxyService,
-	NewRedeemService,
+	ProvideRedeemService,
+	NewPurchaseNotifyService,
 	NewPromoService,
 	NewUsageService,
 	NewTrafficPackService,
@@ -819,11 +820,19 @@ func ProvideBalanceNotifyService(emailService *EmailService, settingRepo Setting
 }
 
 // ProvidePaymentService creates PaymentService and attaches notification email delivery.
-func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService, balancePackages *BalancePackageService, trafficPackService *TrafficPackService) *PaymentService {
+func ProvidePaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, notificationEmailService *NotificationEmailService, balancePackages *BalancePackageService, trafficPackService *TrafficPackService, purchaseNotifyService *PurchaseNotifyService) *PaymentService {
 	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, groupRepo, affiliateService)
 	svc.SetNotificationEmailService(notificationEmailService)
 	svc.balancePackageService = balancePackages
 	svc.SetTrafficPackService(trafficPackService)
+	svc.SetPurchaseNotifyService(purchaseNotifyService)
+	return svc
+}
+
+// ProvideRedeemService creates RedeemService and attaches the credited-balance notification.
+func ProvideRedeemService(redeemRepo RedeemCodeRepository, userRepo UserRepository, subscriptionService *SubscriptionService, cache RedeemCache, billingCacheService *BillingCacheService, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator, purchaseNotifyService *PurchaseNotifyService) *RedeemService {
+	svc := NewRedeemService(redeemRepo, userRepo, subscriptionService, cache, billingCacheService, entClient, authCacheInvalidator)
+	svc.SetPurchaseNotifyService(purchaseNotifyService)
 	return svc
 }
 

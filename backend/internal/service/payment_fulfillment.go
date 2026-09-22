@@ -386,7 +386,22 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 			"payAmount":      o.PayAmount,
 		})
 	}
+	// 只有真正赢下 recharging → completed 这一跳的调用才发信，重复履约走上面的早返回。
+	s.notifyOrderCompleted(o)
 	return nil
+}
+
+// notifyOrderCompleted 在订单履约完成后异步通知用户，失败只记日志、不影响订单。
+func (s *PaymentService) notifyOrderCompleted(o *dbent.PaymentOrder) {
+	if s.purchaseNotifyService == nil || o == nil {
+		return
+	}
+	switch o.OrderType {
+	case payment.OrderTypeTrafficPack:
+		s.purchaseNotifyService.NotifyTrafficPack(o)
+	case payment.OrderTypeBalanceSubscription:
+		s.purchaseNotifyService.NotifyBalancePackage(o)
+	}
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {

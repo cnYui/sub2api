@@ -266,6 +266,9 @@ type SystemSettings struct {
 	// 订阅到期提醒
 	SubscriptionExpiryNotifyEnabled bool
 
+	// 购买/到账成功通知
+	PurchaseNotifyEnabled bool
+
 	// 账号限额通知
 	AccountQuotaNotifyEnabled bool
 	AccountQuotaNotifyEmails  []NotifyEmailEntry

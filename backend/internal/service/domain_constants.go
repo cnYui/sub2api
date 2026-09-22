@@ -539,6 +539,9 @@ const (
 	// 订阅到期提醒
 	SettingKeySubscriptionExpiryNotifyEnabled = "subscription_expiry_notify_enabled" // 订阅到期提醒全局开关，默认开启
 
+	// 购买/到账成功通知
+	SettingKeyPurchaseNotifyEnabled = "purchase_notify_enabled" // 余额套餐、流量卡、兑换码到账通知全局开关，默认开启
+
 	// 账号限额通知
 	SettingKeyAccountQuotaNotifyEnabled = "account_quota_notify_enabled" // 全局开关
 	SettingKeyAccountQuotaNotifyEmails  = "account_quota_notify_emails"  // 管理员通知邮箱列表（JSON 数组）
