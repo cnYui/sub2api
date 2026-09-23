@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -65,6 +66,11 @@ type ChannelMonitorService struct {
 	// scheduler 由 wire 通过 SetScheduler 注入；CRUD 后调用对应钩子即时同步任务。
 	// 测试或未注入场景下保持 nil，所有钩子调用变为 no-op。
 	scheduler MonitorScheduler
+
+	// groupSource 由 wire 通过 SetGroupSource 注入，供按分组自动同步监控使用。
+	groupSource *channelMonitorGroupSource
+	// groupSyncMu 保证周期同步与管理员手动同步不会并发写同一批监控。
+	groupSyncMu sync.Mutex
 }
 
 const maxChannelMonitorNameRunes = 100
@@ -143,6 +149,8 @@ func (s *ChannelMonitorService) Create(ctx context.Context, p ChannelMonitorCrea
 		ExtraHeaders:     emptyHeadersIfNil(p.ExtraHeaders),
 		BodyOverrideMode: defaultBodyMode(p.BodyOverrideMode),
 		BodyOverride:     p.BodyOverride,
+		SourceGroupID:    p.SourceGroupID,
+		SourceAccountID:  p.SourceAccountID,
 	}
 	if err := s.repo.Create(ctx, m); err != nil {
 		return nil, fmt.Errorf("create channel monitor: %w", err)

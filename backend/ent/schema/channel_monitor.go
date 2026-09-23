@@ -90,6 +90,17 @@ func (ChannelMonitor) Fields() []ent.Field {
 		// body_override: 同 ChannelMonitorRequestTemplate.body_override
 		field.JSON("body_override", map[string]any{}).
 			Optional(),
+
+		// ---- 按分组自动同步的来源（手工创建的监控两者都为空） ----
+		// 不建外键：分组/账号被删除时由同步任务把监控停用，保留历史可用率。
+		field.Int64("source_group_id").
+			Optional().
+			Nillable().
+			Comment("自动同步来源分组 ID"),
+		field.Int64("source_account_id").
+			Optional().
+			Nillable().
+			Comment("自动同步来源账号 ID"),
 	}
 }
 
@@ -115,5 +126,6 @@ func (ChannelMonitor) Indexes() []ent.Index {
 		index.Fields("provider", "api_mode"),
 		index.Fields("group_name"),
 		index.Fields("template_id"),
+		index.Fields("source_group_id", "source_account_id"),
 	}
 }

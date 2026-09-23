@@ -27,7 +27,7 @@
             {{ item.primary_model }}
           </span>
           <span
-            v-if="item.group_name"
+            v-if="item.group_name && item.group_name !== item.name"
             class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300 flex-shrink-0"
           >
             {{ item.group_name }}
@@ -50,6 +50,19 @@
       primary-unit="ms"
     />
 
+    <!-- Models: every whitelisted model with its latest catalog status -->
+    <div class="mt-3 flex flex-wrap gap-1.5" data-testid="monitor-card-models">
+      <span
+        v-for="m in modelChips"
+        :key="m.model"
+        class="inline-flex max-w-full items-center gap-1 rounded-md bg-gray-50 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-dark-700/60 dark:text-gray-300"
+        :title="`${m.model} · ${statusLabel(m.status)}`"
+      >
+        <span class="h-1.5 w-1.5 flex-shrink-0 rounded-full" :class="statusDotClass(m.status)"></span>
+        <span class="truncate">{{ m.model }}</span>
+      </span>
+    </div>
+
     <!-- Divider -->
     <div class="mt-4 border-t border-gray-100 dark:border-dark-700/60"></div>
 
@@ -71,7 +84,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { UserMonitorView } from '@/api/channelMonitor'
+import type { MonitorStatus, UserMonitorView } from '@/api/channelMonitor'
 import {
   useChannelMonitorFormat,
   providerGradient,
@@ -103,6 +116,7 @@ const { t } = useI18n()
 const {
   statusLabel,
   statusBadgeClass,
+  statusDotClass,
   providerLabel,
   providerBadgeClass,
   formatLatency,
@@ -116,6 +130,11 @@ const availabilityLabel = computed(() => {
   const win = t(`channelStatus.windowTab.${props.window}`)
   return `${t('monitorCommon.availabilityPrefix')} · ${win}`
 })
+
+const modelChips = computed<{ model: string; status: MonitorStatus | '' }[]>(() => [
+  { model: props.item.primary_model, status: props.item.primary_status },
+  ...(props.item.extra_models ?? []).map(m => ({ model: m.model, status: m.status })),
+])
 
 const extraModelsCountLabel = computed(() => {
   const count = props.item.extra_models?.length ?? 0

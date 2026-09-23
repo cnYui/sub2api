@@ -45,6 +45,15 @@
         <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
       </button>
       <button
+        @click="$emit('sync-groups')"
+        :disabled="syncing"
+        class="btn btn-secondary"
+        :title="t('admin.channelMonitor.syncGroupsHint')"
+      >
+        <Icon name="sync" size="md" class="mr-2" :class="syncing ? 'animate-spin' : ''" />
+        {{ t('admin.channelMonitor.syncGroups') }}
+      </button>
+      <button
         @click="$emit('manage-templates')"
         class="btn btn-secondary"
         :title="t('admin.channelMonitor.template.manageButton')"
@@ -75,11 +84,13 @@ import {
 
 defineProps<{
   loading: boolean
+  syncing?: boolean
 }>()
 
 defineEmits<{
   (e: 'reload'): void
   (e: 'create'): void
+  (e: 'sync-groups'): void
   (e: 'manage-templates'): void
   (e: 'search-input'): void
 }>()

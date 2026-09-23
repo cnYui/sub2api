@@ -32,6 +32,12 @@ type monitorRunnerSvc interface {
 	RunCheck(ctx context.Context, id int64) ([]*CheckResult, error)
 }
 
+// monitorGroupSyncer 按分组自动同步监控的入口；*ChannelMonitorService 满足。
+// 单独成接口是为了不改动 monitorRunnerSvc 的既有测试桩。
+type monitorGroupSyncer interface {
+	runGroupSyncOnce(ctx context.Context)
+}
+
 // ChannelMonitorRunner 渠道监控调度器。
 //
 // 设计：
@@ -48,6 +54,8 @@ type monitorRunnerSvc interface {
 type ChannelMonitorRunner struct {
 	svc            monitorRunnerSvc
 	settingService *SettingService
+	// groupSyncer 非空时，Start 会额外启动分组同步循环。
+	groupSyncer monitorGroupSyncer
 
 	pool         pond.Pool
 	parentCtx    context.Context
@@ -137,6 +145,36 @@ func (r *ChannelMonitorRunner) Start() {
 		r.Schedule(m)
 	}
 	slog.Info("channel_monitor: runner started", "scheduled_tasks", len(enabled))
+
+	if r.groupSyncer != nil {
+		r.wg.Add(1)
+		go r.runGroupSync(r.parentCtx)
+	}
+}
+
+// SetGroupSyncer 注入分组同步入口，须在 Start 之前调用。
+func (r *ChannelMonitorRunner) SetGroupSyncer(g monitorGroupSyncer) {
+	if r == nil {
+		return
+	}
+	r.groupSyncer = g
+}
+
+// runGroupSync 启动后稍等片刻再做首次同步（避开启动期的数据库压力），
+// 之后按固定周期同步；新建、更新的监控经 MonitorScheduler 钩子自动进入调度。
+func (r *ChannelMonitorRunner) runGroupSync(ctx context.Context) {
+	defer r.wg.Done()
+	timer := time.NewTimer(monitorGroupSyncStartupDelay)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+			r.groupSyncer.runGroupSyncOnce(ctx)
+			timer.Reset(monitorGroupSyncPeriod)
+		}
+	}
 }
 
 // Schedule 为指定监控创建（或重置）独立定时任务。

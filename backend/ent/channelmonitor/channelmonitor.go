@@ -53,6 +53,10 @@ const (
 	FieldBodyOverrideMode = "body_override_mode"
 	// FieldBodyOverride holds the string denoting the body_override field in the database.
 	FieldBodyOverride = "body_override"
+	// FieldSourceGroupID holds the string denoting the source_group_id field in the database.
+	FieldSourceGroupID = "source_group_id"
+	// FieldSourceAccountID holds the string denoting the source_account_id field in the database.
+	FieldSourceAccountID = "source_account_id"
 	// EdgeHistory holds the string denoting the history edge name in mutations.
 	EdgeHistory = "history"
 	// EdgeDailyRollups holds the string denoting the daily_rollups edge name in mutations.
@@ -106,6 +110,8 @@ var Columns = []string{
 	FieldExtraHeaders,
 	FieldBodyOverrideMode,
 	FieldBodyOverride,
+	FieldSourceGroupID,
+	FieldSourceAccountID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -270,6 +276,16 @@ func ByTemplateID(opts ...sql.OrderTermOption) OrderOption {
 // ByBodyOverrideMode orders the results by the body_override_mode field.
 func ByBodyOverrideMode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBodyOverrideMode, opts...).ToFunc()
+}
+
+// BySourceGroupID orders the results by the source_group_id field.
+func BySourceGroupID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceGroupID, opts...).ToFunc()
+}
+
+// BySourceAccountID orders the results by the source_account_id field.
+func BySourceAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceAccountID, opts...).ToFunc()
 }
 
 // ByHistoryCount orders the results by history count.

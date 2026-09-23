@@ -47,6 +47,9 @@ export interface ChannelMonitor {
   extra_headers: Record<string, string>
   body_override_mode: BodyOverrideMode
   body_override: Record<string, unknown> | null
+  /** 非空表示由分组同步维护：名称、地址、key、模型会在下次同步时被覆盖 */
+  source_group_id?: number | null
+  source_account_id?: number | null
 }
 
 export interface ExtraModelStatus {
@@ -277,6 +280,23 @@ export async function listHistory(
   return data
 }
 
+export interface GroupSyncResponse {
+  created: number
+  updated: number
+  disabled: number
+  unchanged: number
+  skipped: string[]
+}
+
+/**
+ * Sync monitors from enabled groups and their accounts' model whitelists now.
+ * The server also runs this automatically every 10 minutes.
+ */
+export async function syncFromGroups(): Promise<GroupSyncResponse> {
+  const { data } = await apiClient.post<GroupSyncResponse>('/admin/channel-monitors/sync-groups')
+  return data
+}
+
 export const channelMonitorAPI = {
   list,
   get,
@@ -286,6 +306,7 @@ export const channelMonitorAPI = {
   del,
   runNow,
   listHistory,
+  syncFromGroups,
 }
 
 export default channelMonitorAPI

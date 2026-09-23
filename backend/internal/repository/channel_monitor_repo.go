@@ -58,6 +58,9 @@ func (r *channelMonitorRepository) Create(ctx context.Context, m *service.Channe
 	if m.BodyOverride != nil {
 		builder = builder.SetBodyOverride(m.BodyOverride)
 	}
+	builder = builder.
+		SetNillableSourceGroupID(m.SourceGroupID).
+		SetNillableSourceAccountID(m.SourceAccountID)
 
 	created, err := builder.Save(ctx)
 	if err != nil {
@@ -195,8 +198,10 @@ func (r *channelMonitorRepository) List(ctx context.Context, params service.Chan
 // ---------- 调度器辅助 ----------
 
 func (r *channelMonitorRepository) ListEnabled(ctx context.Context) ([]*service.ChannelMonitor, error) {
+	// 按 ID 排序：用户渠道状态页直接按这个顺序展示，分组同步按分组排序依次创建监控。
 	rows, err := r.client.ChannelMonitor.Query().
 		Where(channelmonitor.EnabledEQ(true)).
+		Order(dbent.Asc(channelmonitor.FieldID)).
 		All(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list enabled monitors: %w", err)
@@ -762,6 +767,14 @@ func entToServiceMonitor(row *dbent.ChannelMonitor) *service.ChannelMonitor {
 	if row.TemplateID != nil {
 		id := *row.TemplateID
 		out.TemplateID = &id
+	}
+	if row.SourceGroupID != nil {
+		id := *row.SourceGroupID
+		out.SourceGroupID = &id
+	}
+	if row.SourceAccountID != nil {
+		id := *row.SourceAccountID
+		out.SourceAccountID = &id
 	}
 	return out
 }

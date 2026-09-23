@@ -6,6 +6,12 @@
     @close="$emit('close')"
   >
     <form id="channel-monitor-form" @submit.prevent="handleSubmit" class="space-y-5">
+      <p
+        v-if="editing?.source_group_id != null"
+        class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200"
+      >
+        {{ t('admin.channelMonitor.groupSyncedEditNotice') }}
+      </p>
       <div>
         <label class="input-label">{{ t('admin.channelMonitor.form.name') }} <span class="text-red-500">*</span></label>
         <input v-model="form.name" type="text" required class="input" :placeholder="t('admin.channelMonitor.form.namePlaceholder')" />
