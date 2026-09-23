@@ -164,6 +164,10 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 18. **`Dockerfile` 的 `GOPROXY`/`GOSUMDB` 默认是国内镜像**（`goproxy.cn`/`sum.golang.google.cn`）。在 GitHub Actions 等海外 runner 上构建必须显式覆盖为官方源。
 19. **`internal/service` 的 `unit` 标签测试套件当前无法编译**（多个文件的未定义符号，非近期引入）。该包暂时跑不了全量单测，改动只能跑定向用例。
 20. **上游模型白名单存在 `accounts.credentials.model_mapping`**（恒等映射），不是单独的表或字段。改白名单走 `PUT /api/v1/admin/accounts/{id}`：按 `EditAccountModal.vue` 的既有约定，**请求不携带 `api_key` 字段即保留原加密凭证**。不要试图在 UI 上逐个删模型 chip——14×14 的删除按钮被 `.modal-footer` 覆盖（`elementFromPoint` 命中 footer），误点会关掉弹窗丢改动。**但「加」模型 UI 是安全的**：编辑弹窗底部有 `自定义模型名称` 输入框 + `填入` 按钮，不碰 chip。同一弹窗里 `同步最新支持模型` / `同步上游支持的模型` 会用上游清单**整体替换**白名单（对 ai-genesis 账号 = 放进图像模型并删掉四个在售条目），`清除所有模型` 字面意思，三个都别碰。提交后按钮会卡在「更新中...」但 toast 已报成功、数据已落库，**不要重复提交**；**分组编辑弹窗是同款症状**——`PUT` 已返回 200、数据已落库，按钮却长期停在「更新中...」。
+    **只改白名单时优先用 `POST /admin/accounts/bulk-update` `{account_ids:[id], credentials:{model_mapping:{...}}}`**：
+    JSONB 键级合并（`mergeAccountCredentials`）、事务内加锁、不碰 `api_key`/`base_url`，而且**不会触发 `PUT` 之后的 Responses 能力重探测**
+    （`account_handler.go` 的 `ProbeOpenAIAPIKeyResponsesSupport` 只挂在单账号 `Update` 上）。2026-09-23 用它改了 4 个账号。
+    白名单**不能清空**：`model_mapping` 为空时 `IsModelSupported` 放行全部模型。
 21. **分组「复制」会把源分组已绑定的账号一并绑到副本**。用复制建新分组后必须检查并解绑，否则新分组的请求会调度到旧账号并按新分组倍率计费。
 22. **「提前刷新周额度」走专用端点，别手写 SQL、更别拿「改余额」变通**。`POST /api/v1/admin/payment/balance-packages/{package_id}/credit-next`（`package_id` = `user_balance_packages.id`；2026-09-08 上线，09-09 首次生产验证，09-12 双用户复用）：一次只发一期、金额按锁内实时值算、DB 级幂等（`payment_audit_logs` 对 `(order_id, action)` 唯一）、`next_credit_at` 取「原值 + interval」保持节奏、末期自动置 `completed` 并清空 `next_credit_at`；审计、`balance_debt_ledger` 欠费抵扣、余额缓存 + API Key 鉴权快照失效全在事务内完成。**前端仍无按钮**，只能用 admin `x-api-key` 直调（key 在 `settings` 表 `admin_api_key`，现只能从生产 Mac 的库里读，VPS 那条路已作废）。⚠️ **不要为「验证」重复调**：请求级幂等只在短 TTL 内去重，TTL 过后再调 = 发下一期（多发），不是无操作。`POST /admin/users/:id/balance` 变通会让 `next_credit_at` 不推进、定时任务到原日期重复发放且不写审计——永远别用。历史手写 SERIALIZABLE 事务模板仅在端点不可用时参考：`docs/ai/context/20260905-172724-user565-early-weekly-credit-execution_CN.md`；最近一次执行记录 `docs/ai/context/20260912-163044-dingsong212-2410748989-early-weekly-credit-mac_CN.md`。
 
@@ -239,7 +243,12 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 ## 七、未完成
 
-- **`api.ai-genesis.app` 的白名单里有一半模型上游根本没有**。以 `sync-upstream` 实测（坑 24）：`#1129` 上游只有 `gpt-5.5`、`gpt-5.6-luna`、`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-6-astra`（+ `codex-auto-review` 和两个图像模型），`#1128` 更少且无 `gpt-6-astra`；两个账号白名单里的 `gpt-5.4`、`gpt-5.4-2026-03-05`、`gpt-5.4-mini`、`gpt-5.6` 上游都没有，用户看得见调不通（502/503）。是否收紧 `#1128/#1129` 白名单**未定**——上游可能恢复，收紧后需再加回。
+- **在售分组的白名单已于 2026-09-23 按逐模型实测收紧**（管理员指示：调不通的剔除、用户只能用白名单模型）：
+  #2 去掉 `claude-opus-4-5-20251101`，#5 只留 `kimi-k3`，#1129 去掉 `gpt-5.6`，#1166 去掉 11 个 404 的旧 Claude；
+  分组 4、10、71 的备注同步改过，渠道监控随之自动收敛到白名单。`inactive` 分组（含 #1128）未动。
+  **分组 71（火神 Claude）实测全挂**（502 后秒回 `No available accounts`，火神号池问题），6 个在上游目录里的模型保留，
+  备注写明「上游不稳定」；**是否停用 71 待管理员决定**。白名单不能清空（空 = 放行全部模型）。
+  上游有而我方没加的模型、改前白名单（回滚用）见 `docs/ai/context/20260923-122309-group-whitelist-availability-audit_CN.md`。
 - **`build.yml` 从未实际触发过**——需手动跑一次确认能出镜像且前端不 OOM。
 - **外部拨测未配置**——机器宕机时无人知晓。
 - **单点故障无冗余**——全部服务跑在一台家用 MacBook 上（比 VPS 时更脆：笔记本 + 家用网络 + 依赖 GUI 登录/不睡眠，见第二节 durability 与防睡眠告警）。VPS 是唯一后路（冷备，数据已冻结）。
