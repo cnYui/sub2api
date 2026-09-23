@@ -668,6 +668,8 @@ var (
 		{Name: "extra_headers", Type: field.TypeJSON},
 		{Name: "body_override_mode", Type: field.TypeString, Size: 10, Default: "off"},
 		{Name: "body_override", Type: field.TypeJSON, Nullable: true},
+		{Name: "source_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "source_account_id", Type: field.TypeInt64, Nullable: true},
 		{Name: "template_id", Type: field.TypeInt64, Nullable: true},
 	}
 	// ChannelMonitorsTable holds the schema information for the "channel_monitors" table.
@@ -678,7 +680,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "channel_monitors_channel_monitor_request_templates_request_template",
-				Columns:    []*schema.Column{ChannelMonitorsColumns[19]},
+				Columns:    []*schema.Column{ChannelMonitorsColumns[21]},
 				RefColumns: []*schema.Column{ChannelMonitorRequestTemplatesColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -707,7 +709,12 @@ var (
 			{
 				Name:    "channelmonitor_template_id",
 				Unique:  false,
-				Columns: []*schema.Column{ChannelMonitorsColumns[19]},
+				Columns: []*schema.Column{ChannelMonitorsColumns[21]},
+			},
+			{
+				Name:    "channelmonitor_source_group_id_source_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{ChannelMonitorsColumns[19], ChannelMonitorsColumns[20]},
 			},
 		},
 	}

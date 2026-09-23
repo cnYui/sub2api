@@ -864,8 +864,13 @@ func ProvideBalancePackageCreditService(packages *BalancePackageService, lockCac
 func ProvideChannelMonitorService(
 	repo ChannelMonitorRepository,
 	encryptor SecretEncryptor,
+	groupRepo GroupRepository,
+	accountRepo AccountRepository,
+	channelService *ChannelService,
 ) *ChannelMonitorService {
-	return NewChannelMonitorService(repo, encryptor)
+	svc := NewChannelMonitorService(repo, encryptor)
+	svc.SetGroupSource(groupRepo, accountRepo, channelService)
+	return svc
 }
 
 // ProvideChannelMonitorRunner 创建并启动渠道监控调度器。
@@ -875,6 +880,7 @@ func ProvideChannelMonitorService(
 func ProvideChannelMonitorRunner(svc *ChannelMonitorService, settingService *SettingService) *ChannelMonitorRunner {
 	r := NewChannelMonitorRunner(svc, settingService)
 	svc.SetScheduler(r)
+	r.SetGroupSyncer(svc)
 	r.Start()
 	return r
 }

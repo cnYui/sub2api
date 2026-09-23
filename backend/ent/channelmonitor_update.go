@@ -303,6 +303,60 @@ func (_u *ChannelMonitorUpdate) ClearBodyOverride() *ChannelMonitorUpdate {
 	return _u
 }
 
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *ChannelMonitorUpdate) SetSourceGroupID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdate) SetNillableSourceGroupID(v *int64) *ChannelMonitorUpdate {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *ChannelMonitorUpdate) AddSourceGroupID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *ChannelMonitorUpdate) ClearSourceGroupID() *ChannelMonitorUpdate {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (_u *ChannelMonitorUpdate) SetSourceAccountID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.ResetSourceAccountID()
+	_u.mutation.SetSourceAccountID(v)
+	return _u
+}
+
+// SetNillableSourceAccountID sets the "source_account_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdate) SetNillableSourceAccountID(v *int64) *ChannelMonitorUpdate {
+	if v != nil {
+		_u.SetSourceAccountID(*v)
+	}
+	return _u
+}
+
+// AddSourceAccountID adds value to the "source_account_id" field.
+func (_u *ChannelMonitorUpdate) AddSourceAccountID(v int64) *ChannelMonitorUpdate {
+	_u.mutation.AddSourceAccountID(v)
+	return _u
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (_u *ChannelMonitorUpdate) ClearSourceAccountID() *ChannelMonitorUpdate {
+	_u.mutation.ClearSourceAccountID()
+	return _u
+}
+
 // AddHistoryIDs adds the "history" edge to the ChannelMonitorHistory entity by IDs.
 func (_u *ChannelMonitorUpdate) AddHistoryIDs(ids ...int64) *ChannelMonitorUpdate {
 	_u.mutation.AddHistoryIDs(ids...)
@@ -581,6 +635,24 @@ func (_u *ChannelMonitorUpdate) sqlSave(ctx context.Context) (_node int, err err
 	}
 	if _u.mutation.BodyOverrideCleared() {
 		_spec.ClearField(channelmonitor.FieldBodyOverride, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(channelmonitor.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(channelmonitor.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.SourceAccountID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceAccountID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceAccountID(); ok {
+		_spec.AddField(channelmonitor.FieldSourceAccountID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceAccountIDCleared() {
+		_spec.ClearField(channelmonitor.FieldSourceAccountID, field.TypeInt64)
 	}
 	if _u.mutation.HistoryCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -992,6 +1064,60 @@ func (_u *ChannelMonitorUpdateOne) ClearBodyOverride() *ChannelMonitorUpdateOne 
 	return _u
 }
 
+// SetSourceGroupID sets the "source_group_id" field.
+func (_u *ChannelMonitorUpdateOne) SetSourceGroupID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.ResetSourceGroupID()
+	_u.mutation.SetSourceGroupID(v)
+	return _u
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdateOne) SetNillableSourceGroupID(v *int64) *ChannelMonitorUpdateOne {
+	if v != nil {
+		_u.SetSourceGroupID(*v)
+	}
+	return _u
+}
+
+// AddSourceGroupID adds value to the "source_group_id" field.
+func (_u *ChannelMonitorUpdateOne) AddSourceGroupID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.AddSourceGroupID(v)
+	return _u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (_u *ChannelMonitorUpdateOne) ClearSourceGroupID() *ChannelMonitorUpdateOne {
+	_u.mutation.ClearSourceGroupID()
+	return _u
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (_u *ChannelMonitorUpdateOne) SetSourceAccountID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.ResetSourceAccountID()
+	_u.mutation.SetSourceAccountID(v)
+	return _u
+}
+
+// SetNillableSourceAccountID sets the "source_account_id" field if the given value is not nil.
+func (_u *ChannelMonitorUpdateOne) SetNillableSourceAccountID(v *int64) *ChannelMonitorUpdateOne {
+	if v != nil {
+		_u.SetSourceAccountID(*v)
+	}
+	return _u
+}
+
+// AddSourceAccountID adds value to the "source_account_id" field.
+func (_u *ChannelMonitorUpdateOne) AddSourceAccountID(v int64) *ChannelMonitorUpdateOne {
+	_u.mutation.AddSourceAccountID(v)
+	return _u
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (_u *ChannelMonitorUpdateOne) ClearSourceAccountID() *ChannelMonitorUpdateOne {
+	_u.mutation.ClearSourceAccountID()
+	return _u
+}
+
 // AddHistoryIDs adds the "history" edge to the ChannelMonitorHistory entity by IDs.
 func (_u *ChannelMonitorUpdateOne) AddHistoryIDs(ids ...int64) *ChannelMonitorUpdateOne {
 	_u.mutation.AddHistoryIDs(ids...)
@@ -1300,6 +1426,24 @@ func (_u *ChannelMonitorUpdateOne) sqlSave(ctx context.Context) (_node *ChannelM
 	}
 	if _u.mutation.BodyOverrideCleared() {
 		_spec.ClearField(channelmonitor.FieldBodyOverride, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.SourceGroupID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceGroupID(); ok {
+		_spec.AddField(channelmonitor.FieldSourceGroupID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceGroupIDCleared() {
+		_spec.ClearField(channelmonitor.FieldSourceGroupID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.SourceAccountID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceAccountID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceAccountID(); ok {
+		_spec.AddField(channelmonitor.FieldSourceAccountID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceAccountIDCleared() {
+		_spec.ClearField(channelmonitor.FieldSourceAccountID, field.TypeInt64)
 	}
 	if _u.mutation.HistoryCleared() {
 		edge := &sqlgraph.EdgeSpec{

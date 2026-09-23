@@ -211,6 +211,34 @@ func (_c *ChannelMonitorCreate) SetBodyOverride(v map[string]interface{}) *Chann
 	return _c
 }
 
+// SetSourceGroupID sets the "source_group_id" field.
+func (_c *ChannelMonitorCreate) SetSourceGroupID(v int64) *ChannelMonitorCreate {
+	_c.mutation.SetSourceGroupID(v)
+	return _c
+}
+
+// SetNillableSourceGroupID sets the "source_group_id" field if the given value is not nil.
+func (_c *ChannelMonitorCreate) SetNillableSourceGroupID(v *int64) *ChannelMonitorCreate {
+	if v != nil {
+		_c.SetSourceGroupID(*v)
+	}
+	return _c
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (_c *ChannelMonitorCreate) SetSourceAccountID(v int64) *ChannelMonitorCreate {
+	_c.mutation.SetSourceAccountID(v)
+	return _c
+}
+
+// SetNillableSourceAccountID sets the "source_account_id" field if the given value is not nil.
+func (_c *ChannelMonitorCreate) SetNillableSourceAccountID(v *int64) *ChannelMonitorCreate {
+	if v != nil {
+		_c.SetSourceAccountID(*v)
+	}
+	return _c
+}
+
 // AddHistoryIDs adds the "history" edge to the ChannelMonitorHistory entity by IDs.
 func (_c *ChannelMonitorCreate) AddHistoryIDs(ids ...int64) *ChannelMonitorCreate {
 	_c.mutation.AddHistoryIDs(ids...)
@@ -528,6 +556,14 @@ func (_c *ChannelMonitorCreate) createSpec() (*ChannelMonitor, *sqlgraph.CreateS
 	if value, ok := _c.mutation.BodyOverride(); ok {
 		_spec.SetField(channelmonitor.FieldBodyOverride, field.TypeJSON, value)
 		_node.BodyOverride = value
+	}
+	if value, ok := _c.mutation.SourceGroupID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceGroupID, field.TypeInt64, value)
+		_node.SourceGroupID = &value
+	}
+	if value, ok := _c.mutation.SourceAccountID(); ok {
+		_spec.SetField(channelmonitor.FieldSourceAccountID, field.TypeInt64, value)
+		_node.SourceAccountID = &value
 	}
 	if nodes := _c.mutation.HistoryIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -888,6 +924,54 @@ func (u *ChannelMonitorUpsert) ClearBodyOverride() *ChannelMonitorUpsert {
 	return u
 }
 
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *ChannelMonitorUpsert) SetSourceGroupID(v int64) *ChannelMonitorUpsert {
+	u.Set(channelmonitor.FieldSourceGroupID, v)
+	return u
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsert) UpdateSourceGroupID() *ChannelMonitorUpsert {
+	u.SetExcluded(channelmonitor.FieldSourceGroupID)
+	return u
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *ChannelMonitorUpsert) AddSourceGroupID(v int64) *ChannelMonitorUpsert {
+	u.Add(channelmonitor.FieldSourceGroupID, v)
+	return u
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *ChannelMonitorUpsert) ClearSourceGroupID() *ChannelMonitorUpsert {
+	u.SetNull(channelmonitor.FieldSourceGroupID)
+	return u
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (u *ChannelMonitorUpsert) SetSourceAccountID(v int64) *ChannelMonitorUpsert {
+	u.Set(channelmonitor.FieldSourceAccountID, v)
+	return u
+}
+
+// UpdateSourceAccountID sets the "source_account_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsert) UpdateSourceAccountID() *ChannelMonitorUpsert {
+	u.SetExcluded(channelmonitor.FieldSourceAccountID)
+	return u
+}
+
+// AddSourceAccountID adds v to the "source_account_id" field.
+func (u *ChannelMonitorUpsert) AddSourceAccountID(v int64) *ChannelMonitorUpsert {
+	u.Add(channelmonitor.FieldSourceAccountID, v)
+	return u
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (u *ChannelMonitorUpsert) ClearSourceAccountID() *ChannelMonitorUpsert {
+	u.SetNull(channelmonitor.FieldSourceAccountID)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1231,6 +1315,62 @@ func (u *ChannelMonitorUpsertOne) UpdateBodyOverride() *ChannelMonitorUpsertOne 
 func (u *ChannelMonitorUpsertOne) ClearBodyOverride() *ChannelMonitorUpsertOne {
 	return u.Update(func(s *ChannelMonitorUpsert) {
 		s.ClearBodyOverride()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *ChannelMonitorUpsertOne) SetSourceGroupID(v int64) *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *ChannelMonitorUpsertOne) AddSourceGroupID(v int64) *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertOne) UpdateSourceGroupID() *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *ChannelMonitorUpsertOne) ClearSourceGroupID() *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (u *ChannelMonitorUpsertOne) SetSourceAccountID(v int64) *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetSourceAccountID(v)
+	})
+}
+
+// AddSourceAccountID adds v to the "source_account_id" field.
+func (u *ChannelMonitorUpsertOne) AddSourceAccountID(v int64) *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.AddSourceAccountID(v)
+	})
+}
+
+// UpdateSourceAccountID sets the "source_account_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertOne) UpdateSourceAccountID() *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateSourceAccountID()
+	})
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (u *ChannelMonitorUpsertOne) ClearSourceAccountID() *ChannelMonitorUpsertOne {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.ClearSourceAccountID()
 	})
 }
 
@@ -1743,6 +1883,62 @@ func (u *ChannelMonitorUpsertBulk) UpdateBodyOverride() *ChannelMonitorUpsertBul
 func (u *ChannelMonitorUpsertBulk) ClearBodyOverride() *ChannelMonitorUpsertBulk {
 	return u.Update(func(s *ChannelMonitorUpsert) {
 		s.ClearBodyOverride()
+	})
+}
+
+// SetSourceGroupID sets the "source_group_id" field.
+func (u *ChannelMonitorUpsertBulk) SetSourceGroupID(v int64) *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetSourceGroupID(v)
+	})
+}
+
+// AddSourceGroupID adds v to the "source_group_id" field.
+func (u *ChannelMonitorUpsertBulk) AddSourceGroupID(v int64) *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.AddSourceGroupID(v)
+	})
+}
+
+// UpdateSourceGroupID sets the "source_group_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertBulk) UpdateSourceGroupID() *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateSourceGroupID()
+	})
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (u *ChannelMonitorUpsertBulk) ClearSourceGroupID() *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.ClearSourceGroupID()
+	})
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (u *ChannelMonitorUpsertBulk) SetSourceAccountID(v int64) *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.SetSourceAccountID(v)
+	})
+}
+
+// AddSourceAccountID adds v to the "source_account_id" field.
+func (u *ChannelMonitorUpsertBulk) AddSourceAccountID(v int64) *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.AddSourceAccountID(v)
+	})
+}
+
+// UpdateSourceAccountID sets the "source_account_id" field to the value that was provided on create.
+func (u *ChannelMonitorUpsertBulk) UpdateSourceAccountID() *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.UpdateSourceAccountID()
+	})
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (u *ChannelMonitorUpsertBulk) ClearSourceAccountID() *ChannelMonitorUpsertBulk {
+	return u.Update(func(s *ChannelMonitorUpsert) {
+		s.ClearSourceAccountID()
 	})
 }
 

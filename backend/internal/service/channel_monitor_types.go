@@ -58,6 +58,16 @@ type ChannelMonitor struct {
 	// APIKeyDecryptFailed 表示 APIKey 字段无法解密（密钥不一致或损坏）。
 	// 此时 APIKey 为空字符串，runner / RunCheck 必须跳过该监控并提示重填。
 	APIKeyDecryptFailed bool
+
+	// SourceGroupID / SourceAccountID 非空表示该监控由分组同步任务维护，
+	// 字段会在下次同步时按分组和账号的当前配置覆盖。手工创建的监控两者均为 nil。
+	SourceGroupID   *int64
+	SourceAccountID *int64
+}
+
+// IsGroupSynced 报告该监控是否由分组同步任务维护。
+func (m *ChannelMonitor) IsGroupSynced() bool {
+	return m != nil && m.SourceGroupID != nil && m.SourceAccountID != nil
 }
 
 // ChannelMonitorListParams 列表查询过滤参数。
@@ -87,6 +97,8 @@ type ChannelMonitorCreateParams struct {
 	ExtraHeaders     map[string]string
 	BodyOverrideMode string
 	BodyOverride     map[string]any
+	SourceGroupID    *int64
+	SourceAccountID  *int64
 }
 
 // ChannelMonitorUpdateParams 更新参数（指针字段表示"未提供则不更新"）。

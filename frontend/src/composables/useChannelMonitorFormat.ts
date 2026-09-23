@@ -57,6 +57,21 @@ export function useChannelMonitorFormat() {
     }
   }
 
+  /** 模型清单里的小圆点颜色，与 statusBadgeClass 的配色一致。 */
+  function statusDotClass(s: MonitorStatus | ''): string {
+    switch (s) {
+      case STATUS_OPERATIONAL:
+        return 'bg-emerald-500'
+      case STATUS_DEGRADED:
+        return 'bg-amber-500'
+      case STATUS_FAILED:
+        return 'bg-red-500'
+      case STATUS_ERROR:
+      default:
+        return 'bg-gray-400 dark:bg-gray-500'
+    }
+  }
+
   function providerLabel(p: Provider | string): string {
     if (
       p === PROVIDER_OPENAI ||
@@ -146,6 +161,7 @@ export function useChannelMonitorFormat() {
   return {
     statusLabel,
     statusBadgeClass,
+    statusDotClass,
     providerLabel,
     providerBadgeClass,
     providerPickerClass,

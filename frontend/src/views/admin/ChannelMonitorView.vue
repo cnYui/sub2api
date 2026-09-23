@@ -7,7 +7,9 @@
           v-model:provider="providerFilter"
           v-model:enabled="enabledFilter"
           :loading="loading"
+          :syncing="syncingGroups"
           @reload="reload"
+          @sync-groups="handleSyncGroups"
           @create="openCreateDialog"
           @manage-templates="showTemplateManager = true"
           @search-input="handleSearch"
@@ -19,6 +21,14 @@
           <template #cell-name="{ row, value }">
             <div class="flex items-center gap-1.5">
               <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <HelpTooltip
+                v-if="row.source_group_id != null"
+                :content="t('admin.channelMonitor.groupSyncedTooltip', { group: row.source_group_id, account: row.source_account_id })"
+              >
+                <span class="inline-flex items-center rounded-md bg-primary-50 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
+                  {{ t('admin.channelMonitor.groupSyncedBadge') }}
+                </span>
+              </HelpTooltip>
               <HelpTooltip v-if="row.api_key_decrypt_failed" :content="t('admin.channelMonitor.apiKeyDecryptFailed')">
                 <Icon name="exclamationTriangle" size="sm" class="text-red-500" />
               </HelpTooltip>
@@ -170,6 +180,7 @@ const deleting = ref<ChannelMonitor | null>(null)
 const showRunResult = ref(false)
 const runResults = ref<CheckResult[]>([])
 const duplicatingIds = reactive(new Set<number>())
+const syncingGroups = ref(false)
 
 let abortController: AbortController | null = null
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -297,6 +308,31 @@ async function handleDuplicate(row: ChannelMonitor) {
     appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.duplicateFailed')))
   } finally {
     duplicatingIds.delete(row.id)
+  }
+}
+
+async function handleSyncGroups() {
+  if (syncingGroups.value) return
+  syncingGroups.value = true
+  try {
+    const res = await adminAPI.channelMonitor.syncFromGroups()
+    appStore.showSuccess(t('admin.channelMonitor.syncGroupsSuccess', {
+      created: res.created,
+      updated: res.updated,
+      disabled: res.disabled,
+      unchanged: res.unchanged,
+    }))
+    if (res.skipped?.length) {
+      appStore.showWarning(t('admin.channelMonitor.syncGroupsSkipped', {
+        n: res.skipped.length,
+        detail: res.skipped.join('；'),
+      }))
+    }
+    await reload()
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, t('admin.channelMonitor.syncGroupsFailed')))
+  } finally {
+    syncingGroups.value = false
   }
 }
 

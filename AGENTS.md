@@ -25,7 +25,7 @@
 - **数据库运维手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`（psql 用法、写操作事务模板、表结构坑、缓存失效、核验清单）。**动生产数据库前先读它。** 注意：**当前生效的生产库在 Mac 上**（`~/.orbstack/bin/docker exec sub2api-postgres psql …`），手册的 psql/事务模板通用，只是连接方式换成 Mac；手册里的 VPS 连接方式仅在回滚后才相关。
 - **部署/换镜像**：生产已迁到 Mac（见第二节）。换版本在 `~/sub2api` 改 `.env` 的 `IMAGE_TAG`（或 `~/.orbstack/bin/docker compose … pull`）再 `docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。VPS 侧 GHCR 首切文档 `docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`（用 `docker-compose.vps.yml`）仅回滚时参考。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
-- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `214`。
+- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `216`。
 
 ## 二、当前部署拓扑（2026-09-08：已从 VPS 迁到日本 MacBook）
 
@@ -127,6 +127,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   - **用户已有有效套餐时一律拒绝**（`BALANCE_PACKAGE_ACTIVE`），不走同档续费：续费会把套餐改绑到这笔零金额订单，用户原来那笔真实支付的订单就再也退不了款了。拒绝时整个事务回滚，**兑换码保持未使用**，用户可在本期套餐失效后重试。同一条闸门也管着后台手动发放。
 - 充值手续费 `RECHARGE_FEE_RATE=1%`，只增加订单 `pay_amount`，**不改变套餐到账额度或流量卡额度**；服务端始终用商品服务端价格重算。
 - `/monitor` 全部渠道统一为**每次一个带鉴权的 `GET /v1/models`** 目录探测，间隔 1800 秒，不发真实推理请求，不做额外 HEAD。生图渠道禁止周期性生图探测。
+  **监控按分组自动同步**（迁移 216，`channel_monitor_group_sync.go`）：每个启用分组 × 每个可用 API Key 账号一条监控，名称 = 分组名，模型 = 账号白名单（渠道开了 `restrict_models` 时再与渠道定价取交集），直接用账号的上游地址、key 和 `user_agent` 探测；调度器每 10 分钟同步一次，后台「从分组同步」按钮可立即同步。分组停用 / 账号解绑后对应监控自动停用。**同步监控的名称、地址、key、模型、启用状态都会被下次同步覆盖**，要改模型就改账号白名单，只有主模型（仍在白名单内时）、间隔、抖动的手改会保留。`source_group_id` 为空的是手工监控，同步不碰。
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
 - 商品当前只有余额套餐和流量卡；普通余额 / 旧订阅后端不再兼容，历史字段仅保留只读查询。
 

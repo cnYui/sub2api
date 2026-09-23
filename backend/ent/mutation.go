@@ -15986,6 +15986,10 @@ type ChannelMonitorMutation struct {
 	extra_headers           *map[string]string
 	body_override_mode      *string
 	body_override           *map[string]interface{}
+	source_group_id         *int64
+	addsource_group_id      *int64
+	source_account_id       *int64
+	addsource_account_id    *int64
 	clearedFields           map[string]struct{}
 	history                 map[int64]struct{}
 	removedhistory          map[int64]struct{}
@@ -16909,6 +16913,146 @@ func (m *ChannelMonitorMutation) ResetBodyOverride() {
 	delete(m.clearedFields, channelmonitor.FieldBodyOverride)
 }
 
+// SetSourceGroupID sets the "source_group_id" field.
+func (m *ChannelMonitorMutation) SetSourceGroupID(i int64) {
+	m.source_group_id = &i
+	m.addsource_group_id = nil
+}
+
+// SourceGroupID returns the value of the "source_group_id" field in the mutation.
+func (m *ChannelMonitorMutation) SourceGroupID() (r int64, exists bool) {
+	v := m.source_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceGroupID returns the old "source_group_id" field's value of the ChannelMonitor entity.
+// If the ChannelMonitor object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChannelMonitorMutation) OldSourceGroupID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceGroupID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceGroupID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceGroupID: %w", err)
+	}
+	return oldValue.SourceGroupID, nil
+}
+
+// AddSourceGroupID adds i to the "source_group_id" field.
+func (m *ChannelMonitorMutation) AddSourceGroupID(i int64) {
+	if m.addsource_group_id != nil {
+		*m.addsource_group_id += i
+	} else {
+		m.addsource_group_id = &i
+	}
+}
+
+// AddedSourceGroupID returns the value that was added to the "source_group_id" field in this mutation.
+func (m *ChannelMonitorMutation) AddedSourceGroupID() (r int64, exists bool) {
+	v := m.addsource_group_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSourceGroupID clears the value of the "source_group_id" field.
+func (m *ChannelMonitorMutation) ClearSourceGroupID() {
+	m.source_group_id = nil
+	m.addsource_group_id = nil
+	m.clearedFields[channelmonitor.FieldSourceGroupID] = struct{}{}
+}
+
+// SourceGroupIDCleared returns if the "source_group_id" field was cleared in this mutation.
+func (m *ChannelMonitorMutation) SourceGroupIDCleared() bool {
+	_, ok := m.clearedFields[channelmonitor.FieldSourceGroupID]
+	return ok
+}
+
+// ResetSourceGroupID resets all changes to the "source_group_id" field.
+func (m *ChannelMonitorMutation) ResetSourceGroupID() {
+	m.source_group_id = nil
+	m.addsource_group_id = nil
+	delete(m.clearedFields, channelmonitor.FieldSourceGroupID)
+}
+
+// SetSourceAccountID sets the "source_account_id" field.
+func (m *ChannelMonitorMutation) SetSourceAccountID(i int64) {
+	m.source_account_id = &i
+	m.addsource_account_id = nil
+}
+
+// SourceAccountID returns the value of the "source_account_id" field in the mutation.
+func (m *ChannelMonitorMutation) SourceAccountID() (r int64, exists bool) {
+	v := m.source_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceAccountID returns the old "source_account_id" field's value of the ChannelMonitor entity.
+// If the ChannelMonitor object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChannelMonitorMutation) OldSourceAccountID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceAccountID: %w", err)
+	}
+	return oldValue.SourceAccountID, nil
+}
+
+// AddSourceAccountID adds i to the "source_account_id" field.
+func (m *ChannelMonitorMutation) AddSourceAccountID(i int64) {
+	if m.addsource_account_id != nil {
+		*m.addsource_account_id += i
+	} else {
+		m.addsource_account_id = &i
+	}
+}
+
+// AddedSourceAccountID returns the value that was added to the "source_account_id" field in this mutation.
+func (m *ChannelMonitorMutation) AddedSourceAccountID() (r int64, exists bool) {
+	v := m.addsource_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSourceAccountID clears the value of the "source_account_id" field.
+func (m *ChannelMonitorMutation) ClearSourceAccountID() {
+	m.source_account_id = nil
+	m.addsource_account_id = nil
+	m.clearedFields[channelmonitor.FieldSourceAccountID] = struct{}{}
+}
+
+// SourceAccountIDCleared returns if the "source_account_id" field was cleared in this mutation.
+func (m *ChannelMonitorMutation) SourceAccountIDCleared() bool {
+	_, ok := m.clearedFields[channelmonitor.FieldSourceAccountID]
+	return ok
+}
+
+// ResetSourceAccountID resets all changes to the "source_account_id" field.
+func (m *ChannelMonitorMutation) ResetSourceAccountID() {
+	m.source_account_id = nil
+	m.addsource_account_id = nil
+	delete(m.clearedFields, channelmonitor.FieldSourceAccountID)
+}
+
 // AddHistoryIDs adds the "history" edge to the ChannelMonitorHistory entity by ids.
 func (m *ChannelMonitorMutation) AddHistoryIDs(ids ...int64) {
 	if m.history == nil {
@@ -17091,7 +17235,7 @@ func (m *ChannelMonitorMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChannelMonitorMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 21)
 	if m.created_at != nil {
 		fields = append(fields, channelmonitor.FieldCreatedAt)
 	}
@@ -17149,6 +17293,12 @@ func (m *ChannelMonitorMutation) Fields() []string {
 	if m.body_override != nil {
 		fields = append(fields, channelmonitor.FieldBodyOverride)
 	}
+	if m.source_group_id != nil {
+		fields = append(fields, channelmonitor.FieldSourceGroupID)
+	}
+	if m.source_account_id != nil {
+		fields = append(fields, channelmonitor.FieldSourceAccountID)
+	}
 	return fields
 }
 
@@ -17195,6 +17345,10 @@ func (m *ChannelMonitorMutation) Field(name string) (ent.Value, bool) {
 		return m.BodyOverrideMode()
 	case channelmonitor.FieldBodyOverride:
 		return m.BodyOverride()
+	case channelmonitor.FieldSourceGroupID:
+		return m.SourceGroupID()
+	case channelmonitor.FieldSourceAccountID:
+		return m.SourceAccountID()
 	}
 	return nil, false
 }
@@ -17242,6 +17396,10 @@ func (m *ChannelMonitorMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldBodyOverrideMode(ctx)
 	case channelmonitor.FieldBodyOverride:
 		return m.OldBodyOverride(ctx)
+	case channelmonitor.FieldSourceGroupID:
+		return m.OldSourceGroupID(ctx)
+	case channelmonitor.FieldSourceAccountID:
+		return m.OldSourceAccountID(ctx)
 	}
 	return nil, fmt.Errorf("unknown ChannelMonitor field %s", name)
 }
@@ -17384,6 +17542,20 @@ func (m *ChannelMonitorMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetBodyOverride(v)
 		return nil
+	case channelmonitor.FieldSourceGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceGroupID(v)
+		return nil
+	case channelmonitor.FieldSourceAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceAccountID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitor field %s", name)
 }
@@ -17401,6 +17573,12 @@ func (m *ChannelMonitorMutation) AddedFields() []string {
 	if m.addcreated_by != nil {
 		fields = append(fields, channelmonitor.FieldCreatedBy)
 	}
+	if m.addsource_group_id != nil {
+		fields = append(fields, channelmonitor.FieldSourceGroupID)
+	}
+	if m.addsource_account_id != nil {
+		fields = append(fields, channelmonitor.FieldSourceAccountID)
+	}
 	return fields
 }
 
@@ -17415,6 +17593,10 @@ func (m *ChannelMonitorMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedJitterSeconds()
 	case channelmonitor.FieldCreatedBy:
 		return m.AddedCreatedBy()
+	case channelmonitor.FieldSourceGroupID:
+		return m.AddedSourceGroupID()
+	case channelmonitor.FieldSourceAccountID:
+		return m.AddedSourceAccountID()
 	}
 	return nil, false
 }
@@ -17445,6 +17627,20 @@ func (m *ChannelMonitorMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddCreatedBy(v)
 		return nil
+	case channelmonitor.FieldSourceGroupID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSourceGroupID(v)
+		return nil
+	case channelmonitor.FieldSourceAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSourceAccountID(v)
+		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitor numeric field %s", name)
 }
@@ -17464,6 +17660,12 @@ func (m *ChannelMonitorMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(channelmonitor.FieldBodyOverride) {
 		fields = append(fields, channelmonitor.FieldBodyOverride)
+	}
+	if m.FieldCleared(channelmonitor.FieldSourceGroupID) {
+		fields = append(fields, channelmonitor.FieldSourceGroupID)
+	}
+	if m.FieldCleared(channelmonitor.FieldSourceAccountID) {
+		fields = append(fields, channelmonitor.FieldSourceAccountID)
 	}
 	return fields
 }
@@ -17490,6 +17692,12 @@ func (m *ChannelMonitorMutation) ClearField(name string) error {
 		return nil
 	case channelmonitor.FieldBodyOverride:
 		m.ClearBodyOverride()
+		return nil
+	case channelmonitor.FieldSourceGroupID:
+		m.ClearSourceGroupID()
+		return nil
+	case channelmonitor.FieldSourceAccountID:
+		m.ClearSourceAccountID()
 		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitor nullable field %s", name)
@@ -17555,6 +17763,12 @@ func (m *ChannelMonitorMutation) ResetField(name string) error {
 		return nil
 	case channelmonitor.FieldBodyOverride:
 		m.ResetBodyOverride()
+		return nil
+	case channelmonitor.FieldSourceGroupID:
+		m.ResetSourceGroupID()
+		return nil
+	case channelmonitor.FieldSourceAccountID:
+		m.ResetSourceAccountID()
 		return nil
 	}
 	return fmt.Errorf("unknown ChannelMonitor field %s", name)

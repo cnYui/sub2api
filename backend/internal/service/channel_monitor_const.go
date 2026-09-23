@@ -146,4 +146,7 @@ var (
 	ErrChannelMonitorAPIKeyDecryptFailed = infraerrors.InternalServer(
 		"CHANNEL_MONITOR_KEY_DECRYPT_FAILED", "api key decryption failed; please re-edit the monitor with a fresh key",
 	)
+	ErrChannelMonitorGroupSyncUnavailable = infraerrors.ServiceUnavailable(
+		"CHANNEL_MONITOR_GROUP_SYNC_UNAVAILABLE", "group sync is not configured",
+	)
 )

@@ -101,6 +101,17 @@ type channelMonitorResponse struct {
 	ExtraHeaders     map[string]string `json:"extra_headers"`
 	BodyOverrideMode string            `json:"body_override_mode"`
 	BodyOverride     map[string]any    `json:"body_override"`
+	// 非空表示由分组同步维护：名称、地址、key、模型会在下次同步时被覆盖。
+	SourceGroupID   *int64 `json:"source_group_id"`
+	SourceAccountID *int64 `json:"source_account_id"`
+}
+
+type channelMonitorGroupSyncResponse struct {
+	Created   int      `json:"created"`
+	Updated   int      `json:"updated"`
+	Disabled  int      `json:"disabled"`
+	Unchanged int      `json:"unchanged"`
+	Skipped   []string `json:"skipped"`
 }
 
 type channelMonitorCheckResultResponse struct {
@@ -163,6 +174,8 @@ func channelMonitorToResponse(m *service.ChannelMonitor) *channelMonitorResponse
 		ExtraHeaders:        headers,
 		BodyOverrideMode:    m.BodyOverrideMode,
 		BodyOverride:        m.BodyOverride,
+		SourceGroupID:       m.SourceGroupID,
+		SourceAccountID:     m.SourceAccountID,
 		// PrimaryStatus / PrimaryLatencyMs / Availability7d 由 List handler 在批量聚合后填充。
 	}
 	if m.LastCheckedAt != nil {
@@ -458,6 +471,27 @@ func (h *ChannelMonitorHandler) Run(c *gin.Context) {
 		out = append(out, checkResultToResponse(r))
 	}
 	response.Success(c, gin.H{"results": out})
+}
+
+// SyncGroups POST /api/v1/admin/channel-monitors/sync-groups
+// 立即按分组与账号白名单同步监控（平时由调度器每 10 分钟自动同步）。
+func (h *ChannelMonitorHandler) SyncGroups(c *gin.Context) {
+	res, err := h.monitorService.SyncFromGroups(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	skipped := res.Skipped
+	if skipped == nil {
+		skipped = []string{}
+	}
+	response.Success(c, channelMonitorGroupSyncResponse{
+		Created:   res.Created,
+		Updated:   res.Updated,
+		Disabled:  res.Disabled,
+		Unchanged: res.Unchanged,
+		Skipped:   skipped,
+	})
 }
 
 // History GET /api/v1/admin/channel-monitors/:id/history
