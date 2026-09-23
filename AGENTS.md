@@ -25,7 +25,7 @@
 - **数据库运维手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`（psql 用法、写操作事务模板、表结构坑、缓存失效、核验清单）。**动生产数据库前先读它。** 注意：**当前生效的生产库在 Mac 上**（`~/.orbstack/bin/docker exec sub2api-postgres psql …`），手册的 psql/事务模板通用，只是连接方式换成 Mac；手册里的 VPS 连接方式仅在回滚后才相关。
 - **部署/换镜像**：生产已迁到 Mac（见第二节）。换版本在 `~/sub2api` 改 `.env` 的 `IMAGE_TAG`（或 `~/.orbstack/bin/docker compose … pull`）再 `docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。VPS 侧 GHCR 首切文档 `docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`（用 `docker-compose.vps.yml`）仅回滚时参考。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
-- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `216`。
+- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `217`。
 
 ## 二、当前部署拓扑（2026-09-08：已从 VPS 迁到日本 MacBook）
 
@@ -201,6 +201,24 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - 后台自定义的模板读不出来或渲染失败时，`renderForSend` 自动退回官方模板；各服务里旧的英文/双语兜底正文实际已走不到。
   2026-09-23 核对生产没有任何自定义模板，新官方模板上线即生效。
 - 记录见 `docs/ai/context/20260923-202300-notification-email-card-style-chinese_CN.md`。
+
+### 兑换卡（2026-09-23）
+
+- 后台 `/admin/redeem-cards`（侧栏「兑换码」下面）把兑换码做成黑/白两版 3D 卡，发给用户的链接是
+  `https://aaccx.pw/card/<token>`：匿名可看，页面上只有卡片。表 `redeem_cards`（迁移 `217`），一个兑换码最多一张卡，
+  删兑换码会级联删卡。「撤销链接」删的是卡片行，兑换码不受影响；重新制作会得到新链接。
+- **卡上印的兑换码必须与库里逐字一致**：兑换按原文大小写精确匹配（`redeemcode.CodeEQ`），4 位一组只是 CSS 间距，
+  不插空格、不改大小写。
+- 头像、名字、简介、兑换步骤、两张二维码是所有卡共用的「卡面信息」，存 settings `redeem_card_profile`，
+  **改一次所有已发出的卡都会变**。二维码没上传时用 `frontend/public/email/qr-*.png`，所以换邮件里的微信群码会同时更新卡片；
+  在「卡面信息」里上传过自定义图的，要在那里重新上传。
+- 公开页取数**不走 `apiClient`**：它会带本地过期令牌 → 401 → 跳登录页；这里直接匿名 `fetch`。路由 meta `bare` 让 App 不弹公告。
+  backend 模式下公开接口对非管理员 403，与模型广场同口径。
+- 3D：卡面按 1712×1080（20px/mm）排版后整体缩放，厚度 0.6mm = 12px，侧边是沿圆角轮廓立起的 108 个小条，
+  颜色取两面描边渐变。设计稿里兑换码面板的 `backdrop-filter` 换成了垫底色（视觉等价），
+  因为 iOS 上它和 3D 变换叠用会出渲染问题，别加回去。
+- 用户轻点背面的兑换码会复制（面板发绿光，不弹文字）；兑换码已兑换/过期/停用时背面盖章。
+- 记录见 `docs/ai/context/20260923-215000-redeem-cards-3d-admin-page_CN.md`。
 
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 
@@ -399,6 +417,9 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 ## 七、未完成
 
+- **兑换卡 3D 页还没对齐站长的 3D 模板**：站长给的是 Claude Design 链接（文件 `兑换卡 3D.html`），会话里读不到
+  （DesignSync 只能在 `/design-sync` 里用，内置浏览器没登录 claude.ai），现在的 3D 效果是按「厚度 0.6mm、页面只留卡片」自行实现的。
+  拿到导出的 HTML 后按模板调 `frontend/src/components/redeemCard/RedeemCard3D.vue`。
 - **`deepseek-v4-flash` 自 2026-09-16 前起调不通**（上游 #6 `api.ai-genesis.app` 已改名为 `deepseek-flash`，请求旧名回 `model_not_found`，我方对用户表现为 502，失败请求不扣费）。管理员要求「用户仍请求 `deepseek-v4-flash`、内部转 `deepseek-flash`」。**修复方案待管理员拍板**，原因见坑 28：只加账号映射会按目录里 `deepseek-flash` 的价扣费。两个干净方案：① 分组 8 移出共享渠道 3、单建 `billing_model_source=requested` 的 DeepSeek 渠道并显式登记现价（无需部署；改渠道 3 被自动权限拦下，需管理员确认）；② 代码里把 `deepseek-flash` 加进 `usesCalibratedFallbackPricing` 和 `getFallbackPricing`，当作 v4-flash 别名（需出镜像）。**两种方案都要等计费修好，才能在 #6 上加映射。**
   另一条路：火神分组 77 自 2026-09-17 起**仍以原名**提供 `deepseek-v4-flash`，可以引导用户切过去。
 - **广场上 `deepseek-v4-flash` 的「官方」列仍是过时价**：

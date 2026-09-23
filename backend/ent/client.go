@@ -42,6 +42,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocode"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcard"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
@@ -120,6 +121,8 @@ type Client struct {
 	PromoCodeUsage *PromoCodeUsageClient
 	// Proxy is the client for interacting with the Proxy builders.
 	Proxy *ProxyClient
+	// RedeemCard is the client for interacting with the RedeemCard builders.
+	RedeemCard *RedeemCardClient
 	// RedeemCode is the client for interacting with the RedeemCode builders.
 	RedeemCode *RedeemCodeClient
 	// ReimbursementRequest is the client for interacting with the ReimbursementRequest builders.
@@ -188,6 +191,7 @@ func (c *Client) init() {
 	c.PromoCode = NewPromoCodeClient(c.config)
 	c.PromoCodeUsage = NewPromoCodeUsageClient(c.config)
 	c.Proxy = NewProxyClient(c.config)
+	c.RedeemCard = NewRedeemCardClient(c.config)
 	c.RedeemCode = NewRedeemCodeClient(c.config)
 	c.ReimbursementRequest = NewReimbursementRequestClient(c.config)
 	c.SecuritySecret = NewSecuritySecretClient(c.config)
@@ -322,6 +326,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		PromoCode:                     NewPromoCodeClient(cfg),
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
+		RedeemCard:                    NewRedeemCardClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
 		ReimbursementRequest:          NewReimbursementRequestClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
@@ -383,6 +388,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		PromoCode:                     NewPromoCodeClient(cfg),
 		PromoCodeUsage:                NewPromoCodeUsageClient(cfg),
 		Proxy:                         NewProxyClient(cfg),
+		RedeemCard:                    NewRedeemCardClient(cfg),
 		RedeemCode:                    NewRedeemCodeClient(cfg),
 		ReimbursementRequest:          NewReimbursementRequestClient(cfg),
 		SecuritySecret:                NewSecuritySecretClient(cfg),
@@ -434,7 +440,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ReimbursementRequest,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCard, c.RedeemCode, c.ReimbursementRequest,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
 		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
 		c.UserAttributeDefinition, c.UserAttributeValue, c.UserBalancePackage,
@@ -455,7 +461,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ChannelMonitorRequestTemplate, c.CompositeModelRoute, c.ErrorPassthroughRule,
 		c.Group, c.IdempotencyRecord, c.IdentityAdoptionDecision, c.PaymentAuditLog,
 		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.ReimbursementRequest,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCard, c.RedeemCode, c.ReimbursementRequest,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
 		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
 		c.UserAttributeDefinition, c.UserAttributeValue, c.UserBalancePackage,
@@ -522,6 +528,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.PromoCodeUsage.mutate(ctx, m)
 	case *ProxyMutation:
 		return c.Proxy.mutate(ctx, m)
+	case *RedeemCardMutation:
+		return c.RedeemCard.mutate(ctx, m)
 	case *RedeemCodeMutation:
 		return c.RedeemCode.mutate(ctx, m)
 	case *ReimbursementRequestMutation:
@@ -4813,6 +4821,139 @@ func (c *ProxyClient) mutate(ctx context.Context, m *ProxyMutation) (Value, erro
 	}
 }
 
+// RedeemCardClient is a client for the RedeemCard schema.
+type RedeemCardClient struct {
+	config
+}
+
+// NewRedeemCardClient returns a client for the RedeemCard from the given config.
+func NewRedeemCardClient(c config) *RedeemCardClient {
+	return &RedeemCardClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `redeemcard.Hooks(f(g(h())))`.
+func (c *RedeemCardClient) Use(hooks ...Hook) {
+	c.hooks.RedeemCard = append(c.hooks.RedeemCard, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `redeemcard.Intercept(f(g(h())))`.
+func (c *RedeemCardClient) Intercept(interceptors ...Interceptor) {
+	c.inters.RedeemCard = append(c.inters.RedeemCard, interceptors...)
+}
+
+// Create returns a builder for creating a RedeemCard entity.
+func (c *RedeemCardClient) Create() *RedeemCardCreate {
+	mutation := newRedeemCardMutation(c.config, OpCreate)
+	return &RedeemCardCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of RedeemCard entities.
+func (c *RedeemCardClient) CreateBulk(builders ...*RedeemCardCreate) *RedeemCardCreateBulk {
+	return &RedeemCardCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *RedeemCardClient) MapCreateBulk(slice any, setFunc func(*RedeemCardCreate, int)) *RedeemCardCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &RedeemCardCreateBulk{err: fmt.Errorf("calling to RedeemCardClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*RedeemCardCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &RedeemCardCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for RedeemCard.
+func (c *RedeemCardClient) Update() *RedeemCardUpdate {
+	mutation := newRedeemCardMutation(c.config, OpUpdate)
+	return &RedeemCardUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *RedeemCardClient) UpdateOne(_m *RedeemCard) *RedeemCardUpdateOne {
+	mutation := newRedeemCardMutation(c.config, OpUpdateOne, withRedeemCard(_m))
+	return &RedeemCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *RedeemCardClient) UpdateOneID(id int64) *RedeemCardUpdateOne {
+	mutation := newRedeemCardMutation(c.config, OpUpdateOne, withRedeemCardID(id))
+	return &RedeemCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for RedeemCard.
+func (c *RedeemCardClient) Delete() *RedeemCardDelete {
+	mutation := newRedeemCardMutation(c.config, OpDelete)
+	return &RedeemCardDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *RedeemCardClient) DeleteOne(_m *RedeemCard) *RedeemCardDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *RedeemCardClient) DeleteOneID(id int64) *RedeemCardDeleteOne {
+	builder := c.Delete().Where(redeemcard.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &RedeemCardDeleteOne{builder}
+}
+
+// Query returns a query builder for RedeemCard.
+func (c *RedeemCardClient) Query() *RedeemCardQuery {
+	return &RedeemCardQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeRedeemCard},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a RedeemCard entity by its id.
+func (c *RedeemCardClient) Get(ctx context.Context, id int64) (*RedeemCard, error) {
+	return c.Query().Where(redeemcard.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *RedeemCardClient) GetX(ctx context.Context, id int64) *RedeemCard {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *RedeemCardClient) Hooks() []Hook {
+	return c.hooks.RedeemCard
+}
+
+// Interceptors returns the client interceptors.
+func (c *RedeemCardClient) Interceptors() []Interceptor {
+	return c.inters.RedeemCard
+}
+
+func (c *RedeemCardClient) mutate(ctx context.Context, m *RedeemCardMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&RedeemCardCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&RedeemCardUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&RedeemCardUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&RedeemCardDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown RedeemCard mutation op: %q", m.Op())
+	}
+}
+
 // RedeemCodeClient is a client for the RedeemCode schema.
 type RedeemCodeClient struct {
 	config
@@ -7352,7 +7493,7 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ReimbursementRequest,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCard, RedeemCode, ReimbursementRequest,
 		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
 		UserAttributeValue, UserBalancePackage, UserPlatformQuota,
@@ -7365,7 +7506,7 @@ type (
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, CompositeModelRoute,
 		ErrorPassthroughRule, Group, IdempotencyRecord, IdentityAdoptionDecision,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, ReimbursementRequest,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCard, RedeemCode, ReimbursementRequest,
 		SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
 		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
 		UserAttributeValue, UserBalancePackage, UserPlatformQuota,

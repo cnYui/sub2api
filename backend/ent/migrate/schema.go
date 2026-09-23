@@ -1479,6 +1479,32 @@ var (
 			},
 		},
 	}
+	// RedeemCardsColumns holds the columns for the "redeem_cards" table.
+	RedeemCardsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "token", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "redeem_code_id", Type: field.TypeInt64, Unique: true},
+		{Name: "theme", Type: field.TypeString, Size: 16, Default: "dark"},
+		{Name: "content", Type: field.TypeJSON, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "created_by", Type: field.TypeInt64, Nullable: true},
+		{Name: "view_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_viewed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// RedeemCardsTable holds the schema information for the "redeem_cards" table.
+	RedeemCardsTable = &schema.Table{
+		Name:       "redeem_cards",
+		Columns:    RedeemCardsColumns,
+		PrimaryKey: []*schema.Column{RedeemCardsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "redeemcard_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{RedeemCardsColumns[8]},
+			},
+		},
+	}
 	// RedeemCodesColumns holds the columns for the "redeem_codes" table.
 	RedeemCodesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -2246,6 +2272,7 @@ var (
 		PromoCodesTable,
 		PromoCodeUsagesTable,
 		ProxiesTable,
+		RedeemCardsTable,
 		RedeemCodesTable,
 		ReimbursementRequestsTable,
 		SecuritySecretsTable,
@@ -2366,6 +2393,9 @@ func init() {
 	ProxiesTable.ForeignKeys[0].RefTable = ProxiesTable
 	ProxiesTable.Annotation = &entsql.Annotation{
 		Table: "proxies",
+	}
+	RedeemCardsTable.Annotation = &entsql.Annotation{
+		Table: "redeem_cards",
 	}
 	RedeemCodesTable.ForeignKeys[0].RefTable = BalancePackagePlansTable
 	RedeemCodesTable.ForeignKeys[1].RefTable = GroupsTable

@@ -177,6 +177,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    // 兑换卡分享页：管理员把链接发给用户，匿名可看，页面上只有这张 3D 卡片。
+    path: '/card/:token',
+    name: 'RedeemCard',
+    component: () => import('@/views/public/RedeemCardView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Redeem Card',
+      titleKey: 'nav.redeemCards',
+      bare: true
+    }
+  },
+  {
     path: '/model-plaza',
     name: 'ModelPlaza',
     component: () => import('@/views/ModelPlazaView.vue'),
@@ -583,6 +595,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Redeem Code Management',
       titleKey: 'admin.redeem.title',
       descriptionKey: 'admin.redeem.description'
+    }
+  },
+  {
+    path: '/admin/redeem-cards',
+    name: 'AdminRedeemCards',
+    component: () => import('@/views/admin/RedeemCardsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Redeem Cards',
+      titleKey: 'admin.redeemCards.title',
+      descriptionKey: 'admin.redeemCards.description'
     }
   },
   {
