@@ -165,7 +165,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 ### 购买/到账成功邮件通知（2026-09-22 实现）
 
 - **注册和忘记密码不是 SMTP 的全部**：`notification_email_service.go` 是一套通用通知邮件框架，
-  后台「设置 → 邮件模板」可改中英文案并预览，事件 `Optional: true` 的还带退订链接和退订记录。
+  后台「设置 → 邮件模板」可改中英文案并预览（实际只发中文，见下一节），事件 `Optional: true` 的还带退订链接和退订记录。
   加新通知应该**往这个框架里加事件**，不要另起一套发信逻辑。
 - 三个到账事件：`payment.balance_package_credited`（余额套餐首期，新购/续费/管理员发放共用）、
   `payment.traffic_pack_credited`（流量卡）、`redeem.balance_credited`（兑换码加普通余额）。
@@ -182,6 +182,25 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   `PaymentType == admin_grant` 判发放。续费会把 `payment_order_id` 改绑新订单，
   所以按订单 id 反查套餐行对两种情况都成立。
 - 实现记录见 `docs/ai/context/20260922-124500-purchase-credited-email-notifications_CN.md`。
+
+### 通知邮件外观与语言（2026-09-23）
+
+- **全部用中文发信**（站长要求）：`ResolveRecipientLocale` 恒返回中文，`Send` 不再看 `input.Locale`
+  和记住的浏览器语言。英文模板还能在后台预览、编辑，但不会发出去。业务方生成变量文字（「新购」「赠送」）
+  必须用 `ResolveRecipientLocale` 取语言，自己判断会在中文模板里夹英文。
+- 外观是站长的兑换卡白色版：`notification_email_layout.go` 管渲染，`notification_email_templates.go` 放 15 个事件的
+  中英文官方模板。**改外观改 layout，改文案改 templates**，别在单个模板里手写样式。邮件客户端的兼容约束
+  （表格布局、样式内联、有底色的单元格要写 `bgcolor`、禁用 flex/grid/position/rgba、官方模板 ≤ 24000 字节）
+  由 `TestOfficialEmailTemplatesStayEmailClientSafe` 钉死。Gmail 不支持 `text-shadow` / `box-shadow`，青/品红错位只是锦上添花。
+- 头像、字标和两张二维码放在 `frontend/public/email/`，模板用公共占位符 `{{site_url}}` 拼绝对地址
+  （先取 `frontend_url`，再取 `api_base_url`；生产是 `https://aaccx.pw`）。**微信群二维码大约 7 天过期**：
+  替换 `qr-wechat.png` 后推 main 自动部署即可，邮件引用的是线上地址，已发出的旧邮件也会显示新码。
+  字标 PNG 外圈带白边，是为了 Gmail iOS / Windows 版 Outlook 深色模式把白底强制翻黑时仍然看得见，换图时要保留。
+- 按钮跳转：余额套餐 `/subscriptions`，流量卡 `/orders`（「我的订阅」页不列流量卡），兑换码 `/redeem`。
+  这几条路径是否真在前端路由表里，由 `TestPurchaseNoticeDashboardPathsExistInFrontendRouter` 检查。
+- 后台自定义的模板读不出来或渲染失败时，`renderForSend` 自动退回官方模板；各服务里旧的英文/双语兜底正文实际已走不到。
+  2026-09-23 核对生产没有任何自定义模板，新官方模板上线即生效。
+- 记录见 `docs/ai/context/20260923-202300-notification-email-card-style-chinese_CN.md`。
 
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 

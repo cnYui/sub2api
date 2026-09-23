@@ -27,9 +27,9 @@ const (
 
 // quotaDimLabels maps dimension names to display labels.
 var quotaDimLabels = map[string]string{
-	quotaDimDaily:  "日限额 / Daily",
-	quotaDimWeekly: "周限额 / Weekly",
-	quotaDimTotal:  "总限额 / Total",
+	quotaDimDaily:  "日限额",
+	quotaDimWeekly: "周限额",
+	quotaDimTotal:  "总限额",
 }
 
 // AccountQuotaReader provides read access to account quota data.

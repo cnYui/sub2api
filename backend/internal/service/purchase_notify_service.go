@@ -31,8 +31,9 @@ const (
 	purchaseKindRedeem     = "redeem"
 
 	// 前端路由，见 frontend/src/router/index.ts。
+	// 「我的订阅」页只列余额套餐，流量卡要到订单页才能看到逐张记录，所以流量卡指向 /orders。
 	balancePackageDashboardPath = "/subscriptions"
-	trafficPackDashboardPath    = "/subscriptions"
+	trafficPackDashboardPath    = "/orders"
 	redeemDashboardPath         = "/redeem"
 )
 

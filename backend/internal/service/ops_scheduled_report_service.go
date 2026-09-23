@@ -627,7 +627,7 @@ func (s *OpsScheduledReportService) generateReportContent(ctx context.Context, r
 
 func buildOpsSummaryEmailHTML(title string, start, end time.Time, overview *OpsDashboardOverview) string {
 	if overview == nil {
-		return fmt.Sprintf("<h2>%s</h2><p>No data.</p>", htmlEscape(title))
+		return fmt.Sprintf("<h2>%s</h2><p>暂无数据。</p>", htmlEscape(title))
 	}
 
 	latP50 := "-"
@@ -650,21 +650,21 @@ func buildOpsSummaryEmailHTML(title string, start, end time.Time, overview *OpsD
 
 	return fmt.Sprintf(`
 <h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
+<p><b>统计周期</b>：%s ~ %s（UTC）</p>
 <ul>
-  <li><b>Total Requests</b>: %d</li>
-  <li><b>Success</b>: %d</li>
-  <li><b>Errors (SLA)</b>: %d</li>
-  <li><b>Business Limited</b>: %d</li>
-  <li><b>SLA</b>: %.2f%%</li>
-  <li><b>Error Rate</b>: %.2f%%</li>
-  <li><b>Upstream Error Rate (excl 429/529)</b>: %.2f%%</li>
-  <li><b>Upstream Errors</b>: excl429/529=%d, 429=%d, 529=%d</li>
-  <li><b>Latency</b>: p50=%s, p99=%s</li>
-  <li><b>TTFT</b>: p50=%s, p99=%s</li>
-  <li><b>Tokens</b>: %d</li>
-  <li><b>QPS</b>: current=%.1f, peak=%.1f, avg=%.1f</li>
-  <li><b>TPS</b>: current=%.1f, peak=%.1f, avg=%.1f</li>
+  <li><b>总请求数</b>：%d</li>
+  <li><b>成功请求</b>：%d</li>
+  <li><b>SLA 错误</b>：%d</li>
+  <li><b>业务限流</b>：%d</li>
+  <li><b>SLA</b>：%.2f%%</li>
+  <li><b>错误率</b>：%.2f%%</li>
+  <li><b>上游错误率（不含 429 / 529）</b>：%.2f%%</li>
+  <li><b>上游错误</b>：不含 429 / 529 共 %d，429 共 %d，529 共 %d</li>
+  <li><b>请求延迟</b>：p50 %s，p99 %s</li>
+  <li><b>首 Token 时间</b>：p50 %s，p99 %s</li>
+  <li><b>Token 消耗</b>：%d</li>
+  <li><b>QPS</b>：当前 %.1f，峰值 %.1f，平均 %.1f</li>
+  <li><b>TPS</b>：当前 %.1f，峰值 %.1f，平均 %.1f</li>
 </ul>
 `,
 		htmlEscape(strings.TrimSpace(title)),
@@ -719,16 +719,16 @@ func buildOpsErrorDigestEmailHTML(title string, start, end time.Time, list *OpsE
 		)
 	}
 	if rows == "" {
-		rows = "<tr><td colspan=\"4\">No recent errors.</td></tr>"
+		rows = "<tr><td colspan=\"4\">近期没有错误。</td></tr>"
 	}
 
 	return fmt.Sprintf(`
 <h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
-<p><b>Total Errors</b>: %d</p>
-<h3>Recent</h3>
+<p><b>统计周期</b>：%s ~ %s（UTC）</p>
+<p><b>错误总数</b>：%d</p>
+<h3>最近的错误</h3>
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;">
-  <thead><tr><th>Time</th><th>Platform</th><th>Status</th><th>Message</th></tr></thead>
+  <thead><tr><th>时间</th><th>平台</th><th>状态码</th><th>错误信息</th></tr></thead>
   <tbody>%s</tbody>
 </table>
 `,
@@ -766,14 +766,14 @@ func buildOpsAccountHealthEmailHTML(title string, start, end time.Time, avail *O
 
 	return fmt.Sprintf(`
 <h2>%s</h2>
-<p><b>Period</b>: %s ~ %s (UTC)</p>
+<p><b>统计周期</b>：%s ~ %s（UTC）</p>
 <ul>
-  <li><b>Total Accounts</b>: %d</li>
-  <li><b>Available</b>: %d</li>
-  <li><b>Rate Limited</b>: %d</li>
-  <li><b>Error</b>: %d</li>
+  <li><b>账号总数</b>：%d</li>
+  <li><b>可用</b>：%d</li>
+  <li><b>限流中</b>：%d</li>
+  <li><b>异常</b>：%d</li>
 </ul>
-<p>Note: This report currently reflects account availability status only.</p>
+<p>说明：本报表目前只反映账号的可用状态。</p>
 `,
 		htmlEscape(strings.TrimSpace(title)),
 		htmlEscape(start.UTC().Format(time.RFC3339)),

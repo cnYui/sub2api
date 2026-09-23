@@ -107,10 +107,11 @@ func TestOpsScheduledReportLegacyTemplateReceivesSummaryHTML(t *testing.T) {
 
 	emailService := NewEmailService(repo, nil)
 	notificationService := NewNotificationEmailService(repo, emailService)
+	// 通知邮件一律中文发送，所以自定义的是中文模板。
 	_, err := notificationService.UpdateTemplate(
 		ctx,
 		NotificationEmailEventOpsScheduledReport,
-		"en",
+		notificationEmailLocaleChinese,
 		"Legacy report {{report_name}}",
 		`<section data-template="legacy">{{report_html}}</section>`,
 	)
