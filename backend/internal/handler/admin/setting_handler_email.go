@@ -178,6 +178,11 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
 </body>
 </html>
 `
+	if h.notificationEmailService != nil {
+		// 通知邮件一律中文发送，测试邮件也用同一套外观和语言，管理员看到的就是用户收到的样子。
+		subject = "[" + siteName + "] SMTP 测试邮件"
+		body = h.notificationEmailService.SMTPTestEmailHTML(c.Request.Context(), siteName)
+	}
 
 	if err := h.emailService.SendEmailWithConfig(config, req.Email, subject, body); err != nil {
 		response.BadRequest(c, "Failed to send test email: "+err.Error())

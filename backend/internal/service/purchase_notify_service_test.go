@@ -16,6 +16,7 @@ import (
 // 通知框架提供的占位符，业务侧不需要传。
 var purchaseNoticeFrameworkPlaceholders = map[string]struct{}{
 	"site_name":       {},
+	"site_url":        {},
 	"recipient_name":  {},
 	"recipient_email": {},
 	"unsubscribe_url": {},
@@ -71,7 +72,7 @@ func TestPurchaseNoticeVariablesCoverDeclaredPlaceholders(t *testing.T) {
 			variables: buildTrafficPackNoticeVariables(
 				purchaseNoticeTestOrder(),
 				&TrafficPackOrderInfo{ID: 2, Name: "流量卡 $10", CreditUSD: 10, ValidityDays: 30, Platform: TrafficPackPlatformAll},
-				expiresAt, notificationEmailLocaleChinese, "https://panel.test/subscriptions"),
+				expiresAt, notificationEmailLocaleChinese, "https://panel.test/orders"),
 		},
 		{
 			event:     NotificationEmailEventRedeemBalanceCredited,
@@ -115,7 +116,7 @@ func TestPurchaseNoticeTemplatesRenderWithoutSampleLeakage(t *testing.T) {
 				purchaseNoticeTestOrder(), purchaseNoticeTestPackage(),
 				purchaseKindRenewal, notificationEmailLocaleChinese,
 				"余额套餐 ¥29", "https://panel.test/subscriptions"),
-			expect: []string{"续费", "余额套餐 ¥29", "29.29 CNY", "76.00", "70.50", "sub2_20260611aB3kX9mQ", "2026-07-09 12:00 UTC"},
+			expect: []string{"续费", "余额套餐 ¥29", "29.29 CNY", "76.00", "70.50", "sub2_20260611aB3kX9mQ", "2026-07-09 12:00 UTC", `href="https://panel.test/subscriptions"`},
 		},
 		{
 			event:  NotificationEmailEventBalancePackageCredited,
@@ -124,7 +125,7 @@ func TestPurchaseNoticeTemplatesRenderWithoutSampleLeakage(t *testing.T) {
 				purchaseNoticeTestOrder(), purchaseNoticeTestPackage(),
 				purchaseKindNew, notificationEmailDefaultLocale,
 				"Balance package 29", "https://panel.test/subscriptions"),
-			expect: []string{"New purchase", "Balance package 29", "29.29 CNY"},
+			expect: []string{"New purchase", "Balance package 29", "29.29 CNY", `href="https://panel.test/subscriptions"`},
 		},
 		{
 			event:  NotificationEmailEventTrafficPackCredited,
@@ -132,8 +133,8 @@ func TestPurchaseNoticeTemplatesRenderWithoutSampleLeakage(t *testing.T) {
 			variables: buildTrafficPackNoticeVariables(
 				purchaseNoticeTestOrder(),
 				&TrafficPackOrderInfo{ID: 2, Name: "流量卡 $10", CreditUSD: 10, ValidityDays: 30, Platform: TrafficPackPlatformAll},
-				expiresAt, notificationEmailLocaleChinese, "https://panel.test/subscriptions"),
-			expect: []string{"流量卡 $10", "10.00", "30", "2026-07-11 12:00 UTC"},
+				expiresAt, notificationEmailLocaleChinese, "https://panel.test/orders"),
+			expect: []string{"流量卡 $10", "10.00", "30", "2026-07-11 12:00 UTC", `href="https://panel.test/orders"`},
 		},
 		{
 			event:  NotificationEmailEventTrafficPackCredited,
@@ -141,20 +142,20 @@ func TestPurchaseNoticeTemplatesRenderWithoutSampleLeakage(t *testing.T) {
 			variables: buildTrafficPackNoticeVariables(
 				purchaseNoticeTestOrder(),
 				&TrafficPackOrderInfo{ID: 2, Name: "Traffic pack 10", CreditUSD: 10, ValidityDays: 30, Platform: TrafficPackPlatformAll},
-				expiresAt, notificationEmailDefaultLocale, "https://panel.test/subscriptions"),
-			expect: []string{"Traffic pack 10", "10.00"},
+				expiresAt, notificationEmailDefaultLocale, "https://panel.test/orders"),
+			expect: []string{"Traffic pack 10", "10.00", `href="https://panel.test/orders"`},
 		},
 		{
 			event:     NotificationEmailEventRedeemBalanceCredited,
 			locale:    notificationEmailLocaleChinese,
 			variables: buildRedeemBalanceNoticeVariables("ABCD-EFGH-9F2C", 25, 133.25, "https://panel.test/redeem"),
-			expect:    []string{"**********9F2C", "25.00", "133.25"},
+			expect:    []string{"**********9F2C", "25.00", "133.25", `href="https://panel.test/redeem"`},
 		},
 		{
 			event:     NotificationEmailEventRedeemBalanceCredited,
 			locale:    notificationEmailDefaultLocale,
 			variables: buildRedeemBalanceNoticeVariables("ABCD-EFGH-9F2C", 25, 133.25, "https://panel.test/redeem"),
-			expect:    []string{"**********9F2C", "25.00"},
+			expect:    []string{"**********9F2C", "25.00", `href="https://panel.test/redeem"`},
 		},
 	}
 
@@ -273,9 +274,9 @@ func TestFormatPurchaseTimeHandlesMissingValue(t *testing.T) {
 }
 
 func TestPurchaseNoticeDashboardPathsMatchFrontendRoutes(t *testing.T) {
-	// frontend/src/router/index.ts 里是 /subscriptions 和 /redeem，写错就是死链。
+	// 「我的订阅」只列余额套餐，流量卡要到订单页看；路由表里是否真有这些路径见 purchase_notify_email_e2e_test.go。
 	require.Equal(t, "/subscriptions", balancePackageDashboardPath)
-	require.Equal(t, "/subscriptions", trafficPackDashboardPath)
+	require.Equal(t, "/orders", trafficPackDashboardPath)
 	require.Equal(t, "/redeem", redeemDashboardPath)
 	require.False(t, strings.HasSuffix(balancePackageDashboardPath, "/"))
 }
