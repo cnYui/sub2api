@@ -105,14 +105,70 @@ func TestCheckBillingEligibility_AllowsPositiveBalanceWithoutTrafficPack(t *test
 	require.NoError(t, err)
 }
 
-func TestCheckBillingEligibility_AllowsZeroBalance(t *testing.T) {
+func TestBalanceExhausted(t *testing.T) {
+	cases := []struct {
+		name          string
+		balance       float64
+		balanceBilled bool
+		want          bool
+	}{
+		{name: "debt", balance: -0.01, balanceBilled: true, want: true},
+		{name: "debt when balance not billed", balance: -0.01, balanceBilled: false, want: true},
+		{name: "zero when billed", balance: 0, balanceBilled: true, want: true},
+		{name: "zero when not billed", balance: 0, balanceBilled: false, want: false},
+		{name: "smallest positive balance", balance: 0.00000001, balanceBilled: true, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, BalanceExhausted(tc.balance, tc.balanceBilled))
+		})
+	}
+}
+
+// 0 余额放行后，扣费会把下一笔请求整笔记成欠款；没有流量卡时必须在准入阶段拒绝。
+func TestCheckBillingEligibility_RejectsZeroBalanceWithoutTrafficPack(t *testing.T) {
 	cache := &balanceEligibilityCacheStub{balance: 0}
 	cfg := &config.Config{}
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
 	t.Cleanup(svc.Stop)
 
 	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, "")
+	require.ErrorIs(t, err, ErrInsufficientBalance)
+}
+
+func TestCheckBillingEligibility_AllowsZeroBalanceWithTrafficPack(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0}
+	cfg := &config.Config{}
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+	svc.SetTrafficPackService(NewTrafficPackService(&trafficPackSummaryRepoStub{
+		summary: &TrafficCreditSummary{TotalRemainingUSD: 30},
+	}))
+
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, PlatformOpenAI)
 	require.NoError(t, err)
+}
+
+func TestCheckBillingEligibility_SimpleModeAllowsZeroBalance(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0}
+	userRepo := &balanceLoadUserRepoStub{balance: 0}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, nil, PlatformOpenAI)
+	require.NoError(t, err, "简易模式不扣余额，0 余额不能被拦")
+}
+
+func TestCheckFreshBalanceDebtOnlyRechecksDebt(t *testing.T) {
+	cache := &balanceEligibilityCacheStub{balance: 0}
+	userRepo := &balanceLoadUserRepoStub{balance: 0}
+	cfg := &config.Config{}
+	svc := NewBillingCacheService(cache, userRepo, nil, nil, nil, nil, cfg, nil)
+	t.Cleanup(svc.Stop)
+
+	require.NoError(t, svc.CheckFreshBalanceDebt(context.Background(), &User{ID: 1}),
+		"长连接首回合不区分订阅与余额模式，0 余额规则由握手时的完整准入负责")
 }
 
 func TestCheckBillingEligibility_FreshDatabaseDebtOverridesPositiveCache(t *testing.T) {
@@ -184,7 +240,7 @@ func TestCheckFreshBalanceDebtAllowsAllPlatformsWhenTrafficCardHasNetCredit(t *t
 
 	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity} {
 		t.Run(platform, func(t *testing.T) {
-			require.NoError(t, svc.checkBalanceEligibilityWithBalance(context.Background(), 1, platform, -2))
+			require.NoError(t, svc.checkBalanceEligibilityWithBalance(context.Background(), 1, platform, -2, true))
 		})
 	}
 	require.NoError(t, svc.CheckFreshBalanceDebt(context.Background(), &User{ID: 1, Balance: -2}))

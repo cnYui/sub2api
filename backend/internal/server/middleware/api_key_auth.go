@@ -181,8 +181,8 @@ func apiKeyAuthWithTrafficPackChecker(
 		// generation consumes the key's remaining balance.
 		skipBilling := c.Request.URL.Path == "/v1/usage" || billingInfoRequest || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
 		trafficPackCreditAvailable := false
-		if !skipBilling && apiKey.User.Balance < 0 {
-			// 负余额用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
+		if !skipBilling && service.BalanceExhausted(apiKey.User.Balance, balanceBilledForAPIKey(cfg, apiKey)) {
+			// 余额耗尽（欠费或恰为 0）的用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
 			trafficPackCreditAvailable = canUseTrafficPackCredit(c, apiKey, trafficPackChecker)
 			if !trafficPackCreditAvailable {
 				AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
@@ -278,7 +278,7 @@ func apiKeyAuthWithTrafficPackChecker(
 					return
 				}
 			}
-			// 非订阅模式无需在此二次校验：允许非负余额继续请求，余额变负后的下一次请求已在前置分支切到流量卡。
+			// 非订阅模式无需在此二次校验：正余额继续请求，余额耗尽后的请求已在前置分支切到流量卡或被拒绝。
 		}
 
 		// ── 7. 设置上下文 → Next ─────────────────────────────────────
@@ -299,6 +299,15 @@ func apiKeyAuthWithTrafficPackChecker(
 
 		c.Next()
 	}
+}
+
+// balanceBilledForAPIKey 判断这把 key 的请求是否扣普通余额。简易模式不计费、订阅分组按订阅额度计费，
+// 这两种情况 0 余额照常放行，只拦欠费。
+func balanceBilledForAPIKey(cfg *config.Config, apiKey *service.APIKey) bool {
+	if cfg != nil && cfg.RunMode == config.RunModeSimple {
+		return false
+	}
+	return apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsSubscriptionType()
 }
 
 func canUseTrafficPackCredit(c *gin.Context, apiKey *service.APIKey, checker trafficPackCreditChecker) bool {

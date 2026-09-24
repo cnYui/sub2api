@@ -757,9 +757,9 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		s.circuitBreaker.OnSuccess()
 	}
 	runModeSimple := s.cfg != nil && s.cfg.RunMode == config.RunModeSimple
-	// 简易模式同样遵循余额与流量卡的自动切换规则，避免运行模式形成欠费旁路。
+	// 简易模式同样遵循余额与流量卡的自动切换规则，避免运行模式形成欠费旁路；它不扣余额，所以 0 余额不拦。
 	if runModeSimple {
-		return s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance)
+		return s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance, false)
 	}
 
 	if isSubscriptionMode {
@@ -767,7 +767,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 			return err
 		}
 	} else {
-		if err := s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance); err != nil {
+		if err := s.checkBalanceEligibilityWithBalance(ctx, user.ID, platform, balance, true); err != nil {
 			return err
 		}
 	}
@@ -810,6 +810,7 @@ func (s *BillingCacheService) getFreshBillingBalance(ctx context.Context, user *
 }
 
 // CheckFreshBalanceDebt 在长连接首回合执行数据库终检；双重欠费时拒绝继续请求。
+// 它不区分订阅与余额模式，所以只复核欠费；0 余额规则已由握手时的 CheckBillingEligibility 按计费模式执行。
 func (s *BillingCacheService) CheckFreshBalanceDebt(ctx context.Context, user *User) error {
 	if s == nil {
 		return ErrBillingServiceUnavailable
@@ -818,7 +819,7 @@ func (s *BillingCacheService) CheckFreshBalanceDebt(ctx context.Context, user *U
 	if err != nil {
 		return ErrBillingServiceUnavailable.WithCause(err)
 	}
-	return s.checkBalanceEligibilityWithBalance(ctx, user.ID, "", balance)
+	return s.checkBalanceEligibilityWithBalance(ctx, user.ID, "", balance, false)
 }
 
 // checkRPM 执行并行 RPM 限流，所有适用的限制同时生效，任一超限即拒绝：
@@ -905,8 +906,19 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 	return nil
 }
 
-func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64) error {
+// BalanceExhausted 判断普通余额是否已经无钱可扣、只能靠流量卡放行。
+// 余额恰为 0 与欠费同样处理：扣费在余额不足时会整笔透支，放行 0 余额等于让下一笔请求不论多大都记成欠款，
+// 而只买流量卡的用户永远不会用套餐到账把这笔钱抵回来。
+// balanceBilled 为 false 表示这次请求不扣普通余额（简易模式、订阅分组），此时 0 余额照常放行，只拦欠费。
+func BalanceExhausted(balance float64, balanceBilled bool) bool {
 	if balance < 0 {
+		return true
+	}
+	return balanceBilled && balance == 0
+}
+
+func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Context, userID int64, platform string, balance float64, balanceBilled bool) error {
+	if BalanceExhausted(balance, balanceBilled) {
 		if s.CanUseTrafficPackCredit(ctx, userID, platform) {
 			return nil
 		}
@@ -915,7 +927,7 @@ func (s *BillingCacheService) checkBalanceEligibilityWithBalance(ctx context.Con
 	return nil
 }
 
-// CanUseTrafficPackCredit 判断负余额用户能否切换到仍有正数净额度的流量卡。
+// CanUseTrafficPackCredit 判断余额已耗尽（欠费或恰为 0）的用户能否切换到仍有正数净额度的流量卡。
 // 正余额永远不切换，避免流量卡替代仍可用的普通余额。
 func (s *BillingCacheService) CanUseTrafficPackCredit(ctx context.Context, userID int64, platform string) bool {
 	if s == nil || s.trafficPackService == nil {

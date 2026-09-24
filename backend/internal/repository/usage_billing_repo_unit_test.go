@@ -115,10 +115,16 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
+	// 0 余额先看流量卡；一张都没有时才透支，留给下一期套餐到账抵扣。
+	mock.ExpectQuery(trafficCreditBatchesSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "user_id", "order_id", "pack_id", "initial_usd", "remaining_usd", "credited_at", "expires_at",
+		}))
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-5.0))
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-10.0))
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{Applied: true}
@@ -128,13 +134,14 @@ func TestApplyUsageBillingEffects_FlagsBalanceOverdraft(t *testing.T) {
 	}, result)
 	require.NoError(t, err)
 	require.NotNil(t, result.NewBalance)
-	require.InDelta(t, -5.0, *result.NewBalance, 0.000001)
+	require.InDelta(t, -10.0, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
+	require.False(t, result.TrafficCreditCharged)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForNonDebtBalance(t *testing.T) {
+func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForPositiveBalance(t *testing.T) {
 	ctx := context.Background()
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -152,11 +159,11 @@ func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForNonDebtBalance(t *testi
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
 	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
 		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.0))
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(0.5))
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(overdraftBalanceDeductSQL).
 		WithArgs(10.0, int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-5.0))
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-9.5))
 	mock.ExpectCommit()
 
 	result := &service.UsageBillingApplyResult{Applied: true}
@@ -167,7 +174,7 @@ func TestApplyUsageBillingEffectsDoesNotUseTrafficPackForNonDebtBalance(t *testi
 	}, result)
 	require.NoError(t, err)
 	require.NotNil(t, result.NewBalance)
-	require.InDelta(t, -5.0, *result.NewBalance, 0.000001)
+	require.InDelta(t, -9.5, *result.NewBalance, 0.000001)
 	require.True(t, result.BalanceOverdrafted)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -227,7 +234,7 @@ func TestApplyUsageBillingEffectsUsesTrafficPackForDebtAcrossPlatforms(t *testin
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func expectTrafficPackCharge(mock sqlmock.Sqlmock, cost, cardRemaining, charged float64, requestID string) {
+func expectTrafficPackCharge(mock sqlmock.Sqlmock, balance, cost, cardRemaining, charged float64, requestID string) {
 	expectUsageBillingUserAndPackageLocks(mock, 42)
 	mock.ExpectQuery(conditionalBalanceDeductSQL).
 		WithArgs(cost, int64(42)).
@@ -237,7 +244,7 @@ func expectTrafficPackCharge(mock sqlmock.Sqlmock, cost, cardRemaining, charged 
 		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(1))
 	mock.ExpectQuery(lockedUsageBillingBalanceSQL).
 		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(-2.0))
+		WillReturnRows(sqlmock.NewRows([]string{"balance"}).AddRow(balance))
 	mock.ExpectQuery(trafficCreditBatchesSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{
@@ -275,7 +282,7 @@ func TestApplyUsageBillingEffectsSkipsSubPrecisionTrafficDebt(t *testing.T) {
 			tx, err := db.BeginTx(ctx, nil)
 			require.NoError(t, err)
 			if tc.charged > 0 {
-				expectTrafficPackCharge(mock, tc.cost, 5.716406078, tc.charged, "traffic-request")
+				expectTrafficPackCharge(mock, -2.0, tc.cost, 5.716406078, tc.charged, "traffic-request")
 			} else {
 				expectUsageBillingUserAndPackageLocks(mock, 42)
 				mock.ExpectQuery(conditionalBalanceDeductSQL).
@@ -319,7 +326,7 @@ func TestApplyUsageBillingEffectsRecordsTrafficDebtAtLedgerPrecision(t *testing.
 	mock.ExpectBegin()
 	tx, err := db.BeginTx(ctx, nil)
 	require.NoError(t, err)
-	expectTrafficPackCharge(mock, 10.00000000004, 3.0, 3.0, "partial-request")
+	expectTrafficPackCharge(mock, -2.0, 10.00000000004, 3.0, 3.0, "partial-request")
 	mock.ExpectQuery(trafficDebtNetSQL).
 		WithArgs(int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{"debt"}).AddRow(1.25))
@@ -337,6 +344,69 @@ func TestApplyUsageBillingEffectsRecordsTrafficDebtAtLedgerPrecision(t *testing.
 	}, result)
 	require.NoError(t, err)
 	require.True(t, result.TrafficCreditCharged)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 余额恰为 0 又有流量卡时必须扣流量卡；旧逻辑把这笔整笔透支到余额，只买流量卡的用户永远抵不回来。
+func TestApplyUsageBillingEffectsChargesTrafficPackAtZeroBalance(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	expectTrafficPackCharge(mock, 0, 10.0, 30.0, 10.0, "zero-balance-request")
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:      42,
+		Platform:    service.PlatformOpenAI,
+		RequestID:   "zero-balance-request",
+		BalanceCost: 10,
+	}, result)
+	require.NoError(t, err)
+	require.NotNil(t, result.NewBalance)
+	require.Zero(t, *result.NewBalance)
+	require.True(t, result.TrafficCreditCharged)
+	require.False(t, result.BalanceOverdrafted)
+	require.NoError(t, tx.Commit())
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestApplyUsageBillingEffectsRecordsTrafficDebtAtZeroBalanceWhenCardRunsShort(t *testing.T) {
+	ctx := context.Background()
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+
+	mock.ExpectBegin()
+	tx, err := db.BeginTx(ctx, nil)
+	require.NoError(t, err)
+	expectTrafficPackCharge(mock, 0, 10.0, 3.0, 3.0, "zero-balance-short")
+	mock.ExpectQuery(trafficDebtNetSQL).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"debt"}).AddRow(0.0))
+	mock.ExpectExec(trafficDebtLedgerSQL).
+		WithArgs(int64(42), 7.0, 7.0, "zero-balance-short").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectCommit()
+
+	result := &service.UsageBillingApplyResult{Applied: true}
+	err = (&usageBillingRepository{}).applyUsageBillingEffects(ctx, tx, &service.UsageBillingCommand{
+		UserID:      42,
+		Platform:    service.PlatformOpenAI,
+		RequestID:   "zero-balance-short",
+		BalanceCost: 10,
+	}, result)
+	require.NoError(t, err)
+	require.NotNil(t, result.NewBalance)
+	require.Zero(t, *result.NewBalance)
+	require.True(t, result.TrafficCreditCharged)
+	require.False(t, result.BalanceOverdrafted)
 	require.NoError(t, tx.Commit())
 	require.NoError(t, mock.ExpectationsWereMet())
 }

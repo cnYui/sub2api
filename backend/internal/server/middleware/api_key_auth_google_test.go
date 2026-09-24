@@ -580,7 +580,7 @@ func TestApiKeyAuthWithSubscriptionGoogle_DisabledKey(t *testing.T) {
 	require.Equal(t, "UNAUTHENTICATED", resp.Error.Status)
 }
 
-func TestApiKeyAuthWithSubscriptionGoogle_AllowsZeroBalance(t *testing.T) {
+func TestApiKeyAuthWithSubscriptionGoogle_RejectsZeroBalanceWithoutTrafficPack(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
@@ -606,7 +606,7 @@ func TestApiKeyAuthWithSubscriptionGoogle_AllowsZeroBalance(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusForbidden, rec.Code)
 }
 
 func TestApiKeyAuthWithSubscriptionGoogle_AllowsAnyPositiveBalance(t *testing.T) {
@@ -693,26 +693,49 @@ func TestAPIKeyAuthGoogleAllowsDebtWithTrafficPackFallback(t *testing.T) {
 	require.Equal(t, service.PlatformGemini, checker.platform)
 }
 
-func TestApiKeyAuthWithSubscriptionGoogle_AllowsZeroBalanceUntilItBecomesDebt(t *testing.T) {
+func TestApiKeyAuthWithSubscriptionGoogle_AllowsZeroBalanceWithTrafficPack(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	group := &service.Group{ID: 78, Platform: service.PlatformGemini, Status: service.StatusActive}
+	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		groupID := group.ID
+		return &service.APIKey{
+			ID:      1,
+			Key:     key,
+			Status:  service.StatusActive,
+			GroupID: &groupID,
+			Group:   group,
+			User:    &service.User{ID: 123, Status: service.StatusActive, Balance: 0},
+		}, nil
+	}})
+	checker := &stubTrafficPackCreditChecker{available: true}
+	r := gin.New()
+	r.Use(apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(apiKeyService, nil, &config.Config{}, checker))
+	r.GET("/v1beta/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/test", nil)
+	req.Header.Set("Authorization", "Bearer ok")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, int64(1), checker.calls)
+	require.Equal(t, service.PlatformGemini, checker.platform)
+}
+
+func TestAPIKeyAuthGoogleSimpleModeAllowsZeroBalance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	r := gin.New()
-	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{
-		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
-			return &service.APIKey{
-				ID:     1,
-				Key:    key,
-				Status: service.StatusActive,
-				User: &service.User{
-					ID:      123,
-					Status:  service.StatusActive,
-					Balance: 0,
-				},
-			}, nil
-		},
-	})
-	cfg := &config.Config{}
-	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, cfg))
+	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		return &service.APIKey{
+			ID:     1,
+			Key:    key,
+			Status: service.StatusActive,
+			User:   &service.User{ID: 123, Status: service.StatusActive, Balance: 0},
+		}, nil
+	}})
+	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, &config.Config{RunMode: config.RunModeSimple}))
 	r.GET("/v1beta/test", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 
 	req := httptest.NewRequest(http.MethodGet, "/v1beta/test", nil)

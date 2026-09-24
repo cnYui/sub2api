@@ -1382,7 +1382,8 @@ func TestAPIKeyAuthAllowsAnyPositiveBalance(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestAPIKeyAuthAllowsZeroBalanceUntilItBecomesDebt(t *testing.T) {
+// 0 余额放行后，扣费会把下一笔请求整笔记成欠款；没有流量卡时必须在入口拒绝。
+func TestAPIKeyAuthRejectsZeroBalanceWithoutTrafficPack(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{
@@ -1420,17 +1421,18 @@ func TestAPIKeyAuthAllowsZeroBalanceUntilItBecomesDebt(t *testing.T) {
 	req.Header.Set("x-api-key", apiKey.Key)
 	router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 }
 
-func TestAPIKeyAuthDoesNotSwitchTrafficPackAtNonNegativeBalance(t *testing.T) {
+func TestAPIKeyAuthDoesNotSwitchTrafficPackAtPositiveBalance(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{
 		ID:          12,
 		Role:        service.RoleUser,
 		Status:      service.StatusActive,
-		Balance:     0,
+		Balance:     0.005,
 		Concurrency: 3,
 	}
 	group := &service.Group{ID: 9, Platform: service.PlatformOpenAI, Status: service.StatusActive}
@@ -1463,7 +1465,89 @@ func TestAPIKeyAuthDoesNotSwitchTrafficPackAtNonNegativeBalance(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Zero(t, checker.calls, "非负余额不应切换流量卡")
+	require.Zero(t, checker.calls, "正余额不应切换流量卡")
+}
+
+func TestAPIKeyAuthAllowsZeroBalanceWithTrafficPack(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 14, Role: service.RoleUser, Status: service.StatusActive, Balance: 0, Concurrency: 3}
+	group := &service.Group{ID: 92, Platform: service.PlatformOpenAI, Status: service.StatusActive}
+	apiKey := &service.APIKey{ID: 1063, UserID: user.ID, Key: "openai-zero-traffic-pack", Status: service.StatusActive, User: user, Group: group}
+	apiKey.GroupID = &group.ID
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	checker := &stubTrafficPackCreditChecker{available: true}
+	router := newAuthTestRouterWithTrafficPackChecker(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg, checker)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, int64(1), checker.calls, "0 余额要靠流量卡放行")
+	require.Equal(t, service.PlatformOpenAI, checker.platform)
+}
+
+func TestAPIKeyAuthSimpleModeAllowsZeroBalance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 15, Role: service.RoleUser, Status: service.StatusActive, Balance: 0, Concurrency: 3}
+	apiKey := &service.APIKey{ID: 1064, UserID: user.ID, Key: "simple-mode-zero", Status: service.StatusActive, User: user}
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "简易模式不扣余额，0 余额不能被拦")
+}
+
+func TestAPIKeyAuthSubscriptionGroupAllowsZeroBalance(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{ID: 16, Role: service.RoleUser, Status: service.StatusActive, Balance: 0, Concurrency: 3}
+	group := &service.Group{
+		ID:               93,
+		Platform:         service.PlatformAnthropic,
+		Status:           service.StatusActive,
+		SubscriptionType: service.SubscriptionTypeSubscription,
+	}
+	apiKey := &service.APIKey{ID: 1065, UserID: user.ID, Key: "subscription-zero", Status: service.StatusActive, User: user, Group: group}
+	apiKey.GroupID = &group.ID
+	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+		clone := *apiKey
+		userClone := *user
+		clone.User = &userClone
+		return &clone, nil
+	}}
+
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	checker := &stubTrafficPackCreditChecker{}
+	router := newAuthTestRouterWithTrafficPackChecker(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg, checker)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code, "订阅分组按订阅额度计费，0 余额不能被拦")
+	require.Zero(t, checker.calls)
 }
 
 func TestAPIKeyAuthAllowsDebtWithTrafficPackFallback(t *testing.T) {
