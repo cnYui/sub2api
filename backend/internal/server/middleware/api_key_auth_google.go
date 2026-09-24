@@ -150,8 +150,8 @@ func apiKeyAuthWithSubscriptionGoogleAndTrafficPackChecker(
 			return
 		}
 		trafficPackCreditAvailable := false
-		if apiKey.User.Balance < 0 {
-			// 负余额用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
+		if service.BalanceExhausted(apiKey.User.Balance, balanceBilledForAPIKey(cfg, apiKey)) {
+			// 余额耗尽（欠费或恰为 0）的用户仍可使用有正数净额度的流量卡；两类额度都不足时才拒绝。
 			trafficPackCreditAvailable = canUseTrafficPackCredit(c, apiKey, trafficPackChecker)
 			if !trafficPackCreditAvailable {
 				abortWithGoogleError(c, 403, "Insufficient account balance")

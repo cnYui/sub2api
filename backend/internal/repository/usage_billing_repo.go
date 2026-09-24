@@ -190,20 +190,28 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 			if balanceErr != nil {
 				return balanceErr
 			}
-			if balanceBefore < 0 {
+			useTrafficPack := false
+			if balanceBefore <= 0 {
 				trafficCharged, trafficErr := deductUsageBillingTrafficPack(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequestID, true)
 				if trafficErr != nil {
 					return trafficErr
 				}
-				if trafficDebt := trafficCreditShortfall(cmd.BalanceCost, trafficCharged); trafficDebt > 0 {
-					if err := recordTrafficCreditDebt(ctx, tx, cmd.UserID, trafficDebt, cmd.RequestID); err != nil {
-						return err
+				// 余额恰为 0 时只要流量卡扣到了钱就按流量卡结算，否则这笔会整笔透支到余额，
+				// 而只买流量卡的用户不会再用套餐到账抵回。0 余额且没有流量卡时仍透支，留给下一期套餐抵扣。
+				useTrafficPack = balanceBefore < 0 || trafficCharged > 0
+				if useTrafficPack {
+					if trafficDebt := trafficCreditShortfall(cmd.BalanceCost, trafficCharged); trafficDebt > 0 {
+						if err := recordTrafficCreditDebt(ctx, tx, cmd.UserID, trafficDebt, cmd.RequestID); err != nil {
+							return err
+						}
 					}
 				}
+			}
+			if useTrafficPack {
 				result.NewBalance = &balanceBefore
 				result.TrafficCreditCharged = true
 			} else {
-				// 正余额仍优先扣普通余额；流量卡只在余额已经为负时接管后续请求。
+				// 正余额仍优先扣普通余额；流量卡只在余额已经耗尽（欠费或恰为 0）时接管后续请求。
 				newBalance, _, _, err = deductUsageBillingBalanceWithLedger(ctx, tx, cmd.UserID, cmd.BalanceCost, cmd.RequestID, cmd.APIKeyID)
 				if err != nil {
 					return err
