@@ -531,6 +531,42 @@ func TestDefaultPricingIncludesGemini36FlashRates(t *testing.T) {
 	}
 }
 
+// Fable 系列此前只存在于远端目录；远端拉取失败退回内嵌目录时，
+// 它们不在任何 Claude 家族兜底里，会按缺价零成本放行（AGENTS.md 坑 12）。
+func TestDefaultPricingIncludesClaudeFableRates(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
+	require.NoError(t, err)
+
+	pricingSvc := &PricingService{}
+	pricingData, err := pricingSvc.parsePricingData(data)
+	require.NoError(t, err)
+	pricingSvc.pricingData = pricingData
+	billingSvc := NewBillingService(&config.Config{}, pricingSvc)
+
+	tests := []struct {
+		model                                         string
+		input, output, cacheWrite, cacheWrite1h, read float64
+	}{
+		{model: "claude-fable-5", input: 10e-6, output: 50e-6, cacheWrite: 12.5e-6, cacheWrite1h: 20e-6, read: 1e-6},
+		// Fable 5.1 的缓存读只有 Fable 5 的四分之一，不能套用 Fable 5 的价。
+		{model: "claude-fable-5-1", input: 10e-6, output: 50e-6, cacheWrite: 12.5e-6, cacheWrite1h: 20e-6, read: 0.25e-6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			catalog := pricingSvc.GetModelPricing(tt.model)
+			require.NotNil(t, catalog)
+			require.InDelta(t, tt.cacheWrite1h, catalog.CacheCreationInputTokenCostAbove1hr, 1e-12)
+
+			pricing, err := billingSvc.GetModelPricing(tt.model)
+			require.NoError(t, err)
+			require.InDelta(t, tt.input, pricing.InputPricePerToken, 1e-12)
+			require.InDelta(t, tt.output, pricing.OutputPricePerToken, 1e-12)
+			require.InDelta(t, tt.cacheWrite, pricing.CacheCreationPricePerToken, 1e-12)
+			require.InDelta(t, tt.read, pricing.CacheReadPricePerToken, 1e-12)
+		})
+	}
+}
+
 func TestDefaultPricingUsesCurrentCodexAutoReviewBaseRates(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "resources", "model-pricing", "model_prices_and_context_window.json"))
 	require.NoError(t, err)
