@@ -140,6 +140,6 @@ onMounted(async () => {
   <NavigationProgress />
   <RouterView />
   <Toast />
-  <AnnouncementPopup />
+  <AnnouncementPopup v-if="!route.meta.bare" />
   <AdminComplianceDialog />
 </template>

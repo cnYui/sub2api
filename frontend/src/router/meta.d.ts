@@ -64,5 +64,11 @@ declare module 'vue-router' {
      * i18n key for the page description
      */
     descriptionKey?: string
+
+    /**
+     * 页面只显示自身内容（兑换卡分享页），不弹公告等全站浮层
+     * @default false
+     */
+    bare?: boolean
   }
 }

@@ -682,4 +682,10 @@ export default {
     },
   },
 
+  // Redeem card share page (/card/<token>): only shown when there is no card to display
+  redeemCardPage: {
+    notFound: 'This link is invalid or has been revoked',
+    loadFailed: 'Failed to load. Please refresh and try again.',
+  },
+
 }

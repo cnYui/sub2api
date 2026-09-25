@@ -39,6 +39,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocode"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcard"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/securitysecret"
@@ -141,6 +142,7 @@ func checkColumn(t, c string) error {
 			promocode.Table:                     promocode.ValidColumn,
 			promocodeusage.Table:                promocodeusage.ValidColumn,
 			proxy.Table:                         proxy.ValidColumn,
+			redeemcard.Table:                    redeemcard.ValidColumn,
 			redeemcode.Table:                    redeemcode.ValidColumn,
 			reimbursementrequest.Table:          reimbursementrequest.ValidColumn,
 			securitysecret.Table:                securitysecret.ValidColumn,

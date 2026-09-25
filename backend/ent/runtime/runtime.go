@@ -32,6 +32,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/promocode"
 	"github.com/Wei-Shaw/sub2api/ent/promocodeusage"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
+	"github.com/Wei-Shaw/sub2api/ent/redeemcard"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/reimbursementrequest"
 	"github.com/Wei-Shaw/sub2api/ent/schema"
@@ -1762,6 +1763,48 @@ func init() {
 	proxyDescExpiryWarnDays := proxyFields[10].Descriptor()
 	// proxy.DefaultExpiryWarnDays holds the default value on creation for the expiry_warn_days field.
 	proxy.DefaultExpiryWarnDays = proxyDescExpiryWarnDays.Default.(int)
+	redeemcardFields := schema.RedeemCard{}.Fields()
+	_ = redeemcardFields
+	// redeemcardDescToken is the schema descriptor for token field.
+	redeemcardDescToken := redeemcardFields[0].Descriptor()
+	// redeemcard.TokenValidator is a validator for the "token" field. It is called by the builders before save.
+	redeemcard.TokenValidator = func() func(string) error {
+		validators := redeemcardDescToken.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token string) error {
+			for _, fn := range fns {
+				if err := fn(token); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// redeemcardDescTheme is the schema descriptor for theme field.
+	redeemcardDescTheme := redeemcardFields[2].Descriptor()
+	// redeemcard.DefaultTheme holds the default value on creation for the theme field.
+	redeemcard.DefaultTheme = redeemcardDescTheme.Default.(string)
+	// redeemcard.ThemeValidator is a validator for the "theme" field. It is called by the builders before save.
+	redeemcard.ThemeValidator = redeemcardDescTheme.Validators[0].(func(string) error)
+	// redeemcardDescContent is the schema descriptor for content field.
+	redeemcardDescContent := redeemcardFields[3].Descriptor()
+	// redeemcard.DefaultContent holds the default value on creation for the content field.
+	redeemcard.DefaultContent = redeemcardDescContent.Default.(func() map[string]interface{})
+	// redeemcardDescViewCount is the schema descriptor for view_count field.
+	redeemcardDescViewCount := redeemcardFields[5].Descriptor()
+	// redeemcard.DefaultViewCount holds the default value on creation for the view_count field.
+	redeemcard.DefaultViewCount = redeemcardDescViewCount.Default.(int)
+	// redeemcardDescCreatedAt is the schema descriptor for created_at field.
+	redeemcardDescCreatedAt := redeemcardFields[7].Descriptor()
+	// redeemcard.DefaultCreatedAt holds the default value on creation for the created_at field.
+	redeemcard.DefaultCreatedAt = redeemcardDescCreatedAt.Default.(func() time.Time)
+	// redeemcardDescUpdatedAt is the schema descriptor for updated_at field.
+	redeemcardDescUpdatedAt := redeemcardFields[8].Descriptor()
+	// redeemcard.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	redeemcard.DefaultUpdatedAt = redeemcardDescUpdatedAt.Default.(func() time.Time)
 	redeemcodeFields := schema.RedeemCode{}.Fields()
 	_ = redeemcodeFields
 	// redeemcodeDescCode is the schema descriptor for code field.

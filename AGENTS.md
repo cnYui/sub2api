@@ -25,7 +25,7 @@
 - **数据库运维手册**：`docs/ai/context/20260905-173123-vps-ssh-db-operations-runbook_CN.md`（psql 用法、写操作事务模板、表结构坑、缓存失效、核验清单）。**动生产数据库前先读它。** 注意：**当前生效的生产库在 Mac 上**（`~/.orbstack/bin/docker exec sub2api-postgres psql …`），手册的 psql/事务模板通用，只是连接方式换成 Mac；手册里的 VPS 连接方式仅在回滚后才相关。
 - **部署/换镜像**：生产已迁到 Mac（见第二节）。换版本在 `~/sub2api` 改 `.env` 的 `IMAGE_TAG`（或 `~/.orbstack/bin/docker compose … pull`）再 `docker compose -f docker-compose.yml -f docker-compose.mac.yml up -d sub2api`。**重启前先 `docker compose config` 渲染检查** image / 端口绑定 / `BILLING_FINAL_MULTIPLIER` / secrets 四项。只 `prune -f` 不要 `prune -a`，否则丢回滚镜像。VPS 侧 GHCR 首切文档 `docs/ai/context/20260905-200812-first-ghcr-image-deploy_CN.md`（用 `docker-compose.vps.yml`）仅回滚时参考。
 - 改公网 Nginx 必须先 `nginx -t` 通过再 `reload`；**不要重建 Cloudflare Tunnel**。
-- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `216`。
+- 数据库迁移已应用后内容不可改（有 checksum 保护），只能新增迁移号。当前最大迁移号 `217`。
 
 ## 二、当前部署拓扑（2026-09-08：已从 VPS 迁到日本 MacBook）
 
@@ -202,6 +202,31 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - 后台自定义的模板读不出来或渲染失败时，`renderForSend` 自动退回官方模板；各服务里旧的英文/双语兜底正文实际已走不到。
   2026-09-23 核对生产没有任何自定义模板，新官方模板上线即生效。
 - 记录见 `docs/ai/context/20260923-202300-notification-email-card-style-chinese_CN.md`。
+
+### 兑换卡（2026-09-23）
+
+- 后台 `/admin/redeem-cards`（侧栏「兑换码」下面）把兑换码做成黑/白两版 3D 卡，发给用户的链接是
+  `https://aaccx.pw/card/<token>`：匿名可看，页面上只有卡片。表 `redeem_cards`（迁移 `217`），一个兑换码最多一张卡，
+  删兑换码会级联删卡。「撤销链接」删的是卡片行，兑换码不受影响；重新制作会得到新链接。
+- **卡上印的兑换码必须与库里逐字一致**：兑换按原文大小写精确匹配（`redeemcode.CodeEQ`），4 位一组只是 CSS 间距，
+  不插空格、不改大小写。
+- 头像、名字、简介、兑换步骤、两张二维码是所有卡共用的「卡面信息」，存 settings `redeem_card_profile`，
+  **改一次所有已发出的卡都会变**。二维码没上传时用 `frontend/public/email/qr-*.png`，所以换邮件里的微信群码会同时更新卡片；
+  在「卡面信息」里上传过自定义图的，要在那里重新上传。
+- 公开页取数**不走 `apiClient`**：它会带本地过期令牌 → 401 → 跳登录页；这里直接匿名 `fetch`。路由 meta `bare` 让 App 不弹公告。
+  backend 模式下公开接口对非管理员 403，与模型广场同口径。
+- 3D 照站长的 Claude Design 模板（`兑换卡 3D.html` + `three-d-stage.js`）用 three.js 做，版本锁 `0.184.0` 与模板一致。
+  几何、材质、灯光、取景、翻面动画全在 `frontend/src/components/redeemCard/cardStage.ts`，**参数是模板原值，改之前先对照模板**；
+  唯一的偏离是厚度用站长要的 0.6mm（模板滑杆默认 1.2mm）、关掉了平移。公开页背景是模板舞台的 `#e9e8e4`，黑白两版一样。
+- 卡面贴图是运行时把 `RedeemCardFace.vue` 的 DOM 用 `html2canvas-pro` 截成 2 倍图（3424×2160），所以改卡面样式会自动进 3D；
+  但它画不出 `backdrop-filter`、`mix-blend-mode`、`filter` 这类 CSS，**改卡面样式后要在 3D 里看一眼**。
+  兑换码面板的 `backdrop-filter` 早就换成了垫底色（视觉等价），别加回去。不支持 WebGL2 时退回平面卡（轻点翻面）。
+- `three` 和 `html2canvas-pro` 在 `vite.config.ts` 里单独分成 `lib-three` / `lib-html2canvas`，只有 3D 卡按需加载；
+  落进 `lib-misc` 会让每个页面多背约 800KB。⚠️ 手动跑 `vite build` 会优先读 gitignore 的 `vite.config.js`（`vue-tsc -b` 的旧产物），
+  分包看起来没生效；要走 `npm run build`（先 `vue-tsc -b` 再构建，Docker 里就是这样）。
+- 交互：拖动旋转、滚轮/双指缩放，开场缓慢自转、一碰就停；轻点卡片翻面；轻点背面的兑换码复制（面板发绿光，不弹文字）；
+  兑换码已兑换/过期/停用时背面盖章。
+- 记录见 `docs/ai/context/20260923-215000-redeem-cards-3d-admin-page_CN.md`、`docs/ai/context/20260925-131500-redeem-card-3d-threejs-template_CN.md`。
 
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 

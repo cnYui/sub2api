@@ -145,6 +145,20 @@ export default defineConfig(({ mode }) => {
               return 'lib-stripe'
             }
 
+            // three.js 与卡面截图只有兑换卡 3D 按需加载，落进 lib-misc 会让每个页面都背上它们。
+            if (id.includes('/three/')) {
+              return 'lib-three'
+            }
+            if (
+              id.includes('/html2canvas-pro/') ||
+              id.includes('/css-line-break/') ||
+              id.includes('/text-segmentation/') ||
+              id.includes('/utrie/') ||
+              id.includes('/base64-arraybuffer/')
+            ) {
+              return 'lib-html2canvas'
+            }
+
             // 其他小型第三方库合并
             return 'lib-misc'
           }

@@ -68,6 +68,7 @@ func RegisterAdminRoutes(
 
 		// 报销/开票申请管理
 		registerReimbursementRoutes(admin, h)
+		registerRedeemCardRoutes(admin, h)
 
 		// 系统设置
 		registerSettingsRoutes(admin, h)
@@ -427,6 +428,23 @@ func registerAnnouncementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		announcements.PUT("/:id", h.Admin.Announcement.Update)
 		announcements.DELETE("/:id", h.Admin.Announcement.Delete)
 		announcements.GET("/:id/read-status", h.Admin.Announcement.ListReadStatus)
+	}
+}
+
+// registerRedeemCardRoutes 兑换卡：为兑换码生成 3D 卡片分享链接。
+// 共用卡面信息单独一组路径，避免和 /redeem-cards/:id 抢同一层路由。
+func registerRedeemCardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	cards := admin.Group("/redeem-cards")
+	{
+		cards.GET("", h.Admin.RedeemCard.List)
+		cards.POST("", h.Admin.RedeemCard.Save)
+		cards.GET("/by-code/:code_id", h.Admin.RedeemCard.GetByCode)
+		cards.DELETE("/:id", h.Admin.RedeemCard.Delete)
+	}
+	profile := admin.Group("/redeem-card-profile")
+	{
+		profile.GET("", h.Admin.RedeemCard.GetProfile)
+		profile.PUT("", h.Admin.RedeemCard.UpdateProfile)
 	}
 }
 

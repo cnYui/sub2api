@@ -700,6 +700,7 @@ var ProviderSet = wire.NewSet(
 	NewAnnouncementService,
 	NewReimbursementParser,
 	NewReimbursementService,
+	NewRedeemCardService,
 	NewAdminService,
 	NewGatewayService,
 	NewOpenAIGatewayService,

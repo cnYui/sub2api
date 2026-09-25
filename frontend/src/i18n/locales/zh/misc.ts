@@ -706,4 +706,10 @@ export default {
     },
   },
 
+  // 兑换卡分享页（/card/<token>）：页面只有卡片，这两句只在没有卡片可显示时出现
+  redeemCardPage: {
+    notFound: '链接无效或已被撤销',
+    loadFailed: '加载失败，请刷新重试',
+  },
+
 }

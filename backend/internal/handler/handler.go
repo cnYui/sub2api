@@ -42,6 +42,7 @@ type AdminHandlers struct {
 	Compliance             *admin.ComplianceHandler
 	AuditLog               *admin.AuditLogHandler
 	Reimbursement          *admin.ReimbursementHandler
+	RedeemCard             *admin.RedeemCardHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -67,6 +68,7 @@ type Handlers struct {
 	AsyncImage       *AsyncImageHandler
 	BatchImage       *BatchImageHandler
 	Reimbursement    *ReimbursementHandler
+	RedeemCard       *RedeemCardHandler
 }
 
 // BuildInfo contains build-time information

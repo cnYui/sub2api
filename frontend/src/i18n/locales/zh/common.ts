@@ -174,6 +174,7 @@ export default {
     accounts: '账号管理',
     proxies: 'IP管理',
     redeemCodes: '兑换码',
+    redeemCards: '兑换卡',
     ops: '运维监控',
     promoCodes: '优惠码',
     settings: '系统设置',
