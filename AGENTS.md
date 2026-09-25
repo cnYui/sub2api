@@ -237,6 +237,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   模板 `officialEmailRedeemCodeDelivery`，32 位码用 `emailHeroRedeemCode` 显示（中号等宽字，不插分隔符，整串可双击选中）。
 - **同一张码只认第一个收件人**：记录在 settings `redeem_code_delivery:<码ID>`。同一人再调返回 `already_sent`、不重发，
   `resend:true` 才重发；换人一律 `409 REDEEM_CODE_ALREADY_DELIVERED`。码本身不绑定用户，谁拿到码都能兑换。
+- 记录见 `docs/ai/context/20260925-144000-redeem-code-email-delivery_CN.md`（设计）、
+  `docs/ai/context/20260925-151500-suanli-token-event-redeem-code-distribution_CN.md`（首次发放：16 个 ¥29 套餐码 137–152）。
 
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 
