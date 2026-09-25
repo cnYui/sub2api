@@ -345,7 +345,7 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 35. **扣费事务里的附属计数不能让整笔回滚，否则就是 0 元白用。**
     - `applyUsageBillingEffects`（`repository/usage_billing_repo.go`）在一个事务里先扣余额 / 套餐 / 流量卡，再更新 Key 额度、Key 限速、账号额度。后面任何一步报错，前面扣的钱一起回滚。
-    - 2026-09-25 修掉的实例：Key 设了额度或限速时，请求进行中用户删掉 Key（软删），更新 Key 用量命中 0 行返回 `ErrAPIKeyNotFound`，整笔回滚。余额不减、准入一直放行，能无限重复。现在只跳过 Key 统计、余额照扣，并打日志 `[UsageBilling] api key deleted before settlement`。
+    - 2026-09-25 修掉的实例（PR #60）：Key 设了额度或限速时，请求进行中用户删掉 Key（软删），更新 Key 用量命中 0 行返回 `ErrAPIKeyNotFound`，整笔回滚。余额不减、准入一直放行，能无限重复。现在只跳过 Key 统计、余额照扣，并打日志 `[UsageBilling] api key deleted before settlement`。
     - 账号被管理员删除时的 `ErrAccountNotFound` 仍会整笔回滚（只有管理员能触发，没改）。
     - **往这个事务里加新计数时**，目标行可能被用户删掉的，0 行要当跳过处理，不能返回错误。
     - 核查漏扣别拿「`usage_logs` 与 `usage_billing_dedup` 一一对应」当证据：用量记录在扣费事务提交后才写，扣费失败两边都不留痕。要看 `record_usage_failed` 日志，再用 `ops_system_logs` 的 http.access（状态 200 且有 `account_id`）按 `'client:' || client_request_id` 对 `usage_logs.request_id`。

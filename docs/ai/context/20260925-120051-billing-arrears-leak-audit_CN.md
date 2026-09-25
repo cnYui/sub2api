@@ -107,7 +107,7 @@
    - 请求进行中删掉这把 Key（软删），更新语句带 `deleted_at IS NULL`，0 行返回 `ErrAPIKeyNotFound`（`repository/usage_billing_repo.go:919/941`）。整笔事务回滚，已扣的余额也退回，用户完整拿到输出。
    - 余额不变，所以准入一直放行：建 Key → 并发 20 个请求 → 删 Key → 再建，可以无限重复。只需要余额为正（或流量卡有钱）。
    - 数据：08-25 以来 `record_usage_failed` 全部是舍入 bug，没有 `API_KEY_NOT_FOUND`，**还没人用过**。现有 19 把有效 Key 设了 quota，1 把设了限速。
-   - **已修复（同日，管理员下令）**：`applyUsageBillingEffects` 遇到 `ErrAPIKeyNotFound` 只跳过 Key 的额度 / 限速统计，余额照扣，并打日志 `[UsageBilling] api key deleted before settlement`（以后搜这句就能看到有没有人试）。其它数据库错误仍然整笔回滚。
+   - **已修复（同日，管理员下令，PR #60）**：`applyUsageBillingEffects` 遇到 `ErrAPIKeyNotFound` 只跳过 Key 的额度 / 限速统计，余额照扣，并打日志 `[UsageBilling] api key deleted before settlement`（以后搜这句就能看到有没有人试）。其它数据库错误仍然整笔回滚。
    - 测试：sqlmock 单测 3 个（额度 Key 被删、限速 Key 被删、其它错误照常回滚）+ 真实 Postgres 集成测试 1 个（走真实软删路径）。修复前的代码上这 3 个删 Key 用例都失败，报 `API_KEY_NOT_FOUND`。
    - 同类但没改：账号被管理员删除时 `incrementUsageBillingAccountQuota` 返回 `ErrAccountNotFound`，同样会整笔回滚。只有管理员能触发，没列入这次修复。
 2. **Responses 结果里带图就只按张收费，文本 token 不计**
