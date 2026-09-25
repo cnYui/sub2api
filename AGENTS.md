@@ -343,6 +343,13 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
     它会在每个厂商小节各出现一次、每次只列本厂商的模型。
     改完跑 `npx vitest run src/utils/__tests__/modelVendor.spec.ts`（已钉住在架全部模型的归属）。
 
+35. **扣费事务里的附属计数不能让整笔回滚，否则就是 0 元白用。**
+    - `applyUsageBillingEffects`（`repository/usage_billing_repo.go`）在一个事务里先扣余额 / 套餐 / 流量卡，再更新 Key 额度、Key 限速、账号额度。后面任何一步报错，前面扣的钱一起回滚。
+    - 2026-09-25 修掉的实例（PR #60）：Key 设了额度或限速时，请求进行中用户删掉 Key（软删），更新 Key 用量命中 0 行返回 `ErrAPIKeyNotFound`，整笔回滚。余额不减、准入一直放行，能无限重复。现在只跳过 Key 统计、余额照扣，并打日志 `[UsageBilling] api key deleted before settlement`。
+    - 账号被管理员删除时的 `ErrAccountNotFound` 仍会整笔回滚（只有管理员能触发，没改）。
+    - **往这个事务里加新计数时**，目标行可能被用户删掉的，0 行要当跳过处理，不能返回错误。
+    - 核查漏扣别拿「`usage_logs` 与 `usage_billing_dedup` 一一对应」当证据：用量记录在扣费事务提交后才写，扣费失败两边都不留痕。要看 `record_usage_failed` 日志，再用 `ops_system_logs` 的 http.access（状态 200 且有 `account_id`）按 `'client:' || client_request_id` 对 `usage_logs.request_id`。
+
 ## 五点五、待处理的计费偏差（已确认，未修复）
 
 > **口径（管理员 2026-09-05 明确）：只有「少收」是缺陷，「多收」不是。**
@@ -390,6 +397,11 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   **选账号之前的硬闸**，所以生产 Alpine/Linux 镜像下 Live 结构性起不来。
   但这是平台的偶然属性、不是计费保护——**任何一次改成 macOS 部署或给非 darwin 补 provider，
   这道闸就没了**。判断 Live 敞口要看计费有没有接上，不能拿平台限制当理由。
+- **2026-09-25 欠费与漏收审计发现、尚未修复的几条**（方法、数据与逐条代码位置见 `docs/ai/context/20260925-120051-billing-arrears-leak-audit_CN.md`）：
+  - **余额转负后的在途并发请求记成流量卡欠费，套餐到账不抵它。** 扣费时 `balanceBefore < 0` 一律走流量卡，没卡就整笔记 `traffic_credit_debt_ledger`，只有再买流量卡才会抵。当天未还 $107.09，其中 $94.69 在有有效套餐的人名下。修法待管理员定：套餐到账也抵流量卡欠费，或余额为负且无卡时继续记余额透支（#57 对 0 余额已经这样做）。
+  - **Responses 结果里带生图就只按张收费，文本 token 全不计**（`openai_gateway_usage.go` 的 `ImageCount > 0` 分支）。近 30 天 4 次，最多一次 17.5 万输入 token 只收了 7 张图的钱。
+  - **Claude 分组经 `/v1/chat/completions`、`/v1/responses` 转换时，客户端一断开就只收输入费**：写失败立刻停止读上游，收不到最后的 `message_delta`。原生 `/v1/messages` 会读完上游，不受影响。
+  - **流式中途失败不计费**：OpenAI 路径没有 Anthropic 那样的部分用量补记，7 天 46 次。**发版停机只等 5 秒**（`cmd/server/main.go`），超过的在途请求不计费、也不留日志。
 
 
 ## 六、负面教训（结论已撤回，不要重复）

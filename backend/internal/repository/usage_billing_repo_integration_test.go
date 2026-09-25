@@ -80,6 +80,52 @@ func TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling(t *testing.T) {
 	require.Equal(t, 1, dedupCount)
 }
 
+func TestUsageBillingRepositoryApply_ChargesBalanceWhenAPIKeyDeletedMidRequest(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-deleted-key-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      100,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-usage-billing-deleted-" + uuid.NewString(),
+		Name:   "deleted-mid-request",
+		Quota:  10,
+	})
+	account := mustCreateAccount(t, client, &service.Account{
+		Name: "usage-billing-deleted-key-account-" + uuid.NewString(),
+		Type: service.AccountTypeAPIKey,
+	})
+	// 请求还在进行，用户就把这把 Key 删了（软删）。
+	require.NoError(t, NewAPIKeyRepository(client, integrationDB).Delete(ctx, apiKey.ID))
+
+	requestID := uuid.NewString()
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:           requestID,
+		APIKeyID:            apiKey.ID,
+		UserID:              user.ID,
+		AccountID:           account.ID,
+		AccountType:         service.AccountTypeAPIKey,
+		BalanceCost:         1.25,
+		APIKeyQuotaCost:     1.25,
+		APIKeyRateLimitCost: 1.25,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, 98.75, balance, 0.000001)
+
+	var dedupCount int
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM usage_billing_dedup WHERE request_id = $1 AND api_key_id = $2", requestID, apiKey.ID).Scan(&dedupCount))
+	require.Equal(t, 1, dedupCount)
+}
+
 func TestUsageBillingRepositoryApply_ConsumesAffiliateFrozenBalanceForModelCharge(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

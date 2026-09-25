@@ -222,18 +222,31 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		}
 	}
 
+	// Key 在请求进行中被删除（软删）时，只跳过 Key 自己的额度与限速统计，余额照扣。
+	// 把 ErrAPIKeyNotFound 抛出去会让整笔扣费连同余额一起回滚：用户给 Key 设上额度或限速、
+	// 发出请求后删掉 Key，就能白用全部在途请求，而余额不减、准入一直放行，可以无限重复。
+	apiKeyDeleted := false
 	if cmd.APIKeyQuotaCost > 0 {
 		exhausted, err := incrementUsageBillingAPIKeyQuota(ctx, tx, cmd.APIKeyID, cmd.APIKeyQuotaCost)
-		if err != nil {
+		if errors.Is(err, service.ErrAPIKeyNotFound) {
+			apiKeyDeleted = true
+		} else if err != nil {
 			return err
 		}
 		result.APIKeyQuotaExhausted = exhausted
 	}
 
-	if cmd.APIKeyRateLimitCost > 0 {
-		if err := incrementUsageBillingAPIKeyRateLimit(ctx, tx, cmd.APIKeyID, cmd.APIKeyRateLimitCost); err != nil {
+	if cmd.APIKeyRateLimitCost > 0 && !apiKeyDeleted {
+		err := incrementUsageBillingAPIKeyRateLimit(ctx, tx, cmd.APIKeyID, cmd.APIKeyRateLimitCost)
+		if errors.Is(err, service.ErrAPIKeyNotFound) {
+			apiKeyDeleted = true
+		} else if err != nil {
 			return err
 		}
+	}
+
+	if apiKeyDeleted {
+		logger.LegacyPrintf("repository.usage_billing", "[UsageBilling] api key deleted before settlement, charged without key quota/rate limit: key=%d request=%s", cmd.APIKeyID, cmd.RequestID)
 	}
 
 	if cmd.AccountQuotaCost > 0 && (strings.EqualFold(cmd.AccountType, service.AccountTypeAPIKey) || strings.EqualFold(cmd.AccountType, service.AccountTypeBedrock)) {
