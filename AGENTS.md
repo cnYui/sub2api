@@ -228,6 +228,16 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   兑换码已兑换/过期/停用时背面盖章。
 - 记录见 `docs/ai/context/20260923-215000-redeem-cards-3d-admin-page_CN.md`、`docs/ai/context/20260925-131500-redeem-card-3d-threejs-template_CN.md`。
 
+### 兑换码邮件发放（2026-09-25）
+
+- **站长要求发码不用 3D 兑换卡链接，直接把码写进邮件**。接口 `POST /api/v1/admin/redeem-codes/:id/send-email`，
+  body `{user_id}` 或 `{email}` 二选一（email 按注册邮箱查用户，不收站外地址），可选 `resend`，要带 `Idempotency-Key`。
+  只收**未使用**的正数普通余额码和余额套餐码；同步发送，SMTP 失败直接报错。前端暂无按钮。
+- 事件 `redeem.code_delivery`：**不可退订、不受 `purchase_notify_enabled` 开关控制**（码写在信里，退订了就等于没发）。
+  模板 `officialEmailRedeemCodeDelivery`，32 位码用 `emailHeroRedeemCode` 显示（中号等宽字，不插分隔符，整串可双击选中）。
+- **同一张码只认第一个收件人**：记录在 settings `redeem_code_delivery:<码ID>`。同一人再调返回 `already_sent`、不重发，
+  `resend:true` 才重发；换人一律 `409 REDEEM_CODE_ALREADY_DELIVERED`。码本身不绑定用户，谁拿到码都能兑换。
+
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 
 - 用户侧 `/reimbursement`，管理侧 `/admin/reimbursements`；表 `reimbursement_requests`（迁移 `214`）。状态只有 `pending`（用户侧显示「审核中」、管理侧「待处理」）和 `completed`。六字段：`company_name / tax_id / bank_account / bank_name / address / amount`。

@@ -288,6 +288,48 @@ func (h *RedeemHandler) resolveCreateAndRedeemExisting(ctx context.Context, exis
 	return nil, infraerrors.Conflict("REDEEM_CODE_CONFLICT", "redeem code already used by another user")
 }
 
+// SendRedeemCodeEmailRequest 把兑换码发到用户注册邮箱；user_id 与 email 二选一。
+type SendRedeemCodeEmailRequest struct {
+	UserID int64  `json:"user_id" binding:"omitempty,gt=0"`
+	Email  string `json:"email" binding:"omitempty,max=255"`
+	// Resend 给同一个收件人再发一次；已发给别人的码不会因此改发。
+	Resend bool `json:"resend"`
+}
+
+// SendEmail emails an unused redeem code to a registered user, with the code written in the email.
+// POST /api/v1/admin/redeem-codes/:id/send-email
+func (h *RedeemHandler) SendEmail(c *gin.Context) {
+	if h.redeemService == nil {
+		response.InternalError(c, "redeem service not configured")
+		return
+	}
+	codeID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || codeID <= 0 {
+		response.BadRequest(c, "Invalid redeem code ID")
+		return
+	}
+	var req SendRedeemCodeEmailRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	req.Email = strings.TrimSpace(req.Email)
+
+	// 幂等载荷要带上码 ID：同一个 Idempotency-Key 换一张码不能命中上一张的结果。
+	payload := struct {
+		CodeID int64 `json:"code_id"`
+		SendRedeemCodeEmailRequest
+	}{CodeID: codeID, SendRedeemCodeEmailRequest: req}
+	executeAdminIdempotentJSON(c, "admin.redeem_codes.send_email", payload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
+		return h.redeemService.DeliverByEmail(ctx, service.RedeemCodeDeliveryInput{
+			CodeID: codeID,
+			UserID: req.UserID,
+			Email:  req.Email,
+			Resend: req.Resend,
+		})
+	})
+}
+
 // Delete handles deleting a redeem code
 // DELETE /api/v1/admin/redeem-codes/:id
 func (h *RedeemHandler) Delete(c *gin.Context) {

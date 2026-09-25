@@ -544,6 +544,7 @@ func registerRedeemCodeRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		codes.POST("/batch-delete", h.Admin.Redeem.BatchDelete)
 		codes.POST("/batch-update", h.Admin.Redeem.BatchUpdate)
 		codes.POST("/:id/expire", h.Admin.Redeem.Expire)
+		codes.POST("/:id/send-email", h.Admin.Redeem.SendEmail)
 	}
 }
 

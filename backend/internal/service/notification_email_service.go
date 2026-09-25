@@ -35,6 +35,7 @@ const (
 	NotificationEmailEventBalancePackageCredited      = "payment.balance_package_credited"
 	NotificationEmailEventTrafficPackCredited         = "payment.traffic_pack_credited"
 	NotificationEmailEventRedeemBalanceCredited       = "redeem.balance_credited"
+	NotificationEmailEventRedeemCodeDelivery          = "redeem.code_delivery"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -991,6 +992,12 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"credit_usd":            "10.00",
 			"validity_days":         "30",
 			"redeem_code":           "********9F2C",
+
+			"full_redeem_code": "3f9a1c7e5b2d4a6c8e0f1a2b3c4d5e6f",
+			"reward_name":      "余额套餐 ¥29",
+			"reward_value":     "每期 $76.00 · 共 4 期",
+			"reward_note":      "兑换后第 1 期额度立即到账，之后每 7 天到账一期，共 4 期。",
+			"code_expires_at":  "长期有效",
 		}
 		addNotificationEmailOpsSummarySampleVariables(variables)
 		return variables
@@ -1061,6 +1068,12 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"credit_usd":            "10.00",
 		"validity_days":         "30",
 		"redeem_code":           "********9F2C",
+
+		"full_redeem_code": "3f9a1c7e5b2d4a6c8e0f1a2b3c4d5e6f",
+		"reward_name":      "Balance package ¥29",
+		"reward_value":     "$76.00 per period · 4 periods",
+		"reward_note":      "The first period is credited right after redemption, then one every 7 days, 4 periods in total.",
+		"code_expires_at":  "No expiry",
 	}
 	addNotificationEmailOpsSummarySampleVariables(variables)
 	return variables
@@ -1108,6 +1121,7 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventBalancePackageCredited,
 	NotificationEmailEventTrafficPackCredited,
 	NotificationEmailEventRedeemBalanceCredited,
+	NotificationEmailEventRedeemCodeDelivery,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
@@ -1149,6 +1163,16 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Optional:    true,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
 			"redeem_code", "credit_usd", "current_balance", "dashboard_url", "unsubscribe_url"),
+	},
+	// 码是写在邮件里的，用户退订了就等于没发，所以不可退订，也不受「到账成功通知」开关控制。
+	NotificationEmailEventRedeemCodeDelivery: {
+		Event:       NotificationEmailEventRedeemCodeDelivery,
+		Label:       "Redeem code delivery",
+		Description: "Sent when an admin emails an unused redeem code to a registered user. The full code is written in the email.",
+		Category:    "billing",
+		Optional:    false,
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
+			"full_redeem_code", "reward_name", "reward_value", "reward_note", "code_expires_at"),
 	},
 	NotificationEmailEventAuthVerifyCode: {
 		Event:        NotificationEmailEventAuthVerifyCode,
