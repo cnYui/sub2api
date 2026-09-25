@@ -180,12 +180,8 @@
                 <RedeemCardScaled :data="previewData" side="front" />
                 <RedeemCardScaled :data="previewData" side="back" :stamp="previewStamp" />
               </div>
-              <div
-                v-else
-                class="rounded-2xl px-6 pb-16 pt-10 sm:px-12"
-                :class="previewData.theme === 'dark' ? 'bg-[#0b0f15]' : 'bg-[#eef1f5]'"
-              >
-                <RedeemCard3D :data="previewData" :stamp="previewStamp" />
+              <div v-else class="aspect-[16/10] overflow-hidden rounded-2xl bg-[#e9e8e4]">
+                <RedeemCard3D :data="previewData" :stamp="previewStamp" :zoomable="false" />
               </div>
             </template>
             <div

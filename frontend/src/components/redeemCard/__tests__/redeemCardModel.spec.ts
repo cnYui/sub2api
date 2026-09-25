@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   CARD_HEIGHT,
-  CARD_RADIUS,
-  CARD_THICKNESS,
+  CARD_PX_PER_MM,
+  CARD_THICKNESS_MM,
   CARD_WIDTH,
-  borderColorAt,
-  cardEdgeSegments,
   codeFontSize,
   codeLines,
   codeStatusStamp,
@@ -16,9 +14,10 @@ import {
 } from '../redeemCardModel'
 
 describe('redeemCardModel', () => {
-  it('厚度按 0.6mm、20px/mm 换算成 12 个设计像素', () => {
-    expect(CARD_THICKNESS).toBe(12)
-    expect(CARD_WIDTH / CARD_HEIGHT).toBeCloseTo(85.6 / 54, 3)
+  it('卡面按 CR80（85.6 × 54 mm）、20px/mm 排版，厚度 0.6mm', () => {
+    expect(CARD_WIDTH / CARD_PX_PER_MM).toBeCloseTo(85.6, 6)
+    expect(CARD_HEIGHT / CARD_PX_PER_MM).toBeCloseTo(54, 6)
+    expect(CARD_THICKNESS_MM).toBe(0.6)
   })
 
   it('热力图 52 周 × 7 天，同一个种子画出同一张图，颜色只取当前主题的色阶', () => {
@@ -91,38 +90,5 @@ describe('redeemCardModel', () => {
     expect(codeStatusStamp('disabled')).toBe('已停用')
     expect(codeStatusStamp('unused')).toBe('')
     expect(codeStatusStamp(undefined)).toBe('')
-  })
-
-  it('描边颜色与 135° 渐变的三个色标一致', () => {
-    expect(borderColorAt(0, 0)).toBe('#2b8a99')
-    expect(borderColorAt(CARD_WIDTH, CARD_HEIGHT)).toBe('#8e2f72')
-    expect(borderColorAt(CARD_WIDTH / 2, CARD_HEIGHT / 2)).toBe('#3a3f6e')
-    expect(borderColorAt(0, 0, 0.5)).toBe('#16454d')
-  })
-
-  it('侧边小条沿圆角矩形外轮廓首尾相接，总长等于周长', () => {
-    const segments = cardEdgeSegments()
-    const W = CARD_WIDTH
-    const H = CARD_HEIGHT
-    const R = CARD_RADIUS
-    // 每条中心到圆角矩形轮廓的距离都应接近 0。
-    const distanceToOutline = (x: number, y: number) => {
-      const cx = Math.min(Math.max(x, R), W - R)
-      const cy = Math.min(Math.max(y, R), H - R)
-      const inCorner = (x < R || x > W - R) && (y < R || y > H - R)
-      if (inCorner) return Math.abs(Math.hypot(x - cx, y - cy) - R)
-      return Math.min(Math.abs(x), Math.abs(W - x), Math.abs(y), Math.abs(H - y))
-    }
-    for (const seg of segments) {
-      expect(distanceToOutline(seg.x, seg.y)).toBeLessThan(0.5)
-    }
-    const perimeter = 2 * (W - 2 * R) + 2 * (H - 2 * R) + 2 * Math.PI * R
-    const total = segments.reduce((sum, seg) => sum + seg.length - 1, 0)
-    expect(Math.abs(total - perimeter) / perimeter).toBeLessThan(0.002)
-
-    // 背面翻转过：左上角那条侧边，正面接的是描边起点色，背面接的是右上角的颜色。
-    const topLeft = segments.reduce((best, seg) => (seg.x + seg.y < best.x + best.y ? seg : best))
-    expect(topLeft.front).toBe(borderColorAt(topLeft.x, topLeft.y, 0.82))
-    expect(topLeft.back).toBe(borderColorAt(W - topLeft.x, topLeft.y, 0.82))
   })
 })

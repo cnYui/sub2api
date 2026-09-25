@@ -214,11 +214,18 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   在「卡面信息」里上传过自定义图的，要在那里重新上传。
 - 公开页取数**不走 `apiClient`**：它会带本地过期令牌 → 401 → 跳登录页；这里直接匿名 `fetch`。路由 meta `bare` 让 App 不弹公告。
   backend 模式下公开接口对非管理员 403，与模型广场同口径。
-- 3D：卡面按 1712×1080（20px/mm）排版后整体缩放，厚度 0.6mm = 12px，侧边是沿圆角轮廓立起的 108 个小条，
-  颜色取两面描边渐变。设计稿里兑换码面板的 `backdrop-filter` 换成了垫底色（视觉等价），
-  因为 iOS 上它和 3D 变换叠用会出渲染问题，别加回去。
-- 用户轻点背面的兑换码会复制（面板发绿光，不弹文字）；兑换码已兑换/过期/停用时背面盖章。
-- 记录见 `docs/ai/context/20260923-215000-redeem-cards-3d-admin-page_CN.md`。
+- 3D 照站长的 Claude Design 模板（`兑换卡 3D.html` + `three-d-stage.js`）用 three.js 做，版本锁 `0.184.0` 与模板一致。
+  几何、材质、灯光、取景、翻面动画全在 `frontend/src/components/redeemCard/cardStage.ts`，**参数是模板原值，改之前先对照模板**；
+  唯一的偏离是厚度用站长要的 0.6mm（模板滑杆默认 1.2mm）、关掉了平移。公开页背景是模板舞台的 `#e9e8e4`，黑白两版一样。
+- 卡面贴图是运行时把 `RedeemCardFace.vue` 的 DOM 用 `html2canvas-pro` 截成 2 倍图（3424×2160），所以改卡面样式会自动进 3D；
+  但它画不出 `backdrop-filter`、`mix-blend-mode`、`filter` 这类 CSS，**改卡面样式后要在 3D 里看一眼**。
+  兑换码面板的 `backdrop-filter` 早就换成了垫底色（视觉等价），别加回去。不支持 WebGL2 时退回平面卡（轻点翻面）。
+- `three` 和 `html2canvas-pro` 在 `vite.config.ts` 里单独分成 `lib-three` / `lib-html2canvas`，只有 3D 卡按需加载；
+  落进 `lib-misc` 会让每个页面多背约 800KB。⚠️ 手动跑 `vite build` 会优先读 gitignore 的 `vite.config.js`（`vue-tsc -b` 的旧产物），
+  分包看起来没生效；要走 `npm run build`（先 `vue-tsc -b` 再构建，Docker 里就是这样）。
+- 交互：拖动旋转、滚轮/双指缩放，开场缓慢自转、一碰就停；轻点卡片翻面；轻点背面的兑换码复制（面板发绿光，不弹文字）；
+  兑换码已兑换/过期/停用时背面盖章。
+- 记录见 `docs/ai/context/20260923-215000-redeem-cards-3d-admin-page_CN.md`、`docs/ai/context/20260925-131500-redeem-card-3d-threejs-template_CN.md`。
 
 ### 报销/开票申请（2026-09-15 上线，PR #34）
 
@@ -417,9 +424,6 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 
 ## 七、未完成
 
-- **兑换卡 3D 页还没对齐站长的 3D 模板**：站长给的是 Claude Design 链接（文件 `兑换卡 3D.html`），会话里读不到
-  （DesignSync 只能在 `/design-sync` 里用，内置浏览器没登录 claude.ai），现在的 3D 效果是按「厚度 0.6mm、页面只留卡片」自行实现的。
-  拿到导出的 HTML 后按模板调 `frontend/src/components/redeemCard/RedeemCard3D.vue`。
 - **`deepseek-v4-flash` 自 2026-09-16 前起调不通**（上游 #6 `api.ai-genesis.app` 已改名为 `deepseek-flash`，请求旧名回 `model_not_found`，我方对用户表现为 502，失败请求不扣费）。管理员要求「用户仍请求 `deepseek-v4-flash`、内部转 `deepseek-flash`」。**修复方案待管理员拍板**，原因见坑 28：只加账号映射会按目录里 `deepseek-flash` 的价扣费。两个干净方案：① 分组 8 移出共享渠道 3、单建 `billing_model_source=requested` 的 DeepSeek 渠道并显式登记现价（无需部署；改渠道 3 被自动权限拦下，需管理员确认）；② 代码里把 `deepseek-flash` 加进 `usesCalibratedFallbackPricing` 和 `getFallbackPricing`，当作 v4-flash 别名（需出镜像）。**两种方案都要等计费修好，才能在 #6 上加映射。**
   另一条路：火神分组 77 自 2026-09-17 起**仍以原名**提供 `deepseek-v4-flash`，可以引导用户切过去。
 - **广场上 `deepseek-v4-flash` 的「官方」列仍是过时价**：

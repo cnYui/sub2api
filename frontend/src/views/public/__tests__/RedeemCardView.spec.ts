@@ -1,5 +1,5 @@
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import RedeemCardView from '../RedeemCardView.vue'
 import { defaultRedeemCardProfile, emptyRedeemCardContent } from '@/components/redeemCard/redeemCardModel'
@@ -26,10 +26,12 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+const CODE = 'a3f9c2e17b4d58e0c6a1f93b2d7e4c85'
+
 function publicCard(overrides: Record<string, unknown> = {}) {
   return {
     theme: 'dark',
-    code: 'a3f9c2e17b4d58e0c6a1f93b2d7e4c85',
+    code: CODE,
     code_status: 'unused',
     content: { ...emptyRedeemCardContent(), amount: '$10', plan: '余额充值' },
     profile: defaultRedeemCardProfile(),
@@ -40,6 +42,12 @@ function publicCard(overrides: Record<string, unknown> = {}) {
 describe('RedeemCardView', () => {
   beforeEach(() => {
     getPublicRedeemCard.mockReset()
+    // jsdom 没有 WebGL：3D 卡会退回平面卡，正好用来测交互。
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('页面上只有卡片：卡面之外没有任何文字', async () => {
@@ -52,23 +60,12 @@ describe('RedeemCardView', () => {
     const card = page.get('.rcv-card')
     expect(page.text()).toBe(card.text())
     expect(page.find('.rcv-error').exists()).toBe(false)
-    // 兑换码按原文印在背面，未使用时不盖章。
-    expect(card.text().replace(/\s/g, '')).toContain('a3f9c2e17b4d58e0c6a1f93b2d7e4c85')
+    // 截贴图用的卡面：兑换码按原文印在背面，未使用时不盖章，读屏软件不读它。
+    const capture = card.get('[data-rc-capture]')
+    expect(capture.attributes('aria-hidden')).toBe('true')
+    expect(capture.findAll('.rc-face')).toHaveLength(2)
+    expect(capture.text().replace(/\s/g, '')).toContain(CODE)
     expect(card.find('.rc-stamp').exists()).toBe(false)
-  })
-
-  it('厚度 0.6mm：两面各离中面 6 个设计像素，侧边小条高 12 个设计像素', async () => {
-    getPublicRedeemCard.mockResolvedValue(publicCard())
-    const wrapper = mount(RedeemCardView)
-    await flushPromises()
-
-    const faces = wrapper.findAll('.rc3d-face')
-    expect(faces).toHaveLength(2)
-    expect(faces[0].attributes('style')).toContain('translateZ(6px)')
-    expect(faces[1].attributes('style')).toContain('rotateY(180deg) translateZ(6px)')
-    const edges = wrapper.findAll('.rc3d-edge')
-    expect(edges.length).toBeGreaterThan(50)
-    expect(edges.every((edge) => (edge.attributes('style') ?? '').includes('height: 12px'))).toBe(true)
   })
 
   it('兑换码已兑换时在背面盖章', async () => {
@@ -76,8 +73,31 @@ describe('RedeemCardView', () => {
     const wrapper = mount(RedeemCardView)
     await flushPromises()
 
-    expect(wrapper.get('main').classes()).toContain('rcv-light')
-    expect(wrapper.get('.rc-stamp').text()).toBe('已兑换')
+    expect(wrapper.get('[data-rc-capture] .rc-back .rc-stamp').text()).toBe('已兑换')
+  })
+
+  it('WebGL 不可用时退回平面卡：轻点翻面，背面轻点兑换码复制并发绿光', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true })
+    Object.defineProperty(window.navigator, 'clipboard', { value: { writeText }, configurable: true })
+    getPublicRedeemCard.mockResolvedValue(publicCard())
+    const wrapper = mount(RedeemCardView)
+    await flushPromises()
+
+    const fallback = wrapper.get('.rc3d-fallback-card')
+    expect(fallback.find('.rc-front').exists()).toBe(true)
+
+    await fallback.trigger('click')
+    expect(fallback.find('.rc-back').exists()).toBe(true)
+
+    await fallback.get('.rc-code-panel').trigger('click')
+    await flushPromises()
+    expect(writeText).toHaveBeenCalledWith(CODE)
+    expect(fallback.classes()).toContain('rc3d-copied')
+    // 复制不翻面。
+    expect(fallback.find('.rc-back').exists()).toBe(true)
+    Reflect.deleteProperty(window, 'isSecureContext')
+    Reflect.deleteProperty(window.navigator, 'clipboard')
   })
 
   it('链接被撤销时只显示一句说明', async () => {

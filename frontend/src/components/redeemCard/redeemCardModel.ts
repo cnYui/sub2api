@@ -34,11 +34,9 @@ export interface RedeemCardData {
 
 export const CARD_WIDTH = 1712
 export const CARD_HEIGHT = 1080
-export const CARD_RADIUS = 64
 export const CARD_PX_PER_MM = 20
-// 站长要求卡片厚度 0.6mm。
+// 站长要求卡片厚度 0.6mm（3D 模板的厚度滑杆最小值）。
 export const CARD_THICKNESS_MM = 0.6
-export const CARD_THICKNESS = CARD_THICKNESS_MM * CARD_PX_PER_MM
 
 // 二维码没有上传自定义图片时，使用站点邮件里同一套图片。
 export const DEFAULT_QR_IMAGES = {
@@ -182,89 +180,16 @@ export function codeStatusStamp(status: string | null | undefined): string {
   return CODE_STATUS_STAMPS[status ?? ''] ?? ''
 }
 
-// 卡面描边是 135° 渐变：色标 0% / 50% / 100%。
-const BORDER_STOPS: Array<[number, [number, number, number]]> = [
-  [0, [0x2b, 0x8a, 0x99]],
-  [0.5, [0x3a, 0x3f, 0x6e]],
-  [1, [0x8e, 0x2f, 0x72]]
-]
-
-function toHex(value: number): string {
-  return Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, '0')
-}
-
-// 卡面 (x, y) 处的描边颜色。135° 渐变在 W×H 的盒子上恰好是 t = (x + y) / (W + H)。
-// shade < 1 时整体压暗，侧边用它做出比卡面略深的「截面」。
-export function borderColorAt(x: number, y: number, shade = 1): string {
-  const t = Math.min(1, Math.max(0, (x + y) / (CARD_WIDTH + CARD_HEIGHT)))
-  let i = 0
-  while (i < BORDER_STOPS.length - 2 && t > BORDER_STOPS[i + 1][0]) i++
-  const [t0, c0] = BORDER_STOPS[i]
-  const [t1, c1] = BORDER_STOPS[i + 1]
-  const k = (t - t0) / (t1 - t0)
-  return `#${c0.map((v, j) => toHex((v + (c1[j] - v) * k) * shade)).join('')}`
-}
-
-// 3D 卡片的侧边：沿圆角矩形外轮廓切成若干竖直的小条，每条立在卡面上、高度即卡片厚度。
-// x / y 是小条中心在卡面上的位置，angle 是小条沿轮廓的走向（度）。
-// front / back 分别是这一点在正面、背面的描边颜色（背面翻转过，同一点左右对调），
-// 侧边从背面颜色过渡到正面颜色，转到任何角度都和两面的描边接得上。
-export interface CardEdgeSegment {
+// 卡面上一块区域（设计像素，左上角为原点），3D 卡用它判断轻点是否落在兑换码面板上。
+export interface FaceRegion {
   x: number
   y: number
-  length: number
-  angle: number
-  front: string
-  back: string
+  width: number
+  height: number
+  radius: number
 }
 
-// 相邻小条略微重叠，避免斜着看时露出缝。
-const EDGE_OVERLAP = 1
-
-export function cardEdgeSegments(options: { sideSegments?: number; cornerSegments?: number; shade?: number } = {}): CardEdgeSegment[] {
-  const W = CARD_WIDTH
-  const H = CARD_HEIGHT
-  const R = CARD_RADIUS
-  const cornerSegments = options.cornerSegments ?? 8
-  const sideLength = options.sideSegments ?? 66
-  const shade = options.shade ?? 0.82
-  const segments: CardEdgeSegment[] = []
-  const push = (x: number, y: number, length: number, angle: number) => {
-    segments.push({
-      x,
-      y,
-      length: length + EDGE_OVERLAP,
-      angle,
-      front: borderColorAt(x, y, shade),
-      back: borderColorAt(W - x, y, shade)
-    })
-  }
-  const line = (x1: number, y1: number, x2: number, y2: number) => {
-    const total = Math.hypot(x2 - x1, y2 - y1)
-    const n = Math.max(1, Math.round(total / sideLength))
-    const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI
-    for (let i = 0; i < n; i++) {
-      const t = (i + 0.5) / n
-      push(x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, total / n, angle)
-    }
-  }
-  const corner = (cx: number, cy: number, fromDeg: number) => {
-    const step = 90 / cornerSegments
-    const chord = 2 * R * Math.sin(((step / 2) * Math.PI) / 180)
-    for (let i = 0; i < cornerSegments; i++) {
-      const deg = fromDeg + step * (i + 0.5)
-      const rad = (deg * Math.PI) / 180
-      push(cx + R * Math.cos(rad), cy + R * Math.sin(rad), chord, deg + 90)
-    }
-  }
-  // 顺时针：上边、右上角、右边、右下角、下边、左下角、左边、左上角（y 轴向下）。
-  line(R, 0, W - R, 0)
-  corner(W - R, R, 270)
-  line(W, R, W, H - R)
-  corner(W - R, H - R, 0)
-  line(W - R, H, R, H)
-  corner(R, H - R, 90)
-  line(0, H - R, 0, R)
-  corner(R, R, 180)
-  return segments
+export function regionContains(region: FaceRegion, x: number, y: number): boolean {
+  return x >= region.x && x <= region.x + region.width && y >= region.y && y <= region.y + region.height
 }
+
