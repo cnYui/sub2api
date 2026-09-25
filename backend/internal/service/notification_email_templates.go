@@ -65,6 +65,10 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 		notificationEmailDefaultLocale: {Subject: "[{{site_name}}] ${{credit_usd}} credited to your balance", HTML: officialEmailRedeemBalanceCredited(notificationEmailDefaultLocale)},
 		notificationEmailLocaleChinese: {Subject: "[{{site_name}}] 兑换成功，余额到账 ${{credit_usd}}", HTML: officialEmailRedeemBalanceCredited(notificationEmailLocaleChinese)},
 	},
+	NotificationEmailEventRedeemCodeDelivery: {
+		notificationEmailDefaultLocale: {Subject: "[{{site_name}}] Your redeem code for {{reward_name}}", HTML: officialEmailRedeemCodeDelivery(notificationEmailDefaultLocale)},
+		notificationEmailLocaleChinese: {Subject: "[{{site_name}}] 您的兑换码已送达：{{reward_name}}", HTML: officialEmailRedeemCodeDelivery(notificationEmailLocaleChinese)},
+	},
 	NotificationEmailEventReimbursementCompleted: {
 		notificationEmailDefaultLocale: {Subject: "[{{site_name}}] Invoice ready for request #{{request_id}}", HTML: officialEmailReimbursementCompleted(notificationEmailDefaultLocale)},
 		notificationEmailLocaleChinese: {Subject: "[{{site_name}}] 开票申请 #{{request_id}} 的发票已上传", HTML: officialEmailReimbursementCompleted(notificationEmailLocaleChinese)},
@@ -569,6 +573,48 @@ func officialEmailRedeemBalanceCredited(locale string) string {
 		body:        emailButton("View my balance", "{{dashboard_url}}"),
 		showQRCodes: true,
 		unsubscribe: "Unsubscribe from these notices",
+	}.render()
+}
+
+// officialEmailRedeemCodeDelivery 是管理员把未使用的兑换码直接发到用户邮箱的那封信，码以明文写在面板里。
+// reward_* 由发送方按码的类型（余额套餐 / 普通余额）生成，模板本身不区分类型；
+// 这几个值都会被转义，不能带 HTML。
+func officialEmailRedeemCodeDelivery(locale string) string {
+	if emailIsChinese(locale) {
+		return emailPage{
+			locale:    locale,
+			title:     "兑换码已送达",
+			eyebrow:   "兑换码",
+			preheader: "您的 {{reward_name}} 兑换码已送达，登录后在「兑换码」页面输入即可使用。",
+			intro:     emailGreeting(true, "这是发给您的 <strong>{{reward_name}}</strong> 兑换码，登录 {{site_name}} 后在「兑换码」页面输入即可使用。"),
+			band: emailHeroRedeemCode("兑换码", "{{full_redeem_code}}") + emailStats(
+				emailStat{label: "兑换内容", value: "{{reward_name}}"},
+				emailStat{label: "额度", value: "{{reward_value}}"},
+				emailStat{label: "兑换截止", value: "{{code_expires_at}}", narrow: true},
+			) + emailBandNote("{{reward_note}}"),
+			body: emailLabel("兑换步骤", "padding-bottom:6px;") +
+				emailParagraph("1. 用收到这封邮件的邮箱登录 {{site_name}}；<br>2. 打开「兑换码」页面，粘贴上面的兑换码并确认；<br>3. 兑换成功后立即生效，到账情况会另发邮件通知。") +
+				emailButton("去兑换", "{{site_url}}/redeem") +
+				emailMuted("兑换码只能使用一次，请妥善保管，不要转发给他人。"),
+			showQRCodes: true,
+		}.render()
+	}
+	return emailPage{
+		locale:    locale,
+		title:     "Your redeem code",
+		eyebrow:   "REDEEM CODE",
+		preheader: "Your {{reward_name}} redeem code is here. Sign in and enter it on the Redeem page.",
+		intro:     emailGreeting(false, "Here is your <strong>{{reward_name}}</strong> redeem code. Sign in to {{site_name}} and enter it on the Redeem page."),
+		band: emailHeroRedeemCode("Redeem code", "{{full_redeem_code}}") + emailStats(
+			emailStat{label: "Reward", value: "{{reward_name}}"},
+			emailStat{label: "Credit", value: "{{reward_value}}"},
+			emailStat{label: "Redeem by", value: "{{code_expires_at}}", narrow: true},
+		) + emailBandNote("{{reward_note}}"),
+		body: emailLabel("HOW TO REDEEM", "padding-bottom:6px;") +
+			emailParagraph("1. Sign in to {{site_name}} with the address this email was sent to.<br>2. Open the Redeem page, paste the code above and confirm.<br>3. It takes effect right away; you will get a separate email once it is credited.") +
+			emailButton("Redeem now", "{{site_url}}/redeem") +
+			emailMuted("The code can be used only once. Keep it safe and do not share it."),
+		showQRCodes: true,
 	}.render()
 }
 

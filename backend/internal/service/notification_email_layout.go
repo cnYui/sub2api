@@ -48,6 +48,7 @@ a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important
 .h1{font-size:25px!important}
 .pn{padding:22px 14px 20px!important}
 .amt{font-size:44px!important}
+.rc{font-size:16px!important;letter-spacing:0!important}
 .no{font-size:14px!important}
 .bt{width:100%!important}
 .ba{display:block!important}
@@ -251,6 +252,13 @@ func emailHero(label, value string) string {
 func emailHeroCode(label, value string) string {
 	return emailPanel(emailLabel(label, "") + `
 <div class="amt" style="padding-top:8px;font-family:` + emailFontMono + `;font-size:54px;line-height:1.15;font-weight:700;letter-spacing:.18em;color:#0d1117;text-shadow:-3px -2px 0 #17e0f8,3px 2px 0 #ff1fd3;word-break:break-all;">` + value + `</div>`)
+}
+
+// emailHeroRedeemCode 用于兑换码：32 位长码放不进验证码那种大字，改用中号等宽字、任意位置折行。
+// 码里不插空格或分隔符（兑换按原文精确匹配），整串是一个"单词"，双击或长按就能选中全部。
+func emailHeroRedeemCode(label, value string) string {
+	return emailPanel(emailLabel(label, "") + `
+<div class="rc" style="padding-top:12px;font-family:` + emailFontMono + `;font-size:22px;line-height:1.5;font-weight:700;letter-spacing:.04em;color:#0d1117;word-break:break-all;">` + value + `</div>`)
 }
 
 func emailPanel(inner string) string {

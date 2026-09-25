@@ -383,6 +383,12 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
       "兑换码为账户加余额成功后发送；后台手工补扣用的负数兑换码不会触发。",
     categoryLabel: "计费",
   },
+  "redeem.code_delivery": {
+    label: "兑换码发放",
+    timing:
+      "管理员把未使用的兑换码发到用户注册邮箱时发送，完整兑换码写在邮件里；只支持普通余额码和余额套餐码，不可退订。",
+    categoryLabel: "计费",
+  },
   "account.quota_alert": {
     label: "账号限额告警",
     timing: "上游账号的用量达到配置的额度告警阈值时发送给管理员通知邮箱。",
@@ -447,6 +453,12 @@ const eventDisplayMetaEn: Record<string, EventDisplayMeta> = {
     label: "Redeem Code Credited",
     timing:
       "Sent when a redeem code tops up the account balance. Negative admin back-charge codes never trigger it.",
+    categoryLabel: "Billing",
+  },
+  "redeem.code_delivery": {
+    label: "Redeem Code Delivery",
+    timing:
+      "Sent when an admin emails an unused redeem code to a user's registered address, with the full code in the email. Only balance and balance package codes; cannot be unsubscribed.",
     categoryLabel: "Billing",
   },
   "balance.low": {
