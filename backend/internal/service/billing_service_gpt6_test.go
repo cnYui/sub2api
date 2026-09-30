@@ -141,6 +141,24 @@ func TestIsOpenAIGPT6Model(t *testing.T) {
 	}
 }
 
+func TestGetModelPricing_GPT6SolAndLunaHaveDistinctFallbackPrices(t *testing.T) {
+	svc := newTestBillingService()
+	for _, tc := range []struct {
+		model         string
+		input, output float64
+	}{
+		{model: "gpt-6-sol", input: 2e-6, output: 10e-6},
+		{model: "gpt-6-luna", input: 0.1e-6, output: 0.5e-6},
+	} {
+		pricing, err := svc.GetModelPricing(tc.model)
+		require.NoError(t, err)
+		require.NotNil(t, pricing)
+		require.InDelta(t, tc.input, pricing.InputPricePerToken, 1e-12)
+		require.InDelta(t, tc.output, pricing.OutputPricePerToken, 1e-12)
+		require.Equal(t, 272000, pricing.LongContextInputThreshold)
+	}
+}
+
 // 目录完全不可用时（远端同步失败、条目被删），硬编码 fallbackPrices 是最后一道正确价来源。
 // 这条走的是取价链的第三级，生产上只有目录失效时才会命中。
 func TestGetModelPricing_GPT6FallbackWhenCatalogUnavailable(t *testing.T) {

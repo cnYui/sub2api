@@ -72,6 +72,10 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	switch {
 	case strings.Contains(normalized, "gpt-6-astra"):
 		return "gpt-6-astra"
+	case strings.Contains(normalized, "gpt-6-sol"):
+		return "gpt-6-sol"
+	case strings.Contains(normalized, "gpt-6-luna"):
+		return "gpt-6-luna"
 	case normalized == "gpt-6":
 		// 裸族名归到当家型号，与 gpt-5.6 → gpt-5.6-sol 的既有处理一致。
 		return "gpt-6-astra"
@@ -129,6 +133,16 @@ func isOpenAIGPT6Model(model string) bool {
 		return true
 	}
 	return normalized == "gpt-6-astra" || strings.HasPrefix(normalized, "gpt-6-astra-")
+}
+
+func isOpenAIGPT6SolModel(model string) bool {
+	normalized := canonicalizeOpenAIModelAliasSpelling(model)
+	return normalized == "gpt-6-sol" || strings.HasPrefix(normalized, "gpt-6-sol-")
+}
+
+func isOpenAIGPT6LunaModel(model string) bool {
+	normalized := canonicalizeOpenAIModelAliasSpelling(model)
+	return normalized == "gpt-6-luna" || strings.HasPrefix(normalized, "gpt-6-luna-")
 }
 
 // isOpenAIGPT56Model 判断是否 GPT-5.6 系列模型；入参可为原始模型名
