@@ -162,6 +162,9 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
   **监控按分组自动同步**（迁移 216，`channel_monitor_group_sync.go`）：每个启用分组 × 每个可用 API Key 账号一条监控，名称 = 分组名，模型 = 账号白名单（渠道开了 `restrict_models` 时再与渠道定价取交集），直接用账号的上游地址、key 和 `user_agent` 探测；调度器每 10 分钟同步一次，后台「从分组同步」按钮可立即同步。分组停用 / 账号解绑后对应监控自动停用。**同步监控的名称、地址、key、模型、启用状态都会被下次同步覆盖**，要改模型就改账号白名单，只有主模型（仍在白名单内时）、间隔、抖动的手改会保留。`source_group_id` 为空的是手工监控，同步不碰。
 - 购买页余额套餐与流量卡**必须复用** `frontend/src/components/payment/PurchaseProductCard.vue`，禁止新增平行卡片样式。
 - 商品当前只有余额套餐和流量卡；普通余额 / 旧订阅后端不再兼容，历史字段仅保留只读查询。
+- **使用方法页「生图方法」教程**（`frontend/src/views/user/UsageGuideView.vue` 的 `image-generation` 主题）写死了生图分组名「GPT生图1倍率」、4 个生图模型 ID 和 1K/2K/4K 分档规则。
+  分组 12 改名、白名单增减或生图计费口径变化时要同步改它。2026-07 的旧版没人同步，留下了已不存在的套餐档位和 Token 计费说法，08-05 被隐藏；
+  2026-10-09 按现状重写并恢复，见 `docs/ai/context/20261009-121859-usage-guide-image-generation-restore_CN.md`。
 
 ### 购买/到账成功邮件通知（2026-09-22 实现）
 
