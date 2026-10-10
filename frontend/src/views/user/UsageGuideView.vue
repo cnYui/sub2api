@@ -371,6 +371,66 @@ const codexGptSetupSteps: GuideStep[] = [
   },
 ]
 
+const imageEndpointRows: GuideEndpointRow[] = [
+  {
+    label: '文字生图',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/generations',
+    meaning: '只用文字描述生成新图片。',
+  },
+  {
+    label: '图生图',
+    method: 'POST',
+    url: 'https://api.aaccx.pw/v1/images/edits',
+    meaning: '传入参考图，按描述修改它；可以再传 mask 只改局部。',
+  },
+  {
+    label: '可用模型',
+    method: 'GET',
+    url: 'https://api.aaccx.pw/v1/models',
+    meaning: '查看当前 Key 实际能用的模型，用来确认选对了分组。',
+  },
+]
+
+const imageGenerateCurlExample = `curl https://api.aaccx.pw/v1/images/generations \\
+  -H "Authorization: Bearer sk-xxxx" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "一只戴着宇航员头盔的橘猫，扁平插画风格",
+    "size": "1024x1024"
+  }' \\
+  -o result.json
+
+# 需要已安装 jq：把返回里的 base64 解码成图片文件
+jq -r '.data[0].b64_json' result.json | base64 -d > cat.png`
+
+const imageGeneratePythonExample = `import base64
+import requests
+
+API_KEY = "sk-xxxx"  # 换成「GPT生图1倍率」分组的 Key，不要写进公开仓库
+
+resp = requests.post(
+    "https://api.aaccx.pw/v1/images/generations",
+    headers={"Authorization": f"Bearer {API_KEY}"},
+    json={
+        "model": "gpt-image-2",
+        "prompt": "一只戴着宇航员头盔的橘猫，扁平插画风格",
+        "size": "1024x1024",
+    },
+    timeout=300,
+)
+if resp.status_code != 200:
+    raise SystemExit(f"请求失败 {resp.status_code}: {resp.text}")
+
+item = resp.json()["data"][0]
+if item.get("b64_json"):
+    with open("cat.png", "wb") as f:
+        f.write(base64.b64decode(item["b64_json"]))
+    print("已保存 cat.png")
+else:
+    print("图片链接：", item["url"])`
+
 const imageEditRequestExample = `# JSON 方式：适合已经有公网图片链接
 curl https://api.aaccx.pw/v1/images/edits \\
   -H "Authorization: Bearer sk-xxxx" \\
@@ -383,8 +443,7 @@ curl https://api.aaccx.pw/v1/images/edits \\
         "image_url": "https://example.com/input.png"
       }
     ],
-    "size": "1024x1024",
-    "response_format": "b64_json"
+    "size": "1024x1024"
   }'
 
 # multipart 方式：适合直接上传本地图片
@@ -393,8 +452,7 @@ curl https://api.aaccx.pw/v1/images/edits \\
   -F "model=gpt-image-2" \\
   -F "prompt=把这张图改成黑白极简海报风格，保留主体轮廓" \\
   -F "image=@/absolute/path/input.png" \\
-  -F "size=1024x1024" \\
-  -F "response_format=b64_json"`
+  -F "size=1024x1024"`
 
 const formalAPIEndpointRows: GuideEndpointRow[] = [
   {
@@ -680,7 +738,7 @@ const deepseekHarnessSetupSteps: GuideStep[] = [
   },
 ]
 
-const allGuideTopics: GuideTopic[] = [
+const guideTopics: GuideTopic[] = [
   {
     id: 'deepseek-harness',
     title: 'DeepSeek Harness 接入中转站 DeepSeek 模型',
@@ -827,32 +885,73 @@ const allGuideTopics: GuideTopic[] = [
   {
     id: 'image-generation',
     title: '生图方法',
-    updatedAt: '2026-07-07',
-    description: '使用现有 API Key 调用 OpenAI 兼容图生图接口，并了解图片额度扣费方式。',
+    updatedAt: '2026-10-09',
+    description: '用「GPT生图1倍率」分组的 API Key 调用文字生图和图生图接口，了解可用模型、按张计费规则和常见报错。',
     kind: 'sections',
     sections: [
       {
-        title: '可用范围',
+        title: '先创建生图专用的 API Key',
         paragraphs: [
-          '29/39/59/79/99 元套餐已支持生图和图生图，使用你已经生成的 API Key 即可直接请求图片接口。',
-          '客户端 Base URL 填 https://api.aaccx.pw/v1，不需要更换新的服务端点；分开填写接口路径时不要再追加一次 /v1。',
+          '生图只对「GPT生图1倍率」分组开放。其它分组（GPT、Claude、Grok、国产模型等）的 Key 没有生图权限，请求图片接口会直接返回 403：Image generation is not enabled for this group。',
+          '创建方法：登录后点击左侧「API 密钥」，再点「创建密钥」，在「分组」下拉框里选「GPT生图1倍率」，起个好认的名称后点「创建」，复制生成的 sk- 开头的密钥。建议专门新建一个生图 Key；如果把已有的聊天或写代码 Key 直接改选成生图分组，它原来的用途就用不了了。',
+          '客户端里的 Base URL 填 https://api.aaccx.pw/v1；工具把 Base URL 和接口路径分开填写时，路径只填 /images/generations 或 /images/edits，不要再多写一次 /v1。',
+          '配好之后先请求一次 GET https://api.aaccx.pw/v1/models 自检：返回里应当有下面列出的 4 个生图模型。看到的是别的模型，说明这个 Key 选错了分组。',
         ],
       },
       {
-        title: '接口与扣费',
+        title: '可用模型与计费',
         paragraphs: [
-          '图生图编辑接口：如果客户端把 Base URL 和路径分开填写，接口路径填 /images/edits；如果工具要求完整 URL，使用 https://api.aaccx.pw/v1/images/edits。模型填写 gpt-image-2。',
-          'JSON 请求可传 images[].image_url，上传本地文件时改用 multipart 的 image=@...；需要局部修改时可以再加 mask。',
-          '图片生成按上游实际返回的 Token 用量和套餐有效倍率计费；图片数量和文件大小不作为单独收费单位。',
+          '目前可用 4 个生图模型，model 要一字不差：gpt-image-2、gpt-image-1.5、gpt-image-2.5-flare、gpt-image-2.5-sunburst。不写 model 时默认用 gpt-image-2；没有开放的名字（比如 gpt-image-1）会返回 404。',
+          '按张计费：成功生成一张图，就按一张图的单价扣费，和提示词长短、参考图大小、Token 数都无关。目前四个模型的单价相同。',
+          '单价按图片尺寸分三档：最长边不超过 1024 像素算 1K，不超过 2048 像素算 2K，再大算 4K。例如 1024x1024 是 1K，1536x1024 是 2K，3840x2160 是 4K；系统判断不出尺寸时按 2K 计。档位越高单价越高，具体数字看「模型广场」里「GPT生图1倍率」分组。',
+          '一次要多张图（n 大于 1）时，每张各算一次钱。没有产出图片的失败请求（上游出错、超时、被内容审核拦截等）不扣费。生图和文字模型共用同一份余额与流量卡额度，额度用完后请求会被拒绝。',
         ],
       },
       {
-        title: '请求示例',
+        title: '接口地址',
         paragraphs: [
-          '把示例中的 sk-xxxx 换成你自己的 API Key。不要在公开文档、聊天或截图里展示完整密钥。',
-          '如果你只是想从文字直接生成图片，文本生图完整 URL 是 https://api.aaccx.pw/v1/images/generations；在分离填写的工具里接口路径填 /images/generations。',
+          '认证方式和其它接口一样：请求头带 Authorization: Bearer sk-xxxx。把 sk-xxxx 换成你自己的 Key，不要在公开文档、聊天或截图里展示完整密钥。',
+        ],
+        endpointRows: imageEndpointRows,
+      },
+      {
+        title: '文字生图',
+        paragraphs: [
+          '请求体至少要有 prompt。常用字段：model、prompt、size（如 1024x1024 方图、1536x1024 横图、1024x1536 竖图，不写则由模型自行决定）、n（张数，默认 1）。各模型支持的具体尺寸以上游为准，不支持的尺寸会被拒绝。',
+          '成功时返回 JSON，图片在 data[0].b64_json 里，是 base64 文本，需要解码后存成 png 文件；某次返回的是 data[0].url 的话，直接下载这个链接。不需要传 response_format。',
+          '生成一张图通常要几十秒，客户端超时请设长一些（建议 300 秒）。超过约两分钟还没返回，可能收到 524 或 502，这次不会扣费，换小一点的尺寸或稍后重试。',
+          '下面的 curl 示例用 bash 的续行符 \\，macOS、Linux 和 Git Bash 可以直接用；Windows PowerShell 请用下一节的 Python 示例。',
+        ],
+        code: imageGenerateCurlExample,
+      },
+      {
+        title: 'Python 示例（保存图片）',
+        paragraphs: [
+          '用 requests 发请求，并把返回的 base64 存成图片，Windows、macOS、Linux 通用。先 pip install requests，再把 API_KEY 换成你的生图 Key。请求失败时会直接打印返回内容，可以对照最后一节「常见报错」排查。',
+        ],
+        code: imageGeneratePythonExample,
+      },
+      {
+        title: '图生图',
+        paragraphs: [
+          '图生图用 /v1/images/edits，model 同样选上面 4 个之一。有两种传图方式：JSON 方式用 images[].image_url 传一个能公开访问的图片链接；multipart 方式直接上传本地文件，文件字段名叫 image。',
+          '只想改图的一部分时，再多传一个 mask：JSON 方式写 mask.image_url，multipart 方式上传名为 mask 的文件。',
+          '图生图同样按张计费，档位看输出图的尺寸，参考图的大小和数量不另收费。返回格式与文字生图相同。',
         ],
         code: imageEditRequestExample,
+      },
+      {
+        title: '常见报错',
+        paragraphs: [
+          '出错时先看返回 JSON 里的 code 和 message，对照下面几条；认证、额度等通用错误见「错误编号参考」。',
+          '403 permission_error（Image generation is not enabled for this group）：这个 Key 所属分组没有生图权限，改用「GPT生图1倍率」分组的 Key。',
+          '404 model_not_found：模型没有开放，例如 gpt-image-1。model 只能填 gpt-image-2、gpt-image-1.5、gpt-image-2.5-flare、gpt-image-2.5-sunburst。',
+          '400 invalid_request_error：请求参数不符合要求，例如 model 填成了文字模型、图生图缺少 images[].image_url 或 image 文件、用了不支持的 file_id，或尺寸不被支持；按返回的 message 逐项检查。',
+          '400 content_policy_violation：提示词或参考图被内容审核拦截，改写描述后重试。',
+          '429 rate_limit_error（Image generation concurrency limit exceeded）：同一时间生成的图片太多，等几秒再重试，不要一次并发提交很多张。',
+          '403 INSUFFICIENT_BALANCE：普通余额和流量卡额度都不足，充值或购买流量卡后再试。',
+          '502、503、504 upstream_error，或 524：上游暂时不可用，或这次生成耗时过长（Cloudflare 约两分钟没收到响应会返回 524）。没出图就不扣费，稍后重试，或先用 1024x1024 小尺寸。',
+        ],
       },
     ],
   },
@@ -882,10 +981,7 @@ const allGuideTopics: GuideTopic[] = [
   },
 ]
 
-const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])
-const guideTopics = allGuideTopics
-  .filter((topic) => !hiddenGuideTopicIds.has(topic.id))
-  .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+guideTopics.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 
 const activeTopicId = ref(guideTopics[0].id)
 

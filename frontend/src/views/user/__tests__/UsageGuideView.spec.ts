@@ -2,7 +2,10 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
+
+import UsageGuideView from '../UsageGuideView.vue'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const viewPath = resolve(currentDir, '../UsageGuideView.vue')
@@ -26,6 +29,15 @@ describe('UsageGuideView', () => {
       "id: 'copilot-vscode'",
       "id: 'error-codes'",
       "id: 'image-generation'",
+      "title: '生图方法'",
+      'const imageEndpointRows: GuideEndpointRow[]',
+      '403 permission_error',
+      'GPT生图1倍率',
+      'gpt-image-2.5-flare',
+      'gpt-image-2.5-sunburst',
+      'https://api.aaccx.pw/v1/images/generations',
+      'https://api.aaccx.pw/v1/images/edits',
+      'Image generation is not enabled for this group',
       "id: 'trae'",
       "id: 'claude-desktop'",
       "title: 'Claude Desktop 接入中转站 Claude 渠道模型方法'",
@@ -36,7 +48,6 @@ describe('UsageGuideView', () => {
       'const codexGptSetupSteps: GuideStep[]',
       '请求地址填写 https://api.aaccx.pw 即可',
       "id: 'workbuddy'",
-      "const hiddenGuideTopicIds = new Set<GuideTopic['id']>(['image-generation'])",
       'usage-guide-topic-nav-desktop',
       'usage-guide-topic-tabs-mobile',
       'usage-guide-video',
@@ -55,12 +66,17 @@ describe('UsageGuideView', () => {
       'api_key_in_query_deprecated',
       'insufficient_quota',
       '当前 main 尚未把所有端点统一迁移到 X-Sub2API-Error-ID / S2A-* 契约',
-      'const guideTopics = allGuideTopics',
+      'const guideTopics: GuideTopic[] = [',
       '.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))',
     ]) {
       expect(source).toContain(token)
     }
     expect(source).not.toContain('400 INVALID_BASE_URL')
+    expect(source).not.toContain('hiddenGuideTopicIds')
+    // 生图已改为独立分组按张计费，且 gpt-image 系列固定返回 base64；旧教程的套餐档位、Token 计费和 response_format 示例不能再出现。
+    for (const stale of ['29/39/59/79/99', '套餐有效倍率', '"response_format"', 'response_format=']) {
+      expect(source).not.toContain(stale)
+    }
 
     for (const [id, date] of [
       ['deepseek-harness', '2026-09-10'],
@@ -71,7 +87,7 @@ describe('UsageGuideView', () => {
       ['error-codes', '2026-08-05'],
       ['ccswitch-video', '2026-07-14'],
       ['copilot-vscode', '2026-07-10'],
-      ['image-generation', '2026-07-07'],
+      ['image-generation', '2026-10-09'],
       ['trae', '2026-06-24'],
       ['workbuddy', '2026-08-10'],
     ]) {
@@ -139,5 +155,46 @@ describe('UsageGuideView', () => {
     expect(routerSource).toContain("path: '/usage-guide'")
     expect(routerSource).toContain("component: () => import('@/views/user/UsageGuideView.vue')")
     expect(routerSource).toContain("titleKey: 'usageGuide.title'")
+  })
+
+  it('生图方法在桌面和移动端导航里可见，点开后展示分组、模型、接口与报错说明', async () => {
+    const wrapper = mount(UsageGuideView, {
+      global: { stubs: { AppLayout: { template: '<div><slot /></div>' } } },
+    })
+
+    for (const selector of [
+      '[data-test="usage-guide-topic-nav-desktop"]',
+      '[data-test="usage-guide-topic-tabs-mobile"]',
+    ]) {
+      const titles = wrapper.get(selector).findAll('button').map((button) => button.text())
+      expect(titles.some((title) => title.includes('生图方法'))).toBe(true)
+    }
+
+    const imageTab = wrapper
+      .get('[data-test="usage-guide-topic-nav-desktop"]')
+      .findAll('button')
+      .find((button) => button.text().includes('生图方法'))
+    expect(imageTab).toBeDefined()
+    await imageTab?.trigger('click')
+
+    expect(wrapper.get('#usage-guide-heading').text()).toBe('生图方法')
+    const text = wrapper.text()
+    for (const expected of [
+      'GPT生图1倍率',
+      'gpt-image-2',
+      'gpt-image-1.5',
+      'gpt-image-2.5-flare',
+      'gpt-image-2.5-sunburst',
+      '按张计费',
+      'https://api.aaccx.pw/v1/images/generations',
+      'https://api.aaccx.pw/v1/images/edits',
+      'https://api.aaccx.pw/v1/models',
+      'permission_error',
+      'model_not_found',
+      'content_policy_violation',
+      'image=@/absolute/path/input.png',
+    ]) {
+      expect(text).toContain(expected)
+    }
   })
 })
