@@ -165,6 +165,8 @@ aaccx.pw / www.aaccx.pw / api.aaccx.pw
 - **使用方法页「生图方法」教程**（`frontend/src/views/user/UsageGuideView.vue` 的 `image-generation` 主题）写死了生图分组名「GPT生图1倍率」、4 个生图模型 ID 和 1K/2K/4K 分档规则。
   分组 12 改名、白名单增减或生图计费口径变化时要同步改它。2026-07 的旧版没人同步，留下了已不存在的套餐档位和 Token 计费说法，08-05 被隐藏；
   2026-10-09 按现状重写并恢复，见 `docs/ai/context/20261009-121859-usage-guide-image-generation-restore_CN.md`。
+  10-11 又加了视频演示（`frontend/public/usage-guide/image-generation-guide.mp4`）。**教程视频发布前必须先逐帧检查有没有 API Key、邮箱、余额**：
+  这条原始录屏里整把 Key 明文出现过，还闪过后台页面；仓库和教程页都是公开的。做法和规矩见 `docs/ai/context/20261011-143500-usage-guide-image-video_CN.md`。
 
 ### 购买/到账成功邮件通知（2026-09-22 实现）
 

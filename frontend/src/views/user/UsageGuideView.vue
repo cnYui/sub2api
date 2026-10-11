@@ -121,6 +121,20 @@
               {{ paragraph }}
             </p>
 
+            <video
+              v-if="section.video"
+              data-test="usage-guide-section-video"
+              class="usage-guide-video"
+              :src="section.video.src"
+              :poster="section.video.poster"
+              controls
+              playsinline
+              preload="metadata"
+            >
+              当前浏览器无法播放视频，请
+              <a :href="section.video.src">打开视频文件</a>。
+            </video>
+
             <div v-if="section.endpointRows" class="usage-guide-table-wrap">
               <table class="usage-guide-endpoint-table">
                 <thead>
@@ -261,6 +275,10 @@ type GuideErrorRow = {
 type GuideSection = {
   title: string
   paragraphs: string[]
+  video?: {
+    src: string
+    poster: string
+  }
   endpointRows?: GuideEndpointRow[]
   legacyRows?: GuideLegacyRow[]
   errorRows?: GuideErrorRow[]
@@ -885,8 +903,8 @@ const guideTopics: GuideTopic[] = [
   {
     id: 'image-generation',
     title: '生图方法',
-    updatedAt: '2026-10-09',
-    description: '用「GPT生图1倍率」分组的 API Key 调用文字生图和图生图接口，了解可用模型、按张计费规则和常见报错。',
+    updatedAt: '2026-10-11',
+    description: '用「GPT生图1倍率」分组的 API Key 生图：看视频演示，也可以直接调用文字生图和图生图接口，了解可用模型、按张计费规则和常见报错。',
     kind: 'sections',
     sections: [
       {
@@ -897,6 +915,18 @@ const guideTopics: GuideTopic[] = [
           '客户端里的 Base URL 填 https://api.aaccx.pw/v1；工具把 Base URL 和接口路径分开填写时，路径只填 /images/generations 或 /images/edits，不要再多写一次 /v1。',
           '配好之后先请求一次 GET https://api.aaccx.pw/v1/models 自检：返回里应当有下面列出的 4 个生图模型。看到的是别的模型，说明这个 Key 选错了分组。',
         ],
+      },
+      {
+        title: '视频演示：在 Codex 里让 AI 帮你生图',
+        paragraphs: [
+          '不想自己写请求的话，可以像视频里这样：把「GPT生图1倍率」分组的 Key 和 Base URL 一起发给能执行命令的 AI 助手（视频里用的是 Codex 桌面端），对它说「你用下面的 api key 和 url 生一张小猫的图片」，后面接上 https://api.aaccx.pw/v1 和你的 Key。',
+          '视频里的 Codex 按本机的生图技能调用 gpt-image-2，生成 1024×1024 的图片；中途本机 Python 库版本较旧报了一次错，它自己补齐依赖后重试，最后直接把图片展示出来。录屏经过加速，实际用时约 4 分钟，时间主要花在 AI 排查本地环境上，生成图片本身通常只要几十秒。',
+          '把 Key 发给 AI 助手，就等于交给了这个助手的服务方。建议专门建一个生图 Key，创建时填好「额度限制」，用完在「API 密钥」里删掉。视频里的 Key 已经打码，你自己录屏、截图时也要遮住完整的 Key 和账号邮箱。',
+        ],
+        video: {
+          src: '/usage-guide/image-generation-guide.mp4',
+          poster: '/usage-guide/image-generation-guide-poster.webp',
+        },
       },
       {
         title: '可用模型与计费',
