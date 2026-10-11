@@ -124,6 +124,18 @@ linters:
       # Default: true — must be true, ent generates 130K+ lines of code
       generated-is-used: true
 
+  exclusions:
+    rules:
+      # x/net v0.60 把 HTTP/2 兼容适配器标成了弃用。迁到 http.Transport.HTTP2 会改动生产出站连接的
+      # 空闲探测和 PING 行为，需要单独验证，所以这次升级只在用到它们的文件里豁免，不改行为。
+      - path: 'internal/(repository/http_upstream(_http2_keepalive_test)?|server/http)\.go$'
+        linters: [ staticcheck ]
+        text: 'SA1019: (http2\.(Server|Transport|ConfigureTransports|ConfigureServer)|h2\.(ReadIdleTimeout|PingTimeout)) is deprecated'
+      # 上游库仍可能返回旧的带类型 GOAWAY 错误，这里要靠它识别可重试的传输错误。
+      - path: 'internal/service/openai_codex_models_service(_test)?\.go$'
+        linters: [ staticcheck ]
+        text: 'SA1019: http2\.GoAwayError is deprecated'
+
 formatters:
   enable:
     - gofmt

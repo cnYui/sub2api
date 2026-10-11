@@ -27,6 +27,17 @@
   `xlsx` 只在 `src/views/admin/UsageView.vue` 一处动态导入，只用 `aoa_to_sheet` / `book_new` / `XLSX.write` 写文件，没有 `XLSX.read` / `sheet_to_*` 之类的解析路径。
   npm 上没有 xlsx 的修复版本（`patched_versions` 为 `<0.0.0`），所以只能靠例外；到期前要么换写入库要么改用 SheetJS CDN 构建。
 
+## 升级 x/net 会让 golangci-lint 红（10 条 SA1019），要同时加豁免
+
+`x/net v0.60.0` 把 `http2.Transport`、`ConfigureTransports`、`ConfigureServer`、`Server`、`GoAwayError` 以及 `Transport.ReadIdleTimeout/PingTimeout` 标成了弃用，`staticcheck` 报 10 条，分布在 5 个文件：
+`repository/http_upstream.go` 及 `http_upstream_http2_keepalive_test.go`、`server/http.go`、`service/openai_codex_models_service.go` 及其测试。
+**CI 里 `golangci-lint` 在升级 PR 上因此失败**（`main` 上是绿的），安全扫描转绿不等于 CI 全绿。
+
+处理：和上游一样**代码不动、只在 `backend/.golangci.yml` 加 `linters.exclusions.rules`**，按路径限定，只豁免这几个文件里的这几条。迁到 `http.Transport.HTTP2` / `http.Server.Protocols` 会改动生产出站连接的空闲探测和 PING 行为，要单独验证，没有混进这次升级。
+**不能照抄上游的正则**：上游升级了 golangci-lint，告警措辞带 `(golang.org/x/net/http2.Transport).` 前缀；我们 CI 钉的是 `v2.9`，措辞是 `h2.ReadIdleTimeout is deprecated`、`http2.Server is deprecated`。匹配文本按本版实际输出写。
+验证用 CI 同版本在本地跑：`go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0 run --timeout=30m`（在 `backend/`，要几分钟）；第一版漏写了 `http2.Server`，本地跑出 1 条漏网，补上后 `0 issues`。
+**以后再升 x/net 或 golangci-lint，先在本地跑一遍这条命令**，别等 CI。
+
 ## 没有做、但上游做了的
 
 - 上游还加了 `"dompurify@<3.4.14": ">=3.4.14"` override。我们的审计里 dompurify 有一批**中低危**（`--audit-level=high` 门禁不拦），没有夹带进这次，需要时单独做。
