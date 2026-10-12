@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -30,6 +30,10 @@ describe('UsageGuideView', () => {
       "id: 'error-codes'",
       "id: 'image-generation'",
       "title: '生图方法'",
+      "title: '视频演示：在 Codex 里让 AI 帮你生图'",
+      "src: '/usage-guide/image-generation-guide.mp4'",
+      "poster: '/usage-guide/image-generation-guide-poster.webp'",
+      'usage-guide-section-video',
       'const imageEndpointRows: GuideEndpointRow[]',
       '403 permission_error',
       'GPT生图1倍率',
@@ -87,7 +91,7 @@ describe('UsageGuideView', () => {
       ['error-codes', '2026-08-05'],
       ['ccswitch-video', '2026-07-14'],
       ['copilot-vscode', '2026-07-10'],
-      ['image-generation', '2026-10-09'],
+      ['image-generation', '2026-10-11'],
       ['trae', '2026-06-24'],
       ['workbuddy', '2026-08-10'],
     ]) {
@@ -148,6 +152,14 @@ describe('UsageGuideView', () => {
     }
     expect(existsSync(resolve(publicUsageGuideDir, 'ccswitch-relay-connection-guide.mp4'))).toBe(true)
     expect(existsSync(resolve(publicUsageGuideDir, 'ccswitch-relay-connection-guide-poster.webp'))).toBe(true)
+
+    // 视频随前端一起打进镜像和仓库，必须是压缩后的版本；原始录屏要先逐帧检查有没有 Key、邮箱再处理。
+    const imageGuideVideo = resolve(publicUsageGuideDir, 'image-generation-guide.mp4')
+    const imageGuidePoster = resolve(publicUsageGuideDir, 'image-generation-guide-poster.webp')
+    expect(existsSync(imageGuideVideo)).toBe(true)
+    expect(existsSync(imageGuidePoster)).toBe(true)
+    expect(statSync(imageGuideVideo).size).toBeLessThan(2 * 1024 * 1024)
+    expect(statSync(imageGuidePoster).size).toBeLessThan(200 * 1024)
   })
 
   it('注册为登录后用户页面并提供中英文入口文案', () => {
@@ -178,6 +190,9 @@ describe('UsageGuideView', () => {
     await imageTab?.trigger('click')
 
     expect(wrapper.get('#usage-guide-heading').text()).toBe('生图方法')
+    const sectionVideo = wrapper.get('[data-test="usage-guide-section-video"]')
+    expect(sectionVideo.attributes('src')).toBe('/usage-guide/image-generation-guide.mp4')
+    expect(sectionVideo.attributes('poster')).toBe('/usage-guide/image-generation-guide-poster.webp')
     const text = wrapper.text()
     for (const expected of [
       'GPT生图1倍率',
